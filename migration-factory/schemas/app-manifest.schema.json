@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor.local/migration-factory/schemas/app-manifest.schema.json",
+  "title": "APP_MANIFEST",
+  "description": "Portfolio inventory index for an application under migration. Incomplete by default. No completion percentages.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "app_id",
+    "status",
+    "completeness",
+    "scanned_seeds",
+    "unscanned_hints",
+    "surfaces",
+    "behaviours",
+    "last_updated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "app_id": { "type": "string", "minLength": 1 },
+    "repo": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": ["in_progress", "residual_review", "complete_bound", "abandoned"]
+    },
+    "completeness": {
+      "type": "string",
+      "enum": ["incomplete", "bound_incomplete_ok", "complete_bound"],
+      "description": "Never derive a % from this. incomplete until human residual gate."
+    },
+    "scanned_seeds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Seeds Discovery has actually walked."
+    },
+    "unscanned_hints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Known dirs/flows/apps not yet seeded. Dashboard residual."
+    },
+    "counts": {
+      "type": "object",
+      "description": "Optional cached histogram. Must be regenerable. FORBIDDEN: percent/completion fields.",
+      "additionalProperties": false,
+      "properties": {
+        "surfaces_total": { "type": "integer", "minimum": 0 },
+        "surfaces_by_status": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "behaviours_known": { "type": "integer", "minimum": 0 },
+        "behaviours_by_status": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "unscanned_hints": { "type": "integer", "minimum": 0 },
+        "legacy_green": { "type": "integer", "minimum": 0 },
+        "parity_green": { "type": "integer", "minimum": 0 },
+        "parity_waived": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "surfaces": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/surface" }
+    },
+    "behaviours": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/behaviour" }
+    },
+    "last_updated": { "type": "string", "minLength": 1 },
+    "updated_by": { "type": ["string", "null"] },
+    "notes": { "type": ["string", "null"] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "complete_bound" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "completeness": {
+            "enum": ["bound_incomplete_ok", "complete_bound"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "surface": {
+      "type": "object",
+      "required": ["surface_id", "kind", "locator", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "surface_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "http_listener",
+            "apikit",
+            "flow",
+            "vm_queue",
+            "scheduler",
+            "connector",
+            "other"
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Evidence-backed locator (path, flow name, queue, RAML resource)."
+        },
+        "repo_path": { "type": ["string", "null"] },
+        "status": {
+          "type": "string",
+          "enum": ["candidate", "accepted", "deferred", "rejected", "unknown"]
+        },
+        "slice_id": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] },
+        "discovery_evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "linkage": { "$ref": "#/$defs/linkage" }
+      }
+    },
+    "behaviour": {
+      "type": "object",
+      "required": ["behaviour_id", "surface_id", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "behaviour_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable id; align with Discovery feature id when accepted."
+        },
+        "surface_id": { "type": "string", "minLength": 1 },
+        "name": { "type": ["string", "null"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "accepted",
+            "documented",
+            "converted",
+            "verified",
+            "deferred",
+            "rejected",
+            "unknown"
+          ],
+          "description": "verified ONLY when parity is GREEN after Verification COMPARE. Waived pathfinders stop at converted."
+        },
+        "slice_id": { "type": ["string", "null"] },
+        "discovery_card": { "type": ["string", "null"] },
+        "traceability": {
+          "type": ["string", "null"],
+          "description": "Pointer to slice TRACEABILITY.yaml — cases stay slice-local."
+        },
+        "pack_id": { "type": ["string", "null"] },
+        "pack_version": { "type": ["integer", "string", "null"] },
+        "conversion_prs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parity": {
+          "type": ["string", "null"],
+          "enum": ["UNVERIFIED", "GREEN", "FAIL", "WAIVED", null]
+        },
+        "legacy_green": {
+          "type": "boolean",
+          "default": false,
+          "description": "true ONLY after Test execution RECORD/REPLAY_GREEN. Provisional modern tests must leave this false."
+        },
+        "parity_green": {
+          "type": "boolean",
+          "default": false,
+          "description": "true ONLY after Verification COMPARE PARITY=GREEN. Forbidden under waiver; provisional tests must leave false."
+        },
+        "waiver": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] },
+        "linkage": { "$ref": "#/$defs/linkage" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "verified" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["parity"],
+            "properties": {
+              "parity": { "const": "GREEN" },
+              "parity_green": { "const": true },
+              "legacy_green": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "parity": { "const": "WAIVED" } },
+            "required": ["parity"]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "not": { "const": "verified" }
+              },
+              "parity_green": { "const": false },
+              "legacy_green": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "parity_green": { "const": true } },
+            "required": ["parity_green"]
+          },
+          "then": {
+            "properties": {
+              "parity": { "const": "GREEN" },
+              "legacy_green": { "const": true }
+            }
+          }
+        }
+      ]
+    },
+    "linkage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host_group_id": { "type": ["string", "null"] },
+        "os_discovery_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["unlinked", "hypothesized", "confirmed"]
+        }
+      }
+    }
+  }
+}
