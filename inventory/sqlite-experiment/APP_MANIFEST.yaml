@@ -11,11 +11,11 @@ scanned_seeds:
 - connection-lifecycle-api
 - exec-convenience-api
 - prepare-statement-api
+- blob-io-api
+- loadext-api
+- serialize-memdb-api
+- unlock-notify-api
 unscanned_hints:
-- 'src: blob-io-api — incremental blob I/O sqlite3_blob_* (src/vdbeblob.c)'
-- 'src: serialize-memdb-api — serialize/deserialize + in-memory VFS (src/memdb.c)'
-- 'src: loadext-api — runtime loadable extensions (src/loadext.c)'
-- 'src: unlock-notify-api — sqlite3_unlock_notify (src/notify.c)'
 - 'src: auth-callback-api — sqlite3_set_authorizer (src/auth.c)'
 - 'src: attach-detach — ATTACH/DETACH DATABASE (src/attach.c)'
 - 'src: error-status-api — errcode/errmsg/status/limits (src/util.c, src/status.c, src/sqliteLimit.h)'
@@ -105,6 +105,30 @@ surfaces:
   discovery_evidence:
   - src/backup.c:715
   - src/backup.c:730
+- surface_id: sur-sqlite3-blob-open
+  kind: other
+  locator: sqlite3_blob_open()
+  repo_path: src/vdbeblob.c
+  status: candidate
+  slice_id: blob-io-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeblob.c:121
+  - src/vdbeblob.c:360
+  - src/vdbeblob.c:503
+  - src/sqlite.h.in:8206
+- surface_id: sur-sqlite3-blob-read
+  kind: other
+  locator: sqlite3_blob_read()
+  repo_path: src/vdbeblob.c
+  status: candidate
+  slice_id: blob-io-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeblob.c:471
+  - src/vdbeblob.c:478
+  - src/vdbeblob.c:381
+  - src/vdbeblob.c:488
 - surface_id: sur-sqlite3-busy-timeout
   kind: other
   locator: sqlite3_busy_timeout()
@@ -169,6 +193,30 @@ surfaces:
   discovery_evidence:
   - src/table.c:116
   - src/table.c:185
+- surface_id: sur-sqlite3-auto-extension
+  kind: other
+  locator: sqlite3_auto_extension()
+  repo_path: src/loadext.c
+  status: candidate
+  slice_id: loadext-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/loadext.c:811
+  - src/loadext.c:861
+  - src/loadext.c:889
+  - src/loadext.c:911
+- surface_id: sur-sqlite3-load-extension
+  kind: other
+  locator: sqlite3_load_extension()
+  repo_path: src/loadext.c
+  status: candidate
+  slice_id: loadext-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/loadext.c:731
+  - src/loadext.c:561
+  - src/loadext.c:762
+  - src/sqlite.h.in:7609
 - surface_id: sur-sqlite3-bind-text
   kind: other
   locator: sqlite3_bind_text()
@@ -235,6 +283,40 @@ surfaces:
   - src/vdbeapi.c:2090
   - src/vdbeapi.c:2141
   - src/vdbeapi.c:2105
+- surface_id: sur-memdb-vfs
+  kind: other
+  locator: memdb_vfs
+  repo_path: src/memdb.c
+  status: candidate
+  slice_id: serialize-memdb-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/memdb.c:137
+  - src/memdb.c:542
+- surface_id: sur-sqlite3-serialize
+  kind: other
+  locator: sqlite3_serialize()
+  repo_path: src/memdb.c
+  status: candidate
+  slice_id: serialize-memdb-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/memdb.c:750
+  - src/memdb.c:841
+  - src/sqlite.h.in:11248
+  - src/sqlite.h.in:11326
+- surface_id: sur-sqlite3-unlock-notify
+  kind: other
+  locator: sqlite3_unlock_notify()
+  repo_path: src/notify.c
+  status: candidate
+  slice_id: unlock-notify-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/notify.c:148
+  - src/notify.c:201
+  - src/notify.c:229
+  - src/notify.c:328
 behaviours:
 - behaviour_id: backup-api-001
   surface_id: sur-sqlite3-backup-init
@@ -265,6 +347,24 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart
     the copy (BackupRestart).
+- behaviour_id: blob-io-api-001
+  surface_id: sur-sqlite3-blob-open
+  name: Blob handle open/close/reopen
+  status: candidate
+  slice_id: blob-io-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Opens a handle on (db,table,column,rowid); reopen repositions to a new row without re-resolving.
+- behaviour_id: blob-io-api-002
+  surface_id: sur-sqlite3-blob-read
+  name: Incremental read/write with bounds + expiry
+  status: candidate
+  slice_id: blob-io-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
 - behaviour_id: connection-lifecycle-api-001
   surface_id: sur-sqlite3-open-v2
   name: Open database (sqlite3_open family + URI parsing)
@@ -322,6 +422,26 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+- behaviour_id: loadext-api-001
+  surface_id: sur-sqlite3-load-extension
+  name: Load extension with enable gate
+  status: candidate
+  slice_id: loadext-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default
+    (enable_load_extension gate).
+- behaviour_id: loadext-api-002
+  surface_id: sur-sqlite3-auto-extension
+  name: Auto-extension registry
+  status: candidate
+  slice_id: loadext-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
+    APIs.
 - behaviour_id: prepare-statement-api-001
   surface_id: sur-sqlite3-prepare-v2
   name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
@@ -377,17 +497,46 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
-last_updated: '2026-08-10T17:51:11Z'
+- behaviour_id: serialize-memdb-api-001
+  surface_id: sur-sqlite3-serialize
+  name: Serialize / deserialize byte-image round-trip
+  status: candidate
+  slice_id: serialize-memdb-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; serialize copies or references the db image; deserialize swaps a connection onto a memory
+    image with FREEONCLOSE/RESIZEABLE flags.
+- behaviour_id: serialize-memdb-api-002
+  surface_id: sur-memdb-vfs
+  name: memdb in-memory VFS
+  status: candidate
+  slice_id: serialize-memdb-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
+- behaviour_id: unlock-notify-api-001
+  surface_id: sur-sqlite3-unlock-notify
+  name: Unlock notification with deadlock detection
+  status: candidate
+  slice_id: unlock-notify-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
+    SQLITE_LOCKED; fire-and-forget async seam.
+last_updated: '2026-08-10T17:52:42Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 15
+  surfaces_total: 22
   surfaces_by_status:
-    candidate: 15
-  behaviours_known: 15
+    candidate: 22
+  behaviours_known: 22
   behaviours_by_status:
-    candidate: 15
-  unscanned_hints: 56
+    candidate: 22
+  unscanned_hints: 52
   legacy_green: 0
   parity_green: 0

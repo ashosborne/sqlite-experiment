@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:51:11Z
+- Generated: 2026-08-10T17:52:42Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:51:11Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:52:42Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 15 |
-| Behaviours known | 15 |
-| Seeds scanned | 4 |
-| Unscanned hints (residual) | 56 |
+| Surfaces total | 22 |
+| Behaviours known | 22 |
+| Seeds scanned | 8 |
+| Unscanned hints (residual) | 52 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,22 +22,26 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 15 |
+| candidate | 22 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 15 |
+| candidate | 22 |
 
 ## Surfaces per slice
 
 | Slice | Surfaces |
 | --- | --- |
 | backup-api | 3 |
+| blob-io-api | 2 |
 | connection-lifecycle-api | 4 |
 | exec-convenience-api | 2 |
+| loadext-api | 2 |
 | prepare-statement-api | 6 |
+| serialize-memdb-api | 2 |
+| unlock-notify-api | 1 |
 
 ## Scanned seeds
 
@@ -45,13 +49,13 @@
 - `connection-lifecycle-api`
 - `exec-convenience-api`
 - `prepare-statement-api`
+- `blob-io-api`
+- `loadext-api`
+- `serialize-memdb-api`
+- `unlock-notify-api`
 
 ## Unscanned hints (residual register)
 
-- src: blob-io-api — incremental blob I/O sqlite3_blob_* (src/vdbeblob.c)
-- src: serialize-memdb-api — serialize/deserialize + in-memory VFS (src/memdb.c)
-- src: loadext-api — runtime loadable extensions (src/loadext.c)
-- src: unlock-notify-api — sqlite3_unlock_notify (src/notify.c)
 - src: auth-callback-api — sqlite3_set_authorizer (src/auth.c)
 - src: attach-detach — ATTACH/DETACH DATABASE (src/attach.c)
 - src: error-status-api — errcode/errmsg/status/limits (src/util.c, src/status.c, src/sqliteLimit.h)

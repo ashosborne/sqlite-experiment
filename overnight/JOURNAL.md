@@ -27,3 +27,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Skipped: nothing new; src/test*.c remain skipped-with-reason (iteration 0).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 30/250 (15 surfaces + 15 behaviours). Slices: 4. Zero-new-streak: 0.
+
+## Iteration 2 — seeds: blob-io-api, serialize-memdb-api, loadext-api, unlock-notify-api
+
+- stop.txt: absent.
+- blob-io-api: 2 candidates (handle lifecycle; read/write bounds + expiry).
+- serialize-memdb-api: 2 candidates (byte-image round-trip; memdb VFS). Compile-flag caveat noted.
+- loadext-api: 2 candidates (dlopen gate — security flag raised; auto-extension registry).
+- unlock-notify-api: 1 candidate; fire-and-forget async seam flagged for split at bind.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 44/250 (22 surfaces + 22 behaviours). Slices: 8. Zero-new-streak: 0.

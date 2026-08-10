@@ -1,0 +1,29 @@
+slice_id: blob-io-api
+seed: "incremental blob I/O handles (sqlite3_blob_*)"
+seed_entrypoints: ["sqlite3_blob_open()", "sqlite3_blob_read()"]
+out_of_scope_hints: ["column blob accessors"]
+phase: A
+updated_at: 2026-08-10T17:52:30Z
+features:
+  - id: blob-io-api-001
+    name: Blob handle open/close/reopen
+    status: candidate
+    confidence: observed-in-code
+    summary: "Opens a handle on (db,table,column,rowid); reopen repositions to a new row without re-resolving."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_blob_open()"
+        evidence: ["src/vdbeblob.c:121", "src/vdbeblob.c:360", "src/vdbeblob.c:503", "src/sqlite.h.in:8206"]
+    dependencies: ["btree", "vdbe-engine"]
+    open_questions: []
+  - id: blob-io-api-002
+    name: Incremental read/write with bounds + expiry
+    status: candidate
+    confidence: observed-in-code
+    summary: "read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT)."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_blob_read()"
+        evidence: ["src/vdbeblob.c:471", "src/vdbeblob.c:478", "src/vdbeblob.c:381", "src/vdbeblob.c:488"]
+    dependencies: ["blob-io-api-001"]
+    open_questions: []
