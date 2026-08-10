@@ -129,3 +129,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - fts5: 3 candidates (vtab module, tokenizer API, aux funcs/fts5_api). ext/fts5/tool/ skipped-with-reason.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 208/250 (104 surfaces + 104 behaviours). Slices: 44. Zero-new-streak: 0.
+
+## Iteration 12 — seeds: fts3, rtree, geopoly, session
+
+- stop.txt: absent.
+- fts3: 1 umbrella candidate; retire-vs-migrate is the bind question.
+- rtree: 2 candidates (vtab module, geometry/query callback C API). Shadow-table format flagged.
+- geopoly: 1 candidate (rtree-dependent).
+- session: 3 candidates (record, apply/conflict, changeset algebra). Binary changeset format = interchange contract, flagged.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 222/250 (111 surfaces + 111 behaviours). Slices: 48. Zero-new-streak: 0.

@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:07:48Z
+- Generated: 2026-08-10T18:09:26Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:07:48Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:09:25Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 104 |
-| Behaviours known | 104 |
-| Seeds scanned | 44 |
-| Unscanned hints (residual) | 16 |
+| Surfaces total | 111 |
+| Behaviours known | 111 |
+| Seeds scanned | 48 |
+| Unscanned hints (residual) | 12 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 104 |
+| candidate | 111 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 104 |
+| candidate | 111 |
 
 ## Surfaces per slice
 
@@ -49,7 +49,9 @@
 | exec-convenience-api | 2 |
 | expr-codegen | 3 |
 | foreign-keys | 3 |
+| fts3 | 1 |
 | fts5 | 3 |
+| geopoly | 1 |
 | introspection-vtabs | 1 |
 | json-funcs | 4 |
 | loadext-api | 2 |
@@ -62,8 +64,10 @@
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
+| rtree | 2 |
 | select-codegen | 3 |
 | serialize-memdb-api | 2 |
+| session | 3 |
 | shell-cli | 2 |
 | tcl-binding | 1 |
 | tokenizer | 2 |
@@ -125,13 +129,13 @@
 - `introspection-vtabs`
 - `shell-cli`
 - `tcl-binding`
+- `fts3`
+- `geopoly`
+- `rtree`
+- `session`
 
 ## Unscanned hints (residual register)
 
-- ext: fts3 — full-text search 3/4 legacy (ext/fts3/)
-- ext: rtree — R-tree spatial index (ext/rtree/rtree.c)
-- ext: geopoly — GeoJSON polygon vtab (ext/rtree/geopoly.c)
-- ext: session — changesets/patchsets (ext/session/)
 - ext: rbu — resumable bulk update (ext/rbu/)
 - ext: recover — corrupt-db recovery API (ext/recover/)
 - ext: intck — incremental integrity check (ext/intck/)
