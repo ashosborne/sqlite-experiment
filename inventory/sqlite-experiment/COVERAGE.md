@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:06:04Z
+- Generated: 2026-08-10T18:07:48Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:06:03Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:07:48Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 97 |
-| Behaviours known | 97 |
-| Seeds scanned | 40 |
-| Unscanned hints (residual) | 20 |
+| Surfaces total | 104 |
+| Behaviours known | 104 |
+| Seeds scanned | 44 |
+| Unscanned hints (residual) | 16 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 97 |
+| candidate | 104 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 97 |
+| candidate | 104 |
 
 ## Surfaces per slice
 
@@ -49,6 +49,8 @@
 | exec-convenience-api | 2 |
 | expr-codegen | 3 |
 | foreign-keys | 3 |
+| fts5 | 3 |
+| introspection-vtabs | 1 |
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
@@ -62,6 +64,8 @@
 | printf-format | 3 |
 | select-codegen | 3 |
 | serialize-memdb-api | 2 |
+| shell-cli | 2 |
+| tcl-binding | 1 |
 | tokenizer | 2 |
 | triggers | 2 |
 | unlock-notify-api | 1 |
@@ -117,13 +121,13 @@
 - `mutex-subsystem`
 - `util-primitives`
 - `vtab-core`
+- `fts5`
+- `introspection-vtabs`
+- `shell-cli`
+- `tcl-binding`
 
 ## Unscanned hints (residual register)
 
-- src: introspection-vtabs — dbstat/dbpage/bytecode vtabs (src/dbstat.c, src/dbpage.c, src/vdbevtab.c)
-- src: shell-cli — sqlite3 command-line shell (src/shell.c.in)
-- src: tcl-binding — TCL language binding (src/tclsqlite.c)
-- ext: fts5 — full-text search 5 (ext/fts5/)
 - ext: fts3 — full-text search 3/4 legacy (ext/fts3/)
 - ext: rtree — R-tree spatial index (ext/rtree/rtree.c)
 - ext: geopoly — GeoJSON polygon vtab (ext/rtree/geopoly.c)

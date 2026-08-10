@@ -47,11 +47,11 @@ scanned_seeds:
 - mutex-subsystem
 - util-primitives
 - vtab-core
+- fts5
+- introspection-vtabs
+- shell-cli
+- tcl-binding
 unscanned_hints:
-- 'src: introspection-vtabs — dbstat/dbpage/bytecode vtabs (src/dbstat.c, src/dbpage.c, src/vdbevtab.c)'
-- 'src: shell-cli — sqlite3 command-line shell (src/shell.c.in)'
-- 'src: tcl-binding — TCL language binding (src/tclsqlite.c)'
-- 'ext: fts5 — full-text search 5 (ext/fts5/)'
 - 'ext: fts3 — full-text search 3/4 legacy (ext/fts3/)'
 - 'ext: rtree — R-tree spatial index (ext/rtree/rtree.c)'
 - 'ext: geopoly — GeoJSON polygon vtab (ext/rtree/geopoly.c)'
@@ -514,6 +514,48 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - src/fkey.c:736
+- surface_id: sur-fts5-api
+  kind: other
+  locator: fts5_api
+  repo_path: ext/fts5/fts5_main.c
+  status: candidate
+  slice_id: fts5
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/fts5/fts5_main.c:79
+- surface_id: sur-fts5-api-xcreatetokenizer
+  kind: other
+  locator: fts5_api.xCreateTokenizer()
+  repo_path: ext/fts5/fts5_main.c
+  status: candidate
+  slice_id: fts5
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/fts5/fts5_main.c:3217
+  - ext/fts5/fts5_main.c:3252
+  - ext/fts5/fts5_tokenize.c:556
+- surface_id: sur-sqlite3-fts5-init
+  kind: other
+  locator: sqlite3_fts5_init()
+  repo_path: ext/fts5/fts5_main.c
+  status: candidate
+  slice_id: fts5
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/fts5/fts5_main.c:3891
+  - ext/fts5/fts5_main.c:3763
+  - ext/fts5/fts5_main.c:477
+- surface_id: sur-sqlite3dbstatregister
+  kind: other
+  locator: sqlite3DbstatRegister()
+  repo_path: src/dbstat.c
+  status: candidate
+  slice_id: introspection-vtabs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/dbstat.c:874
+  - src/dbpage.c:473
+  - src/vdbevtab.c:436
 - surface_id: sur-jsoneachmodule
   kind: other
   locator: jsonEachModule
@@ -864,6 +906,38 @@ surfaces:
   - src/memdb.c:841
   - src/sqlite.h.in:11248
   - src/sqlite.h.in:11326
+- surface_id: sur-do-meta-command
+  kind: other
+  locator: do_meta_command()
+  repo_path: src/shell.c.in
+  status: candidate
+  slice_id: shell-cli
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/shell.c.in:9773
+  - src/shell.c.in:459
+- surface_id: sur-sqlite3-cli-main
+  kind: other
+  locator: sqlite3 CLI main()
+  repo_path: src/shell.c.in
+  status: candidate
+  slice_id: shell-cli
+  notes: seam-kind=job; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/shell.c.in:13784
+  - src/shell.c.in:13237
+  - src/shell.c.in:13121
+- surface_id: sur-sqlite3-init
+  kind: other
+  locator: Sqlite3_Init()
+  repo_path: src/tclsqlite.c
+  status: candidate
+  slice_id: tcl-binding
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/tclsqlite.c:4469
+  - src/tclsqlite.c:4483
+  - src/tclsqlite.c:4503
 - surface_id: sur-sqlite3-complete
   kind: other
   locator: sqlite3_complete()
@@ -1491,6 +1565,42 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; DROP TABLE triggers FK violation scans / deferred handling.
+- behaviour_id: fts5-001
+  surface_id: sur-sqlite3-fts5-init
+  name: FTS5 virtual table module
+  status: candidate
+  slice_id: fts5
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; fts5 vtab create/connect, content storage variants, MATCH query execution.
+- behaviour_id: fts5-002
+  surface_id: sur-fts5-api-xcreatetokenizer
+  name: Tokenizer API and built-in tokenizers
+  status: candidate
+  slice_id: fts5
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; xCreateTokenizer(_v2) registration; unicode61/ascii/porter/trigram built-ins.
+- behaviour_id: fts5-003
+  surface_id: sur-fts5-api
+  name: Auxiliary functions (highlight/snippet/bm25) via fts5_api
+  status: candidate
+  slice_id: fts5
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; User-visible fts5_api object exposes aux-function registration; built-in ranking.
+- behaviour_id: introspection-vtabs-001
+  surface_id: sur-sqlite3dbstatregister
+  name: Introspection vtab trio (dbstat / sqlite_dbpage / bytecode)
+  status: candidate
+  slice_id: introspection-vtabs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE programs.
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
@@ -1798,6 +1908,34 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
+- behaviour_id: shell-cli-001
+  surface_id: sur-sqlite3-cli-main
+  name: CLI entry and SQL input loop
+  status: candidate
+  slice_id: shell-cli
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; argv handling, rc files, interactive vs batch input, exit codes.
+- behaviour_id: shell-cli-002
+  surface_id: sur-do-meta-command
+  name: Dot-command surface
+  status: candidate
+  slice_id: shell-cli
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Meta-commands (.mode/.import/.dump/.schema/...) with own parser and modes stack.
+- behaviour_id: tcl-binding-001
+  surface_id: sur-sqlite3-init
+  name: TCL package init and sqlite3 command dispatch
+  status: candidate
+  slice_id: tcl-binding
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Package registration creates 'sqlite3' command; each db handle becomes a TCL command
+    with ~40 subcommands.
 - behaviour_id: tokenizer-001
   surface_id: sur-sqlite3runparser
   name: Tokenizer and parser driver loop
@@ -2009,17 +2147,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:06:03Z'
+last_updated: '2026-08-10T18:07:48Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 97
+  surfaces_total: 104
   surfaces_by_status:
-    candidate: 97
-  behaviours_known: 97
+    candidate: 104
+  behaviours_known: 104
   behaviours_by_status:
-    candidate: 97
-  unscanned_hints: 20
+    candidate: 104
+  unscanned_hints: 16
   legacy_green: 0
   parity_green: 0

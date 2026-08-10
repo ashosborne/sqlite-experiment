@@ -1,0 +1,40 @@
+slice_id: fts5
+seed: "FTS5 full-text search extension"
+seed_entrypoints: ["sqlite3_fts5_init()"]
+out_of_scope_hints: ["FTS3/4", "vtab mechanism"]
+phase: A
+updated_at: 2026-08-10T18:07:34Z
+features:
+  - id: fts5-001
+    name: FTS5 virtual table module
+    status: candidate
+    confidence: observed-in-code
+    summary: "fts5 vtab create/connect, content storage variants, MATCH query execution."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3_fts5_init()"
+        evidence: ["ext/fts5/fts5_main.c:3891", "ext/fts5/fts5_main.c:3763", "ext/fts5/fts5_main.c:477"]
+    dependencies: ["vtab-core"]
+    open_questions: []
+  - id: fts5-002
+    name: Tokenizer API and built-in tokenizers
+    status: candidate
+    confidence: observed-in-code
+    summary: "xCreateTokenizer(_v2) registration; unicode61/ascii/porter/trigram built-ins."
+    entrypoints:
+      - kind: other
+        locator: "fts5_api.xCreateTokenizer()"
+        evidence: ["ext/fts5/fts5_main.c:3217", "ext/fts5/fts5_main.c:3252", "ext/fts5/fts5_tokenize.c:556"]
+    dependencies: ["fts5-001"]
+    open_questions: []
+  - id: fts5-003
+    name: Auxiliary functions (highlight/snippet/bm25) via fts5_api
+    status: candidate
+    confidence: observed-in-code
+    summary: "User-visible fts5_api object exposes aux-function registration; built-in ranking."
+    entrypoints:
+      - kind: other
+        locator: "fts5_api"
+        evidence: ["ext/fts5/fts5_main.c:79"]
+    dependencies: ["fts5-001"]
+    open_questions: ["Index-format stability across versions relevant to migration?"]

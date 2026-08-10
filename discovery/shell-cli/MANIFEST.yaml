@@ -1,0 +1,29 @@
+slice_id: shell-cli
+seed: "sqlite3 interactive shell / CLI"
+seed_entrypoints: ["main() src/shell.c.in"]
+out_of_scope_hints: ["library behaviour", "embedded ext/misc extensions"]
+phase: A
+updated_at: 2026-08-10T18:07:34Z
+features:
+  - id: shell-cli-001
+    name: CLI entry and SQL input loop
+    status: candidate
+    confidence: observed-in-code
+    summary: "argv handling, rc files, interactive vs batch input, exit codes."
+    entrypoints:
+      - kind: job
+        locator: "sqlite3 CLI main()"
+        evidence: ["src/shell.c.in:13784", "src/shell.c.in:13237", "src/shell.c.in:13121"]
+    dependencies: ["connection-lifecycle-api", "prepare-statement-api"]
+    open_questions: []
+  - id: shell-cli-002
+    name: Dot-command surface
+    status: candidate
+    confidence: observed-in-code
+    summary: "Meta-commands (.mode/.import/.dump/.schema/...) with own parser and modes stack."
+    entrypoints:
+      - kind: other
+        locator: "do_meta_command()"
+        evidence: ["src/shell.c.in:9773", "src/shell.c.in:459"]
+    dependencies: ["shell-cli-001"]
+    open_questions: ["Which dot-commands does downstream automation actually use? (large surface — cluster at bind)"]

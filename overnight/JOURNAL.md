@@ -119,3 +119,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Deliberately lean batch (6 features) to stretch the remaining candidate budget across the full ext/ backlog.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 194/250 (97 surfaces + 97 behaviours). Slices: 40. Zero-new-streak: 0.
+
+## Iteration 11 — seeds: introspection-vtabs, shell-cli, tcl-binding, fts5
+
+- stop.txt: absent.
+- introspection-vtabs: 1 clustered candidate (dbstat/dbpage/bytecode); dbpage writability flagged as security/scope question.
+- shell-cli: 2 candidates (entry+input loop; dot-command surface — refused card-per-command, cluster at bind). shell.c.in preprocessed by tool/mkshellc.tcl (out-of-scope path) — cited template only.
+- tcl-binding: 1 candidate; SME question: product adapter vs test-only.
+- fts5: 3 candidates (vtab module, tokenizer API, aux funcs/fts5_api). ext/fts5/tool/ skipped-with-reason.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 208/250 (104 surfaces + 104 behaviours). Slices: 44. Zero-new-streak: 0.

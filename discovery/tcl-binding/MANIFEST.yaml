@@ -1,0 +1,18 @@
+slice_id: tcl-binding
+seed: "TCL language binding (sqlite3 TCL command)"
+seed_entrypoints: ["Sqlite3_Init()"]
+out_of_scope_hints: ["TCL test harness commands"]
+phase: A
+updated_at: 2026-08-10T18:07:34Z
+features:
+  - id: tcl-binding-001
+    name: TCL package init and sqlite3 command dispatch
+    status: candidate
+    confidence: observed-in-code
+    summary: "Package registration creates 'sqlite3' command; each db handle becomes a TCL command with ~40 subcommands."
+    entrypoints:
+      - kind: other
+        locator: "Sqlite3_Init()"
+        evidence: ["src/tclsqlite.c:4469", "src/tclsqlite.c:4483", "src/tclsqlite.c:4503"]
+    dependencies: ["connection-lifecycle-api"]
+    open_questions: ["Is the TCL binding a product surface downstream, or test-only?"]

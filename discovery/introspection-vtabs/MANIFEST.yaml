@@ -1,0 +1,18 @@
+slice_id: introspection-vtabs
+seed: "built-in introspection vtabs: dbstat, sqlite_dbpage, bytecode"
+seed_entrypoints: ["sqlite3DbstatRegister()"]
+out_of_scope_hints: ["vtab mechanism"]
+phase: A
+updated_at: 2026-08-10T18:07:34Z
+features:
+  - id: introspection-vtabs-001
+    name: Introspection vtab trio (dbstat / sqlite_dbpage / bytecode)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE programs."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3DbstatRegister()"
+        evidence: ["src/dbstat.c:874", "src/dbpage.c:473", "src/vdbevtab.c:436"]
+    dependencies: ["vtab-core"]
+    open_questions: ["sqlite_dbpage write path is dangerous — is it enabled downstream?"]
