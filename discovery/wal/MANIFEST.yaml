@@ -1,0 +1,29 @@
+slice_id: wal
+seed: "write-ahead log: frames, snapshots, checkpoints"
+seed_entrypoints: ["sqlite3WalFrames()", "sqlite3WalCheckpoint()"]
+out_of_scope_hints: ["pager integration", "shm OS plumbing"]
+phase: A
+updated_at: 2026-08-10T18:04:08Z
+features:
+  - id: wal-001
+    name: WAL write path and reader snapshots
+    status: candidate
+    confidence: observed-in-code
+    summary: "Frame append with commit records; readers pin mxFrame snapshots via wal-index."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3WalFrames()"
+        evidence: ["src/wal.c:4275", "src/wal.c:1647", "src/wal.c:3493"]
+    dependencies: ["vfs-os-abstraction"]
+    open_questions: []
+  - id: wal-002
+    name: Checkpoint modes
+    status: candidate
+    confidence: observed-in-code
+    summary: "Four checkpoint modes differing in blocking and wal-reset behaviour."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3WalCheckpoint()"
+        evidence: ["src/wal.c:4301", "src/wal.c:2199"]
+    dependencies: ["wal-001"]
+    open_questions: ["wal2 / concurrent variants absent in this tree — confirm baseline"]

@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:02:51Z
+- Generated: 2026-08-10T18:04:27Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:02:51Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:04:26Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 82 |
-| Behaviours known | 82 |
-| Seeds scanned | 32 |
-| Unscanned hints (residual) | 28 |
+| Surfaces total | 91 |
+| Behaviours known | 91 |
+| Seeds scanned | 36 |
+| Unscanned hints (residual) | 24 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 82 |
+| candidate | 91 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 82 |
+| candidate | 91 |
 
 ## Surfaces per slice
 
@@ -52,7 +52,9 @@
 | json-funcs | 4 |
 | loadext-api | 2 |
 | name-resolution | 2 |
+| pager | 2 |
 | parser-grammar | 2 |
+| pcache | 2 |
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
@@ -64,6 +66,8 @@
 | upsert | 2 |
 | vacuum | 2 |
 | vdbe-engine | 2 |
+| vfs-os-abstraction | 3 |
+| wal | 2 |
 | where-optimizer | 2 |
 | window-functions | 2 |
 
@@ -101,13 +105,13 @@
 - `dml-codegen`
 - `vdbe-engine`
 - `where-optimizer`
+- `pager`
+- `pcache`
+- `vfs-os-abstraction`
+- `wal`
 
 ## Unscanned hints (residual register)
 
-- src: pager — page cache + transactions (src/pager.c)
-- src: wal — write-ahead log (src/wal.c)
-- src: pcache — pluggable page cache (src/pcache.c, src/pcache1.c)
-- src: vfs-os-abstraction — VFS layer (src/os.c, src/os_unix.c, src/os_win.c, src/os_kv.c, src/memjournal.c)
 - src: malloc-subsystem — allocators + memory status (src/malloc.c, src/mem0.c..mem5.c)
 - src: mutex-subsystem — mutex implementations (src/mutex*.c)
 - src: util-primitives — utf/random/hash/bitvec/rowset (src/utf.c, src/random.c, src/hash.c, src/bitvec.c, src/rowset.c)

@@ -1,0 +1,29 @@
+slice_id: pager
+seed: "pager: page-level transactions, journaling modes, crash safety"
+seed_entrypoints: ["sqlite3PagerBegin()"]
+out_of_scope_hints: ["WAL internals", "page cache eviction"]
+phase: A
+updated_at: 2026-08-10T18:04:08Z
+features:
+  - id: pager-001
+    name: Transaction lifecycle and two-phase commit
+    status: candidate
+    confidence: observed-in-code
+    summary: "Begin/commit-phase-one/two/rollback with rollback-journal crash safety."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3PagerBegin()"
+        evidence: ["src/pager.c:5976", "src/pager.c:6519", "src/pager.c:6822", "src/pager.c:4789"]
+    dependencies: ["vfs-os-abstraction", "pcache"]
+    open_questions: ["Crash-safety characterization needs fault-injection VFS — note for test design"]
+  - id: pager-002
+    name: Journal-mode state machine
+    status: candidate
+    confidence: observed-in-code
+    summary: "Six journal modes; transition legality (e.g. WAL exit requires exclusive access)."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3PagerSetJournalMode()"
+        evidence: ["src/pager.c:7415"]
+    dependencies: ["wal"]
+    open_questions: []

@@ -39,11 +39,11 @@ scanned_seeds:
 - dml-codegen
 - vdbe-engine
 - where-optimizer
+- pager
+- pcache
+- vfs-os-abstraction
+- wal
 unscanned_hints:
-- 'src: pager — page cache + transactions (src/pager.c)'
-- 'src: wal — write-ahead log (src/wal.c)'
-- 'src: pcache — pluggable page cache (src/pcache.c, src/pcache1.c)'
-- 'src: vfs-os-abstraction — VFS layer (src/os.c, src/os_unix.c, src/os_win.c, src/os_kv.c, src/memjournal.c)'
 - 'src: malloc-subsystem — allocators + memory status (src/malloc.c, src/mem0.c..mem5.c)'
 - 'src: mutex-subsystem — mutex implementations (src/mutex*.c)'
 - 'src: util-primitives — utf/random/hash/bitvec/rowset (src/utf.c, src/random.c, src/hash.c, src/bitvec.c, src/rowset.c)'
@@ -599,6 +599,27 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - src/resolve.c:1748
+- surface_id: sur-sqlite3pagerbegin
+  kind: other
+  locator: sqlite3PagerBegin()
+  repo_path: src/pager.c
+  status: candidate
+  slice_id: pager
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pager.c:5976
+  - src/pager.c:6519
+  - src/pager.c:6822
+  - src/pager.c:4789
+- surface_id: sur-sqlite3pagersetjournalmode
+  kind: other
+  locator: sqlite3PagerSetJournalMode()
+  repo_path: src/pager.c
+  status: candidate
+  slice_id: pager
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pager.c:7415
 - surface_id: sur-src-parse-y-cmd-productions
   kind: other
   locator: src/parse.y cmd productions
@@ -620,6 +641,26 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - src/parse.y:31
+- surface_id: sur-pcache1create
+  kind: other
+  locator: pcache1Create()
+  repo_path: src/pcache1.c
+  status: candidate
+  slice_id: pcache
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pcache1.c:764
+  - src/pcache1.c:1197
+  - src/pcache1.c:1198
+- surface_id: sur-sqlite3pcacheinitialize
+  kind: other
+  locator: sqlite3PcacheInitialize()
+  repo_path: src/pcache.c
+  status: candidate
+  slice_id: pcache
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pcache.c:299
 - surface_id: sur-pragmavtabmodule
   kind: other
   locator: pragmaVtabModule
@@ -905,6 +946,59 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - src/vdbemem.c
+- surface_id: sur-sqlite3-vfs-register
+  kind: other
+  locator: sqlite3_vfs_register()
+  repo_path: src/os.c
+  status: candidate
+  slice_id: vfs-os-abstraction
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os.c:408
+  - src/os.c:362
+  - src/sqlite.h.in:8381
+- surface_id: sur-src-os-win-c-src-os-kv-c
+  kind: other
+  locator: src/os_win.c / src/os_kv.c
+  repo_path: src/os_win.c
+  status: candidate
+  slice_id: vfs-os-abstraction
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_win.c
+  - src/os_kv.c
+- surface_id: sur-unixopen
+  kind: other
+  locator: unixOpen()
+  repo_path: src/os_unix.c
+  status: candidate
+  slice_id: vfs-os-abstraction
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_unix.c:6519
+  - src/os_unix.c:8472
+  - src/os_unix.c:4952
+- surface_id: sur-sqlite3walcheckpoint
+  kind: other
+  locator: sqlite3WalCheckpoint()
+  repo_path: src/wal.c
+  status: candidate
+  slice_id: wal
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/wal.c:4301
+  - src/wal.c:2199
+- surface_id: sur-sqlite3walframes
+  kind: other
+  locator: sqlite3WalFrames()
+  repo_path: src/wal.c
+  status: candidate
+  slice_id: wal
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/wal.c:4275
+  - src/wal.c:1647
+  - src/wal.c:3493
 - surface_id: sur-sqlite3wherebegin
   kind: other
   locator: sqlite3WhereBegin()
@@ -1404,6 +1498,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Result-alias and 1-based ordinal handling with compat quirks.
+- behaviour_id: pager-001
+  surface_id: sur-sqlite3pagerbegin
+  name: Transaction lifecycle and two-phase commit
+  status: candidate
+  slice_id: pager
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety.
+- behaviour_id: pager-002
+  surface_id: sur-sqlite3pagersetjournalmode
+  name: Journal-mode state machine
+  status: candidate
+  slice_id: pager
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Six journal modes; transition legality (e.g. WAL exit requires exclusive access).
 - behaviour_id: parser-grammar-001
   surface_id: sur-src-parse-y-cmd-productions
   name: Statement grammar productions
@@ -1422,6 +1534,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility.
+- behaviour_id: pcache-001
+  surface_id: sur-sqlite3pcacheinitialize
+  name: Pluggable pcache2 interface boundary
+  status: candidate
+  slice_id: pcache
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_pcache_methods2 plugin seam installed via sqlite3_config.
+- behaviour_id: pcache-002
+  surface_id: sur-pcache1create
+  name: Default pcache1 (LRU, purgeable pages, memory pressure)
+  status: candidate
+  slice_id: pcache
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Default cache with group LRU, soft/hard limits, release-memory hooks.
 - behaviour_id: pragma-surface-001
   surface_id: sur-sqlite3pragma
   name: PRAGMA dispatcher (~70 pragmas)
@@ -1672,6 +1802,51 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.'
+- behaviour_id: vfs-os-abstraction-001
+  surface_id: sur-sqlite3-vfs-register
+  name: VFS registration and lookup
+  status: candidate
+  slice_id: vfs-os-abstraction
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Register/find/unregister VFS list with default selection.
+- behaviour_id: vfs-os-abstraction-002
+  surface_id: sur-unixopen
+  name: Unix VFS implementation
+  status: candidate
+  slice_id: vfs-os-abstraction
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; unixOpen + locking-style variants + shared-memory for WAL.
+- behaviour_id: vfs-os-abstraction-003
+  surface_id: sur-src-os-win-c-src-os-kv-c
+  name: Windows and KV platform variants
+  status: candidate
+  slice_id: vfs-os-abstraction
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; os_win.c full win32 VFS; os_kv.c key-value VFS (wasm/localStorage backend).
+- behaviour_id: wal-001
+  surface_id: sur-sqlite3walframes
+  name: WAL write path and reader snapshots
+  status: candidate
+  slice_id: wal
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index.
+- behaviour_id: wal-002
+  surface_id: sur-sqlite3walcheckpoint
+  name: Checkpoint modes
+  status: candidate
+  slice_id: wal
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour.
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
   name: WHERE-loop generation boundary
@@ -1709,17 +1884,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:02:51Z'
+last_updated: '2026-08-10T18:04:26Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 82
+  surfaces_total: 91
   surfaces_by_status:
-    candidate: 82
-  behaviours_known: 82
+    candidate: 91
+  behaviours_known: 91
   behaviours_by_status:
-    candidate: 82
-  unscanned_hints: 28
+    candidate: 91
+  unscanned_hints: 24
   legacy_green: 0
   parity_green: 0

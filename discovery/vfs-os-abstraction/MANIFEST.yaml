@@ -1,0 +1,40 @@
+slice_id: vfs-os-abstraction
+seed: "VFS layer: registration/find + unix/win/kv implementations"
+seed_entrypoints: ["sqlite3_vfs_register()", "unixOpen()"]
+out_of_scope_hints: ["memdb VFS", "ext/misc VFS shims"]
+phase: A
+updated_at: 2026-08-10T18:04:08Z
+features:
+  - id: vfs-os-abstraction-001
+    name: VFS registration and lookup
+    status: candidate
+    confidence: observed-in-code
+    summary: "Register/find/unregister VFS list with default selection."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_vfs_register()"
+        evidence: ["src/os.c:408", "src/os.c:362", "src/sqlite.h.in:8381"]
+    dependencies: []
+    open_questions: []
+  - id: vfs-os-abstraction-002
+    name: Unix VFS implementation
+    status: candidate
+    confidence: observed-in-code
+    summary: "unixOpen + locking-style variants + shared-memory for WAL."
+    entrypoints:
+      - kind: other
+        locator: "unixOpen()"
+        evidence: ["src/os_unix.c:6519", "src/os_unix.c:8472", "src/os_unix.c:4952"]
+    dependencies: []
+    open_questions: []
+  - id: vfs-os-abstraction-003
+    name: Windows and KV platform variants
+    status: candidate
+    confidence: observed-in-code
+    summary: "os_win.c full win32 VFS; os_kv.c key-value VFS (wasm/localStorage backend)."
+    entrypoints:
+      - kind: other
+        locator: "src/os_win.c / src/os_kv.c"
+        evidence: ["src/os_win.c", "src/os_kv.c"]
+    dependencies: []
+    open_questions: ["Which platforms are in migration scope?"]

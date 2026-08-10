@@ -98,3 +98,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Generated headers (opcodes.h etc.) never cited; evidence from src/vdbe.c and src/btree.c only.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 164/250 (82 surfaces + 82 behaviours). Slices: 32. Zero-new-streak: 0.
+
+## Iteration 9 — seeds: pager, wal, pcache, vfs-os-abstraction
+
+- stop.txt: absent.
+- pager: 2 candidates (txn lifecycle/2-phase commit, journal-mode state machine). Crash-safety needs fault-injection VFS — the upstream harness lives under test/ (out of allowlist) → recorded as blind spot.
+- wal: 2 candidates (write path/snapshots, checkpoint modes). Multi-process behaviour flagged for harness design.
+- pcache: 2 candidates (plugin boundary, default LRU impl). Defer recommended unless custom pcache downstream.
+- vfs-os-abstraction: 3 candidates (registry, unix impl, win/kv variants). Platform-scope bind question raised.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 182/250 (91 surfaces + 91 behaviours). Slices: 36. Zero-new-streak: 0.
