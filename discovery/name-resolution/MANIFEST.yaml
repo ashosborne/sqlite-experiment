@@ -1,0 +1,29 @@
+slice_id: name-resolution
+seed: "identifier/name resolution over parse trees"
+seed_entrypoints: ["sqlite3ResolveExprNames()"]
+out_of_scope_hints: ["expression codegen"]
+phase: A
+updated_at: 2026-08-10T18:00:55Z
+features:
+  - id: name-resolution-001
+    name: Column/table name lookup and ambiguity rules
+    status: candidate
+    confidence: observed-in-code
+    summary: "Nested-scope lookup with 'ambiguous column'/'no such column' errors; uses tree walker (src/walker.c:64)."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3ResolveExprNames()"
+        evidence: ["src/resolve.c:2196", "src/resolve.c:278", "src/resolve.c:2295", "src/walker.c:64"]
+    dependencies: ["select-codegen"]
+    open_questions: []
+  - id: name-resolution-002
+    name: ORDER BY / GROUP BY alias and ordinal resolution
+    status: candidate
+    confidence: observed-in-code
+    summary: "Result-alias and 1-based ordinal handling with compat quirks."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3ResolveOrderGroupBy()"
+        evidence: ["src/resolve.c:1748"]
+    dependencies: ["name-resolution-001"]
+    open_questions: []

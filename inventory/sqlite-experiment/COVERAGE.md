@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:59:40Z
+- Generated: 2026-08-10T18:01:08Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:59:39Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:01:08Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 64 |
-| Behaviours known | 64 |
-| Seeds scanned | 24 |
-| Unscanned hints (residual) | 36 |
+| Surfaces total | 74 |
+| Behaviours known | 74 |
+| Seeds scanned | 28 |
+| Unscanned hints (residual) | 32 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 64 |
+| candidate | 74 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 64 |
+| candidate | 74 |
 
 ## Surfaces per slice
 
@@ -45,12 +45,16 @@
 | ddl-schema | 3 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
+| expr-codegen | 3 |
 | foreign-keys | 3 |
 | json-funcs | 4 |
 | loadext-api | 2 |
+| name-resolution | 2 |
+| parser-grammar | 2 |
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
+| select-codegen | 3 |
 | serialize-memdb-api | 2 |
 | tokenizer | 2 |
 | triggers | 2 |
@@ -85,13 +89,13 @@
 - `ddl-schema`
 - `tokenizer`
 - `vacuum`
+- `expr-codegen`
+- `name-resolution`
+- `parser-grammar`
+- `select-codegen`
 
 ## Unscanned hints (residual register)
 
-- src: parser-grammar — Lemon grammar (src/parse.y)
-- src: name-resolution — identifier resolution (src/resolve.c, src/walker.c)
-- src: expr-codegen — expression code generation (src/expr.c)
-- src: select-codegen — SELECT compilation (src/select.c)
 - src: dml-codegen — INSERT/UPDATE/DELETE compilation (src/insert.c, src/update.c, src/delete.c)
 - src: where-optimizer — query planner (src/where.c, src/wherecode.c, src/whereexpr.c)
 - src: vdbe-engine — bytecode VM (src/vdbe.c, src/vdbeaux.c, src/vdbemem.c, src/vdbesort.c)

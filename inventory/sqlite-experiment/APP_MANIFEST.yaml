@@ -31,11 +31,11 @@ scanned_seeds:
 - ddl-schema
 - tokenizer
 - vacuum
+- expr-codegen
+- name-resolution
+- parser-grammar
+- select-codegen
 unscanned_hints:
-- 'src: parser-grammar — Lemon grammar (src/parse.y)'
-- 'src: name-resolution — identifier resolution (src/resolve.c, src/walker.c)'
-- 'src: expr-codegen — expression code generation (src/expr.c)'
-- 'src: select-codegen — SELECT compilation (src/select.c)'
 - 'src: dml-codegen — INSERT/UPDATE/DELETE compilation (src/insert.c, src/update.c, src/delete.c)'
 - 'src: where-optimizer — query planner (src/where.c, src/wherecode.c, src/whereexpr.c)'
 - 'src: vdbe-engine — bytecode VM (src/vdbe.c, src/vdbeaux.c, src/vdbemem.c, src/vdbesort.c)'
@@ -412,6 +412,36 @@ surfaces:
   discovery_evidence:
   - src/table.c:116
   - src/table.c:185
+- surface_id: sur-sqlite3exprcodetarget
+  kind: other
+  locator: sqlite3ExprCodeTarget()
+  repo_path: src/expr.c
+  status: candidate
+  slice_id: expr-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/expr.c:4972
+  - src/expr.c:5931
+- surface_id: sur-sqlite3exprcompare
+  kind: other
+  locator: sqlite3ExprCompare()
+  repo_path: src/expr.c
+  status: candidate
+  slice_id: expr-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/expr.c:6591
+- surface_id: sur-sqlite3expriftrue
+  kind: other
+  locator: sqlite3ExprIfTrue()
+  repo_path: src/expr.c
+  status: candidate
+  slice_id: expr-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/expr.c:6147
+  - src/expr.c:6313
+  - src/expr.c:6509
 - surface_id: sur-fkactiontrigger
   kind: other
   locator: fkActionTrigger()
@@ -505,6 +535,48 @@ surfaces:
   - src/loadext.c:561
   - src/loadext.c:762
   - src/sqlite.h.in:7609
+- surface_id: sur-sqlite3resolveexprnames
+  kind: other
+  locator: sqlite3ResolveExprNames()
+  repo_path: src/resolve.c
+  status: candidate
+  slice_id: name-resolution
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/resolve.c:2196
+  - src/resolve.c:278
+  - src/resolve.c:2295
+  - src/walker.c:64
+- surface_id: sur-sqlite3resolveordergroupby
+  kind: other
+  locator: sqlite3ResolveOrderGroupBy()
+  repo_path: src/resolve.c
+  status: candidate
+  slice_id: name-resolution
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/resolve.c:1748
+- surface_id: sur-src-parse-y-cmd-productions
+  kind: other
+  locator: src/parse.y cmd productions
+  repo_path: src/parse.y
+  status: candidate
+  slice_id: parser-grammar
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/parse.y:181
+  - src/parse.y:190
+  - src/parse.y:195
+  - src/parse.y:207
+- surface_id: sur-src-parse-y-fallback
+  kind: other
+  locator: src/parse.y %fallback
+  repo_path: src/parse.y
+  status: candidate
+  slice_id: parser-grammar
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/parse.y:31
 - surface_id: sur-pragmavtabmodule
   kind: other
   locator: pragmaVtabModule
@@ -623,6 +695,36 @@ surfaces:
   discovery_evidence:
   - src/printf.c:1447
   - src/printf.c:192
+- surface_id: sur-flattensubquery
+  kind: other
+  locator: flattenSubquery()
+  repo_path: src/select.c
+  status: candidate
+  slice_id: select-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/select.c:4334
+- surface_id: sur-multiselect
+  kind: other
+  locator: multiSelect()
+  repo_path: src/select.c
+  status: candidate
+  slice_id: select-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/select.c:2978
+  - src/select.c:2905
+  - src/select.c:3443
+- surface_id: sur-sqlite3select
+  kind: other
+  locator: sqlite3Select()
+  repo_path: src/select.c
+  status: candidate
+  slice_id: select-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/select.c:7642
+  - src/select.c:5929
 - surface_id: sur-memdb-vfs
   kind: other
   locator: memdb_vfs
@@ -1052,6 +1154,33 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+- behaviour_id: expr-codegen-001
+  surface_id: sur-sqlite3exprcodetarget
+  name: Value expression code generation
+  status: candidate
+  slice_id: expr-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Expr tree to VDBE ops with affinity/collation propagation and constant factoring.
+- behaviour_id: expr-codegen-002
+  surface_id: sur-sqlite3expriftrue
+  name: Boolean jump codegen (3-valued logic)
+  status: candidate
+  slice_id: expr-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow.
+- behaviour_id: expr-codegen-003
+  surface_id: sur-sqlite3exprcompare
+  name: Expression equivalence testing
+  status: candidate
+  slice_id: expr-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Structural comparison used for indexed-expression matching and factoring.
 - behaviour_id: foreign-keys-001
   surface_id: sur-sqlite3fkcheck
   name: Immediate vs deferred FK checking
@@ -1135,6 +1264,43 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
     APIs.
+- behaviour_id: name-resolution-001
+  surface_id: sur-sqlite3resolveexprnames
+  name: Column/table name lookup and ambiguity rules
+  status: candidate
+  slice_id: name-resolution
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Nested-scope lookup with 'ambiguous column'/'no such column' errors; uses tree walker
+    (src/walker.c:64).
+- behaviour_id: name-resolution-002
+  surface_id: sur-sqlite3resolveordergroupby
+  name: ORDER BY / GROUP BY alias and ordinal resolution
+  status: candidate
+  slice_id: name-resolution
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Result-alias and 1-based ordinal handling with compat quirks.
+- behaviour_id: parser-grammar-001
+  surface_id: sur-src-parse-y-cmd-productions
+  name: Statement grammar productions
+  status: candidate
+  slice_id: parser-grammar
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 417 productions define the accepted SQL dialect; actions call into build/select/etc.
+- behaviour_id: parser-grammar-002
+  surface_id: sur-src-parse-y-fallback
+  name: Keyword fallback (keywords-as-identifiers)
+  status: candidate
+  slice_id: parser-grammar
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility.
 - behaviour_id: pragma-surface-001
   surface_id: sur-sqlite3pragma
   name: PRAGMA dispatcher (~70 pragmas)
@@ -1236,6 +1402,35 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps.
+- behaviour_id: select-codegen-001
+  surface_id: sur-sqlite3select
+  name: SELECT orchestration and FROM expansion
+  status: candidate
+  slice_id: select-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: 'confidence=observed-in-code; Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output
+    modes.'
+- behaviour_id: select-codegen-002
+  surface_id: sur-multiselect
+  name: Compound SELECT set operations
+  status: candidate
+  slice_id: select-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules.
+- behaviour_id: select-codegen-003
+  surface_id: sur-flattensubquery
+  name: Subquery flattening rewrite
+  status: candidate
+  slice_id: select-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Flattening under a long restriction list; changes plans invisibly — parity-relevant
+    for corner cases.
 - behaviour_id: serialize-memdb-api-001
   surface_id: sur-sqlite3-serialize
   name: Serialize / deserialize byte-image round-trip
@@ -1356,17 +1551,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T17:59:39Z'
+last_updated: '2026-08-10T18:01:08Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 64
+  surfaces_total: 74
   surfaces_by_status:
-    candidate: 64
-  behaviours_known: 64
+    candidate: 74
+  behaviours_known: 74
   behaviours_by_status:
-    candidate: 64
-  unscanned_hints: 36
+    candidate: 74
+  unscanned_hints: 32
   legacy_green: 0
   parity_green: 0

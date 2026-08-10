@@ -1,0 +1,40 @@
+slice_id: expr-codegen
+seed: "expression code generation"
+seed_entrypoints: ["sqlite3ExprCode()"]
+out_of_scope_hints: ["SELECT orchestration", "VDBE opcodes"]
+phase: A
+updated_at: 2026-08-10T18:00:55Z
+features:
+  - id: expr-codegen-001
+    name: Value expression code generation
+    status: candidate
+    confidence: observed-in-code
+    summary: "Expr tree to VDBE ops with affinity/collation propagation and constant factoring."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3ExprCodeTarget()"
+        evidence: ["src/expr.c:4972", "src/expr.c:5931"]
+    dependencies: ["vdbe-engine"]
+    open_questions: []
+  - id: expr-codegen-002
+    name: Boolean jump codegen (3-valued logic)
+    status: candidate
+    confidence: observed-in-code
+    summary: "IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3ExprIfTrue()"
+        evidence: ["src/expr.c:6147", "src/expr.c:6313", "src/expr.c:6509"]
+    dependencies: ["expr-codegen-001"]
+    open_questions: []
+  - id: expr-codegen-003
+    name: Expression equivalence testing
+    status: candidate
+    confidence: observed-in-code
+    summary: "Structural comparison used for indexed-expression matching and factoring."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3ExprCompare()"
+        evidence: ["src/expr.c:6591"]
+    dependencies: ["where-optimizer"]
+    open_questions: []

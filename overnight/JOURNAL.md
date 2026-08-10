@@ -77,3 +77,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - tokenizer: 2 candidates (driver loop, sqlite3_complete); keywordhash.h is generated — cited src inputs only.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 128/250 (64 surfaces + 64 behaviours). Slices: 24. Zero-new-streak: 0.
+
+## Iteration 7 — seeds: parser-grammar, name-resolution, expr-codegen, select-codegen
+
+- stop.txt: absent.
+- parser-grammar: 2 candidates (417 productions as dialect umbrella; keyword fallback). Never cited generated parse.c.
+- name-resolution: 2 candidates (lookup/ambiguity; ORDER/GROUP BY alias rules).
+- expr-codegen: 3 candidates (value codegen, 3-valued boolean jumps — NULL-semantics parity trap flagged, expr equivalence).
+- select-codegen: 3 candidates (orchestration, compound selects, subquery flattening — silent plan-shape risk). Fixed one evidence line (sqlite3Select at select.c:7642) after verification.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 148/250 (74 surfaces + 74 behaviours). Slices: 28. Zero-new-streak: 0.

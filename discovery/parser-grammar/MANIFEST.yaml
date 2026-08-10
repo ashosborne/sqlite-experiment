@@ -1,0 +1,29 @@
+slice_id: parser-grammar
+seed: "Lemon SQL grammar (parse.y)"
+seed_entrypoints: ["src/parse.y"]
+out_of_scope_hints: ["tokenizer", "generated parse.c"]
+phase: A
+updated_at: 2026-08-10T18:00:55Z
+features:
+  - id: parser-grammar-001
+    name: Statement grammar productions
+    status: candidate
+    confidence: observed-in-code
+    summary: "417 productions define the accepted SQL dialect; actions call into build/select/etc."
+    entrypoints:
+      - kind: other
+        locator: "src/parse.y cmd productions"
+        evidence: ["src/parse.y:181", "src/parse.y:190", "src/parse.y:195", "src/parse.y:207"]
+    dependencies: ["tokenizer"]
+    open_questions: []
+  - id: parser-grammar-002
+    name: Keyword fallback (keywords-as-identifiers)
+    status: candidate
+    confidence: observed-in-code
+    summary: "%fallback lets many keywords double as identifiers — silent dialect compatibility."
+    entrypoints:
+      - kind: other
+        locator: "src/parse.y %fallback"
+        evidence: ["src/parse.y:31"]
+    dependencies: []
+    open_questions: ["Which fallback keywords does downstream SQL rely on?"]
