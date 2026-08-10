@@ -18,13 +18,13 @@ OPERATOR: Ash Osborne
 APP_ID: sqlite-experiment
 REPO_ROOT: .
 FACTORY_ROOT: migration-factory
-MAX_ITERATIONS: 16
+MAX_ITERATIONS: 40
 MAX_NEW_SEEDS_PER_ITER: 1
 PHASE_B: false
 AUTO_BIND: false
 AUTO_ACCEPT: false
 ALLOW_CONVERSION: false
-STOP_WHEN_NO_NEW_SURFACES: 3
+STOP_WHEN_NO_NEW_SURFACES: 4
 INITIAL_SEEDS: []
 ALLOWLIST_PATHS:
   - src
@@ -40,13 +40,15 @@ OUT_OF_SCOPE_HINTS:
   - test/          # upstream test harness / fixtures — not product migration slices
   - .fossil-settings/
 MAX_FILES_TOUCHED: 8000
-MAX_RUNTIME_HINT_HOURS: 10
-MAX_NEW_CANDIDATES: 60
-MAX_SLICES_PHASE_A: 16
+MAX_RUNTIME_HINT_HOURS: 14
+MAX_NEW_CANDIDATES: 250
+MAX_SLICES_PHASE_A: 0   # 0 = no artificial Phase A slice cap; keep going until stop conditions
 WRITE_SCOPE: factory-artefacts-only
 NO_COMMITS_TO_DEFAULT_BRANCH: true
 COMMIT_AS: estate-discovery-loop
 ```
+
+Optimise for **breadth**: keep seeding new thin slices until stop conditions. Do not stop early because a soft “enough slices” threshold feels reached.
 
 ## Hard rules (stock loop)
 
