@@ -6,12 +6,12 @@ app_id: sqlite-experiment
 repo: github.com/ashosborne/sqlite-experiment
 status: in_progress
 completeness: incomplete
-scanned_seeds: []
+scanned_seeds:
+- backup-api
+- connection-lifecycle-api
+- exec-convenience-api
+- prepare-statement-api
 unscanned_hints:
-- 'src: connection-lifecycle-api — sqlite3_open*/close/db_config lifecycle (src/main.c)'
-- 'src: prepare-statement-api — prepare/step/bind/column/finalize (src/prepare.c, src/vdbeapi.c)'
-- 'src: exec-convenience-api — sqlite3_exec + get_table wrappers (src/legacy.c, src/table.c)'
-- 'src: backup-api — online backup sqlite3_backup_* (src/backup.c)'
 - 'src: blob-io-api — incremental blob I/O sqlite3_blob_* (src/vdbeblob.c)'
 - 'src: serialize-memdb-api — serialize/deserialize + in-memory VFS (src/memdb.c)'
 - 'src: loadext-api — runtime loadable extensions (src/loadext.c)'
@@ -72,17 +72,322 @@ unscanned_hints:
   fuzzer, prefixes, wholenumber, zipfile, sqlar, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder)'
 - 'ext: misc-utilities — remaining misc utilities (ext/misc: fileio, dbdump, eval, explain, memstat, diskused, noop, normalize,
   randomjson, remember, stmtrand, strdup, showauth, anycollseq)'
-surfaces: []
-behaviours: []
-last_updated: '2026-08-10T17:47:51Z'
+surfaces:
+- surface_id: sur-sqlite3-backup-init
+  kind: other
+  locator: sqlite3_backup_init()
+  repo_path: src/backup.c
+  status: candidate
+  slice_id: backup-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/backup.c:141
+  - src/backup.c:325
+  - src/backup.c:598
+  - src/sqlite.h.in:9822
+- surface_id: sur-sqlite3-backup-remaining
+  kind: other
+  locator: sqlite3_backup_remaining()
+  repo_path: src/backup.c
+  status: candidate
+  slice_id: backup-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/backup.c:654
+  - src/backup.c:668
+- surface_id: sur-sqlite3backupupdate
+  kind: other
+  locator: sqlite3BackupUpdate()
+  repo_path: src/backup.c
+  status: candidate
+  slice_id: backup-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/backup.c:715
+  - src/backup.c:730
+- surface_id: sur-sqlite3-busy-timeout
+  kind: other
+  locator: sqlite3_busy_timeout()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: connection-lifecycle-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:1816
+  - src/main.c:1873
+- surface_id: sur-sqlite3-close-v2
+  kind: other
+  locator: sqlite3_close_v2()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: connection-lifecycle-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:1381
+  - src/main.c:1382
+  - src/sqlite.h.in:356
+- surface_id: sur-sqlite3-open-v2
+  kind: other
+  locator: sqlite3_open_v2()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: connection-lifecycle-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:3749
+  - src/main.c:3380
+  - src/main.c:3125
+  - src/sqlite.h.in:4027
+- surface_id: sur-sqlite3-trace-v2
+  kind: other
+  locator: sqlite3_trace_v2()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: connection-lifecycle-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:2309
+  - src/main.c:2369
+  - src/main.c:2394
+- surface_id: sur-sqlite3-exec
+  kind: other
+  locator: sqlite3_exec()
+  repo_path: src/legacy.c
+  status: candidate
+  slice_id: exec-convenience-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/legacy.c:30
+  - src/sqlite.h.in:430
+- surface_id: sur-sqlite3-get-table
+  kind: other
+  locator: sqlite3_get_table()
+  repo_path: src/table.c
+  status: candidate
+  slice_id: exec-convenience-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/table.c:116
+  - src/table.c:185
+- surface_id: sur-sqlite3-bind-text
+  kind: other
+  locator: sqlite3_bind_text()
+  repo_path: src/vdbeapi.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeapi.c:1892
+  - src/vdbeapi.c:1816
+  - src/vdbeapi.c:155
+- surface_id: sur-sqlite3-column-text
+  kind: other
+  locator: sqlite3_column_text()
+  repo_path: src/vdbeapi.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeapi.c:1448
+  - src/vdbeapi.c:1468
+  - src/vdbeapi.c:1333
+- surface_id: sur-sqlite3-finalize
+  kind: other
+  locator: sqlite3_finalize()
+  repo_path: src/vdbeapi.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeapi.c:105
+  - src/vdbeapi.c:134
+  - src/prepare.c:904
+- surface_id: sur-sqlite3-prepare-v2
+  kind: other
+  locator: sqlite3_prepare_v2()
+  repo_path: src/prepare.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/prepare.c:955
+  - src/prepare.c:700
+  - src/prepare.c:854
+  - src/sqlite.h.in:4637
+- surface_id: sur-sqlite3-step
+  kind: other
+  locator: sqlite3_step()
+  repo_path: src/vdbeapi.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeapi.c:980
+  - src/sqlite.h.in:5347
+- surface_id: sur-sqlite3-stmt-readonly
+  kind: other
+  locator: sqlite3_stmt_readonly()
+  repo_path: src/vdbeapi.c
+  status: candidate
+  slice_id: prepare-statement-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbeapi.c:2090
+  - src/vdbeapi.c:2141
+  - src/vdbeapi.c:2105
+behaviours:
+- behaviour_id: backup-api-001
+  surface_id: sur-sqlite3-backup-init
+  name: Backup lifecycle (init/step/finish)
+  status: candidate
+  slice_id: backup-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns
+    first error.
+- behaviour_id: backup-api-002
+  surface_id: sur-sqlite3-backup-remaining
+  name: Backup progress introspection
+  status: candidate
+  slice_id: backup-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; remaining()/pagecount() report progress after each step.
+- behaviour_id: backup-api-003
+  surface_id: sur-sqlite3backupupdate
+  name: Concurrent source-write coordination
+  status: candidate
+  slice_id: backup-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart
+    the copy (BackupRestart).
+- behaviour_id: connection-lifecycle-api-001
+  surface_id: sur-sqlite3-open-v2
+  name: Open database (sqlite3_open family + URI parsing)
+  status: candidate
+  slice_id: connection-lifecycle-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by
+    sqlite3ParseUri (vfs/mode/cache params).
+- behaviour_id: connection-lifecycle-api-002
+  surface_id: sur-sqlite3-close-v2
+  name: Close database (deferred close semantics)
+  status: candidate
+  slice_id: connection-lifecycle-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie
+    connection).
+- behaviour_id: connection-lifecycle-api-003
+  surface_id: sur-sqlite3-busy-timeout
+  name: Busy handler / busy timeout
+  status: candidate
+  slice_id: connection-lifecycle-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler.
+- behaviour_id: connection-lifecycle-api-004
+  surface_id: sur-sqlite3-trace-v2
+  name: Connection hooks and tracing
+  status: candidate
+  slice_id: connection-lifecycle-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks.
+- behaviour_id: exec-convenience-api-001
+  surface_id: sur-sqlite3-exec
+  name: sqlite3_exec callback loop
+  status: candidate
+  slice_id: exec-convenience-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback
+    return aborts with SQLITE_ABORT; errmsg ownership rules.
+- behaviour_id: exec-convenience-api-002
+  surface_id: sur-sqlite3-get-table
+  name: get_table / free_table result marshalling
+  status: candidate
+  slice_id: exec-convenience-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+- behaviour_id: prepare-statement-api-001
+  surface_id: sur-sqlite3-prepare-v2
+  name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock
+    retry).
+- behaviour_id: prepare-statement-api-002
+  surface_id: sur-sqlite3-step
+  name: Step execution state machine
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
+- behaviour_id: prepare-statement-api-003
+  surface_id: sur-sqlite3-bind-text
+  name: Parameter binding (typed)
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings.
+- behaviour_id: prepare-statement-api-004
+  surface_id: sur-sqlite3-column-text
+  name: Column result access (typed, with coercions)
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
+- behaviour_id: prepare-statement-api-005
+  surface_id: sur-sqlite3-finalize
+  name: Reset / finalize / auto-reprepare on schema change
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
+- behaviour_id: prepare-statement-api-006
+  surface_id: sur-sqlite3-stmt-readonly
+  name: Statement introspection (readonly/busy/explain)
+  status: candidate
+  slice_id: prepare-statement-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
+last_updated: '2026-08-10T17:51:11Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 0
-  surfaces_by_status: {}
-  behaviours_known: 0
-  behaviours_by_status: {}
-  unscanned_hints: 60
+  surfaces_total: 15
+  surfaces_by_status:
+    candidate: 15
+  behaviours_known: 15
+  behaviours_by_status:
+    candidate: 15
+  unscanned_hints: 56
   legacy_green: 0
   parity_green: 0

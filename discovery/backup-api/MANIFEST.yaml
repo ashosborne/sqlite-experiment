@@ -1,0 +1,40 @@
+slice_id: backup-api
+seed: "online backup API (sqlite3_backup_*)"
+seed_entrypoints: ["sqlite3_backup_init()", "sqlite3_backup_step()"]
+out_of_scope_hints: ["VACUUM INTO", "serialize/deserialize"]
+phase: A
+updated_at: 2026-08-10T17:50:52Z
+features:
+  - id: backup-api-001
+    name: Backup lifecycle (init/step/finish)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns first error."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_backup_init()"
+        evidence: ["src/backup.c:141", "src/backup.c:325", "src/backup.c:598", "src/sqlite.h.in:9822"]
+    dependencies: ["pager", "btree"]
+    open_questions: []
+  - id: backup-api-002
+    name: Backup progress introspection
+    status: candidate
+    confidence: observed-in-code
+    summary: "remaining()/pagecount() report progress after each step."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_backup_remaining()"
+        evidence: ["src/backup.c:654", "src/backup.c:668"]
+    dependencies: ["backup-api-001"]
+    open_questions: []
+  - id: backup-api-003
+    name: Concurrent source-write coordination
+    status: candidate
+    confidence: observed-in-code
+    summary: "Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart the copy (BackupRestart)."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3BackupUpdate()"
+        evidence: ["src/backup.c:715", "src/backup.c:730"]
+    dependencies: ["pager"]
+    open_questions: ["Characterizable only via concurrent-writer harness — flag for test design"]

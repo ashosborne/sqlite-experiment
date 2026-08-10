@@ -16,3 +16,14 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Ran upsert: 0 slices, 0 candidates (expected — nothing scanned yet). Schema validation: PASS.
 - Skipped-with-reason (recorded in STRUCTURAL_INDEX §6): `src/test*.c` TCL harness adapters (~44 files), generator/fuzz tooling in ext subtrees, generated build outputs.
 - New candidates this run so far: 0 / 250. Slices created: 0 (no cap).
+
+## Iteration 1 — seeds: connection-lifecycle-api, prepare-statement-api, exec-convenience-api, backup-api
+
+- stop.txt: absent. Batch picked from top of hint backlog (callable API boundaries first).
+- connection-lifecycle-api: 4 candidates (open/URI-parse, deferred close, busy handling, hooks/trace). Evidence src/main.c. Noted global init/config as open boundary question — kept in backlog implicitly via error-status seed notes.
+- prepare-statement-api: 6 candidates (prepare family, step contract, bind, column coercions, reset/finalize/reprepare, stmt introspection). Flagged auto-reprepare as hidden retry seam.
+- exec-convenience-api: 2 candidates (exec callback loop, get_table). Recommended defer (prose) for get_table — legacy API.
+- backup-api: 3 candidates; concurrent-write coordination flagged as needing two-connection harness.
+- Skipped: nothing new; src/test*.c remain skipped-with-reason (iteration 0).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 30/250 (15 surfaces + 15 behaviours). Slices: 4. Zero-new-streak: 0.

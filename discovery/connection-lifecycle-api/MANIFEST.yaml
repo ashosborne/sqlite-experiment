@@ -1,0 +1,51 @@
+slice_id: connection-lifecycle-api
+seed: "database connection open/close/configure lifecycle (sqlite3 handle)"
+seed_entrypoints: ["sqlite3_open_v2()", "sqlite3_close_v2()", "sqlite3_busy_timeout()", "sqlite3_trace_v2()"]
+out_of_scope_hints: ["statement lifecycle", "error/status introspection", "ATTACH"]
+phase: A
+updated_at: 2026-08-10T17:49:47Z
+features:
+  - id: connection-lifecycle-api-001
+    name: Open database (sqlite3_open family + URI parsing)
+    status: candidate
+    confidence: observed-in-code
+    summary: "sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by sqlite3ParseUri (vfs/mode/cache params)."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_open_v2()"
+        evidence: ["src/main.c:3749", "src/main.c:3380", "src/main.c:3125", "src/sqlite.h.in:4027"]
+    dependencies: ["vfs-os-abstraction", "malloc-subsystem"]
+    open_questions: ["Which open flags combinations are legal per compile-time options?"]
+  - id: connection-lifecycle-api-002
+    name: Close database (deferred close semantics)
+    status: candidate
+    confidence: observed-in-code
+    summary: "sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie connection)."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_close_v2()"
+        evidence: ["src/main.c:1381", "src/main.c:1382", "src/sqlite.h.in:356"]
+    dependencies: []
+    open_questions: []
+  - id: connection-lifecycle-api-003
+    name: Busy handler / busy timeout
+    status: candidate
+    confidence: observed-in-code
+    summary: "Per-connection lock-contention callback; busy_timeout installs default sleeping handler."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_busy_timeout()"
+        evidence: ["src/main.c:1816", "src/main.c:1873"]
+    dependencies: ["btree", "pager"]
+    open_questions: []
+  - id: connection-lifecycle-api-004
+    name: Connection hooks and tracing
+    status: candidate
+    confidence: observed-in-code
+    summary: "commit_hook/update_hook/trace_v2 register observable per-connection callbacks."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_trace_v2()"
+        evidence: ["src/main.c:2309", "src/main.c:2369", "src/main.c:2394"]
+    dependencies: ["vdbe-engine"]
+    open_questions: ["Are legacy sqlite3_trace/profile in scope or deprecated-out?"]

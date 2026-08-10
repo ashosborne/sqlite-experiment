@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:47:52Z
+- Generated: 2026-08-10T17:51:11Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:47:51Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:51:11Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 0 |
-| Behaviours known | 0 |
-| Seeds scanned | 0 |
-| Unscanned hints (residual) | 60 |
+| Surfaces total | 15 |
+| Behaviours known | 15 |
+| Seeds scanned | 4 |
+| Unscanned hints (residual) | 56 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,27 +22,32 @@
 
 | Status | Count |
 | --- | --- |
+| candidate | 15 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
+| candidate | 15 |
 
 ## Surfaces per slice
 
 | Slice | Surfaces |
 | --- | --- |
+| backup-api | 3 |
+| connection-lifecycle-api | 4 |
+| exec-convenience-api | 2 |
+| prepare-statement-api | 6 |
 
 ## Scanned seeds
 
-- (none)
+- `backup-api`
+- `connection-lifecycle-api`
+- `exec-convenience-api`
+- `prepare-statement-api`
 
 ## Unscanned hints (residual register)
 
-- src: connection-lifecycle-api — sqlite3_open*/close/db_config lifecycle (src/main.c)
-- src: prepare-statement-api — prepare/step/bind/column/finalize (src/prepare.c, src/vdbeapi.c)
-- src: exec-convenience-api — sqlite3_exec + get_table wrappers (src/legacy.c, src/table.c)
-- src: backup-api — online backup sqlite3_backup_* (src/backup.c)
 - src: blob-io-api — incremental blob I/O sqlite3_blob_* (src/vdbeblob.c)
 - src: serialize-memdb-api — serialize/deserialize + in-memory VFS (src/memdb.c)
 - src: loadext-api — runtime loadable extensions (src/loadext.c)
