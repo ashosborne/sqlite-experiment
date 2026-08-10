@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 #
-# Idempotent Cloud Agent bootstrap for the SQLite source tree.
+# Durable system setup for the SQLite source tree.
 #
-# Installs the system prerequisites that are not part of the base image,
-# configures a debug (--dev) build, and compiles the artifacts a developer
-# needs on first use: the CLI shell, the amalgamation, the TCL test runner
-# binary, and the TCL extension used by the test harness.
+# This runs once to create the environment's base snapshot. It installs only
+# system-level, out-of-/workspace state that survives a fresh git checkout:
+# the toolchain packages and a writable TCL package directory. The actual
+# in-tree build (./configure + make) lives in start.sh, because compiled
+# artifacts written under /workspace are discarded when a new agent re-checks
+# out the repository on boot.
 #
-# This script is safe to run repeatedly: apt installs are no-ops when the
-# packages are already present, ./configure simply regenerates the Makefile,
-# and make targets rebuild incrementally.
+# Safe to run repeatedly: apt installs are no-ops when packages are current,
+# and the directory creation is guarded.
 set -euo pipefail
-
-cd "$(dirname "$0")/.."
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -30,19 +29,11 @@ sudo apt-get install -y --no-install-recommends \
   zlib1g-dev \
   libclang-rt-18-dev
 
-# The TCL extension must land on a directory that is on tclsh's $auto_path.
-# On the stock image none of those directories are writable, so create the
+# The TCL extension must be installed onto a directory that is on tclsh's
+# $auto_path. On the stock image none of those are writable, so create the
 # standard /usr/local/lib/tcltk entry (already on $auto_path) owned by the
-# build user. tclextension-install then finds it automatically.
+# build user. start.sh's `make tclextension-install` then finds it with no
+# further privileges required.
 if [ ! -d /usr/local/lib/tcltk ]; then
   sudo install -d -o "$(id -un)" -g "$(id -gn)" /usr/local/lib/tcltk
 fi
-
-# Debug build with the developer feature set.
-./configure --dev
-
-# Core developer artifacts.
-make sqlite3        # the CLI shell
-make sqlite3.c      # the amalgamation (single-file distribution form)
-make testfixture    # the TCL-based test runner binary
-make tclextension-install
