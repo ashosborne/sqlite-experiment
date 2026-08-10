@@ -15,11 +15,11 @@ scanned_seeds:
 - loadext-api
 - serialize-memdb-api
 - unlock-notify-api
+- attach-detach
+- auth-callback-api
+- builtin-scalar-agg-funcs
+- error-status-api
 unscanned_hints:
-- 'src: auth-callback-api — sqlite3_set_authorizer (src/auth.c)'
-- 'src: attach-detach — ATTACH/DETACH DATABASE (src/attach.c)'
-- 'src: error-status-api — errcode/errmsg/status/limits (src/util.c, src/status.c, src/sqliteLimit.h)'
-- 'src: builtin-scalar-agg-funcs — built-in SQL function registry (src/func.c)'
 - 'src: date-time-funcs — date/time SQL functions (src/date.c)'
 - 'src: json-funcs — JSON SQL functions + json_tree/json_each (src/json.c)'
 - 'src: printf-format — SQL printf/format + internal formatter (src/printf.c)'
@@ -73,6 +73,57 @@ unscanned_hints:
 - 'ext: misc-utilities — remaining misc utilities (ext/misc: fileio, dbdump, eval, explain, memstat, diskused, noop, normalize,
   randomjson, remember, stmtrand, strdup, showauth, anycollseq)'
 surfaces:
+- surface_id: sur-sqlite3attach
+  kind: other
+  locator: sqlite3Attach()
+  repo_path: src/attach.c
+  status: candidate
+  slice_id: attach-detach
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/attach.c:449
+  - src/attach.c:74
+- surface_id: sur-sqlite3detach
+  kind: other
+  locator: sqlite3Detach()
+  repo_path: src/attach.c
+  status: candidate
+  slice_id: attach-detach
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/attach.c:429
+  - src/attach.c:293
+- surface_id: sur-sqlite3fixinit
+  kind: other
+  locator: sqlite3FixInit()
+  repo_path: src/attach.c
+  status: candidate
+  slice_id: attach-detach
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/attach.c:533
+  - src/attach.c:561
+- surface_id: sur-sqlite3-set-authorizer
+  kind: other
+  locator: sqlite3_set_authorizer()
+  repo_path: src/auth.c
+  status: candidate
+  slice_id: auth-callback-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/auth.c:70
+  - src/auth.c:238
+- surface_id: sur-sqlite3authreadcol
+  kind: other
+  locator: sqlite3AuthReadCol()
+  repo_path: src/auth.c
+  status: candidate
+  slice_id: auth-callback-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/auth.c:104
+  - src/auth.c:136
+  - src/auth.c:182
 - surface_id: sur-sqlite3-backup-init
   kind: other
   locator: sqlite3_backup_init()
@@ -129,6 +180,42 @@ surfaces:
   - src/vdbeblob.c:478
   - src/vdbeblob.c:381
   - src/vdbeblob.c:488
+- surface_id: sur-abuiltinfunc-aggregates
+  kind: other
+  locator: aBuiltinFunc[] aggregates
+  repo_path: src/func.c
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/func.c:3408
+  - src/func.c:1929
+  - src/func.c:3357
+  - src/func.c:3360
+- surface_id: sur-likefunc
+  kind: other
+  locator: likeFunc()
+  repo_path: src/func.c
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/func.c:921
+  - src/func.c:2348
+  - src/func.c:2361
+  - src/func.c:2388
+- surface_id: sur-sqlite3registerbuiltinfunctions
+  kind: other
+  locator: sqlite3RegisterBuiltinFunctions()
+  repo_path: src/func.c
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/func.c:3311
+  - src/func.c:3322
+  - src/func.c:3404
+  - src/func.c:348
 - surface_id: sur-sqlite3-busy-timeout
   kind: other
   locator: sqlite3_busy_timeout()
@@ -173,6 +260,40 @@ surfaces:
   - src/main.c:2309
   - src/main.c:2369
   - src/main.c:2394
+- surface_id: sur-sqlite3-errmsg
+  kind: other
+  locator: sqlite3_errmsg()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: error-status-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:2743
+  - src/main.c:2851
+  - src/main.c:2866
+  - src/main.c:2896
+  - src/main.c:2792
+- surface_id: sur-sqlite3-limit
+  kind: other
+  locator: sqlite3_limit()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: error-status-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:3049
+  - src/sqliteLimit.h
+- surface_id: sur-sqlite3-status64
+  kind: other
+  locator: sqlite3_status64()
+  repo_path: src/status.c
+  status: candidate
+  slice_id: error-status-api
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/status.c:134
+  - src/status.c:159
+  - src/status.c:426
 - surface_id: sur-sqlite3-exec
   kind: other
   locator: sqlite3_exec()
@@ -318,6 +439,54 @@ surfaces:
   - src/notify.c:229
   - src/notify.c:328
 behaviours:
+- behaviour_id: attach-detach-001
+  surface_id: sur-sqlite3attach
+  name: ATTACH DATABASE
+  status: candidate
+  slice_id: attach-detach
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name
+    errors, URI handling.
+- behaviour_id: attach-detach-002
+  surface_id: sur-sqlite3detach
+  name: DETACH DATABASE
+  status: candidate
+  slice_id: attach-detach
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Removes attached db; errors if db is locked or in use.
+- behaviour_id: attach-detach-003
+  surface_id: sur-sqlite3fixinit
+  name: Cross-database name fixation for DDL
+  status: candidate
+  slice_id: attach-detach
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3FixInit/sqlite3Fix* reject cross-db references inside triggers/views of attached
+    dbs.
+- behaviour_id: auth-callback-api-001
+  surface_id: sur-sqlite3-set-authorizer
+  name: Authorizer registration and dispatch
+  status: candidate
+  slice_id: auth-callback-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Per-connection callback consulted at compile time per action code; DENY errors the statement,
+    IGNORE downgrades.
+- behaviour_id: auth-callback-api-002
+  surface_id: sur-sqlite3authreadcol
+  name: Column-read authorization (IGNORE yields NULL)
+  status: candidate
+  slice_id: auth-callback-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Read authorization per column; SQLITE_IGNORE causes NULL substitution in results.
 - behaviour_id: backup-api-001
   surface_id: sur-sqlite3-backup-init
   name: Backup lifecycle (init/step/finish)
@@ -365,6 +534,36 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
+- behaviour_id: builtin-scalar-agg-funcs-001
+  surface_id: sur-sqlite3registerbuiltinfunctions
+  name: Core scalar function family
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling
+    per function.
+- behaviour_id: builtin-scalar-agg-funcs-002
+  surface_id: sur-abuiltinfunc-aggregates
+  name: Aggregate function family
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable)
+    semantics.
+- behaviour_id: builtin-scalar-agg-funcs-003
+  surface_id: sur-likefunc
+  name: LIKE/GLOB pattern matching + case sensitivity toggle
+  status: candidate
+  slice_id: builtin-scalar-agg-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries
+    IsLikeFunction for index use.
 - behaviour_id: connection-lifecycle-api-001
   surface_id: sur-sqlite3-open-v2
   name: Open database (sqlite3_open family + URI parsing)
@@ -403,6 +602,33 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks.
+- behaviour_id: error-status-api-001
+  surface_id: sur-sqlite3-errmsg
+  name: Error introspection family
+  status: candidate
+  slice_id: error-status-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks.
+- behaviour_id: error-status-api-002
+  surface_id: sur-sqlite3-limit
+  name: Runtime limits (sqlite3_limit)
+  status: candidate
+  slice_id: error-status-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Get/set 12 limit categories with hard upper bounds from sqliteLimit.h.
+- behaviour_id: error-status-api-003
+  surface_id: sur-sqlite3-status64
+  name: Status counters (global + per-connection)
+  status: candidate
+  slice_id: error-status-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset.
 - behaviour_id: exec-convenience-api-001
   surface_id: sur-sqlite3-exec
   name: sqlite3_exec callback loop
@@ -526,17 +752,17 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
     SQLITE_LOCKED; fire-and-forget async seam.
-last_updated: '2026-08-10T17:52:42Z'
+last_updated: '2026-08-10T17:54:31Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 22
+  surfaces_total: 33
   surfaces_by_status:
-    candidate: 22
-  behaviours_known: 22
+    candidate: 33
+  behaviours_known: 33
   behaviours_by_status:
-    candidate: 22
-  unscanned_hints: 52
+    candidate: 33
+  unscanned_hints: 48
   legacy_green: 0
   parity_green: 0

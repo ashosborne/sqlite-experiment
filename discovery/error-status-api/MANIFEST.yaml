@@ -1,0 +1,40 @@
+slice_id: error-status-api
+seed: "error introspection + limits + status counters"
+seed_entrypoints: ["sqlite3_errmsg()", "sqlite3_limit()", "sqlite3_status64()"]
+out_of_scope_hints: ["subsystem-internal error propagation"]
+phase: A
+updated_at: 2026-08-10T17:54:13Z
+features:
+  - id: error-status-api-001
+    name: Error introspection family
+    status: candidate
+    confidence: observed-in-code
+    summary: "errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_errmsg()"
+        evidence: ["src/main.c:2743", "src/main.c:2851", "src/main.c:2866", "src/main.c:2896", "src/main.c:2792"]
+    dependencies: []
+    open_questions: []
+  - id: error-status-api-002
+    name: Runtime limits (sqlite3_limit)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Get/set 12 limit categories with hard upper bounds from sqliteLimit.h."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_limit()"
+        evidence: ["src/main.c:3049", "src/sqliteLimit.h"]
+    dependencies: []
+    open_questions: []
+  - id: error-status-api-003
+    name: Status counters (global + per-connection)
+    status: candidate
+    confidence: observed-in-code
+    summary: "status64/db_status expose current/highwater counters with optional reset."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_status64()"
+        evidence: ["src/status.c:134", "src/status.c:159", "src/status.c:426"]
+    dependencies: ["malloc-subsystem"]
+    open_questions: []

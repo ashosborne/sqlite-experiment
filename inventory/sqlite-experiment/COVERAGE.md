@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:52:42Z
+- Generated: 2026-08-10T17:54:32Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:52:42Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:54:31Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 22 |
-| Behaviours known | 22 |
-| Seeds scanned | 8 |
-| Unscanned hints (residual) | 52 |
+| Surfaces total | 33 |
+| Behaviours known | 33 |
+| Seeds scanned | 12 |
+| Unscanned hints (residual) | 48 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,21 +22,25 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 22 |
+| candidate | 33 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 22 |
+| candidate | 33 |
 
 ## Surfaces per slice
 
 | Slice | Surfaces |
 | --- | --- |
+| attach-detach | 3 |
+| auth-callback-api | 2 |
 | backup-api | 3 |
 | blob-io-api | 2 |
+| builtin-scalar-agg-funcs | 3 |
 | connection-lifecycle-api | 4 |
+| error-status-api | 3 |
 | exec-convenience-api | 2 |
 | loadext-api | 2 |
 | prepare-statement-api | 6 |
@@ -53,13 +57,13 @@
 - `loadext-api`
 - `serialize-memdb-api`
 - `unlock-notify-api`
+- `attach-detach`
+- `auth-callback-api`
+- `builtin-scalar-agg-funcs`
+- `error-status-api`
 
 ## Unscanned hints (residual register)
 
-- src: auth-callback-api — sqlite3_set_authorizer (src/auth.c)
-- src: attach-detach — ATTACH/DETACH DATABASE (src/attach.c)
-- src: error-status-api — errcode/errmsg/status/limits (src/util.c, src/status.c, src/sqliteLimit.h)
-- src: builtin-scalar-agg-funcs — built-in SQL function registry (src/func.c)
 - src: date-time-funcs — date/time SQL functions (src/date.c)
 - src: json-funcs — JSON SQL functions + json_tree/json_each (src/json.c)
 - src: printf-format — SQL printf/format + internal formatter (src/printf.c)

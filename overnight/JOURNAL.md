@@ -37,3 +37,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - unlock-notify-api: 1 candidate; fire-and-forget async seam flagged for split at bind.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 44/250 (22 surfaces + 22 behaviours). Slices: 8. Zero-new-streak: 0.
+
+## Iteration 3 — seeds: auth-callback-api, attach-detach, error-status-api, builtin-scalar-agg-funcs
+
+- stop.txt: absent.
+- auth-callback-api: 2 candidates (registration/dispatch; column-read IGNORE→NULL).
+- attach-detach: 3 candidates (ATTACH, DETACH, cross-db name fixation).
+- error-status-api: 3 candidates (error family, limits, status counters). Recommended early bind — other slices' characterization depends on the error contract.
+- builtin-scalar-agg-funcs: 3 clustered candidates over ~111 registry rows (scalars, aggregates, LIKE/GLOB). Refused card-per-function noise; sub-clustering recommended at bind.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 66/250 (33 surfaces + 33 behaviours). Slices: 12. Zero-new-streak: 0.
