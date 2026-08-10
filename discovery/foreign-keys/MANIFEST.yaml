@@ -1,0 +1,40 @@
+slice_id: foreign-keys
+seed: "foreign key constraint checking + cascading actions"
+seed_entrypoints: ["sqlite3FkCheck()"]
+out_of_scope_hints: ["trigger machinery generally"]
+phase: A
+updated_at: 2026-08-10T17:57:41Z
+features:
+  - id: foreign-keys-001
+    name: Immediate vs deferred FK checking
+    status: candidate
+    confidence: observed-in-code
+    summary: "Per-statement vs per-transaction constraint counters; foreign_keys pragma gate."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3FkCheck()"
+        evidence: ["src/fkey.c:889", "src/fkey.c:1145"]
+    dependencies: ["dml-codegen"]
+    open_questions: ["foreign_keys pragma default off — is it enabled downstream?"]
+  - id: foreign-keys-002
+    name: Cascading referential actions
+    status: candidate
+    confidence: observed-in-code
+    summary: "ON DELETE/UPDATE actions implemented as synthesized triggers."
+    entrypoints:
+      - kind: other
+        locator: "fkActionTrigger()"
+        evidence: ["src/fkey.c:1217", "src/fkey.c:1419"]
+    dependencies: ["triggers"]
+    open_questions: []
+  - id: foreign-keys-003
+    name: FK bookkeeping on DROP TABLE
+    status: candidate
+    confidence: observed-in-code
+    summary: "DROP TABLE triggers FK violation scans / deferred handling."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3FkDropTable()"
+        evidence: ["src/fkey.c:736"]
+    dependencies: ["ddl-schema"]
+    open_questions: []

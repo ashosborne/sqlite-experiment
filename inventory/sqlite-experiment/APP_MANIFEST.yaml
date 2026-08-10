@@ -23,11 +23,11 @@ scanned_seeds:
 - json-funcs
 - pragma-surface
 - printf-format
+- foreign-keys
+- triggers
+- upsert
+- window-functions
 unscanned_hints:
-- 'src: window-functions — SQL window functions (src/window.c)'
-- 'src: upsert — ON CONFLICT DO UPDATE/NOTHING (src/upsert.c)'
-- 'src: triggers — CREATE TRIGGER + firing (src/trigger.c)'
-- 'src: foreign-keys — FK constraint enforcement (src/fkey.c)'
 - 'src: ddl-schema — CREATE/DROP/ALTER schema objects (src/build.c, src/alter.c)'
 - 'src: analyze-stats — ANALYZE + sqlite_stat tables (src/analyze.c)'
 - 'src: vacuum — VACUUM / VACUUM INTO (src/vacuum.c)'
@@ -357,6 +357,35 @@ surfaces:
   discovery_evidence:
   - src/table.c:116
   - src/table.c:185
+- surface_id: sur-fkactiontrigger
+  kind: other
+  locator: fkActionTrigger()
+  repo_path: src/fkey.c
+  status: candidate
+  slice_id: foreign-keys
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/fkey.c:1217
+  - src/fkey.c:1419
+- surface_id: sur-sqlite3fkcheck
+  kind: other
+  locator: sqlite3FkCheck()
+  repo_path: src/fkey.c
+  status: candidate
+  slice_id: foreign-keys
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/fkey.c:889
+  - src/fkey.c:1145
+- surface_id: sur-sqlite3fkdroptable
+  kind: other
+  locator: sqlite3FkDropTable()
+  repo_path: src/fkey.c
+  status: candidate
+  slice_id: foreign-keys
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/fkey.c:736
 - surface_id: sur-jsoneachmodule
   kind: other
   locator: jsonEachModule
@@ -561,6 +590,29 @@ surfaces:
   - src/memdb.c:841
   - src/sqlite.h.in:11248
   - src/sqlite.h.in:11326
+- surface_id: sur-sqlite3begintrigger
+  kind: other
+  locator: sqlite3BeginTrigger()
+  repo_path: src/trigger.c
+  status: candidate
+  slice_id: triggers
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/trigger.c:104
+  - src/trigger.c:324
+  - src/trigger.c:659
+- surface_id: sur-sqlite3coderowtrigger
+  kind: other
+  locator: sqlite3CodeRowTrigger()
+  repo_path: src/trigger.c
+  status: candidate
+  slice_id: triggers
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/trigger.c:1469
+  - src/trigger.c:1232
+  - src/trigger.c:870
+  - src/trigger.c:1397
 - surface_id: sur-sqlite3-unlock-notify
   kind: other
   locator: sqlite3_unlock_notify()
@@ -573,6 +625,46 @@ surfaces:
   - src/notify.c:201
   - src/notify.c:229
   - src/notify.c:328
+- surface_id: sur-sqlite3upsertanalyzetarget
+  kind: other
+  locator: sqlite3UpsertAnalyzeTarget()
+  repo_path: src/upsert.c
+  status: candidate
+  slice_id: upsert
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/upsert.c:90
+  - src/upsert.c:247
+- surface_id: sur-sqlite3upsertdoupdate
+  kind: other
+  locator: sqlite3UpsertDoUpdate()
+  repo_path: src/upsert.c
+  status: candidate
+  slice_id: upsert
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/upsert.c:267
+  - src/upsert.c:55
+- surface_id: sur-sqlite3windowcodestep
+  kind: other
+  locator: sqlite3WindowCodeStep()
+  repo_path: src/window.c
+  status: candidate
+  slice_id: window-functions
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/window.c:2784
+  - src/window.c:659
+- surface_id: sur-sqlite3windowfunctions
+  kind: other
+  locator: sqlite3WindowFunctions()
+  repo_path: src/window.c
+  status: candidate
+  slice_id: window-functions
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/window.c:610
+  - src/window.c:147
 behaviours:
 - behaviour_id: attach-detach-001
   surface_id: sur-sqlite3attach
@@ -819,6 +911,33 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+- behaviour_id: foreign-keys-001
+  surface_id: sur-sqlite3fkcheck
+  name: Immediate vs deferred FK checking
+  status: candidate
+  slice_id: foreign-keys
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Per-statement vs per-transaction constraint counters; foreign_keys pragma gate.
+- behaviour_id: foreign-keys-002
+  surface_id: sur-fkactiontrigger
+  name: Cascading referential actions
+  status: candidate
+  slice_id: foreign-keys
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; ON DELETE/UPDATE actions implemented as synthesized triggers.
+- behaviour_id: foreign-keys-003
+  surface_id: sur-sqlite3fkdroptable
+  name: FK bookkeeping on DROP TABLE
+  status: candidate
+  slice_id: foreign-keys
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; DROP TABLE triggers FK violation scans / deferred handling.
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
@@ -995,6 +1114,25 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
+- behaviour_id: triggers-001
+  surface_id: sur-sqlite3begintrigger
+  name: Trigger DDL lifecycle
+  status: candidate
+  slice_id: triggers
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation.
+- behaviour_id: triggers-002
+  surface_id: sur-sqlite3coderowtrigger
+  name: Row-trigger firing semantics
+  status: candidate
+  slice_id: triggers
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
+    recursive-trigger gate.
 - behaviour_id: unlock-notify-api-001
   surface_id: sur-sqlite3-unlock-notify
   name: Unlock notification with deadlock detection
@@ -1005,17 +1143,53 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
     SQLITE_LOCKED; fire-and-forget async seam.
-last_updated: '2026-08-10T17:56:27Z'
+- behaviour_id: upsert-001
+  surface_id: sur-sqlite3upsertanalyzetarget
+  name: Conflict-target resolution to unique index
+  status: candidate
+  slice_id: upsert
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match.
+- behaviour_id: upsert-002
+  surface_id: sur-sqlite3upsertdoupdate
+  name: DO UPDATE / DO NOTHING execution
+  status: candidate
+  slice_id: upsert
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Generates UPDATE against conflicting row; excluded.* pseudo-table bindings.
+- behaviour_id: window-functions-001
+  surface_id: sur-sqlite3windowfunctions
+  name: Built-in window function family
+  status: candidate
+  slice_id: window-functions
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 11 built-in window functions registered in sqlite3WindowFunctions.
+- behaviour_id: window-functions-002
+  surface_id: sur-sqlite3windowcodestep
+  name: Frame specification execution (ROWS/RANGE/GROUPS + EXCLUDE)
+  status: candidate
+  slice_id: window-functions
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
+last_updated: '2026-08-10T17:57:52Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 46
+  surfaces_total: 55
   surfaces_by_status:
-    candidate: 46
-  behaviours_known: 46
+    candidate: 55
+  behaviours_known: 55
   behaviours_by_status:
-    candidate: 46
-  unscanned_hints: 44
+    candidate: 55
+  unscanned_hints: 40
   legacy_green: 0
   parity_green: 0

@@ -1,0 +1,29 @@
+slice_id: upsert
+seed: "INSERT ... ON CONFLICT (UPSERT) semantics"
+seed_entrypoints: ["sqlite3UpsertNew()"]
+out_of_scope_hints: ["plain INSERT codegen"]
+phase: A
+updated_at: 2026-08-10T17:57:41Z
+features:
+  - id: upsert-001
+    name: Conflict-target resolution to unique index
+    status: candidate
+    confidence: observed-in-code
+    summary: "ON CONFLICT target column list matched to a unique index; error if no match."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3UpsertAnalyzeTarget()"
+        evidence: ["src/upsert.c:90", "src/upsert.c:247"]
+    dependencies: ["dml-codegen"]
+    open_questions: []
+  - id: upsert-002
+    name: DO UPDATE / DO NOTHING execution
+    status: candidate
+    confidence: observed-in-code
+    summary: "Generates UPDATE against conflicting row; excluded.* pseudo-table bindings."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3UpsertDoUpdate()"
+        evidence: ["src/upsert.c:267", "src/upsert.c:55"]
+    dependencies: ["upsert-001"]
+    open_questions: []

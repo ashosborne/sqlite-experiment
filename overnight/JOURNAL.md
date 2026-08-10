@@ -57,3 +57,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - pragma-surface: 2 candidates (dispatcher + pragma vtabs); pragma table is generated from tool/mkpragmatab.tcl (out-of-scope path) — cited src/pragma.c only.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 92/250 (46 surfaces + 46 behaviours). Slices: 16. Zero-new-streak: 0.
+
+## Iteration 5 — seeds: window-functions, upsert, triggers, foreign-keys
+
+- stop.txt: absent.
+- window-functions: 2 candidates (built-in family, frame execution).
+- upsert: 2 candidates (conflict-target resolution, DO UPDATE path).
+- triggers: 2 candidates; cascade chains flagged as async-like for bind-time card splitting.
+- foreign-keys: 3 candidates; pragma-gated default (off) raised as SME question.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 110/250 (55 surfaces + 55 behaviours). Slices: 20. Zero-new-streak: 0.

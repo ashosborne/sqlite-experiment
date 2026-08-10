@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:56:28Z
+- Generated: 2026-08-10T17:57:53Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:56:27Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:57:52Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 46 |
-| Behaviours known | 46 |
-| Seeds scanned | 16 |
-| Unscanned hints (residual) | 44 |
+| Surfaces total | 55 |
+| Behaviours known | 55 |
+| Seeds scanned | 20 |
+| Unscanned hints (residual) | 40 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 46 |
+| candidate | 55 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 46 |
+| candidate | 55 |
 
 ## Surfaces per slice
 
@@ -43,13 +43,17 @@
 | date-time-funcs | 4 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
+| foreign-keys | 3 |
 | json-funcs | 4 |
 | loadext-api | 2 |
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
 | serialize-memdb-api | 2 |
+| triggers | 2 |
 | unlock-notify-api | 1 |
+| upsert | 2 |
+| window-functions | 2 |
 
 ## Scanned seeds
 
@@ -69,13 +73,13 @@
 - `json-funcs`
 - `pragma-surface`
 - `printf-format`
+- `foreign-keys`
+- `triggers`
+- `upsert`
+- `window-functions`
 
 ## Unscanned hints (residual register)
 
-- src: window-functions — SQL window functions (src/window.c)
-- src: upsert — ON CONFLICT DO UPDATE/NOTHING (src/upsert.c)
-- src: triggers — CREATE TRIGGER + firing (src/trigger.c)
-- src: foreign-keys — FK constraint enforcement (src/fkey.c)
 - src: ddl-schema — CREATE/DROP/ALTER schema objects (src/build.c, src/alter.c)
 - src: analyze-stats — ANALYZE + sqlite_stat tables (src/analyze.c)
 - src: vacuum — VACUUM / VACUUM INTO (src/vacuum.c)
