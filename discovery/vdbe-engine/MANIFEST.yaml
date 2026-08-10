@@ -1,0 +1,29 @@
+slice_id: vdbe-engine
+seed: "VDBE bytecode virtual machine"
+seed_entrypoints: ["sqlite3VdbeExec()"]
+out_of_scope_hints: ["statement API wrappers"]
+phase: A
+updated_at: 2026-08-10T18:02:36Z
+features:
+  - id: vdbe-engine-001
+    name: Opcode interpreter loop
+    status: candidate
+    confidence: observed-in-code
+    summary: "199 OP_ cases; interruption, progress-callback and error unwinding semantics."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3VdbeExec()"
+        evidence: ["src/vdbe.c:902", "src/vdbe.c:1349", "src/vdbe.c:3031"]
+    dependencies: ["btree", "pager"]
+    open_questions: []
+  - id: vdbe-engine-002
+    name: Mem-cell value semantics (affinity/encoding conversions)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization."
+    entrypoints:
+      - kind: other
+        locator: "src/vdbemem.c"
+        evidence: ["src/vdbemem.c"]
+    dependencies: ["utf-util"]
+    open_questions: ["Characterize via SQL-level typeof()/CAST corpora rather than internals"]

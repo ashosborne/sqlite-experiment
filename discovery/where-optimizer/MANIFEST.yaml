@@ -1,0 +1,29 @@
+slice_id: where-optimizer
+seed: "query planner / WHERE-loop optimizer"
+seed_entrypoints: ["sqlite3WhereBegin()"]
+out_of_scope_hints: ["statistics collection"]
+phase: A
+updated_at: 2026-08-10T18:02:36Z
+features:
+  - id: where-optimizer-001
+    name: WHERE-loop generation boundary
+    status: candidate
+    confidence: observed-in-code
+    summary: "WhereBegin/WhereEnd bracket loop codegen for SELECT/UPDATE/DELETE."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3WhereBegin()"
+        evidence: ["src/where.c:6826", "src/where.c:7529"]
+    dependencies: ["btree", "expr-codegen"]
+    open_questions: []
+  - id: where-optimizer-002
+    name: Access-path enumeration and cost-based solver
+    status: candidate
+    confidence: observed-in-code
+    summary: "Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks cheapest join order."
+    entrypoints:
+      - kind: other
+        locator: "wherePathSolver()"
+        evidence: ["src/where.c:5834", "src/where.c:4003", "src/where.c:3219"]
+    dependencies: ["analyze-stats"]
+    open_questions: ["Plan parity vs result parity: agree characterization level (EQP text is version-fragile)"]

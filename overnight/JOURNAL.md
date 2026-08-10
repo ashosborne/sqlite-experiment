@@ -87,3 +87,14 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - select-codegen: 3 candidates (orchestration, compound selects, subquery flattening — silent plan-shape risk). Fixed one evidence line (sqlite3Select at select.c:7642) after verification.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 148/250 (74 surfaces + 74 behaviours). Slices: 28. Zero-new-streak: 0.
+
+## Iteration 8 — seeds: dml-codegen, where-optimizer, vdbe-engine, btree
+
+- stop.txt: absent.
+- dml-codegen: 2 candidates (3 write paths + xfer opt; conflict-resolution matrix — REPLACE side effects flagged).
+- where-optimizer: 2 candidates; plan-vs-result characterization level raised for SME.
+- vdbe-engine: 2 deliberately coarse candidates (interpreter, Mem-cell typing); SQL-level characterization recommended; sorter noted as sub-seam.
+- btree: 2 coarse candidates; SME question raised whether storage layer is migration scope or retained platform.
+- Generated headers (opcodes.h etc.) never cited; evidence from src/vdbe.c and src/btree.c only.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 164/250 (82 surfaces + 82 behaviours). Slices: 32. Zero-new-streak: 0.

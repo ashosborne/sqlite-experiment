@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:01:08Z
+- Generated: 2026-08-10T18:02:51Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:01:08Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:02:51Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 74 |
-| Behaviours known | 74 |
-| Seeds scanned | 28 |
-| Unscanned hints (residual) | 32 |
+| Surfaces total | 82 |
+| Behaviours known | 82 |
+| Seeds scanned | 32 |
+| Unscanned hints (residual) | 28 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 74 |
+| candidate | 82 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 74 |
+| candidate | 82 |
 
 ## Surfaces per slice
 
@@ -39,10 +39,12 @@
 | auth-callback-api | 2 |
 | backup-api | 3 |
 | blob-io-api | 2 |
+| btree | 2 |
 | builtin-scalar-agg-funcs | 3 |
 | connection-lifecycle-api | 4 |
 | date-time-funcs | 4 |
 | ddl-schema | 3 |
+| dml-codegen | 2 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
 | expr-codegen | 3 |
@@ -61,6 +63,8 @@
 | unlock-notify-api | 1 |
 | upsert | 2 |
 | vacuum | 2 |
+| vdbe-engine | 2 |
+| where-optimizer | 2 |
 | window-functions | 2 |
 
 ## Scanned seeds
@@ -93,13 +97,13 @@
 - `name-resolution`
 - `parser-grammar`
 - `select-codegen`
+- `btree`
+- `dml-codegen`
+- `vdbe-engine`
+- `where-optimizer`
 
 ## Unscanned hints (residual register)
 
-- src: dml-codegen — INSERT/UPDATE/DELETE compilation (src/insert.c, src/update.c, src/delete.c)
-- src: where-optimizer — query planner (src/where.c, src/wherecode.c, src/whereexpr.c)
-- src: vdbe-engine — bytecode VM (src/vdbe.c, src/vdbeaux.c, src/vdbemem.c, src/vdbesort.c)
-- src: btree — B-tree layer (src/btree.c, src/btmutex.c)
 - src: pager — page cache + transactions (src/pager.c)
 - src: wal — write-ahead log (src/wal.c)
 - src: pcache — pluggable page cache (src/pcache.c, src/pcache1.c)

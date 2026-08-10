@@ -1,0 +1,29 @@
+slice_id: dml-codegen
+seed: "INSERT/UPDATE/DELETE compilation incl. constraint checks"
+seed_entrypoints: ["sqlite3Insert()", "sqlite3Update()", "sqlite3DeleteFrom()"]
+out_of_scope_hints: ["UPSERT", "FK enforcement", "triggers"]
+phase: A
+updated_at: 2026-08-10T18:02:36Z
+features:
+  - id: dml-codegen-001
+    name: DML statement compilation (3 write paths)
+    status: candidate
+    confidence: observed-in-code
+    summary: "INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast path)."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3Insert()"
+        evidence: ["src/insert.c:900", "src/update.c:285", "src/delete.c:288", "src/insert.c:3079"]
+    dependencies: ["btree", "expr-codegen"]
+    open_questions: []
+  - id: dml-codegen-002
+    name: Constraint checks + ON CONFLICT resolution matrix
+    status: candidate
+    confidence: observed-in-code
+    summary: "Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3GenerateConstraintChecks()"
+        evidence: ["src/insert.c:1901"]
+    dependencies: ["dml-codegen-001"]
+    open_questions: ["REPLACE-mode side effects (delete-then-insert) on triggers/FKs — parity trap"]

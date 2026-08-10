@@ -35,11 +35,11 @@ scanned_seeds:
 - name-resolution
 - parser-grammar
 - select-codegen
+- btree
+- dml-codegen
+- vdbe-engine
+- where-optimizer
 unscanned_hints:
-- 'src: dml-codegen — INSERT/UPDATE/DELETE compilation (src/insert.c, src/update.c, src/delete.c)'
-- 'src: where-optimizer — query planner (src/where.c, src/wherecode.c, src/whereexpr.c)'
-- 'src: vdbe-engine — bytecode VM (src/vdbe.c, src/vdbeaux.c, src/vdbemem.c, src/vdbesort.c)'
-- 'src: btree — B-tree layer (src/btree.c, src/btmutex.c)'
 - 'src: pager — page cache + transactions (src/pager.c)'
 - 'src: wal — write-ahead log (src/wal.c)'
 - 'src: pcache — pluggable page cache (src/pcache.c, src/pcache1.c)'
@@ -201,6 +201,28 @@ surfaces:
   - src/vdbeblob.c:478
   - src/vdbeblob.c:381
   - src/vdbeblob.c:488
+- surface_id: sur-sqlite3btreecursor
+  kind: other
+  locator: sqlite3BtreeCursor()
+  repo_path: src/btree.c
+  status: candidate
+  slice_id: btree
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/btree.c:4799
+  - src/btree.c:5837
+  - src/btree.c:9441
+  - src/btree.c:9873
+- surface_id: sur-sqlite3btreeopen
+  kind: other
+  locator: sqlite3BtreeOpen()
+  repo_path: src/btree.c
+  status: candidate
+  slice_id: btree
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/btree.c:2562
+  - src/btree.c:3835
 - surface_id: sur-abuiltinfunc-aggregates
   kind: other
   locator: aBuiltinFunc[] aggregates
@@ -358,6 +380,27 @@ surfaces:
   - src/build.c:2670
   - src/build.c:3023
   - src/build.c:3528
+- surface_id: sur-sqlite3generateconstraintchecks
+  kind: other
+  locator: sqlite3GenerateConstraintChecks()
+  repo_path: src/insert.c
+  status: candidate
+  slice_id: dml-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/insert.c:1901
+- surface_id: sur-sqlite3insert
+  kind: other
+  locator: sqlite3Insert()
+  repo_path: src/insert.c
+  status: candidate
+  slice_id: dml-codegen
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/insert.c:900
+  - src/update.c:285
+  - src/delete.c:288
+  - src/insert.c:3079
 - surface_id: sur-sqlite3-errmsg
   kind: other
   locator: sqlite3_errmsg()
@@ -842,6 +885,47 @@ surfaces:
   - src/vacuum.c:147
   - src/vacuum.c:245
   - src/vacuum.c:250
+- surface_id: sur-sqlite3vdbeexec
+  kind: other
+  locator: sqlite3VdbeExec()
+  repo_path: src/vdbe.c
+  status: candidate
+  slice_id: vdbe-engine
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbe.c:902
+  - src/vdbe.c:1349
+  - src/vdbe.c:3031
+- surface_id: sur-src-vdbemem-c
+  kind: other
+  locator: src/vdbemem.c
+  repo_path: src/vdbemem.c
+  status: candidate
+  slice_id: vdbe-engine
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vdbemem.c
+- surface_id: sur-sqlite3wherebegin
+  kind: other
+  locator: sqlite3WhereBegin()
+  repo_path: src/where.c
+  status: candidate
+  slice_id: where-optimizer
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/where.c:6826
+  - src/where.c:7529
+- surface_id: sur-wherepathsolver
+  kind: other
+  locator: wherePathSolver()
+  repo_path: src/where.c
+  status: candidate
+  slice_id: where-optimizer
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/where.c:5834
+  - src/where.c:4003
+  - src/where.c:3219
 - surface_id: sur-sqlite3windowcodestep
   kind: other
   locator: sqlite3WindowCodeStep()
@@ -976,6 +1060,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
+- behaviour_id: btree-001
+  surface_id: sur-sqlite3btreeopen
+  name: Btree handle and transaction boundary
+  status: candidate
+  slice_id: btree
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks.
+- behaviour_id: btree-002
+  surface_id: sur-sqlite3btreecursor
+  name: Cursor seek/insert/delete operations
+  status: candidate
+  slice_id: btree
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Cursor positioning and mutation incl. page balancing; file-format invariants.
 - behaviour_id: builtin-scalar-agg-funcs-001
   surface_id: sur-sqlite3registerbuiltinfunctions
   name: Core scalar function family
@@ -1108,6 +1210,25 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Schema rewriting with cross-object reference fixup (views/triggers referencing renamed
     entities).
+- behaviour_id: dml-codegen-001
+  surface_id: sur-sqlite3insert
+  name: DML statement compilation (3 write paths)
+  status: candidate
+  slice_id: dml-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast
+    path).
+- behaviour_id: dml-codegen-002
+  surface_id: sur-sqlite3generateconstraintchecks
+  name: Constraint checks + ON CONFLICT resolution matrix
+  status: candidate
+  slice_id: dml-codegen
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes.
 - behaviour_id: error-status-api-001
   surface_id: sur-sqlite3-errmsg
   name: Error introspection family
@@ -1533,6 +1654,43 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Rebuild into named URI target; source unchanged.
+- behaviour_id: vdbe-engine-001
+  surface_id: sur-sqlite3vdbeexec
+  name: Opcode interpreter loop
+  status: candidate
+  slice_id: vdbe-engine
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 199 OP_ cases; interruption, progress-callback and error unwinding semantics.
+- behaviour_id: vdbe-engine-002
+  surface_id: sur-src-vdbemem-c
+  name: Mem-cell value semantics (affinity/encoding conversions)
+  status: candidate
+  slice_id: vdbe-engine
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: 'confidence=observed-in-code; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.'
+- behaviour_id: where-optimizer-001
+  surface_id: sur-sqlite3wherebegin
+  name: WHERE-loop generation boundary
+  status: candidate
+  slice_id: where-optimizer
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; WhereBegin/WhereEnd bracket loop codegen for SELECT/UPDATE/DELETE.
+- behaviour_id: where-optimizer-002
+  surface_id: sur-wherepathsolver
+  name: Access-path enumeration and cost-based solver
+  status: candidate
+  slice_id: where-optimizer
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks
+    cheapest join order.
 - behaviour_id: window-functions-001
   surface_id: sur-sqlite3windowfunctions
   name: Built-in window function family
@@ -1551,17 +1709,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:01:08Z'
+last_updated: '2026-08-10T18:02:51Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 74
+  surfaces_total: 82
   surfaces_by_status:
-    candidate: 74
-  behaviours_known: 74
+    candidate: 82
+  behaviours_known: 82
   behaviours_by_status:
-    candidate: 74
-  unscanned_hints: 32
+    candidate: 82
+  unscanned_hints: 28
   legacy_green: 0
   parity_green: 0

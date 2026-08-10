@@ -1,0 +1,29 @@
+slice_id: btree
+seed: "B-tree storage layer (cursors, transactions, balancing)"
+seed_entrypoints: ["sqlite3BtreeOpen()", "sqlite3BtreeCursor()"]
+out_of_scope_hints: ["page cache", "WAL"]
+phase: A
+updated_at: 2026-08-10T18:02:36Z
+features:
+  - id: btree-001
+    name: Btree handle and transaction boundary
+    status: candidate
+    confidence: observed-in-code
+    summary: "Open/close btree on a pager; read/write transaction nesting with schema-version checks."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3BtreeOpen()"
+        evidence: ["src/btree.c:2562", "src/btree.c:3835"]
+    dependencies: ["pager"]
+    open_questions: []
+  - id: btree-002
+    name: Cursor seek/insert/delete operations
+    status: candidate
+    confidence: observed-in-code
+    summary: "Cursor positioning and mutation incl. page balancing; file-format invariants."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3BtreeCursor()"
+        evidence: ["src/btree.c:4799", "src/btree.c:5837", "src/btree.c:9441", "src/btree.c:9873"]
+    dependencies: ["btree-001"]
+    open_questions: ["File-format parity (fileformat2.html) is the real contract — characterize via db-file byte comparisons?"]
