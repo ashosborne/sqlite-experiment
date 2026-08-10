@@ -42,7 +42,7 @@ OUT_OF_SCOPE_HINTS:
 MAX_FILES_TOUCHED: 8000
 MAX_RUNTIME_HINT_HOURS: 14
 MAX_NEW_CANDIDATES: 250
-MAX_SLICES_PHASE_A: 0   # 0 = no artificial Phase A slice cap; keep going until stop conditions
+MAX_SLICES_PHASE_A: 0   # stock meaning: 0 = uncapped (loop must not invent a numeric default)
 WRITE_SCOPE: factory-artefacts-only
 NO_COMMITS_TO_DEFAULT_BRANCH: true
 COMMIT_AS: estate-discovery-loop

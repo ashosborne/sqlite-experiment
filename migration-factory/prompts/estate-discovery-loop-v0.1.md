@@ -1,4 +1,4 @@
-# Estate discovery loop (v0.1.1) - overnight surface hunter
+# Estate discovery loop (v0.1.2) - overnight surface hunter
 
 > **EXPERIMENTAL.** Inventory radar only. Not a default factory stage. Does not bind, deepen, test, or convert. Never claims estate completeness.
 
@@ -24,7 +24,7 @@ APP_ID: cargotracker          # change per estate
 REPO_ROOT: .
 FACTORY_ROOT: migration-factory
 MAX_ITERATIONS: 12            # hard cap for overnight
-MAX_NEW_SEEDS_PER_ITER: 1     # one Discovery Phase A per loop
+MAX_NEW_SEEDS_PER_ITER: 1     # Phase A seeds to run inside each iteration (1 = serial)
 PHASE_B: false                # MUST stay false unless morning charter changes
 AUTO_BIND: false              # MUST stay false - candidates only
 AUTO_ACCEPT: false
@@ -35,8 +35,8 @@ ALLOWLIST_PATHS: []           # REQUIRED in customer rooms: dirs/modules/repos a
 OUT_OF_SCOPE_HINTS: []        # dirs/modules to never seed
 MAX_FILES_TOUCHED: 5000       # soft cap; stop iteration if exceeded
 MAX_RUNTIME_HINT_HOURS: 8
-MAX_NEW_CANDIDATES: 40
-MAX_SLICES_PHASE_A: 12
+MAX_NEW_CANDIDATES: 40        # stop when APP_MANIFEST candidate surface+behaviour count hits this
+MAX_SLICES_PHASE_A: 12        # stop when discovery/<SLICE_ID>/ count hits this; 0 = no slice cap
 WRITE_SCOPE: factory-artefacts-only  # discovery/**, inventory/**, overnight/** only
 NO_COMMITS_TO_DEFAULT_BRANCH: true
 COMMIT_AS: estate-discovery-loop
@@ -79,7 +79,7 @@ running Test gen / Architecture / Conversion, or minting fake `complete_bound`.
 - **Write scope:** Only `discovery/**`, `inventory/**`, `overnight/**` (and factory pack updates if present). No edits to legacy application source. No pushes to customer default branches.
 - **Label every finding** `confidence: observed-in-code` vs `inferred` (inferred never auto-promoted).
 - **Secrets:** skip `.env`, keystores, vault paths, `*.pem` / credential files; redact tokens in journals.
-- **Caps:** honour MAX_ITERATIONS, MAX_FILES_TOUCHED, MAX_RUNTIME_HINT_HOURS; stop on auth walls.
+- **Caps:** honour MAX_ITERATIONS, MAX_NEW_SEEDS_PER_ITER, MAX_NEW_CANDIDATES, MAX_SLICES_PHASE_A (0 = uncapped), MAX_FILES_TOUCHED, MAX_RUNTIME_HINT_HOURS; stop on auth walls.
 - **Abort:** if `overnight/stop.txt` appears, halt cleanly and write MORNING_BRIEF from progress so far.
 
 ---
@@ -107,22 +107,28 @@ This prompt is **inventory radar** only. Do not smuggle in Conversion conductor 
 
 ### Each iteration (1..MAX_ITERATIONS)
 
-1. **Pick next seed** (in order):
+Each iteration may process up to `MAX_NEW_SEEDS_PER_ITER` seeds (default 1). Do not hardcode a single seed when the charter sets a higher value.
+
+1. **Pick next seed batch** (up to `MAX_NEW_SEEDS_PER_ITER`, in order):
    - Operator `INITIAL_SEEDS` not yet tried
-   - Else highest-value item from `unscanned_hints` (prefer: inbound HTTP, then messaging, then batch)
-   - Else STOP with residual register
-2. **Slice-scope** using `slice-scoping` skill: propose `SLICE_ID`, seed text, out-of-scope, entrypoints.
-   Write `overnight/seeds/<SLICE_ID>.md`. Refuse mega-slices ("whole module"). Prefer thin, characterizable seams.
-3. **Discovery Phase A only** for that slice (Discovery agent prompt).
-   Outputs under `discovery/<SLICE_ID>/`: `CANDIDATES.md`, stub `MANIFEST.yaml` (all `candidate`), `SME_BRIEF.md`.
-4. **Upsert APP_MANIFEST**: add/update surfaces + behaviour stubs as `candidate`/`unknown`;
-   append `scanned_seeds`; shrink/adjust `unscanned_hints` honestly (do not delete a hint unless scanned or explicitly out-of-scope).
-5. **Regenerate COVERAGE.md**.
-6. **Journal** what was added, skipped, and why.
-7. **Stop checks:**
+   - Else highest-value remaining items from `unscanned_hints` (prefer: inbound HTTP, then messaging, then batch / callable module seams)
+   - If the batch is empty: STOP with residual register
+2. **For each seed in the batch** (stop early inside the batch if a run-level stop check below trips):
+   1. **Slice-scope** using `slice-scoping` skill: propose `SLICE_ID`, seed text, out-of-scope, entrypoints.
+      Write `overnight/seeds/<SLICE_ID>.md`. Refuse mega-slices ("whole module"). Prefer thin, characterizable seams.
+   2. **Discovery Phase A only** for that slice (Discovery agent prompt).
+      Outputs under `discovery/<SLICE_ID>/`: `CANDIDATES.md`, stub `MANIFEST.yaml` (all `candidate`), `SME_BRIEF.md`.
+   3. **Upsert APP_MANIFEST**: add/update surfaces + behaviour stubs as `candidate`/`unknown`;
+      append `scanned_seeds`; shrink/adjust `unscanned_hints` honestly (do not delete a hint unless scanned or explicitly out-of-scope).
+   4. **Regenerate COVERAGE.md**.
+3. **Journal** what was added, skipped, and why (one journal block per iteration; list every seed in the batch).
+4. **Stop checks** (after the batch, and also mid-batch if a hard cap is hit):
    - Hit MAX_ITERATIONS
+   - `MAX_SLICES_PHASE_A` > 0 and count of `discovery/<SLICE_ID>/` dirs created this run (plus prior resume artefacts) reaches the cap. **`0` means no slice cap** — do not invent a numeric default.
+   - Count of new `candidate`/`unknown` surfaces+behaviours added this run reaches `MAX_NEW_CANDIDATES`
    - STOP_WHEN_NO_NEW_SURFACES consecutive iters with no new surface_id/behaviour_id and no new hints
    - Blocker (build/tooling) recorded in BLOCKED.md
+   - MAX_FILES_TOUCHED / MAX_RUNTIME_HINT_HOURS soft caps
 
 ### End of run
 Write `overnight/MORNING_BRIEF.md` (one page):
@@ -158,7 +164,7 @@ Track whether this pass touched, skipped, or could not see:
 - Gateway/RAML/OpenAPI specs if present
 - UI-only adapters (note; deprioritize when a service boundary exists)
 
-Emit `overnight/METHOD_COVERAGE.md` + set APP_MANIFEST note `estate_scan: partial` until checklist is addressed. Zero-diff re-scan ≠ complete. Banner `ESTATE_SCAN_INCOMPLETE` in MORNING_BRIEF if checklist unmet.
+Emit `overnight/METHOD_COVERAGE.md`. Append to APP_MANIFEST `notes` (string field only — do not invent keys like `estate_scan`) a line such as `estate_scan=partial until METHOD_COVERAGE checklist addressed`. Zero-diff re-scan ≠ complete. Banner `ESTATE_SCAN_INCOMPLETE` in MORNING_BRIEF if checklist unmet.
 
 Log **what was not searched** (auth walls, binaries, missing repos, skipped allowlist holes) as first-class output in MORNING_BRIEF.
 
