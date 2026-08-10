@@ -1,0 +1,29 @@
+slice_id: malloc-subsystem
+seed: "memory allocation: public malloc API, lookaside, alternative allocators"
+seed_entrypoints: ["sqlite3_malloc64()"]
+out_of_scope_hints: ["status counters", "pcache memory"]
+phase: A
+updated_at: 2026-08-10T18:05:49Z
+features:
+  - id: malloc-subsystem-001
+    name: Public malloc API and memory accounting
+    status: candidate
+    confidence: observed-in-code
+    summary: "malloc/realloc/free family with soft-heap-limit accounting; alternative backends mem0..mem5 compile-time selected."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_malloc64()"
+        evidence: ["src/malloc.c:322", "src/malloc.c:296", "src/malloc.c:197", "src/malloc.c:159"]
+    dependencies: []
+    open_questions: []
+  - id: malloc-subsystem-002
+    name: Lookaside per-connection allocator
+    status: candidate
+    confidence: observed-in-code
+    summary: "Two-size lookaside slots; db_config knobs; OOM fallback to general allocator."
+    entrypoints:
+      - kind: other
+        locator: "lookaside (src/malloc.c)"
+        evidence: ["src/malloc.c:330", "src/malloc.c:348"]
+    dependencies: ["malloc-subsystem-001"]
+    open_questions: []

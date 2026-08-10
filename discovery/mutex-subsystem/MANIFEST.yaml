@@ -1,0 +1,18 @@
+slice_id: mutex-subsystem
+seed: "mutex abstraction (pluggable methods, noop/unix/win impls)"
+seed_entrypoints: ["sqlite3_mutex_alloc()"]
+out_of_scope_hints: ["btree locking policies"]
+phase: A
+updated_at: 2026-08-10T18:05:49Z
+features:
+  - id: mutex-subsystem-001
+    name: Pluggable mutex abstraction
+    status: candidate
+    confidence: observed-in-code
+    summary: "Method-table plugin (config-replaceable); static vs dynamic mutexes; pthread/win/noop backends."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3_mutex_alloc()"
+        evidence: ["src/mutex.c:290", "src/mutex.c:228", "src/mutex_unix.c:393"]
+    dependencies: []
+    open_questions: ["Threading mode of downstream consumers?"]

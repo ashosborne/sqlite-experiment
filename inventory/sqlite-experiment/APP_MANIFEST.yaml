@@ -43,11 +43,11 @@ scanned_seeds:
 - pcache
 - vfs-os-abstraction
 - wal
+- malloc-subsystem
+- mutex-subsystem
+- util-primitives
+- vtab-core
 unscanned_hints:
-- 'src: malloc-subsystem — allocators + memory status (src/malloc.c, src/mem0.c..mem5.c)'
-- 'src: mutex-subsystem — mutex implementations (src/mutex*.c)'
-- 'src: util-primitives — utf/random/hash/bitvec/rowset (src/utf.c, src/random.c, src/hash.c, src/bitvec.c, src/rowset.c)'
-- 'src: vtab-core — virtual table mechanism (src/vtab.c)'
 - 'src: introspection-vtabs — dbstat/dbpage/bytecode vtabs (src/dbstat.c, src/dbpage.c, src/vdbevtab.c)'
 - 'src: shell-cli — sqlite3 command-line shell (src/shell.c.in)'
 - 'src: tcl-binding — TCL language binding (src/tclsqlite.c)'
@@ -578,6 +578,39 @@ surfaces:
   - src/loadext.c:561
   - src/loadext.c:762
   - src/sqlite.h.in:7609
+- surface_id: sur-lookaside-src-malloc-c
+  kind: other
+  locator: lookaside (src/malloc.c)
+  repo_path: src/malloc.c
+  status: candidate
+  slice_id: malloc-subsystem
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/malloc.c:330
+  - src/malloc.c:348
+- surface_id: sur-sqlite3-malloc64
+  kind: other
+  locator: sqlite3_malloc64()
+  repo_path: src/malloc.c
+  status: candidate
+  slice_id: malloc-subsystem
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/malloc.c:322
+  - src/malloc.c:296
+  - src/malloc.c:197
+  - src/malloc.c:159
+- surface_id: sur-sqlite3-mutex-alloc
+  kind: other
+  locator: sqlite3_mutex_alloc()
+  repo_path: src/mutex.c
+  status: candidate
+  slice_id: mutex-subsystem
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/mutex.c:290
+  - src/mutex.c:228
+  - src/mutex_unix.c:393
 - surface_id: sur-sqlite3resolveexprnames
   kind: other
   locator: sqlite3ResolveExprNames()
@@ -905,6 +938,18 @@ surfaces:
   discovery_evidence:
   - src/upsert.c:267
   - src/upsert.c:55
+- surface_id: sur-sqlite3-randomness
+  kind: other
+  locator: sqlite3_randomness()
+  repo_path: src/random.c
+  status: candidate
+  slice_id: util-primitives
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/random.c:59
+  - src/utf.c:175
+  - src/utf.c:475
+  - src/hash.c:23
 - surface_id: sur-sqlite3runvacuum
   kind: other
   locator: sqlite3RunVacuum()
@@ -978,6 +1023,29 @@ surfaces:
   - src/os_unix.c:6519
   - src/os_unix.c:8472
   - src/os_unix.c:4952
+- surface_id: sur-sqlite3-create-module
+  kind: other
+  locator: sqlite3_create_module()
+  repo_path: src/vtab.c
+  status: candidate
+  slice_id: vtab-core
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vtab.c:108
+  - src/vtab.c:123
+  - src/vtab.c:774
+  - src/vtab.c:699
+  - src/sqlite.h.in:8002
+- surface_id: sur-sqlite3-declare-vtab
+  kind: other
+  locator: sqlite3_declare_vtab()
+  repo_path: src/vtab.c
+  status: candidate
+  slice_id: vtab-core
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/vtab.c:815
+  - src/vtab.c:1339
 - surface_id: sur-sqlite3walcheckpoint
   kind: other
   locator: sqlite3WalCheckpoint()
@@ -1479,6 +1547,35 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
     APIs.
+- behaviour_id: malloc-subsystem-001
+  surface_id: sur-sqlite3-malloc64
+  name: Public malloc API and memory accounting
+  status: candidate
+  slice_id: malloc-subsystem
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; malloc/realloc/free family with soft-heap-limit accounting; alternative backends mem0..mem5
+    compile-time selected.
+- behaviour_id: malloc-subsystem-002
+  surface_id: sur-lookaside-src-malloc-c
+  name: Lookaside per-connection allocator
+  status: candidate
+  slice_id: malloc-subsystem
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator.
+- behaviour_id: mutex-subsystem-001
+  surface_id: sur-sqlite3-mutex-alloc
+  name: Pluggable mutex abstraction
+  status: candidate
+  slice_id: mutex-subsystem
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Method-table plugin (config-replaceable); static vs dynamic mutexes; pthread/win/noop
+    backends.
 - behaviour_id: name-resolution-001
   surface_id: sur-sqlite3resolveexprnames
   name: Column/table name lookup and ambiguity rules
@@ -1766,6 +1863,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Generates UPDATE against conflicting row; excluded.* pseudo-table bindings.
+- behaviour_id: util-primitives-001
+  surface_id: sur-sqlite3-randomness
+  name: Shared primitives (UTF codecs, PRNG, hash)
+  status: candidate
+  slice_id: util-primitives
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public
+    API); string hash tables.
 - behaviour_id: vacuum-001
   surface_id: sur-sqlite3runvacuum
   name: VACUUM full rebuild
@@ -1829,6 +1936,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; os_win.c full win32 VFS; os_kv.c key-value VFS (wasm/localStorage backend).
+- behaviour_id: vtab-core-001
+  surface_id: sur-sqlite3-create-module
+  name: Module registration and vtab lifecycle
+  status: candidate
+  slice_id: vtab-core
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect.
+- behaviour_id: vtab-core-002
+  surface_id: sur-sqlite3-declare-vtab
+  name: declare_vtab and vtab_config negotiation
+  status: candidate
+  slice_id: vtab-core
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Column-shape declaration from inside xCreate/xConnect; constraint support flags.
 - behaviour_id: wal-001
   surface_id: sur-sqlite3walframes
   name: WAL write path and reader snapshots
@@ -1884,17 +2009,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:04:26Z'
+last_updated: '2026-08-10T18:06:03Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 91
+  surfaces_total: 97
   surfaces_by_status:
-    candidate: 91
-  behaviours_known: 91
+    candidate: 97
+  behaviours_known: 97
   behaviours_by_status:
-    candidate: 91
-  unscanned_hints: 24
+    candidate: 97
+  unscanned_hints: 20
   legacy_green: 0
   parity_green: 0

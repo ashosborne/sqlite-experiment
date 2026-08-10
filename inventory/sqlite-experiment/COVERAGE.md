@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:04:27Z
+- Generated: 2026-08-10T18:06:04Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:04:26Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:06:03Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 91 |
-| Behaviours known | 91 |
-| Seeds scanned | 36 |
-| Unscanned hints (residual) | 24 |
+| Surfaces total | 97 |
+| Behaviours known | 97 |
+| Seeds scanned | 40 |
+| Unscanned hints (residual) | 20 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 91 |
+| candidate | 97 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 91 |
+| candidate | 97 |
 
 ## Surfaces per slice
 
@@ -51,6 +51,8 @@
 | foreign-keys | 3 |
 | json-funcs | 4 |
 | loadext-api | 2 |
+| malloc-subsystem | 2 |
+| mutex-subsystem | 1 |
 | name-resolution | 2 |
 | pager | 2 |
 | parser-grammar | 2 |
@@ -64,9 +66,11 @@
 | triggers | 2 |
 | unlock-notify-api | 1 |
 | upsert | 2 |
+| util-primitives | 1 |
 | vacuum | 2 |
 | vdbe-engine | 2 |
 | vfs-os-abstraction | 3 |
+| vtab-core | 2 |
 | wal | 2 |
 | where-optimizer | 2 |
 | window-functions | 2 |
@@ -109,13 +113,13 @@
 - `pcache`
 - `vfs-os-abstraction`
 - `wal`
+- `malloc-subsystem`
+- `mutex-subsystem`
+- `util-primitives`
+- `vtab-core`
 
 ## Unscanned hints (residual register)
 
-- src: malloc-subsystem — allocators + memory status (src/malloc.c, src/mem0.c..mem5.c)
-- src: mutex-subsystem — mutex implementations (src/mutex*.c)
-- src: util-primitives — utf/random/hash/bitvec/rowset (src/utf.c, src/random.c, src/hash.c, src/bitvec.c, src/rowset.c)
-- src: vtab-core — virtual table mechanism (src/vtab.c)
 - src: introspection-vtabs — dbstat/dbpage/bytecode vtabs (src/dbstat.c, src/dbpage.c, src/vdbevtab.c)
 - src: shell-cli — sqlite3 command-line shell (src/shell.c.in)
 - src: tcl-binding — TCL language binding (src/tclsqlite.c)

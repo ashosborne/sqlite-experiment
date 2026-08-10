@@ -108,3 +108,14 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - vfs-os-abstraction: 3 candidates (registry, unix impl, win/kv variants). Platform-scope bind question raised.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 182/250 (91 surfaces + 91 behaviours). Slices: 36. Zero-new-streak: 0.
+
+## Iteration 10 — seeds: malloc-subsystem, mutex-subsystem, util-primitives, vtab-core
+
+- stop.txt: absent.
+- malloc-subsystem: 2 candidates; mem0..mem5 alternates recorded in-card (compile-time variants, not slices).
+- mutex-subsystem: 1 candidate (platform-retained; defer recommended in prose).
+- util-primitives: 1 clustered candidate; bitvec/rowset skipped-with-reason (no callable boundary).
+- vtab-core: 2 candidates; early bind recommended (all ext vtab slices depend on it).
+- Deliberately lean batch (6 features) to stretch the remaining candidate budget across the full ext/ backlog.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 194/250 (97 surfaces + 97 behaviours). Slices: 40. Zero-new-streak: 0.
