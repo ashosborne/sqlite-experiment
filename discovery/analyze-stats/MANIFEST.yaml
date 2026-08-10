@@ -1,0 +1,29 @@
+slice_id: analyze-stats
+seed: "ANALYZE command + sqlite_stat1/stat4 planner statistics"
+seed_entrypoints: ["sqlite3Analyze()"]
+out_of_scope_hints: ["planner cost model usage"]
+phase: A
+updated_at: 2026-08-10T17:59:25Z
+features:
+  - id: analyze-stats-001
+    name: ANALYZE writes sqlite_stat1 (and stat4 when enabled)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3Analyze()"
+        evidence: ["src/analyze.c:1457", "src/analyze.c:977", "src/analyze.c:20", "src/analyze.c:23"]
+    dependencies: ["btree"]
+    open_questions: ["STAT4 enabled in target build?"]
+  - id: analyze-stats-002
+    name: Statistics load into query planner
+    status: candidate
+    confidence: observed-in-code
+    summary: "AnalysisLoad parses stat rows into Index cost fields at schema load."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3AnalysisLoad()"
+        evidence: ["src/analyze.c:1942"]
+    dependencies: ["where-optimizer"]
+    open_questions: []

@@ -67,3 +67,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - foreign-keys: 3 candidates; pragma-gated default (off) raised as SME question.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 110/250 (55 surfaces + 55 behaviours). Slices: 20. Zero-new-streak: 0.
+
+## Iteration 6 — seeds: ddl-schema, analyze-stats, vacuum, tokenizer
+
+- stop.txt: absent.
+- ddl-schema: 3 candidates (table/view, index, ALTER family — schema-rewrite risk flagged).
+- analyze-stats: 2 candidates (ANALYZE write path, stats load); plan-stability caveat for characterization.
+- vacuum: 2 candidates (rebuild, VACUUM INTO).
+- tokenizer: 2 candidates (driver loop, sqlite3_complete); keywordhash.h is generated — cited src inputs only.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 128/250 (64 surfaces + 64 behaviours). Slices: 24. Zero-new-streak: 0.

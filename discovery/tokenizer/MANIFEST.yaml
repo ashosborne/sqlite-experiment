@@ -1,0 +1,29 @@
+slice_id: tokenizer
+seed: "SQL tokenizer + statement-completeness checker"
+seed_entrypoints: ["sqlite3RunParser()", "sqlite3_complete()"]
+out_of_scope_hints: ["grammar reductions"]
+phase: A
+updated_at: 2026-08-10T17:59:25Z
+features:
+  - id: tokenizer-001
+    name: Tokenizer and parser driver loop
+    status: candidate
+    confidence: observed-in-code
+    summary: "Character-class token scanner feeding Lemon parser; error token handling."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3RunParser()"
+        evidence: ["src/tokenize.c:600", "src/tokenize.c:197"]
+    dependencies: ["parser-grammar"]
+    open_questions: []
+  - id: tokenizer-002
+    name: sqlite3_complete statement detection
+    status: candidate
+    confidence: observed-in-code
+    summary: "Public API state machine deciding whether SQL text ends in a complete statement (trigger-aware)."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_complete()"
+        evidence: ["src/complete.c:340"]
+    dependencies: []
+    open_questions: []

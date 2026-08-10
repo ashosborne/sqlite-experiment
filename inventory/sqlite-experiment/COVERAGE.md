@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:57:53Z
+- Generated: 2026-08-10T17:59:40Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:57:52Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:59:39Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 55 |
-| Behaviours known | 55 |
-| Seeds scanned | 20 |
-| Unscanned hints (residual) | 40 |
+| Surfaces total | 64 |
+| Behaviours known | 64 |
+| Seeds scanned | 24 |
+| Unscanned hints (residual) | 36 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,18 +22,19 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 55 |
+| candidate | 64 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 55 |
+| candidate | 64 |
 
 ## Surfaces per slice
 
 | Slice | Surfaces |
 | --- | --- |
+| analyze-stats | 2 |
 | attach-detach | 3 |
 | auth-callback-api | 2 |
 | backup-api | 3 |
@@ -41,6 +42,7 @@
 | builtin-scalar-agg-funcs | 3 |
 | connection-lifecycle-api | 4 |
 | date-time-funcs | 4 |
+| ddl-schema | 3 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
 | foreign-keys | 3 |
@@ -50,9 +52,11 @@
 | prepare-statement-api | 6 |
 | printf-format | 3 |
 | serialize-memdb-api | 2 |
+| tokenizer | 2 |
 | triggers | 2 |
 | unlock-notify-api | 1 |
 | upsert | 2 |
+| vacuum | 2 |
 | window-functions | 2 |
 
 ## Scanned seeds
@@ -77,13 +81,13 @@
 - `triggers`
 - `upsert`
 - `window-functions`
+- `analyze-stats`
+- `ddl-schema`
+- `tokenizer`
+- `vacuum`
 
 ## Unscanned hints (residual register)
 
-- src: ddl-schema — CREATE/DROP/ALTER schema objects (src/build.c, src/alter.c)
-- src: analyze-stats — ANALYZE + sqlite_stat tables (src/analyze.c)
-- src: vacuum — VACUUM / VACUUM INTO (src/vacuum.c)
-- src: tokenizer — SQL tokenizer + complete() (src/tokenize.c, src/complete.c)
 - src: parser-grammar — Lemon grammar (src/parse.y)
 - src: name-resolution — identifier resolution (src/resolve.c, src/walker.c)
 - src: expr-codegen — expression code generation (src/expr.c)

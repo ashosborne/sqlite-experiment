@@ -1,0 +1,40 @@
+slice_id: ddl-schema
+seed: "CREATE/DROP TABLE, VIEW, INDEX + ALTER TABLE"
+seed_entrypoints: ["sqlite3StartTable()", "sqlite3CreateIndex()"]
+out_of_scope_hints: ["triggers", "ANALYZE"]
+phase: A
+updated_at: 2026-08-10T17:59:25Z
+features:
+  - id: ddl-schema-001
+    name: Table/view create-drop lifecycle
+    status: candidate
+    confidence: observed-in-code
+    summary: "CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3StartTable()"
+        evidence: ["src/build.c:1225", "src/build.c:2670", "src/build.c:3023", "src/build.c:3528"]
+    dependencies: ["btree"]
+    open_questions: []
+  - id: ddl-schema-002
+    name: Index create-drop lifecycle
+    status: candidate
+    confidence: observed-in-code
+    summary: "CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3CreateIndex()"
+        evidence: ["src/build.c:3974", "src/build.c:4629"]
+    dependencies: ["btree", "where-optimizer"]
+    open_questions: []
+  - id: ddl-schema-003
+    name: ALTER TABLE family (rename/add/rename-col/drop-col)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Schema rewriting with cross-object reference fixup (views/triggers referencing renamed entities)."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3AlterRenameTable()"
+        evidence: ["src/alter.c:124", "src/alter.c:313", "src/alter.c:599", "src/alter.c:2250"]
+    dependencies: ["ddl-schema-001"]
+    open_questions: ["legacy_alter_table pragma compatibility mode relevant?"]
