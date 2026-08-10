@@ -176,3 +176,10 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - **MAX_NEW_CANDIDATES (250) reached** at iteration 15 (of MAX_ITERATIONS 40). Loop halts per charter.
 - Seed backlog simultaneously exhausted (unscanned_hints: 0) — but the estate scan is still **incomplete by design**: residuals live in METHOD_COVERAGE blind spots (compile-time option matrix, fault-injection behaviour, generated-code surfaces, platform variants), not in the hint list.
 - Proceeding to end-of-run artefacts: METHOD_COVERAGE.md + MORNING_BRIEF.md.
+
+## End of run — closing artefacts + validation
+
+- Wrote overnight/METHOD_COVERAGE.md (checklist addressed; absent families recorded observed-absent; residuals 1-8 first-class) and overnight/MORNING_BRIEF.md (10 sections, ESTATE_SCAN_INCOMPLETE banner, completeness: incomplete, closing bind ask).
+- Final validation: APP_MANIFEST schema VALID; 60 slice manifests parse, 125 features all candidate with evidence+confidence; statuses = {candidate} only; no completion-% strings anywhere in factory artefacts.
+- git working tree touched only discovery/, inventory/, overnight/ throughout (checked before every commit). Product source untouched.
+- Final tally: 60 slices, 125 surfaces + 125 behaviours = 250 candidates (cap), 0 hints left in list, residuals recorded in METHOD_COVERAGE.
