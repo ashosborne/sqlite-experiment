@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor.local/migration-factory/architecture-pack.schema.json",
+  "title": "Architecture PACK",
+  "type": "object",
+  "required": [
+    "pack_id",
+    "version",
+    "status",
+    "migration_id",
+    "slice_ids",
+    "target_stack",
+    "style",
+    "layout",
+    "boundaries",
+    "api_contract_policy",
+    "data",
+    "authn_authz",
+    "interop",
+    "mapping_rules",
+    "non_goals",
+    "quality_gates",
+    "forbidden",
+    "edit_surface",
+    "known_risks",
+    "evidence",
+    "change_policy"
+  ],
+  "properties": {
+    "pack_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "BOUND",
+        "SUPERSEDED"
+      ]
+    },
+    "migration_id": {
+      "type": "string"
+    },
+    "slice_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "target_stack": {
+      "type": "object"
+    },
+    "style": {
+      "type": "string"
+    },
+    "layout": {
+      "type": "object"
+    },
+    "boundaries": {
+      "type": "object"
+    },
+    "api_contract_policy": {
+      "type": "object"
+    },
+    "data": {
+      "type": "object"
+    },
+    "authn_authz": {
+      "type": "object"
+    },
+    "interop": {
+      "type": "object"
+    },
+    "mapping_rules": {
+      "type": "array",
+      "minItems": 1
+    },
+    "non_goals": {
+      "type": "array"
+    },
+    "quality_gates": {
+      "type": "object",
+      "properties": {
+        "characterization": {
+          "type": "string"
+        },
+        "waiver": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        },
+        "commands": {
+          "type": "array"
+        },
+        "review_skills": {
+          "type": "array"
+        },
+        "done_checks": {
+          "type": "array"
+        },
+        "provisional_pins": {
+          "type": "array"
+        }
+      }
+    },
+    "forbidden": {
+      "type": "array"
+    },
+    "edit_surface": {
+      "type": "object",
+      "required": [
+        "allow",
+        "deny"
+      ],
+      "properties": {
+        "allow": {
+          "type": "array"
+        },
+        "deny": {
+          "type": "array"
+        }
+      }
+    },
+    "known_risks": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "discovery_manifest",
+        "replay_green_run_ids"
+      ],
+      "properties": {
+        "discovery_manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replay_green_run_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "waiver_record": {
+          "type": "string"
+        },
+        "behaviour_cards": {
+          "type": "array"
+        },
+        "testgen_traceability": {
+          "type": "string"
+        }
+      }
+    },
+    "bound_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bound_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "change_policy": {
+      "type": "string"
+    },
+    "reference_skeleton": {}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "BOUND"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "bound_by",
+          "bound_at"
+        ],
+        "properties": {
+          "bound_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bound_at": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "quality_gates": {
+                  "type": "object",
+                  "required": [
+                    "characterization"
+                  ],
+                  "properties": {
+                    "characterization": {
+                      "type": "string",
+                      "pattern": "^WAIVED_"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "quality_gates"
+              ]
+            },
+            "then": {
+              "properties": {
+                "quality_gates": {
+                  "type": "object",
+                  "required": [
+                    "characterization",
+                    "waiver"
+                  ],
+                  "properties": {
+                    "characterization": {
+                      "type": "string",
+                      "pattern": "^WAIVED_"
+                    },
+                    "waiver": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "evidence": {
+                  "type": "object",
+                  "required": [
+                    "discovery_manifest",
+                    "replay_green_run_ids",
+                    "waiver_record"
+                  ],
+                  "properties": {
+                    "discovery_manifest": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "replay_green_run_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "waiver_record": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "evidence": {
+                  "type": "object",
+                  "required": [
+                    "discovery_manifest",
+                    "replay_green_run_ids"
+                  ],
+                  "properties": {
+                    "discovery_manifest": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "replay_green_run_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
