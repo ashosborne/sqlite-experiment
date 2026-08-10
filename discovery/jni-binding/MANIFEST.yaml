@@ -1,0 +1,18 @@
+slice_id: jni-binding
+seed: "Java/JNI language binding"
+seed_entrypoints: ["JNIEXPORT bridges (ext/jni/src/c/sqlite3-jni.c)"]
+out_of_scope_hints: ["core C API behaviour", "Java build tooling"]
+phase: A
+updated_at: 2026-08-10T18:11:50Z
+features:
+  - id: jni-binding-001
+    name: JNI adapter layer (C-to-Java bridge)
+    status: candidate
+    confidence: observed-in-code
+    summary: "1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules."
+    entrypoints:
+      - kind: other
+        locator: "ext/jni/src/c/sqlite3-jni.c"
+        evidence: ["ext/jni/src/c/sqlite3-jni.c", "ext/jni/src/c/sqlite3-jni.h"]
+    dependencies: ["connection-lifecycle-api", "prepare-statement-api"]
+    open_questions: ["Is the Java binding a consumed product surface downstream?"]

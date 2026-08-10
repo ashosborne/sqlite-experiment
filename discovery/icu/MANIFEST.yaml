@@ -1,0 +1,18 @@
+slice_id: icu
+seed: "ICU extension: unicode-aware LIKE/REGEXP/upper/lower + collations"
+seed_entrypoints: ["sqlite3IcuInit()"]
+out_of_scope_hints: ["core LIKE machinery"]
+phase: A
+updated_at: 2026-08-10T18:11:50Z
+features:
+  - id: icu-001
+    name: ICU function and collation pack
+    status: candidate
+    confidence: observed-in-code
+    summary: "ICU-backed like/regexp/upper/lower overrides + icu_load_collation for locale collations."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3IcuInit()"
+        evidence: ["ext/icu/icu.c:538", "ext/icu/icu.c:546", "ext/icu/icu.c:213", "ext/icu/icu.c:465"]
+    dependencies: ["builtin-scalar-agg-funcs"]
+    open_questions: ["ICU library version pinning affects collation order — parity risk"]

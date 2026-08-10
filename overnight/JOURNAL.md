@@ -149,3 +149,14 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - expert: 1 candidate (advisory tooling).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 234/250 (117 surfaces + 117 behaviours). Slices: 52. Zero-new-streak: 0.
+
+## Iteration 14 — seeds: icu, qrf, jni-binding, wasm-binding
+
+- stop.txt: absent.
+- icu: 1 candidate; ICU-version collation-order parity risk flagged.
+- qrf: 1 candidate (single-entrypoint formatter; impl qrf.c:3068).
+- jni-binding: 1 umbrella candidate (macro-generated JNI bridges); consumer-evidence SME question.
+- wasm-binding: 1 umbrella candidate (JS APIs + OPFS VFS); fiddle UI deprioritized per loop rules; emscripten build tooling skipped-with-reason.
+- Lean batch by design: remaining candidate budget reserved so all four ext/misc clusters can still be scanned before the cap.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 242/250 (121 surfaces + 121 behaviours). Slices: 56. Zero-new-streak: 0.

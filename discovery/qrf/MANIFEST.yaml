@@ -1,0 +1,18 @@
+slice_id: qrf
+seed: "query result formatter utility library"
+seed_entrypoints: ["sqlite3_format_query_result()"]
+out_of_scope_hints: ["shell .mode implementations"]
+phase: A
+updated_at: 2026-08-10T18:11:50Z
+features:
+  - id: qrf-001
+    name: Spec-driven query result formatting
+    status: candidate
+    confidence: observed-in-code
+    summary: "sqlite3_qrf_spec controls output mode/widths/text escaping; single public entrypoint."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_format_query_result()"
+        evidence: ["ext/qrf/qrf.c:3068", "ext/qrf/qrf.h:68", "ext/qrf/qrf.h:27"]
+    dependencies: ["prepare-statement-api"]
+    open_questions: []

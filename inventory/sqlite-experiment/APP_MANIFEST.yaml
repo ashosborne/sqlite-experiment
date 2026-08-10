@@ -59,11 +59,11 @@ scanned_seeds:
 - intck
 - rbu
 - recover
+- icu
+- jni-binding
+- qrf
+- wasm-binding
 unscanned_hints:
-- 'ext: icu — ICU collation/LIKE/upper-lower (ext/icu/)'
-- 'ext: qrf — query result formatter (ext/qrf/)'
-- 'ext: jni-binding — Java/JNI binding (ext/jni/)'
-- 'ext: wasm-binding — WASM/JS binding + fiddle (ext/wasm/)'
 - 'ext: misc-vfs-shims — VFS wrapper extensions (ext/misc: appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm,
   memtrace, pcachetrace)'
 - 'ext: misc-func-packs — SQL function extensions (ext/misc: base64, base85, basexx, decimal, ieee754, regexp, sha1, shathree,
@@ -579,6 +579,18 @@ surfaces:
   - ext/rtree/geopoly.c:1237
   - ext/rtree/geopoly.c:1180
   - ext/rtree/geopoly.c:1753
+- surface_id: sur-sqlite3icuinit
+  kind: other
+  locator: sqlite3IcuInit()
+  repo_path: ext/icu/icu.c
+  status: candidate
+  slice_id: icu
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/icu/icu.c:538
+  - ext/icu/icu.c:546
+  - ext/icu/icu.c:213
+  - ext/icu/icu.c:465
 - surface_id: sur-sqlite3-intck-open
   kind: other
   locator: sqlite3_intck_open()
@@ -601,6 +613,16 @@ surfaces:
   - src/dbstat.c:874
   - src/dbpage.c:473
   - src/vdbevtab.c:436
+- surface_id: sur-ext-jni-src-c-sqlite3-jni-c
+  kind: other
+  locator: ext/jni/src/c/sqlite3-jni.c
+  repo_path: ext/jni/src/c/sqlite3-jni.c
+  status: candidate
+  slice_id: jni-binding
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/jni/src/c/sqlite3-jni.c
+  - ext/jni/src/c/sqlite3-jni.h
 - surface_id: sur-jsoneachmodule
   kind: other
   locator: jsonEachModule
@@ -899,6 +921,17 @@ surfaces:
   discovery_evidence:
   - src/printf.c:1447
   - src/printf.c:192
+- surface_id: sur-sqlite3-format-query-result
+  kind: other
+  locator: sqlite3_format_query_result()
+  repo_path: ext/qrf/qrf.c
+  status: candidate
+  slice_id: qrf
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/qrf/qrf.c:3068
+  - ext/qrf/qrf.h:68
+  - ext/qrf/qrf.h:27
 - surface_id: sur-sqlite3rbu-open
   kind: other
   locator: sqlite3rbu_open()
@@ -1280,6 +1313,18 @@ surfaces:
   - src/wal.c:4275
   - src/wal.c:1647
   - src/wal.c:3493
+- surface_id: sur-ext-wasm-api-sqlite3-wasm-c
+  kind: other
+  locator: ext/wasm/api/sqlite3-wasm.c
+  repo_path: ext/wasm/api/sqlite3-wasm.c
+  status: candidate
+  slice_id: wasm-binding
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-wasm.c:236
+  - ext/wasm/api/sqlite3-wasm.c:145
+  - ext/wasm/api/sqlite3-api-glue.c-pp.js
+  - ext/wasm/api/sqlite3-api-oo1.c-pp.js
 - surface_id: sur-sqlite3wherebegin
   kind: other
   locator: sqlite3WhereBegin()
@@ -1759,6 +1804,15 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function
     query planning.
+- behaviour_id: icu-001
+  surface_id: sur-sqlite3icuinit
+  name: ICU function and collation pack
+  status: candidate
+  slice_id: icu
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; ICU-backed like/regexp/upper/lower overrides + icu_load_collation for locale collations.
 - behaviour_id: intck-001
   surface_id: sur-sqlite3-intck-open
   name: Incremental integrity-check lifecycle
@@ -1777,6 +1831,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE programs.
+- behaviour_id: jni-binding-001
+  surface_id: sur-ext-jni-src-c-sqlite3-jni-c
+  name: JNI adapter layer (C-to-Java bridge)
+  status: candidate
+  slice_id: jni-binding
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread
+    rules.
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
@@ -2036,6 +2100,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps.
+- behaviour_id: qrf-001
+  surface_id: sur-sqlite3-format-query-result
+  name: Spec-driven query result formatting
+  status: candidate
+  slice_id: qrf
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_qrf_spec controls output mode/widths/text escaping; single public entrypoint.
 - behaviour_id: rbu-001
   surface_id: sur-sqlite3rbu-open
   name: RBU update lifecycle (resumable apply)
@@ -2371,6 +2444,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour.
+- behaviour_id: wasm-binding-001
+  surface_id: sur-ext-wasm-api-sqlite3-wasm-c
+  name: WASM/JS API layer with OPFS persistence
+  status: candidate
+  slice_id: wasm-binding
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
+    fiddle UI noted as adapter, deprioritized.
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
   name: WHERE-loop generation boundary
@@ -2408,17 +2491,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:10:44Z'
+last_updated: '2026-08-10T18:12:05Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 117
+  surfaces_total: 121
   surfaces_by_status:
-    candidate: 117
-  behaviours_known: 117
+    candidate: 121
+  behaviours_known: 121
   behaviours_by_status:
-    candidate: 117
-  unscanned_hints: 8
+    candidate: 121
+  unscanned_hints: 4
   legacy_green: 0
   parity_green: 0

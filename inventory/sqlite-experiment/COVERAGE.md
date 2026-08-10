@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:10:44Z
+- Generated: 2026-08-10T18:12:05Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:10:44Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:12:05Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 117 |
-| Behaviours known | 117 |
-| Seeds scanned | 52 |
-| Unscanned hints (residual) | 8 |
+| Surfaces total | 121 |
+| Behaviours known | 121 |
+| Seeds scanned | 56 |
+| Unscanned hints (residual) | 4 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 117 |
+| candidate | 121 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 117 |
+| candidate | 121 |
 
 ## Surfaces per slice
 
@@ -53,8 +53,10 @@
 | fts3 | 1 |
 | fts5 | 3 |
 | geopoly | 1 |
+| icu | 1 |
 | intck | 1 |
 | introspection-vtabs | 1 |
+| jni-binding | 1 |
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
@@ -66,6 +68,7 @@
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
+| qrf | 1 |
 | rbu | 2 |
 | recover | 2 |
 | rtree | 2 |
@@ -84,6 +87,7 @@
 | vfs-os-abstraction | 3 |
 | vtab-core | 2 |
 | wal | 2 |
+| wasm-binding | 1 |
 | where-optimizer | 2 |
 | window-functions | 2 |
 
@@ -141,13 +145,13 @@
 - `intck`
 - `rbu`
 - `recover`
+- `icu`
+- `jni-binding`
+- `qrf`
+- `wasm-binding`
 
 ## Unscanned hints (residual register)
 
-- ext: icu — ICU collation/LIKE/upper-lower (ext/icu/)
-- ext: qrf — query result formatter (ext/qrf/)
-- ext: jni-binding — Java/JNI binding (ext/jni/)
-- ext: wasm-binding — WASM/JS binding + fiddle (ext/wasm/)
 - ext: misc-vfs-shims — VFS wrapper extensions (ext/misc: appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace)
 - ext: misc-func-packs — SQL function extensions (ext/misc: base64, base85, basexx, decimal, ieee754, regexp, sha1, shathree, spellfix, totype, uint, uuid, fossildelta, compress, percentile, nextchar, rot13, urifuncs)
 - ext: misc-vtab-packs — virtual-table extensions (ext/misc: series, csv, unionvtab, qpvtab, completion, closure, amatch, fuzzer, prefixes, wholenumber, zipfile, sqlar, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder)
