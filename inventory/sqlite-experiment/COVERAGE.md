@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:09:26Z
+- Generated: 2026-08-10T18:10:44Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:09:25Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:10:44Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 111 |
-| Behaviours known | 111 |
-| Seeds scanned | 48 |
-| Unscanned hints (residual) | 12 |
+| Surfaces total | 117 |
+| Behaviours known | 117 |
+| Seeds scanned | 52 |
+| Unscanned hints (residual) | 8 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 111 |
+| candidate | 117 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 111 |
+| candidate | 117 |
 
 ## Surfaces per slice
 
@@ -47,11 +47,13 @@
 | dml-codegen | 2 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
+| expert | 1 |
 | expr-codegen | 3 |
 | foreign-keys | 3 |
 | fts3 | 1 |
 | fts5 | 3 |
 | geopoly | 1 |
+| intck | 1 |
 | introspection-vtabs | 1 |
 | json-funcs | 4 |
 | loadext-api | 2 |
@@ -64,6 +66,8 @@
 | pragma-surface | 2 |
 | prepare-statement-api | 6 |
 | printf-format | 3 |
+| rbu | 2 |
+| recover | 2 |
 | rtree | 2 |
 | select-codegen | 3 |
 | serialize-memdb-api | 2 |
@@ -133,13 +137,13 @@
 - `geopoly`
 - `rtree`
 - `session`
+- `expert`
+- `intck`
+- `rbu`
+- `recover`
 
 ## Unscanned hints (residual register)
 
-- ext: rbu — resumable bulk update (ext/rbu/)
-- ext: recover — corrupt-db recovery API (ext/recover/)
-- ext: intck — incremental integrity check (ext/intck/)
-- ext: expert — index recommendation (ext/expert/)
 - ext: icu — ICU collation/LIKE/upper-lower (ext/icu/)
 - ext: qrf — query result formatter (ext/qrf/)
 - ext: jni-binding — Java/JNI binding (ext/jni/)

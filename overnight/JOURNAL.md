@@ -139,3 +139,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - session: 3 candidates (record, apply/conflict, changeset algebra). Binary changeset format = interchange contract, flagged.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 222/250 (111 surfaces + 111 behaviours). Slices: 48. Zero-new-streak: 0.
+
+## Iteration 13 — seeds: rbu, recover, intck, expert
+
+- stop.txt: absent.
+- rbu: 2 candidates (resumable apply lifecycle — multi-stage async-like workflow flagged; vacuum mode).
+- recover: 2 candidates (recover-to-db, SQL-stream mode). dbdata vtab cited as dependency.
+- intck: 1 candidate (evidence corrected to public API lines 801/849/907 after verification).
+- expert: 1 candidate (advisory tooling).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 234/250 (117 surfaces + 117 behaviours). Slices: 52. Zero-new-streak: 0.
