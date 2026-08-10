@@ -1,0 +1,18 @@
+slice_id: misc-vtab-packs
+seed: "ext/misc virtual-table extensions"
+seed_entrypoints: ["sqlite3_series_init()", "sqlite3_csv_init()"]
+out_of_scope_hints: ["vtab mechanism", "src introspection vtabs"]
+phase: A
+updated_at: 2026-08-10T18:13:06Z
+features:
+  - id: misc-vtab-packs-001
+    name: Loadable virtual-table extension pack (~18)
+    status: candidate
+    confidence: observed-in-code
+    summary: "generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure, amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder."
+    entrypoints:
+      - kind: other
+        locator: "ext/misc vtab packs"
+        evidence: ["ext/misc/series.c:939", "ext/misc/csv.c:964", "ext/misc/zipfile.c:2294", "ext/misc/unionvtab.c:1371"]
+    dependencies: ["vtab-core", "loadext-api"]
+    open_questions: ["generate_series is commonly assumed built-in downstream — confirm build config"]

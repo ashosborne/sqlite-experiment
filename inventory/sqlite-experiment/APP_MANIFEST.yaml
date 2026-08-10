@@ -63,15 +63,11 @@ scanned_seeds:
 - jni-binding
 - qrf
 - wasm-binding
-unscanned_hints:
-- 'ext: misc-vfs-shims — VFS wrapper extensions (ext/misc: appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm,
-  memtrace, pcachetrace)'
-- 'ext: misc-func-packs — SQL function extensions (ext/misc: base64, base85, basexx, decimal, ieee754, regexp, sha1, shathree,
-  spellfix, totype, uint, uuid, fossildelta, compress, percentile, nextchar, rot13, urifuncs)'
-- 'ext: misc-vtab-packs — virtual-table extensions (ext/misc: series, csv, unionvtab, qpvtab, completion, closure, amatch,
-  fuzzer, prefixes, wholenumber, zipfile, sqlar, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder)'
-- 'ext: misc-utilities — remaining misc utilities (ext/misc: fileio, dbdump, eval, explain, memstat, diskused, noop, normalize,
-  randomjson, remember, stmtrand, strdup, showauth, anycollseq)'
+- misc-func-packs
+- misc-utilities
+- misc-vfs-shims
+- misc-vtab-packs
+unscanned_hints: []
 surfaces:
 - surface_id: sur-sqlite3analysisload
   kind: other
@@ -709,6 +705,54 @@ surfaces:
   - src/malloc.c:296
   - src/malloc.c:197
   - src/malloc.c:159
+- surface_id: sur-ext-misc-function-packs
+  kind: other
+  locator: ext/misc function packs
+  repo_path: ext/misc/decimal.c
+  status: candidate
+  slice_id: misc-func-packs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/decimal.c:922
+  - ext/misc/regexp.c:901
+  - ext/misc/spellfix.c:3085
+  - ext/misc/uuid.c:213
+- surface_id: sur-ext-misc-utilities
+  kind: other
+  locator: ext/misc utilities
+  repo_path: ext/misc/fileio.c
+  status: candidate
+  slice_id: misc-utilities
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/fileio.c:1266
+  - ext/misc/dbdump.c:695
+  - ext/misc/eval.c:119
+  - ext/misc/memstat.c:422
+- surface_id: sur-ext-misc-vfs-shims
+  kind: other
+  locator: ext/misc VFS shims
+  repo_path: ext/misc/appendvfs.c
+  status: candidate
+  slice_id: misc-vfs-shims
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/appendvfs.c:651
+  - ext/misc/cksumvfs.c:833
+  - ext/misc/vfsstat.c:806
+  - ext/misc/tmstmpvfs.c:1029
+- surface_id: sur-ext-misc-vtab-packs
+  kind: other
+  locator: ext/misc vtab packs
+  repo_path: ext/misc/series.c
+  status: candidate
+  slice_id: misc-vtab-packs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/series.c:939
+  - ext/misc/csv.c:964
+  - ext/misc/zipfile.c:2294
+  - ext/misc/unionvtab.c:1371
 - surface_id: sur-sqlite3-mutex-alloc
   kind: other
   locator: sqlite3_mutex_alloc()
@@ -1916,6 +1960,46 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator.
+- behaviour_id: misc-func-packs-001
+  surface_id: sur-ext-misc-function-packs
+  name: Loadable SQL-function extension pack (~18)
+  status: candidate
+  slice_id: misc-func-packs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
+    spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs.
+- behaviour_id: misc-utilities-001
+  surface_id: sur-ext-misc-utilities
+  name: Utility extension pack (~14)
+  status: candidate
+  slice_id: misc-utilities
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused,
+    noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize.
+- behaviour_id: misc-vfs-shims-001
+  surface_id: sur-ext-misc-vfs-shims
+  name: Stackable VFS shim family (9 extensions)
+  status: candidate
+  slice_id: misc-vfs-shims
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace
+    — wrappers over a lower VFS.
+- behaviour_id: misc-vtab-packs-001
+  surface_id: sur-ext-misc-vtab-packs
+  name: Loadable virtual-table extension pack (~18)
+  status: candidate
+  slice_id: misc-vtab-packs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
+    amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
 - behaviour_id: mutex-subsystem-001
   surface_id: sur-sqlite3-mutex-alloc
   name: Pluggable mutex abstraction
@@ -2491,17 +2575,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-10T18:12:05Z'
+last_updated: '2026-08-10T18:13:21Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 121
+  surfaces_total: 125
   surfaces_by_status:
-    candidate: 121
-  behaviours_known: 121
+    candidate: 125
+  behaviours_known: 125
   behaviours_by_status:
-    candidate: 121
-  unscanned_hints: 4
+    candidate: 125
+  unscanned_hints: 0
   legacy_green: 0
   parity_green: 0

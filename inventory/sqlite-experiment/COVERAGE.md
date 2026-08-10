@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:12:05Z
+- Generated: 2026-08-10T18:13:21Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:12:05Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T18:13:21Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 121 |
-| Behaviours known | 121 |
-| Seeds scanned | 56 |
-| Unscanned hints (residual) | 4 |
+| Surfaces total | 125 |
+| Behaviours known | 125 |
+| Seeds scanned | 60 |
+| Unscanned hints (residual) | 0 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 121 |
+| candidate | 125 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 121 |
+| candidate | 125 |
 
 ## Surfaces per slice
 
@@ -60,6 +60,10 @@
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
+| misc-func-packs | 1 |
+| misc-utilities | 1 |
+| misc-vfs-shims | 1 |
+| misc-vtab-packs | 1 |
 | mutex-subsystem | 1 |
 | name-resolution | 2 |
 | pager | 2 |
@@ -149,13 +153,14 @@
 - `jni-binding`
 - `qrf`
 - `wasm-binding`
+- `misc-func-packs`
+- `misc-utilities`
+- `misc-vfs-shims`
+- `misc-vtab-packs`
 
 ## Unscanned hints (residual register)
 
-- ext: misc-vfs-shims — VFS wrapper extensions (ext/misc: appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace)
-- ext: misc-func-packs — SQL function extensions (ext/misc: base64, base85, basexx, decimal, ieee754, regexp, sha1, shathree, spellfix, totype, uint, uuid, fossildelta, compress, percentile, nextchar, rot13, urifuncs)
-- ext: misc-vtab-packs — virtual-table extensions (ext/misc: series, csv, unionvtab, qpvtab, completion, closure, amatch, fuzzer, prefixes, wholenumber, zipfile, sqlar, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder)
-- ext: misc-utilities — remaining misc utilities (ext/misc: fileio, dbdump, eval, explain, memstat, diskused, noop, normalize, randomjson, remember, stmtrand, strdup, showauth, anycollseq)
+- (none)
 
 ## Notes
 

@@ -1,0 +1,18 @@
+slice_id: misc-func-packs
+seed: "ext/misc SQL function extensions"
+seed_entrypoints: ["sqlite3_decimal_init()", "sqlite3_regexp_init()"]
+out_of_scope_hints: ["built-in functions"]
+phase: A
+updated_at: 2026-08-10T18:13:06Z
+features:
+  - id: misc-func-packs-001
+    name: Loadable SQL-function extension pack (~18)
+    status: candidate
+    confidence: observed-in-code
+    summary: "base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp, spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs."
+    entrypoints:
+      - kind: other
+        locator: "ext/misc function packs"
+        evidence: ["ext/misc/decimal.c:922", "ext/misc/regexp.c:901", "ext/misc/spellfix.c:3085", "ext/misc/uuid.c:213"]
+    dependencies: ["loadext-api"]
+    open_questions: ["Which are compiled into the downstream build vs loaded at runtime?"]

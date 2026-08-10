@@ -1,0 +1,18 @@
+slice_id: misc-utilities
+seed: "remaining ext/misc utilities"
+seed_entrypoints: ["sqlite3_fileio_init()"]
+out_of_scope_hints: ["normalize.c test main"]
+phase: A
+updated_at: 2026-08-10T18:13:06Z
+features:
+  - id: misc-utilities-001
+    name: Utility extension pack (~14)
+    status: candidate
+    confidence: observed-in-code
+    summary: "fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused, noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize."
+    entrypoints:
+      - kind: other
+        locator: "ext/misc utilities"
+        evidence: ["ext/misc/fileio.c:1266", "ext/misc/dbdump.c:695", "ext/misc/eval.c:119", "ext/misc/memstat.c:422"]
+    dependencies: ["loadext-api"]
+    open_questions: ["fileio/eval grant SQL-level fs+exec-ish powers — deployment audit needed"]

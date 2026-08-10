@@ -160,3 +160,19 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Lean batch by design: remaining candidate budget reserved so all four ext/misc clusters can still be scanned before the cap.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 242/250 (121 surfaces + 121 behaviours). Slices: 56. Zero-new-streak: 0.
+
+## Iteration 15 — seeds: misc-vfs-shims, misc-func-packs, misc-vtab-packs, misc-utilities
+
+- stop.txt: absent.
+- misc-vfs-shims: 1 cluster candidate (9 shims); cksumvfs file-format impact flagged.
+- misc-func-packs: 1 cluster candidate (~18 loadable function extensions).
+- misc-vtab-packs: 1 cluster candidate (~18 loadable vtabs); generate_series build-config question flagged.
+- misc-utilities: 1 cluster candidate (~14 utilities); fileio/eval security posture flagged for audit.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 250/250 (125 surfaces + 125 behaviours). Slices: 60. unscanned_hints: 0.
+
+## STOP — run-level stop condition reached
+
+- **MAX_NEW_CANDIDATES (250) reached** at iteration 15 (of MAX_ITERATIONS 40). Loop halts per charter.
+- Seed backlog simultaneously exhausted (unscanned_hints: 0) — but the estate scan is still **incomplete by design**: residuals live in METHOD_COVERAGE blind spots (compile-time option matrix, fault-injection behaviour, generated-code surfaces, platform variants), not in the hint list.
+- Proceeding to end-of-run artefacts: METHOD_COVERAGE.md + MORNING_BRIEF.md.
