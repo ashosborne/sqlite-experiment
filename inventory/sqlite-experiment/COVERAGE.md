@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T17:54:32Z
+- Generated: 2026-08-10T17:56:28Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T17:54:31Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-10T17:56:27Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 33 |
-| Behaviours known | 33 |
-| Seeds scanned | 12 |
-| Unscanned hints (residual) | 48 |
+| Surfaces total | 46 |
+| Behaviours known | 46 |
+| Seeds scanned | 16 |
+| Unscanned hints (residual) | 44 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 33 |
+| candidate | 46 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 33 |
+| candidate | 46 |
 
 ## Surfaces per slice
 
@@ -40,10 +40,14 @@
 | blob-io-api | 2 |
 | builtin-scalar-agg-funcs | 3 |
 | connection-lifecycle-api | 4 |
+| date-time-funcs | 4 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
+| json-funcs | 4 |
 | loadext-api | 2 |
+| pragma-surface | 2 |
 | prepare-statement-api | 6 |
+| printf-format | 3 |
 | serialize-memdb-api | 2 |
 | unlock-notify-api | 1 |
 
@@ -61,13 +65,13 @@
 - `auth-callback-api`
 - `builtin-scalar-agg-funcs`
 - `error-status-api`
+- `date-time-funcs`
+- `json-funcs`
+- `pragma-surface`
+- `printf-format`
 
 ## Unscanned hints (residual register)
 
-- src: date-time-funcs — date/time SQL functions (src/date.c)
-- src: json-funcs — JSON SQL functions + json_tree/json_each (src/json.c)
-- src: printf-format — SQL printf/format + internal formatter (src/printf.c)
-- src: pragma-surface — PRAGMA dispatcher + pragma vtabs (src/pragma.c)
 - src: window-functions — SQL window functions (src/window.c)
 - src: upsert — ON CONFLICT DO UPDATE/NOTHING (src/upsert.c)
 - src: triggers — CREATE TRIGGER + firing (src/trigger.c)

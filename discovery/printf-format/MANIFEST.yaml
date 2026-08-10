@@ -1,0 +1,40 @@
+slice_id: printf-format
+seed: "printf/format SQL function + C-level mprintf/str builder"
+seed_entrypoints: ["sqlite3_mprintf()", "printf() SQL function"]
+out_of_scope_hints: ["general builtin funcs"]
+phase: A
+updated_at: 2026-08-10T17:56:13Z
+features:
+  - id: printf-format-001
+    name: SQL printf()/format() functions
+    status: candidate
+    confidence: observed-in-code
+    summary: "Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives."
+    entrypoints:
+      - kind: other
+        locator: "printfFunc()"
+        evidence: ["src/func.c:3369", "src/func.c:315", "src/printf.c:244"]
+    dependencies: []
+    open_questions: []
+  - id: printf-format-002
+    name: C API mprintf/vmprintf/snprintf
+    status: candidate
+    confidence: observed-in-code
+    summary: "Public C formatting entrypoints sharing the same core formatter."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_mprintf()"
+        evidence: ["src/printf.c:1519", "src/printf.c:1559"]
+    dependencies: []
+    open_questions: []
+  - id: printf-format-003
+    name: sqlite3_str string-builder API
+    status: candidate
+    confidence: observed-in-code
+    summary: "Dynamic string accumulator with error-state and precision/width caps."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_str_new()"
+        evidence: ["src/printf.c:1447", "src/printf.c:192"]
+    dependencies: ["malloc-subsystem"]
+    open_questions: []

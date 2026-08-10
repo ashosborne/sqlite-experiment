@@ -47,3 +47,13 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - builtin-scalar-agg-funcs: 3 clustered candidates over ~111 registry rows (scalars, aggregates, LIKE/GLOB). Refused card-per-function noise; sub-clustering recommended at bind.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - New candidates this run: 66/250 (33 surfaces + 33 behaviours). Slices: 12. Zero-new-streak: 0.
+
+## Iteration 4 — seeds: date-time-funcs, json-funcs, printf-format, pragma-surface
+
+- stop.txt: absent.
+- date-time-funcs: 4 candidates; localtime tz-dependence flagged for test pinning.
+- json-funcs: 4 clustered candidates over 33 registry rows (extract, mutate, validate, each/tree vtabs); JSONB format-stability question raised.
+- printf-format: 3 candidates (SQL func, C API, str builder); %q/%Q/%w quoting flagged as injection-safety relevant.
+- pragma-surface: 2 candidates (dispatcher + pragma vtabs); pragma table is generated from tool/mkpragmatab.tcl (out-of-scope path) — cited src/pragma.c only.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- New candidates this run: 92/250 (46 surfaces + 46 behaviours). Slices: 16. Zero-new-streak: 0.

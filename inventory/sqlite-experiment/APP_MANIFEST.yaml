@@ -19,11 +19,11 @@ scanned_seeds:
 - auth-callback-api
 - builtin-scalar-agg-funcs
 - error-status-api
+- date-time-funcs
+- json-funcs
+- pragma-surface
+- printf-format
 unscanned_hints:
-- 'src: date-time-funcs — date/time SQL functions (src/date.c)'
-- 'src: json-funcs — JSON SQL functions + json_tree/json_each (src/json.c)'
-- 'src: printf-format — SQL printf/format + internal formatter (src/printf.c)'
-- 'src: pragma-surface — PRAGMA dispatcher + pragma vtabs (src/pragma.c)'
 - 'src: window-functions — SQL window functions (src/window.c)'
 - 'src: upsert — ON CONFLICT DO UPDATE/NOTHING (src/upsert.c)'
 - 'src: triggers — CREATE TRIGGER + firing (src/trigger.c)'
@@ -260,6 +260,49 @@ surfaces:
   - src/main.c:2309
   - src/main.c:2369
   - src/main.c:2394
+- surface_id: sur-computejd-modifiers
+  kind: other
+  locator: computeJD()+modifiers
+  repo_path: src/date.c
+  status: candidate
+  slice_id: date-time-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/date.c:260
+  - src/date.c:763
+  - src/date.c:821
+  - src/date.c:898
+- surface_id: sur-datefunc-datetimefunc
+  kind: other
+  locator: dateFunc()/datetimeFunc()
+  repo_path: src/date.c
+  status: candidate
+  slice_id: date-time-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/date.c:1351
+  - src/date.c:1249
+  - src/date.c:1210
+  - src/date.c:1228
+  - src/date.c:1858
+- surface_id: sur-strftimefunc
+  kind: other
+  locator: strftimeFunc()
+  repo_path: src/date.c
+  status: candidate
+  slice_id: date-time-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/date.c:1463
+- surface_id: sur-timedifffunc
+  kind: other
+  locator: timediffFunc()
+  repo_path: src/date.c
+  status: candidate
+  slice_id: date-time-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/date.c:1671
 - surface_id: sur-sqlite3-errmsg
   kind: other
   locator: sqlite3_errmsg()
@@ -314,6 +357,46 @@ surfaces:
   discovery_evidence:
   - src/table.c:116
   - src/table.c:185
+- surface_id: sur-jsoneachmodule
+  kind: other
+  locator: jsonEachModule
+  repo_path: src/json.c
+  status: candidate
+  slice_id: json-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/json.c:5627
+- surface_id: sur-jsonextractfunc
+  kind: other
+  locator: jsonExtractFunc()
+  repo_path: src/json.c
+  status: candidate
+  slice_id: json-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/json.c:4071
+  - src/json.c:5660
+- surface_id: sur-jsonsetfunc
+  kind: other
+  locator: jsonSetFunc()
+  repo_path: src/json.c
+  status: candidate
+  slice_id: json-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/json.c:4548
+  - src/json.c:4389
+  - src/json.c:5695
+  - src/json.c:5696
+- surface_id: sur-jsonvalidfunc
+  kind: other
+  locator: jsonValidFunc()
+  repo_path: src/json.c
+  status: candidate
+  slice_id: json-funcs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/json.c:4700
 - surface_id: sur-sqlite3-auto-extension
   kind: other
   locator: sqlite3_auto_extension()
@@ -338,6 +421,27 @@ surfaces:
   - src/loadext.c:561
   - src/loadext.c:762
   - src/sqlite.h.in:7609
+- surface_id: sur-pragmavtabmodule
+  kind: other
+  locator: pragmaVtabModule
+  repo_path: src/pragma.c
+  status: candidate
+  slice_id: pragma-surface
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pragma.c:2814
+  - src/pragma.c:3059
+  - src/pragma.c:3092
+- surface_id: sur-sqlite3pragma
+  kind: other
+  locator: sqlite3Pragma()
+  repo_path: src/pragma.c
+  status: candidate
+  slice_id: pragma-surface
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/pragma.c:425
+  - src/pragma.c:311
 - surface_id: sur-sqlite3-bind-text
   kind: other
   locator: sqlite3_bind_text()
@@ -404,6 +508,37 @@ surfaces:
   - src/vdbeapi.c:2090
   - src/vdbeapi.c:2141
   - src/vdbeapi.c:2105
+- surface_id: sur-printffunc
+  kind: other
+  locator: printfFunc()
+  repo_path: src/func.c
+  status: candidate
+  slice_id: printf-format
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/func.c:3369
+  - src/func.c:315
+  - src/printf.c:244
+- surface_id: sur-sqlite3-mprintf
+  kind: other
+  locator: sqlite3_mprintf()
+  repo_path: src/printf.c
+  status: candidate
+  slice_id: printf-format
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/printf.c:1519
+  - src/printf.c:1559
+- surface_id: sur-sqlite3-str-new
+  kind: other
+  locator: sqlite3_str_new()
+  repo_path: src/printf.c
+  status: candidate
+  slice_id: printf-format
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/printf.c:1447
+  - src/printf.c:192
 - surface_id: sur-memdb-vfs
   kind: other
   locator: memdb_vfs
@@ -602,6 +737,42 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks.
+- behaviour_id: date-time-funcs-001
+  surface_id: sur-datefunc-datetimefunc
+  name: Core date/time conversion functions
+  status: candidate
+  slice_id: date-time-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD.
+- behaviour_id: date-time-funcs-002
+  surface_id: sur-strftimefunc
+  name: strftime formatting
+  status: candidate
+  slice_id: date-time-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; %-directive formatter over parsed DateTime.
+- behaviour_id: date-time-funcs-003
+  surface_id: sur-computejd-modifiers
+  name: Modifier grammar (localtime, +N units, weekday, start of ...)
+  status: candidate
+  slice_id: date-time-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
+- behaviour_id: date-time-funcs-004
+  surface_id: sur-timedifffunc
+  name: timediff interval arithmetic
+  status: candidate
+  slice_id: date-time-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes.
 - behaviour_id: error-status-api-001
   surface_id: sur-sqlite3-errmsg
   name: Error introspection family
@@ -648,6 +819,42 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+- behaviour_id: json-funcs-001
+  surface_id: sur-jsonextractfunc
+  name: JSON path extraction (json_extract, ->, ->>)
+  status: candidate
+  slice_id: json-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Path-expression extraction; text vs SQL-value return differs between -> and ->>.
+- behaviour_id: json-funcs-002
+  surface_id: sur-jsonsetfunc
+  name: JSON mutation family (set/insert/replace/patch/remove)
+  status: candidate
+  slice_id: json-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB.
+- behaviour_id: json-funcs-003
+  surface_id: sur-jsonvalidfunc
+  name: JSON validation and typing
+  status: candidate
+  slice_id: json-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; json_valid with flags argument distinguishes JSON5/JSONB acceptance.
+- behaviour_id: json-funcs-004
+  surface_id: sur-jsoneachmodule
+  name: json_each / json_tree table-valued functions
+  status: candidate
+  slice_id: json-funcs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path.
 - behaviour_id: loadext-api-001
   surface_id: sur-sqlite3-load-extension
   name: Load extension with enable gate
@@ -668,6 +875,25 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
     APIs.
+- behaviour_id: pragma-surface-001
+  surface_id: sur-sqlite3pragma
+  name: PRAGMA dispatcher (~70 pragmas)
+  status: candidate
+  slice_id: pragma-surface
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path);
+    per-pragma flags control schema-load and result shape.'
+- behaviour_id: pragma-surface-002
+  surface_id: sur-pragmavtabmodule
+  name: pragma_* eponymous virtual tables
+  status: candidate
+  slice_id: pragma-surface
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Result-returning pragmas exposed as pragma_<name>() table-valued functions.
 - behaviour_id: prepare-statement-api-001
   surface_id: sur-sqlite3-prepare-v2
   name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
@@ -723,6 +949,33 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
+- behaviour_id: printf-format-001
+  surface_id: sur-printffunc
+  name: SQL printf()/format() functions
+  status: candidate
+  slice_id: printf-format
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives.
+- behaviour_id: printf-format-002
+  surface_id: sur-sqlite3-mprintf
+  name: C API mprintf/vmprintf/snprintf
+  status: candidate
+  slice_id: printf-format
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Public C formatting entrypoints sharing the same core formatter.
+- behaviour_id: printf-format-003
+  surface_id: sur-sqlite3-str-new
+  name: sqlite3_str string-builder API
+  status: candidate
+  slice_id: printf-format
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps.
 - behaviour_id: serialize-memdb-api-001
   surface_id: sur-sqlite3-serialize
   name: Serialize / deserialize byte-image round-trip
@@ -752,17 +1005,17 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
     SQLITE_LOCKED; fire-and-forget async seam.
-last_updated: '2026-08-10T17:54:31Z'
+last_updated: '2026-08-10T17:56:27Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 33
+  surfaces_total: 46
   surfaces_by_status:
-    candidate: 33
-  behaviours_known: 33
+    candidate: 46
+  behaviours_known: 46
   behaviours_by_status:
-    candidate: 33
-  unscanned_hints: 48
+    candidate: 46
+  unscanned_hints: 44
   legacy_green: 0
   parity_green: 0

@@ -1,0 +1,29 @@
+slice_id: pragma-surface
+seed: "PRAGMA statement dispatcher + pragma virtual tables"
+seed_entrypoints: ["sqlite3Pragma()"]
+out_of_scope_hints: ["individual subsystem behaviour configured by pragmas"]
+phase: A
+updated_at: 2026-08-10T17:56:13Z
+features:
+  - id: pragma-surface-001
+    name: PRAGMA dispatcher (~70 pragmas)
+    status: candidate
+    confidence: observed-in-code
+    summary: "Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path); per-pragma flags control schema-load and result shape."
+    entrypoints:
+      - kind: other
+        locator: "sqlite3Pragma()"
+        evidence: ["src/pragma.c:425", "src/pragma.c:311"]
+    dependencies: []
+    open_questions: ["Pragma inventory needs sub-clustering at bind (journal/cache/schema/debug families)"]
+  - id: pragma-surface-002
+    name: pragma_* eponymous virtual tables
+    status: candidate
+    confidence: observed-in-code
+    summary: "Result-returning pragmas exposed as pragma_<name>() table-valued functions."
+    entrypoints:
+      - kind: other
+        locator: "pragmaVtabModule"
+        evidence: ["src/pragma.c:2814", "src/pragma.c:3059", "src/pragma.c:3092"]
+    dependencies: ["vtab-core"]
+    open_questions: []
