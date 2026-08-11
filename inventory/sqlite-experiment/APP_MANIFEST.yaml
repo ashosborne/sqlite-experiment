@@ -2057,9 +2057,9 @@ behaviours:
 - behaviour_id: attach-detach-001
   surface_id: sur-sqlite3attach
   name: ATTACH DATABASE
-  status: accepted
+  status: documented
   slice_id: attach-detach
-  discovery_card: null
+  discovery_card: discovery/attach-detach/features/attach-detach-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name
@@ -2067,18 +2067,18 @@ behaviours:
 - behaviour_id: attach-detach-002
   surface_id: sur-sqlite3detach
   name: DETACH DATABASE
-  status: accepted
+  status: documented
   slice_id: attach-detach
-  discovery_card: null
+  discovery_card: discovery/attach-detach/features/attach-detach-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Removes attached db; errors if db is locked or in use.
 - behaviour_id: attach-detach-003
   surface_id: sur-sqlite3fixinit
   name: Cross-database name fixation for DDL
-  status: accepted
+  status: documented
   slice_id: attach-detach
-  discovery_card: null
+  discovery_card: discovery/attach-detach/features/attach-detach-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3FixInit/sqlite3Fix* reject cross-db references inside triggers/views of attached
@@ -2086,9 +2086,9 @@ behaviours:
 - behaviour_id: auth-callback-api-001
   surface_id: sur-sqlite3-set-authorizer
   name: Authorizer registration and dispatch
-  status: accepted
+  status: documented
   slice_id: auth-callback-api
-  discovery_card: null
+  discovery_card: discovery/auth-callback-api/features/auth-callback-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Per-connection callback consulted at compile time per action code; DENY errors the statement,
@@ -2096,9 +2096,9 @@ behaviours:
 - behaviour_id: auth-callback-api-002
   surface_id: sur-sqlite3authreadcol
   name: Column-read authorization (IGNORE yields NULL)
-  status: accepted
+  status: documented
   slice_id: auth-callback-api
-  discovery_card: null
+  discovery_card: discovery/auth-callback-api/features/auth-callback-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Read authorization per column; SQLITE_IGNORE causes NULL substitution in results.
@@ -2134,18 +2134,18 @@ behaviours:
 - behaviour_id: blob-io-api-001
   surface_id: sur-sqlite3-blob-open
   name: Blob handle open/close/reopen
-  status: accepted
+  status: documented
   slice_id: blob-io-api
-  discovery_card: null
+  discovery_card: discovery/blob-io-api/features/blob-io-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Opens a handle on (db,table,column,rowid); reopen repositions to a new row without re-resolving.
 - behaviour_id: blob-io-api-002
   surface_id: sur-sqlite3-blob-read
   name: Incremental read/write with bounds + expiry
-  status: accepted
+  status: documented
   slice_id: blob-io-api
-  discovery_card: null
+  discovery_card: discovery/blob-io-api/features/blob-io-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
@@ -2351,27 +2351,27 @@ behaviours:
 - behaviour_id: error-status-api-001
   surface_id: sur-sqlite3-errmsg
   name: Error introspection family
-  status: accepted
+  status: documented
   slice_id: error-status-api
-  discovery_card: null
+  discovery_card: discovery/error-status-api/features/error-status-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks.
 - behaviour_id: error-status-api-002
   surface_id: sur-sqlite3-limit
   name: Runtime limits (sqlite3_limit)
-  status: accepted
+  status: documented
   slice_id: error-status-api
-  discovery_card: null
+  discovery_card: discovery/error-status-api/features/error-status-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Get/set 12 limit categories with hard upper bounds from sqliteLimit.h.
 - behaviour_id: error-status-api-003
   surface_id: sur-sqlite3-status64
   name: Status counters (global + per-connection)
-  status: accepted
+  status: documented
   slice_id: error-status-api
-  discovery_card: null
+  discovery_card: discovery/error-status-api/features/error-status-api-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset.
@@ -2634,9 +2634,9 @@ behaviours:
 - behaviour_id: loadext-api-001
   surface_id: sur-sqlite3-load-extension
   name: Load extension with enable gate
-  status: accepted
+  status: documented
   slice_id: loadext-api
-  discovery_card: null
+  discovery_card: discovery/loadext-api/features/loadext-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default
@@ -2644,9 +2644,9 @@ behaviours:
 - behaviour_id: loadext-api-002
   surface_id: sur-sqlite3-auto-extension
   name: Auto-extension registry
-  status: accepted
+  status: documented
   slice_id: loadext-api
-  discovery_card: null
+  discovery_card: discovery/loadext-api/features/loadext-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
@@ -3351,9 +3351,9 @@ behaviours:
 - behaviour_id: serialize-memdb-api-001
   surface_id: sur-sqlite3-serialize
   name: Serialize / deserialize byte-image round-trip
-  status: accepted
+  status: documented
   slice_id: serialize-memdb-api
-  discovery_card: null
+  discovery_card: discovery/serialize-memdb-api/features/serialize-memdb-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; serialize copies or references the db image; deserialize swaps a connection onto a memory
@@ -3361,9 +3361,9 @@ behaviours:
 - behaviour_id: serialize-memdb-api-002
   surface_id: sur-memdb-vfs
   name: memdb in-memory VFS
-  status: accepted
+  status: documented
   slice_id: serialize-memdb-api
-  discovery_card: null
+  discovery_card: discovery/serialize-memdb-api/features/serialize-memdb-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
@@ -3463,9 +3463,9 @@ behaviours:
 - behaviour_id: unlock-notify-api-001
   surface_id: sur-sqlite3-unlock-notify
   name: Unlock notification with deadlock detection
-  status: accepted
+  status: documented
   slice_id: unlock-notify-api
-  discovery_card: null
+  discovery_card: discovery/unlock-notify-api/features/unlock-notify-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:21:10Z'
+last_updated: '2026-08-11T10:22:35Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    accepted: 170
-    documented: 15
+    accepted: 155
+    documented: 30
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

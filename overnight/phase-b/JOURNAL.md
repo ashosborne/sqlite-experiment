@@ -20,3 +20,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - connection-lifecycle-api 001-004, prepare-statement-api 001-006, exec-convenience-api 001-002, backup-api 001-003 → documented, all observed-in-code (symbol+line evidence).
 - Coercion matrix (prepare-statement-api-004) kept as one card pinning the seam; matrix rows deferred to Test-gen granularity.
 - Upsert: PASS (documented=15). COVERAGE regenerated.
+
+## Batch 2 — remaining public API seams (15 cards)
+
+- blob-io(2), serialize-memdb(2), loadext(2), unlock-notify(1), auth(2), attach(3), error-status(3) → documented, observed-in-code.
+- unlock-notify card documents the gated contract explicitly (ENABLE_UNLOCK_NOTIFY + shared-cache NOT in the default baseline build).
+- Upsert: PASS (documented=30). COVERAGE regenerated.

@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - busy handler
 - shared-cache internals
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:22:35Z'
 features:
 - id: unlock-notify-api-001
   name: Unlock notification with deadlock detection
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Registers callback fired when the blocking connection unlocks; cycle detection returns SQLITE_LOCKED; fire-and-forget
     async seam.
@@ -26,3 +26,4 @@ features:
   - btree
   open_questions:
   - "SQLITE_ENABLE_UNLOCK_NOTIFY + shared-cache both required \u2014 enabled in target build?"
+  behaviour_doc: features/unlock-notify-api-001.md

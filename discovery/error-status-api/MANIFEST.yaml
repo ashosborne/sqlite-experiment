@@ -6,12 +6,12 @@ seed_entrypoints:
 - sqlite3_status64()
 out_of_scope_hints:
 - subsystem-internal error propagation
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:22:35Z'
 features:
 - id: error-status-api-001
   name: Error introspection family
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks.
   entrypoints:
@@ -25,9 +25,10 @@ features:
     - src/main.c:2792
   dependencies: []
   open_questions: []
+  behaviour_doc: features/error-status-api-001.md
 - id: error-status-api-002
   name: Runtime limits (sqlite3_limit)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Get/set 12 limit categories with hard upper bounds from sqliteLimit.h.
   entrypoints:
@@ -38,9 +39,10 @@ features:
     - src/sqliteLimit.h
   dependencies: []
   open_questions: []
+  behaviour_doc: features/error-status-api-002.md
 - id: error-status-api-003
   name: Status counters (global + per-connection)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: status64/db_status expose current/highwater counters with optional reset.
   entrypoints:
@@ -53,3 +55,4 @@ features:
   dependencies:
   - malloc-subsystem
   open_questions: []
+  behaviour_doc: features/error-status-api-003.md
