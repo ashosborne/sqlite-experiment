@@ -235,3 +235,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - closure carded with "superseded by recursive CTE?" bind question.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 58/120 (29+29). Totals 308. Slices this run: 16 (total 76). Zero-new-streak: 0.
+
+## Resume iteration 5 — seeds: misc-fuzzer, misc-prefixes, misc-wholenumber, misc-stmt
+
+- stop.txt: absent. Thin vtab unbundle continues.
+- wholenumber carded with retire-in-favour-of-series bind question.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 66/120 (33+33). Totals 316. Slices this run: 20 (total 80). Zero-new-streak: 0.

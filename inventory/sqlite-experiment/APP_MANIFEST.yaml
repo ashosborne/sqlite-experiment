@@ -83,15 +83,15 @@ scanned_seeds:
 - misc-closure
 - misc-completion
 - misc-qpvtab
+- misc-fuzzer
+- misc-prefixes
+- misc-stmt
+- misc-wholenumber
 unscanned_hints:
 - 'ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-fuzzer — fuzzer vtab (ext/misc/fuzzer.c)'
-- 'ext: misc-prefixes — prefixes vtab (ext/misc/prefixes.c)'
-- 'ext: misc-wholenumber — wholenumber vtab (ext/misc/wholenumber.c)'
-- 'ext: misc-stmt — sqlite_stmt introspection vtab (ext/misc/stmt.c)'
 - 'ext: misc-templatevtab — template vtab skeleton (ext/misc/templatevtab.c)'
 - 'ext: misc-vtablog — logging wrapper vtab (ext/misc/vtablog.c)'
 - 'ext: misc-vtshim — vtab shim for disposable modules (ext/misc/vtshim.c)'
@@ -877,6 +877,24 @@ surfaces:
   - ext/misc/regexp.c:901
   - ext/misc/spellfix.c:3085
   - ext/misc/uuid.c:213
+- surface_id: sur-sqlite3-fuzzer-init
+  kind: other
+  locator: sqlite3_fuzzer_init()
+  repo_path: ext/misc/fuzzer.c
+  status: candidate
+  slice_id: misc-fuzzer
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/fuzzer.c:1184
+- surface_id: sur-sqlite3-prefixes-init
+  kind: other
+  locator: sqlite3_prefixes_init()
+  repo_path: ext/misc/prefixes.c
+  status: candidate
+  slice_id: misc-prefixes
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/prefixes.c:310
 - surface_id: sur-sqlite3-qpvtab-init
   kind: other
   locator: sqlite3_qpvtab_init()
@@ -895,6 +913,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/series.c:939
+- surface_id: sur-sqlite3-stmt-init
+  kind: other
+  locator: sqlite3_stmt_init()
+  repo_path: ext/misc/stmt.c
+  status: candidate
+  slice_id: misc-stmt
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/stmt.c:334
 - surface_id: sur-sqlite3-unionvtab-init
   kind: other
   locator: sqlite3_unionvtab_init()
@@ -940,6 +967,15 @@ surfaces:
   - ext/misc/csv.c:964
   - ext/misc/zipfile.c:2294
   - ext/misc/unionvtab.c:1371
+- surface_id: sur-sqlite3-wholenumber-init
+  kind: other
+  locator: sqlite3_wholenumber_init()
+  repo_path: ext/misc/wholenumber.c
+  status: candidate
+  slice_id: misc-wholenumber
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/wholenumber.c:276
 - surface_id: sur-sqlite3-zipfile-init
   kind: other
   locator: sqlite3_zipfile_init()
@@ -2413,6 +2449,24 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
     spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs.
+- behaviour_id: misc-fuzzer-001
+  surface_id: sur-sqlite3-fuzzer-init
+  name: fuzzer vtab (string mutation search)
+  status: candidate
+  slice_id: misc-fuzzer
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Generates cost-ranked string mutations from a rules table (typo-correction searches)
+- behaviour_id: misc-prefixes-001
+  surface_id: sur-sqlite3-prefixes-init
+  name: prefixes table-valued function
+  status: candidate
+  slice_id: misc-prefixes
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Emits all prefixes of a string as rows
 - behaviour_id: misc-qpvtab-001
   surface_id: sur-sqlite3-qpvtab-init
   name: query-plan introspection vtab
@@ -2431,6 +2485,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns
+- behaviour_id: misc-stmt-001
+  surface_id: sur-sqlite3-stmt-init
+  name: sqlite_stmt introspection vtab
+  status: candidate
+  slice_id: misc-stmt
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Rows describe currently-prepared statements (sql, busy, counters)
 - behaviour_id: misc-unionvtab-001
   surface_id: sur-sqlite3-unionvtab-init
   name: unionvtab + swarmvtab (same source file)
@@ -2471,6 +2534,15 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
     amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
+- behaviour_id: misc-wholenumber-001
+  surface_id: sur-sqlite3-wholenumber-init
+  name: wholenumber vtab
+  status: candidate
+  slice_id: misc-wholenumber
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series)
 - behaviour_id: misc-zipfile-sqlar-001
   surface_id: sur-sqlite3-zipfile-init
   name: zipfile vtab + sqlar functions (one optional pack)
@@ -3169,17 +3241,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:32:37Z'
+last_updated: '2026-08-11T09:32:59Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 154
+  surfaces_total: 158
   surfaces_by_status:
-    candidate: 154
-  behaviours_known: 154
+    candidate: 158
+  behaviours_known: 158
   behaviours_by_status:
-    candidate: 154
-  unscanned_hints: 11
+    candidate: 158
+  unscanned_hints: 7
   legacy_green: 0
   parity_green: 0

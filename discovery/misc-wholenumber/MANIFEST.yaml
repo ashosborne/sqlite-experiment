@@ -1,0 +1,23 @@
+slice_id: misc-wholenumber
+seed: wholenumber sequence vtab (ext/misc/wholenumber.c)
+seed_entrypoints:
+- sqlite3_wholenumber_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:58Z'
+features:
+- id: misc-wholenumber-001
+  name: wholenumber vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Infinite integer sequence vtab (predecessor of generate_series)
+  entrypoints:
+  - kind: other
+    locator: sqlite3_wholenumber_init()
+    evidence:
+    - ext/misc/wholenumber.c:276
+  dependencies:
+  - vtab-core
+  open_questions:
+  - Retire in favour of misc-series?

@@ -1,0 +1,22 @@
+slice_id: misc-prefixes
+seed: prefixes TVF (ext/misc/prefixes.c)
+seed_entrypoints:
+- sqlite3_prefixes_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:58Z'
+features:
+- id: misc-prefixes-001
+  name: prefixes table-valued function
+  status: candidate
+  confidence: observed-in-code
+  summary: Emits all prefixes of a string as rows
+  entrypoints:
+  - kind: other
+    locator: sqlite3_prefixes_init()
+    evidence:
+    - ext/misc/prefixes.c:310
+  dependencies:
+  - vtab-core
+  open_questions: []

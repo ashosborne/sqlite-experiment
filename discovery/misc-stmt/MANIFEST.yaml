@@ -1,0 +1,23 @@
+slice_id: misc-stmt
+seed: prepared-statement list vtab (ext/misc/stmt.c)
+seed_entrypoints:
+- sqlite3_stmt_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:58Z'
+features:
+- id: misc-stmt-001
+  name: sqlite_stmt introspection vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Rows describe currently-prepared statements (sql, busy, counters)
+  entrypoints:
+  - kind: other
+    locator: sqlite3_stmt_init()
+    evidence:
+    - ext/misc/stmt.c:334
+  dependencies:
+  - vtab-core
+  - prepare-statement-api
+  open_questions: []

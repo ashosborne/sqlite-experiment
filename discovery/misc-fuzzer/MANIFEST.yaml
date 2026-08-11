@@ -1,0 +1,22 @@
+slice_id: misc-fuzzer
+seed: fuzzer vtab (ext/misc/fuzzer.c)
+seed_entrypoints:
+- sqlite3_fuzzer_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:58Z'
+features:
+- id: misc-fuzzer-001
+  name: fuzzer vtab (string mutation search)
+  status: candidate
+  confidence: observed-in-code
+  summary: Generates cost-ranked string mutations from a rules table (typo-correction searches)
+  entrypoints:
+  - kind: other
+    locator: sqlite3_fuzzer_init()
+    evidence:
+    - ext/misc/fuzzer.c:1184
+  dependencies:
+  - vtab-core
+  open_questions: []
