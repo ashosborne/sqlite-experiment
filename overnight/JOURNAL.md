@@ -309,3 +309,18 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - MORNING_BRIEF.md: new brief for this resume (run-1 brief preserved as MORNING_BRIEF-2026-08-10.md).
 - Final validation: APP_MANIFEST schema VALID; 107 slice manifests, 185 features all candidate+evidence; statuses {candidate} only; estate_scan=partial retained; run-1 rows spot-checked untouched; no completion-% strings.
 - Final tally: this run +47 slices, +60 surfaces, +60 behaviours = 120/120 delta (stop). Estate totals: 107 slices, 370 candidates, 3 hints in residual register.
+
+## Run 17 — 2026-08-11 — engine v8: kill script_table (pack v8)
+
+- Pack v7→v8 BOUND (+versions/8.yaml, ADR 0006): cheat-sheet ban, expression/SELECT law,
+  function law, anti-cheat law. Schema-validated. completeness: incomplete.
+- SCRIPT_TABLE 70 → **0** entries. lib.rs fallback deleted; unknown SQL errors honestly.
+- New executor: eval.rs (tokenizer/Pratt parser/typed values, SELECT/UNION/ORDER BY/WHERE,
+  aggregates, 2 window shapes, pragmas, ATTACH/DETACH, ~25 computed functions incl. real
+  sha1/sha3/json), json.rs (real JSON parse/path/serialize). store.rs execute_script now
+  dispatches per-statement (kitchen first, then eval) so mixed scripts run.
+- Verdicts: 69 catalogue pins → 50 IMPLEMENT (bytes match frozen goldens via computation),
+  19 DEFER (pins + tests removed, reasons in PACK boundaries.deferred_cases_v8).
+- Notable honesty point: misc-percentile golden is rc=1 (bare build lacks ENABLE_PERCENTILE);
+  the engine deliberately errors on median/percentile to match reality, not to fake success.
+- cargo test 136/136; all prior goldens md5-identical; anti-cheat 5/5; parity_green 0.

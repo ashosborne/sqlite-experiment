@@ -12,6 +12,7 @@
 //! from statement text; the pack forbids script-string lookup for kitchen SQL.
 
 use crate::dbfile::{self, DbImage, TableImage, TriggerImage};
+use crate::eval;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -59,6 +60,7 @@ struct Trigger {
 
 #[derive(Default)]
 pub struct Store {
+    pub conn: eval::Conn,
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>, // (type: table|index|trigger, name) — creation order
     index_owner: HashMap<String, String>, // index name -> table
@@ -71,6 +73,10 @@ pub struct Store {
 pub enum Outcome {
     NotKitchen,
     Done { rows: Vec<Vec<Option<String>>>, rc: i32, err: Option<String> },
+}
+
+fn val_to_ev(v: &Val) -> eval::V {
+    match v { Val::Null => eval::V::Null, Val::Int(i) => eval::V::Int(*i), Val::Text(t) => eval::V::Text(t.clone()) }
 }
 
 thread_local! {
@@ -469,55 +475,50 @@ fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
 }
 
 pub fn execute_script(db: usize, script: &str) -> Outcome {
-    let parsed: Option<Vec<Stmt>> =
-        split_statements(script).iter().map(|s| parse_stmt(s)).collect();
-    let stmts = match parsed {
-        Some(v) if !v.is_empty() => v,
-        _ => return Outcome::NotKitchen, // all-or-nothing: never mix store + recognizer
-    };
-    // Referenced-table gate: the store only claims a script when every table it
-    // touches is created in-script or already lives in this connection's store.
-    // Anything else (pragma_* projections, vtabs, json_each, ...) is NotKitchen.
-    {
-        let mut known: Vec<String> = with_store(db, |st| st.tables.iter().map(|(n, _)| n.clone()).collect());
-        let mut ok = true;
-        for s in &stmts {
-            match s {
-                Stmt::Create { name, cols, .. } => {
-                    for c in cols {
-                        if let Some((p, _, _)) = &c.references {
-                            if !known.contains(p) { ok = false; }
-                        }
-                    }
-                    known.push(name.clone());
-                }
-                Stmt::CreateIndex { table, .. } => { if !known.contains(table) { ok = false; } }
-                Stmt::CreateTrigger { def, .. } => {
-                    if !known.contains(&def.table) || !known.contains(&def.body_target) { ok = false; }
-                }
-                Stmt::Drop { name } | Stmt::Insert { name, .. } | Stmt::Update { name, .. }
-                | Stmt::Delete { name, .. } => { if !known.contains(name) { ok = false; } }
-                Stmt::RenameTable { from, to } => {
-                    if !known.contains(from) { ok = false; }
-                    known.push(to.clone());
-                }
-                Stmt::AddColumn { table, .. } => { if !known.contains(table) { ok = false; } }
-                Stmt::Select { target, .. } => {
-                    if target != "sqlite_master" && !known.contains(target) { ok = false; }
-                }
-                Stmt::PragmaFkOn => {}
-            }
-        }
-        if !ok { return Outcome::NotKitchen; }
-    }
+    let raw_stmts = split_statements(script);
+    if raw_stmts.is_empty() { return Outcome::Done { rows: Vec::new(), rc: 0, err: None }; }
     let mut out: Vec<Vec<Option<String>>> = Vec::new();
     let res: Result<(), String> = with_store(db, |st| {
-        for stmt in stmts {
+        for s in &raw_stmts {
+            let parsed = parse_stmt(s);
+            // a kitchen SELECT only counts if its table actually lives in this store;
+            // otherwise (pragma_* projections, TVFs) it belongs to the evaluator
+            let kitchen_ok = match &parsed {
+                Some(Stmt::Select { target, .. }) =>
+                    target == "sqlite_master" || st.tables.iter().any(|(n, _)| n == target),
+                Some(_) => true,
+                None => false,
+            };
+            let stmt = match parsed {
+                Some(st2) if kitchen_ok => st2,
+                _ => {
+                    // not a kitchen statement -> real expression/pragma/attach evaluator (pack v8)
+                    let snap: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> =
+                        st.tables.iter().map(|(n, t)| (n.clone(),
+                            (t.cols.iter().map(|c| c.name.clone()).collect(),
+                             t.rows.iter().map(|(_, r)| r.iter().map(val_to_ev).collect()).collect()))).collect();
+                    let fk: std::collections::HashMap<String, usize> = st.tables.iter()
+                        .map(|(n, t)| (n.clone(), t.cols.iter().filter(|c| c.references.is_some()).count())).collect();
+                    let idx: std::collections::HashMap<String, usize> = {
+                        let mut m = std::collections::HashMap::new();
+                        for (_i, tn) in st.index_owner.values().map(|t| (0, t.clone())) { *m.entry(tn).or_insert(0) += 1; }
+                        for (n, _) in &st.tables { m.entry(n.clone()).or_insert(0); }
+                        m
+                    };
+                    let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx };
+                    match eval::run_stmt(&mut ctx, s) {
+                        Ok(Some(rows)) => { out.extend(rows); continue; }
+                        Ok(None) => return Err(format!("unsupported statement: {}", s)),
+                        Err(e) => return Err(e),
+                    }
+                }
+            };
             match stmt {
                 Stmt::PragmaFkOn => st.fk_on = true,
                 Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
                     st.tables.push((name, Table { cols, create_sql: sql, ..Default::default() }));
+                    st.conn.schema_version += 1;
                 }
                 Stmt::CreateIndex { name, table, col, unique } => {
                     st.catalog.push(("index".into(), name.clone()));
@@ -551,6 +552,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         }
                     }
                     st.tables.retain(|(n, _)| *n != name);
+                    st.conn.schema_version += 1;
                     let idx: Vec<String> = st.index_owner.iter()
                         .filter(|(_, t)| **t == name).map(|(i, _)| i.clone()).collect();
                     st.catalog.retain(|(ty, n)| !(ty == "table" && *n == name)

@@ -3,7 +3,7 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T17:14:21Z
+- Generated: 2026-08-11T17:51:54Z
 - App status: `in_progress` · completeness: `incomplete`
 - Manifest last_updated: 2026-08-11T17:14:20Z by `sqlite-engine-v7-schema-disk`
 

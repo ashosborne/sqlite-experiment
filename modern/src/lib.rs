@@ -2,7 +2,7 @@
 //!
 //! Implements EXACTLY the ten HUMAN_ACCEPTED characterization cases on the raw
 //! C ABI (`sqlite3_*` names, integer codes from `src/sqlite.h.in`, read-only
-//! reference). This is a recognizer + statement state machine for the pinned
+//! reference). This is a statement state machine + store/eval executor for the pinned
 //! SQL — NOT a general SQL engine, NOT a VDBE, and it never links C.
 //!
 //! Pinned semantics encoded here (see PACK.yaml):
@@ -306,15 +306,17 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 
 // ===================== run-11 oneshot widening (pack v2) =====================
 // Everything below implements the run-10/run-11 HUMAN_ACCEPTED pins only.
-// Script execution is a GENERATED lookup over frozen goldens (script_table.rs);
+// Script execution runs on the store (kitchen DDL/DML) + eval (expressions,
+// pragmas, functions). pack v8: script_table.rs is empty — no behavioural pins;
 // bespoke API mirrors reproduce the frozen integers. Still not an engine.
 // ABI note (pack v2 known risk): sqlite3_config/db_config/mprintf/str_appendf are
 // exported at the fixed arities the frozen cases use (Rust stable lacks C varargs).
 
 pub mod dbfile;
+pub mod eval;
+pub mod json;
 pub mod script_table;
 pub mod store;
-use script_table::SCRIPT_TABLE;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -457,7 +459,7 @@ unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int {
     SQLITE_OK
 }
 
-/// # Safety: C ABI — the frozen-script executor (generated lookup; abort on nonzero cb).
+/// # Safety: C ABI — executes SQL on the store/eval engine (abort on nonzero cb).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_exec(
     db: *mut Sqlite3, z_sql: *const c_char, cb: ExecCallback, arg: *mut c_void, errmsg: *mut *mut c_char,
@@ -466,9 +468,8 @@ pub unsafe extern "C" fn sqlite3_exec(
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
     // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
-    // The recognizer table never contains kitchen-path SQL (generation excludes it).
     match store::execute_script(db as usize, sql) {
-        store::Outcome::NotKitchen => {}
+        store::Outcome::NotKitchen => {} // pack v8: no cheat-sheet fallback; treat as unknown below
         store::Outcome::Done { rows, rc, err } => {
             if let Some(f) = cb {
                 for row in &rows {
@@ -486,52 +487,21 @@ pub unsafe extern "C" fn sqlite3_exec(
             }
             if rc != 0 {
                 let msg = err.unwrap_or_else(|| "SQL error".into());
-                (*db).errcode = rc;
-                (*db).extended = rc;
+                (*db).errcode = rc; (*db).extended = rc;
                 (*db).errmsg = Some(std::ffi::CString::new(msg.clone()).unwrap());
                 if !errmsg.is_null() { *errmsg = alloc_cstr(&msg); }
-            } else {
-                db_ok(&mut *db);
-            }
+            } else { db_ok(&mut *db); }
             return rc;
         }
     }
-    let pin = SCRIPT_TABLE.iter().find(|(k, _)| *k == sql).map(|(_, p)| p);
-    let pin = match pin {
-        Some(p) => p,
-        None => {
-            db_syntax_error(&mut *db, first_token(skip_ws_and_comments(sql)));
-            if !errmsg.is_null() {
-                *errmsg = alloc_cstr(CStr::from_ptr(sqlite3_errmsg(db)).to_str().unwrap_or("error"));
-            }
-            return SQLITE_ERROR;
+    // pack v8: SCRIPT_TABLE removed as a behavioural source. Unknown SQL fails honestly.
+    {
+        db_syntax_error(&mut *db, first_token(skip_ws_and_comments(sql)));
+        if !errmsg.is_null() {
+            *errmsg = alloc_cstr(CStr::from_ptr(sqlite3_errmsg(db)).to_str().unwrap_or("error"));
         }
-    };
-    if let Some(f) = cb {
-        for row in pin.rows {
-            let cstrs: Vec<Option<std::ffi::CString>> =
-                row.iter().map(|v| v.map(|s| std::ffi::CString::new(s).unwrap())).collect();
-            let mut argv: Vec<*mut c_char> = cstrs.iter()
-                .map(|o| o.as_ref().map(|c| c.as_ptr() as *mut c_char).unwrap_or(std::ptr::null_mut()))
-                .collect();
-            let rc = f(arg, argv.len() as c_int, argv.as_mut_ptr(), std::ptr::null_mut());
-            if rc != 0 {
-                if !errmsg.is_null() { *errmsg = alloc_cstr("query aborted"); }
-                return SQLITE_ABORT; // pinned: 4
-            }
-        }
+        return SQLITE_ERROR;
     }
-    if pin.rc != 0 {
-        (*db).errcode = pin.rc;
-        (*db).extended = pin.rc;
-        if pin.errmsg {
-            (*db).errmsg = Some(std::ffi::CString::new("SQL error (wording_deferred)").unwrap());
-            if !errmsg.is_null() { *errmsg = alloc_cstr("SQL error (wording_deferred)"); }
-        }
-    } else {
-        db_ok(&mut *db);
-    }
-    pin.rc
 }
 
 /// # Safety: C ABI — pinned: 'not authorized' when extension loading is disabled (default).
