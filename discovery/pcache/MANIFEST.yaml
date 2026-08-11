@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3PCacheSetDefault()
 out_of_scope_hints:
 - pager usage of the cache
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:29:07Z'
 features:
 - id: pcache-001
   name: Pluggable pcache2 interface boundary
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: sqlite3_pcache_methods2 plugin seam installed via sqlite3_config.
   entrypoints:
@@ -20,9 +20,10 @@ features:
   dependencies: []
   open_questions:
   - Does downstream install a custom pcache?
+  behaviour_doc: features/pcache-001.md
 - id: pcache-002
   name: Default pcache1 (LRU, purgeable pages, memory pressure)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Default cache with group LRU, soft/hard limits, release-memory hooks.
   entrypoints:
@@ -35,3 +36,4 @@ features:
   dependencies:
   - malloc-subsystem
   open_questions: []
+  behaviour_doc: features/pcache-002.md

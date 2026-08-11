@@ -50,3 +50,10 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - select-codegen(3), dml-codegen(2), where-optimizer(2), vdbe-engine(2), btree(2) → documented, observed-in-code.
 - vdbe-engine-001 stays the 199-opcode census card (charter); bare-column-in-aggregate and REPLACE-trigger quirks pinned; dml constraint-order observability carded.
 - Upsert: PASS (documented=82). COVERAGE regenerated.
+
+## Batch 7 — storage stack + platform primitives (13 cards)
+
+- pager(2), wal(2), pcache(2), vfs-os-abstraction(3), malloc(2), mutex(1), util-primitives(1) → documented, observed-in-code.
+- vfs-os-abstraction-003 card explicitly delegates deep contracts to run-2 vfs-win/vfs-kv cards (umbrella kept for continuity, extra line evidence added).
+- Crash-safety blind spot restated on pager-001 (harness out of scope — honest limitation, not silently ignored).
+- Upsert: PASS (documented=95). COVERAGE regenerated.

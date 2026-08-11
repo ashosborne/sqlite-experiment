@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - status counters
 - pcache memory
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:29:07Z'
 features:
 - id: malloc-subsystem-001
   name: Public malloc API and memory accounting
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: malloc/realloc/free family with soft-heap-limit accounting; alternative backends mem0..mem5 compile-time selected.
   entrypoints:
@@ -23,9 +23,10 @@ features:
     - src/malloc.c:159
   dependencies: []
   open_questions: []
+  behaviour_doc: features/malloc-subsystem-001.md
 - id: malloc-subsystem-002
   name: Lookaside per-connection allocator
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Two-size lookaside slots; db_config knobs; OOM fallback to general allocator.
   entrypoints:
@@ -37,3 +38,4 @@ features:
   dependencies:
   - malloc-subsystem-001
   open_questions: []
+  behaviour_doc: features/malloc-subsystem-002.md

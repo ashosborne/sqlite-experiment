@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - WAL internals
 - page cache eviction
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:29:07Z'
 features:
 - id: pager-001
   name: Transaction lifecycle and two-phase commit
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Begin/commit-phase-one/two/rollback with rollback-journal crash safety.
   entrypoints:
@@ -26,9 +26,10 @@ features:
   - pcache
   open_questions:
   - "Crash-safety characterization needs fault-injection VFS \u2014 note for test design"
+  behaviour_doc: features/pager-001.md
 - id: pager-002
   name: Journal-mode state machine
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Six journal modes; transition legality (e.g. WAL exit requires exclusive access).
   entrypoints:
@@ -39,3 +40,4 @@ features:
   dependencies:
   - wal
   open_questions: []
+  behaviour_doc: features/pager-002.md

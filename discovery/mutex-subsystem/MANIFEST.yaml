@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_mutex_alloc()
 out_of_scope_hints:
 - btree locking policies
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:29:07Z'
 features:
 - id: mutex-subsystem-001
   name: Pluggable mutex abstraction
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Method-table plugin (config-replaceable); static vs dynamic mutexes; pthread/win/noop backends.
   entrypoints:
@@ -22,3 +22,4 @@ features:
   dependencies: []
   open_questions:
   - Threading mode of downstream consumers?
+  behaviour_doc: features/mutex-subsystem-001.md
