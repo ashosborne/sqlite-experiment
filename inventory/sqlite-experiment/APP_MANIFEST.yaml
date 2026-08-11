@@ -71,12 +71,11 @@ scanned_seeds:
 - vfs-kv
 - vfs-unix-variants
 - vfs-win
+- global-init-config
+- jni-java-surface
+- wasm-js-api
+- wasm-opfs
 unscanned_hints:
-- 'src: global-init-config — sqlite3_initialize/shutdown + sqlite3_config + sqlite3_db_config (src/main.c, src/global.c);
-  left as open question in run 1'
-- 'ext: wasm-js-api — JS/worker/promise API surface beyond run-1 wasm-binding umbrella (ext/wasm/api/*.js, ext/wasm/api/*.c-pp.js)'
-- 'ext: wasm-opfs — OPFS VFS + sync-access-handle pool variants (ext/wasm/api/sqlite3-vfs-opfs*, sqlite3-opfs-*)'
-- 'ext: jni-java-surface — Java class tree beyond run-1 jni-binding C-bridge umbrella (ext/jni/src/org/sqlite/jni)'
 - 'ext: misc-vtab-unbundle — split run-1 misc-vtab-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
 - 'ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
@@ -621,6 +620,39 @@ surfaces:
   - ext/rtree/geopoly.c:1237
   - ext/rtree/geopoly.c:1180
   - ext/rtree/geopoly.c:1753
+- surface_id: sur-sqlite3-config
+  kind: other
+  locator: sqlite3_config()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: global-init-config
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:443
+  - src/main.c:453
+  - src/global.c:238
+  - src/sqlite.h.in:1729
+- surface_id: sur-sqlite3-db-config
+  kind: other
+  locator: sqlite3_db_config()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: global-init-config
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:967
+  - src/sqlite.h.in:1748
+- surface_id: sur-sqlite3-initialize
+  kind: other
+  locator: sqlite3_initialize()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: global-init-config
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:360
+  - src/main.c:389
+  - src/sqlite.h.in:1689
 - surface_id: sur-sqlite3icuinit
   kind: other
   locator: sqlite3IcuInit()
@@ -665,6 +697,37 @@ surfaces:
   discovery_evidence:
   - ext/jni/src/c/sqlite3-jni.c
   - ext/jni/src/c/sqlite3-jni.h
+- surface_id: sur-org-sqlite-jni-capi-capi
+  kind: other
+  locator: org.sqlite.jni.capi.CApi
+  repo_path: ext/jni/src/org/sqlite/jni/capi/CApi.java
+  status: candidate
+  slice_id: jni-java-surface
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/jni/src/org/sqlite/jni/capi/CApi.java
+  - ext/jni/src/org/sqlite/jni/capi/AuthorizerCallback.java
+  - ext/jni/src/org/sqlite/jni/capi/BusyHandlerCallback.java
+- surface_id: sur-org-sqlite-jni-fts5
+  kind: other
+  locator: org.sqlite.jni.fts5
+  repo_path: ext/jni/src/org/sqlite/jni/fts5/fts5_api.java
+  status: candidate
+  slice_id: jni-java-surface
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/jni/src/org/sqlite/jni/fts5/fts5_api.java
+  - ext/jni/src/org/sqlite/jni/fts5/Fts5ExtensionApi.java
+- surface_id: sur-org-sqlite-jni-wrapper1-sqlite
+  kind: other
+  locator: org.sqlite.jni.wrapper1.Sqlite
+  repo_path: ext/jni/src/org/sqlite/jni/wrapper1/Sqlite.java
+  status: candidate
+  slice_id: jni-java-surface
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/jni/src/org/sqlite/jni/wrapper1/Sqlite.java
+  - ext/jni/src/org/sqlite/jni/wrapper1/SqliteException.java
 - surface_id: sur-jsoneachmodule
   kind: other
   locator: jsonEachModule
@@ -1489,6 +1552,56 @@ surfaces:
   - ext/wasm/api/sqlite3-wasm.c:145
   - ext/wasm/api/sqlite3-api-glue.c-pp.js
   - ext/wasm/api/sqlite3-api-oo1.c-pp.js
+- surface_id: sur-ext-wasm-api-sqlite3-api-oo1-c-pp-js
+  kind: other
+  locator: ext/wasm/api/sqlite3-api-oo1.c-pp.js
+  repo_path: ext/wasm/api/sqlite3-api-oo1.c-pp.js
+  status: candidate
+  slice_id: wasm-js-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-api-oo1.c-pp.js
+- surface_id: sur-ext-wasm-api-sqlite3-api-prologue-js
+  kind: other
+  locator: ext/wasm/api/sqlite3-api-prologue.js
+  repo_path: ext/wasm/api/sqlite3-api-prologue.js
+  status: candidate
+  slice_id: wasm-js-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-api-prologue.js
+  - ext/wasm/api/sqlite3-api-glue.c-pp.js
+  - ext/wasm/api/EXPORTED_FUNCTIONS.c-pp
+- surface_id: sur-ext-wasm-api-sqlite3-api-worker1-c-pp-js
+  kind: other
+  locator: ext/wasm/api/sqlite3-api-worker1.c-pp.js
+  repo_path: ext/wasm/api/sqlite3-api-worker1.c-pp.js
+  status: candidate
+  slice_id: wasm-js-api
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-api-worker1.c-pp.js
+- surface_id: sur-sqlite3-vfs-opfs-c-pp-js
+  kind: other
+  locator: sqlite3-vfs-opfs.c-pp.js
+  repo_path: ext/wasm/api/sqlite3-vfs-opfs.c-pp.js
+  status: candidate
+  slice_id: wasm-opfs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-vfs-opfs.c-pp.js
+  - ext/wasm/api/sqlite3-opfs-async-proxy.c-pp.js
+  - ext/wasm/api/opfs-common-shared.c-pp.js
+- surface_id: sur-sqlite3-vfs-opfs-sahpool-c-pp-js
+  kind: other
+  locator: sqlite3-vfs-opfs-sahpool.c-pp.js
+  repo_path: ext/wasm/api/sqlite3-vfs-opfs-sahpool.c-pp.js
+  status: candidate
+  slice_id: wasm-opfs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/wasm/api/sqlite3-vfs-opfs-sahpool.c-pp.js
+  - ext/wasm/api/sqlite3-vfs-opfs-wl.c-pp.js
 - surface_id: sur-sqlite3wherebegin
   kind: other
   locator: sqlite3WhereBegin()
@@ -1998,6 +2111,34 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function
     query planning.
+- behaviour_id: global-init-config-001
+  surface_id: sur-sqlite3-initialize
+  name: Library init/shutdown lifecycle
+  status: candidate
+  slice_id: global-init-config
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open paths.
+- behaviour_id: global-init-config-002
+  surface_id: sur-sqlite3-config
+  name: Global configuration op matrix
+  status: candidate
+  slice_id: global-init-config
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config.
+- behaviour_id: global-init-config-003
+  surface_id: sur-sqlite3-db-config
+  name: Per-connection configuration (db_config)
+  status: candidate
+  slice_id: global-init-config
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: 'confidence=observed-in-code; Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb
+    gate...'
 - behaviour_id: icu-001
   surface_id: sur-sqlite3icuinit
   name: ICU function and collation pack
@@ -2035,6 +2176,33 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread
     rules.
+- behaviour_id: jni-java-surface-001
+  surface_id: sur-org-sqlite-jni-capi-capi
+  name: capi 1:1 Java layer with callback interfaces
+  status: candidate
+  slice_id: jni-java-surface
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.
+- behaviour_id: jni-java-surface-002
+  surface_id: sur-org-sqlite-jni-wrapper1-sqlite
+  name: wrapper1 object-oriented Java layer
+  status: candidate
+  slice_id: jni-java-surface
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Sqlite/SqliteException OO wrapper with typed function classes.
+- behaviour_id: jni-java-surface-003
+  surface_id: sur-org-sqlite-jni-fts5
+  name: FTS5 Java extension bindings
+  status: candidate
+  slice_id: jni-java-surface
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Java projections of fts5_api / Fts5ExtensionApi for aux functions.
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
@@ -2754,6 +2922,53 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
     fiddle UI noted as adapter, deprioritized.
+- behaviour_id: wasm-js-api-001
+  surface_id: sur-ext-wasm-api-sqlite3-api-prologue-js
+  name: Low-level JS capi projection + C glue
+  status: candidate
+  slice_id: wasm-js-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3.capi namespace built by prologue/glue over exported C functions.
+- behaviour_id: wasm-js-api-002
+  surface_id: sur-ext-wasm-api-sqlite3-api-oo1-c-pp-js
+  name: oo1 object-oriented JS API (DB/Stmt)
+  status: candidate
+  slice_id: wasm-js-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; High-level DB/Stmt wrapper with exec() config object semantics.
+- behaviour_id: wasm-js-api-003
+  surface_id: sur-ext-wasm-api-sqlite3-api-worker1-c-pp-js
+  name: worker1 message protocol + promiser
+  status: candidate
+  slice_id: wasm-js-api
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards
+    at bind.
+- behaviour_id: wasm-opfs-001
+  surface_id: sur-sqlite3-vfs-opfs-c-pp-js
+  name: OPFS async-proxy VFS
+  status: candidate
+  slice_id: wasm-opfs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS
+    handles.
+- behaviour_id: wasm-opfs-002
+  surface_id: sur-sqlite3-vfs-opfs-sahpool-c-pp-js
+  name: OPFS SyncAccessHandle-pool VFS (sahpool)
+  status: candidate
+  slice_id: wasm-opfs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
   name: WHERE-loop generation boundary
@@ -2791,17 +3006,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:28:02Z'
+last_updated: '2026-08-11T09:30:35Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 135
+  surfaces_total: 146
   surfaces_by_status:
-    candidate: 135
-  behaviours_known: 135
+    candidate: 146
+  behaviours_known: 146
   behaviours_by_status:
-    candidate: 135
-  unscanned_hints: 7
+    candidate: 146
+  unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

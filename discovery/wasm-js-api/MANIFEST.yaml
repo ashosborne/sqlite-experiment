@@ -1,0 +1,40 @@
+slice_id: wasm-js-api
+seed: "wasm JS API breadth: oo1, worker1, promiser, C-glue"
+seed_entrypoints: ["ext/wasm/api/sqlite3-api-oo1.c-pp.js"]
+out_of_scope_hints: ["OPFS persistence", "emscripten build tooling"]
+phase: A
+updated_at: 2026-08-11T09:30:13Z
+features:
+  - id: wasm-js-api-001
+    name: Low-level JS capi projection + C glue
+    status: candidate
+    confidence: observed-in-code
+    summary: "sqlite3.capi namespace built by prologue/glue over exported C functions."
+    entrypoints:
+      - kind: other
+        locator: "ext/wasm/api/sqlite3-api-prologue.js"
+        evidence: ["ext/wasm/api/sqlite3-api-prologue.js", "ext/wasm/api/sqlite3-api-glue.c-pp.js", "ext/wasm/api/EXPORTED_FUNCTIONS.c-pp"]
+    dependencies: ["wasm-binding"]
+    open_questions: []
+  - id: wasm-js-api-002
+    name: oo1 object-oriented JS API (DB/Stmt)
+    status: candidate
+    confidence: observed-in-code
+    summary: "High-level DB/Stmt wrapper with exec() config object semantics."
+    entrypoints:
+      - kind: other
+        locator: "ext/wasm/api/sqlite3-api-oo1.c-pp.js"
+        evidence: ["ext/wasm/api/sqlite3-api-oo1.c-pp.js"]
+    dependencies: ["wasm-js-api-001"]
+    open_questions: []
+  - id: wasm-js-api-003
+    name: worker1 message protocol + promiser
+    status: candidate
+    confidence: observed-in-code
+    summary: "postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards at bind."
+    entrypoints:
+      - kind: other
+        locator: "ext/wasm/api/sqlite3-api-worker1.c-pp.js"
+        evidence: ["ext/wasm/api/sqlite3-api-worker1.c-pp.js"]
+    dependencies: ["wasm-js-api-002"]
+    open_questions: []

@@ -208,3 +208,14 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - vfs-unix-variants: 3 candidates (locking-style matrix; proxy/conch locking; VxWorks). These are exactly the entrypoints run-1's unix card left out.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 20/120 (10 surfaces + 10 behaviours). Totals 270. Slices this run: 4 (total 64). Zero-new-streak: 0.
+
+## Resume iteration 2 — seeds: global-init-config, wasm-js-api, wasm-opfs, jni-java-surface
+
+- stop.txt: absent.
+- global-init-config: 3 candidates (init/shutdown, config op matrix, db_config toggles — flagged highest-value bind: defaults shape every other slice). Closes the run-1 open question.
+- wasm-js-api: 3 candidates (capi projection, oo1, worker1/promiser — async protocol flagged). Refines run-1 wasm-binding umbrella; row untouched.
+- wasm-opfs: 2 candidates (async-proxy VFS, sahpool VFS) — the two OPFS strategies with different concurrency/header requirements.
+- jni-java-surface: 3 candidates (capi Java layer, wrapper1 OO layer, fts5 bindings). Refines run-1 jni-binding umbrella; row untouched.
+- One YAML authoring error (stray key in global-init-config MANIFEST) caught by parse check and fixed before upsert; sqlite3_initialize evidence pinned to src/main.c:360 after verification.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 42/120 (21 surfaces + 21 behaviours). Totals 292. Slices this run: 8 (total 68). Zero-new-streak: 0.

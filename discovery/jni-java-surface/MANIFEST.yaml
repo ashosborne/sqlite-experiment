@@ -1,0 +1,40 @@
+slice_id: jni-java-surface
+seed: "Java-side API tree: capi, wrapper1, fts5"
+seed_entrypoints: ["ext/jni/src/org/sqlite/jni/capi/CApi.java"]
+out_of_scope_hints: ["C bridge umbrella", "Java build tooling"]
+phase: A
+updated_at: 2026-08-11T09:30:13Z
+features:
+  - id: jni-java-surface-001
+    name: capi 1:1 Java layer with callback interfaces
+    status: candidate
+    confidence: observed-in-code
+    summary: "CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs."
+    entrypoints:
+      - kind: other
+        locator: "org.sqlite.jni.capi.CApi"
+        evidence: ["ext/jni/src/org/sqlite/jni/capi/CApi.java", "ext/jni/src/org/sqlite/jni/capi/AuthorizerCallback.java", "ext/jni/src/org/sqlite/jni/capi/BusyHandlerCallback.java"]
+    dependencies: ["jni-binding"]
+    open_questions: []
+  - id: jni-java-surface-002
+    name: wrapper1 object-oriented Java layer
+    status: candidate
+    confidence: observed-in-code
+    summary: "Sqlite/SqliteException OO wrapper with typed function classes."
+    entrypoints:
+      - kind: other
+        locator: "org.sqlite.jni.wrapper1.Sqlite"
+        evidence: ["ext/jni/src/org/sqlite/jni/wrapper1/Sqlite.java", "ext/jni/src/org/sqlite/jni/wrapper1/SqliteException.java"]
+    dependencies: ["jni-java-surface-001"]
+    open_questions: []
+  - id: jni-java-surface-003
+    name: FTS5 Java extension bindings
+    status: candidate
+    confidence: observed-in-code
+    summary: "Java projections of fts5_api / Fts5ExtensionApi for aux functions."
+    entrypoints:
+      - kind: other
+        locator: "org.sqlite.jni.fts5"
+        evidence: ["ext/jni/src/org/sqlite/jni/fts5/fts5_api.java", "ext/jni/src/org/sqlite/jni/fts5/Fts5ExtensionApi.java"]
+    dependencies: ["fts5"]
+    open_questions: ["Same consumer question as run 1: does anything downstream use the Java binding?"]

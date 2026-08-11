@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:28:03Z
+- Generated: 2026-08-11T09:30:35Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:28:02Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:30:35Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 135 |
-| Behaviours known | 135 |
-| Seeds scanned | 64 |
-| Unscanned hints (residual) | 7 |
+| Surfaces total | 146 |
+| Behaviours known | 146 |
+| Seeds scanned | 68 |
+| Unscanned hints (residual) | 3 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 135 |
+| candidate | 146 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 135 |
+| candidate | 146 |
 
 ## Surfaces per slice
 
@@ -54,10 +54,12 @@
 | fts3 | 1 |
 | fts5 | 3 |
 | geopoly | 1 |
+| global-init-config | 3 |
 | icu | 1 |
 | intck | 1 |
 | introspection-vtabs | 1 |
 | jni-binding | 1 |
+| jni-java-surface | 3 |
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
@@ -96,6 +98,8 @@
 | vtab-core | 2 |
 | wal | 2 |
 | wasm-binding | 1 |
+| wasm-js-api | 3 |
+| wasm-opfs | 2 |
 | where-optimizer | 2 |
 | window-functions | 2 |
 
@@ -165,13 +169,13 @@
 - `vfs-kv`
 - `vfs-unix-variants`
 - `vfs-win`
+- `global-init-config`
+- `jni-java-surface`
+- `wasm-js-api`
+- `wasm-opfs`
 
 ## Unscanned hints (residual register)
 
-- src: global-init-config — sqlite3_initialize/shutdown + sqlite3_config + sqlite3_db_config (src/main.c, src/global.c); left as open question in run 1
-- ext: wasm-js-api — JS/worker/promise API surface beyond run-1 wasm-binding umbrella (ext/wasm/api/*.js, ext/wasm/api/*.c-pp.js)
-- ext: wasm-opfs — OPFS VFS + sync-access-handle pool variants (ext/wasm/api/sqlite3-vfs-opfs*, sqlite3-opfs-*)
-- ext: jni-java-surface — Java class tree beyond run-1 jni-binding C-bridge umbrella (ext/jni/src/org/sqlite/jni)
 - ext: misc-vtab-unbundle — split run-1 misc-vtab-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
