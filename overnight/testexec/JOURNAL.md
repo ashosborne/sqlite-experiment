@@ -65,3 +65,12 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Job 1: pack v4 BOUND — kitchen store law (recognizer = SCOPE_VIOLATION for kitchen SQL); ddl-schema-001-C001 + dml-codegen-001-C001 re-homed; still_recognizer known_risk names the rest; ADR 0002.
 - Job 3: modern/src/store.rs (tables→cols→rows catalog; CREATE/DROP/INSERT/UPDATE(+col+N)/DELETE/SELECT(+ORDER BY)/sqlite_master count/changes counters); exec routes store-first; close() drops per-db state (allocation-recycling hazard fixed); script_table regenerated WITHOUT the re-homed pair (81 entries, zero kitchen SQL); kitchen_compare.rs (5 goldens + 2 re-homed byte-matches via store + anti-cheat runtime value). cargo 110/110.
 - Invariants: 117 prior goldens md5-identical; C003 untouched; parity 0; no product edits; same branch.
+
+---
+
+# Run 14 — engine v5 re-home (sqlite-engine-v5-rehome)
+
+- All eleven table scripts re-homed onto the store (UNIQUE col+index, OR IGNORE/REPLACE, PK upserts w/ excluded.col, ALTER RENAME/ADD COLUMN DEFAULT, FK insert check 19 + CASCADE + DROP-parent 19, AFTER INSERT triggers w/ new.a*N, qualified names + rowid). Zero deferred of the eleven.
+- Two golden-caught bugs fixed pre-ship: trigger-body trim order; SELECT parser swallowing pragma_compile_options (referenced-table gate added — store only claims tables it created/owns).
+- script_table regenerated: 70 entries, zero user-table SQL (grep proof in brief). kitchen_compare grew to 20 tests incl. anti_cheat_runtime_fk_round_trip. cargo 111/111.
+- Pack v5 BOUND (kitchen_path 18; per-ID still_recognizer reasons replace the blanket note). 122 goldens md5-identical; C003 BLOCKED; parity 0; no RECORD this run (charter: ALLOW_RECORD false — none needed).
