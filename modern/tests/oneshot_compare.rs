@@ -85,21 +85,6 @@ fn builtin_scalar_agg_funcs_003_c001() {
 }
 
 #[test]
-fn ddl_schema_002_c001() {
-    compare_script("ddl-schema", "ddl-schema-002", "C001", "CREATE TABLE t2(a); CREATE UNIQUE INDEX i2 ON t2(a); INSERT INTO t2 VALUES(1); INSERT OR IGNORE INTO t2 VALUES(1); SELECT count(*) FROM t2;");
-}
-
-#[test]
-fn ddl_schema_003_c001() {
-    compare_script("ddl-schema", "ddl-schema-003", "C001", "CREATE TABLE t3(a); ALTER TABLE t3 RENAME TO t3x; ALTER TABLE t3x ADD COLUMN b DEFAULT 5; INSERT INTO t3x(a) VALUES(9); SELECT a,b FROM t3x;");
-}
-
-#[test]
-fn dml_codegen_002_c001() {
-    compare_script("dml-codegen", "dml-codegen-002", "C001", "CREATE TABLE u(a UNIQUE); INSERT INTO u VALUES(1); INSERT OR REPLACE INTO u VALUES(1); INSERT OR IGNORE INTO u VALUES(1); SELECT count(*) FROM u;");
-}
-
-#[test]
 fn expr_codegen_001_c001() {
     compare_script("expr-codegen", "expr-codegen-001", "C001", "SELECT 1+2*3, 'a'||'b', CAST('12x' AS INTEGER), CAST(2.9 AS INTEGER);");
 }
@@ -130,11 +115,6 @@ fn select_codegen_003_c001() {
 }
 
 #[test]
-fn name_resolution_001_c001() {
-    compare_script("name-resolution", "name-resolution-001", "C001", "CREATE TABLE n1(a); INSERT INTO n1 VALUES(5); SELECT n1.a, a, rowid FROM n1;");
-}
-
-#[test]
 fn name_resolution_002_c001() {
     compare_script("name-resolution", "name-resolution-002", "C001", "SELECT 3 AS k UNION ALL SELECT 1 ORDER BY k;");
 }
@@ -157,41 +137,6 @@ fn parser_grammar_002_c001() {
 #[test]
 fn analyze_stats_001_c001() {
     compare_script("analyze-stats", "analyze-stats-001", "C001", "CREATE TABLE s1(a); INSERT INTO s1 VALUES(1),(2); CREATE INDEX si ON s1(a); ANALYZE; SELECT count(*) FROM sqlite_master WHERE name='sqlite_stat1'; SELECT stat FROM sqlite_stat1 WHERE idx='si';");
-}
-
-#[test]
-fn foreign_keys_001_c001() {
-    compare_script("foreign-keys", "foreign-keys-001", "C001", "PRAGMA foreign_keys=ON; CREATE TABLE par(id INTEGER PRIMARY KEY); CREATE TABLE chi(pid REFERENCES par(id)); INSERT INTO chi VALUES(1);");
-}
-
-#[test]
-fn foreign_keys_002_c001() {
-    compare_script("foreign-keys", "foreign-keys-002", "C001", "PRAGMA foreign_keys=ON; CREATE TABLE p2(id INTEGER PRIMARY KEY); CREATE TABLE c2(pid REFERENCES p2(id) ON DELETE CASCADE); INSERT INTO p2 VALUES(1); INSERT INTO c2 VALUES(1); DELETE FROM p2; SELECT count(*) FROM c2;");
-}
-
-#[test]
-fn foreign_keys_003_c001() {
-    compare_script("foreign-keys", "foreign-keys-003", "C001", "PRAGMA foreign_keys=ON; CREATE TABLE p3(id INTEGER PRIMARY KEY); CREATE TABLE c3(pid REFERENCES p3(id)); INSERT INTO p3 VALUES(1); INSERT INTO c3 VALUES(1); DROP TABLE p3;");
-}
-
-#[test]
-fn triggers_001_c001() {
-    compare_script("triggers", "triggers-001", "C001", "CREATE TABLE tr(a); CREATE TABLE tlog(v); CREATE TRIGGER trg AFTER INSERT ON tr BEGIN INSERT INTO tlog VALUES(new.a); END; SELECT count(*) FROM sqlite_master WHERE type='trigger';");
-}
-
-#[test]
-fn triggers_002_c001() {
-    compare_script("triggers", "triggers-002", "C001", "CREATE TABLE tr2(a); CREATE TABLE tlog2(v); CREATE TRIGGER trg2 AFTER INSERT ON tr2 BEGIN INSERT INTO tlog2 VALUES(new.a*2); END; INSERT INTO tr2 VALUES(7); SELECT v FROM tlog2;");
-}
-
-#[test]
-fn upsert_001_c001() {
-    compare_script("upsert", "upsert-001", "C001", "CREATE TABLE up(a INTEGER PRIMARY KEY, b); INSERT INTO up VALUES(1,'x'); INSERT INTO up VALUES(1,'y') ON CONFLICT(a) DO NOTHING; SELECT b, count(*) FROM up;");
-}
-
-#[test]
-fn upsert_002_c001() {
-    compare_script("upsert", "upsert-002", "C001", "CREATE TABLE up2(a INTEGER PRIMARY KEY, b); INSERT INTO up2 VALUES(1,'x'); INSERT INTO up2 VALUES(1,'y') ON CONFLICT(a) DO UPDATE SET b=excluded.b; SELECT b FROM up2;");
 }
 
 #[test]

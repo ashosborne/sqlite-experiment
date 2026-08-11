@@ -455,25 +455,36 @@ pub unsafe extern "C" fn sqlite3_exec(
     if !errmsg.is_null() { *errmsg = std::ptr::null_mut(); }
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
-    // KITCHEN LAW (pack v4): store-parseable scripts run on the real row store.
-    // The recognizer table never contains kitchen cases (generation excludes them).
-    if let Some(rows) = store::execute_script(db as usize, sql) {
-        if let Some(f) = cb {
-            for row in &rows {
-                let cstrs: Vec<Option<std::ffi::CString>> =
-                    row.iter().map(|v| v.as_deref().map(|s| std::ffi::CString::new(s).unwrap())).collect();
-                let mut argv: Vec<*mut c_char> = cstrs.iter()
-                    .map(|o| o.as_ref().map(|c| c.as_ptr() as *mut c_char).unwrap_or(std::ptr::null_mut()))
-                    .collect();
-                let rc = f(arg, argv.len() as c_int, argv.as_mut_ptr(), std::ptr::null_mut());
-                if rc != 0 {
-                    if !errmsg.is_null() { *errmsg = alloc_cstr("query aborted"); }
-                    return SQLITE_ABORT;
+    // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
+    // The recognizer table never contains kitchen-path SQL (generation excludes it).
+    match store::execute_script(db as usize, sql) {
+        store::Outcome::NotKitchen => {}
+        store::Outcome::Done { rows, rc, err } => {
+            if let Some(f) = cb {
+                for row in &rows {
+                    let cstrs: Vec<Option<std::ffi::CString>> =
+                        row.iter().map(|v| v.as_deref().map(|s| std::ffi::CString::new(s).unwrap())).collect();
+                    let mut argv: Vec<*mut c_char> = cstrs.iter()
+                        .map(|o| o.as_ref().map(|c| c.as_ptr() as *mut c_char).unwrap_or(std::ptr::null_mut()))
+                        .collect();
+                    let cbrc = f(arg, argv.len() as c_int, argv.as_mut_ptr(), std::ptr::null_mut());
+                    if cbrc != 0 {
+                        if !errmsg.is_null() { *errmsg = alloc_cstr("query aborted"); }
+                        return SQLITE_ABORT;
+                    }
                 }
             }
+            if rc != 0 {
+                let msg = err.unwrap_or_else(|| "SQL error".into());
+                (*db).errcode = rc;
+                (*db).extended = rc;
+                (*db).errmsg = Some(std::ffi::CString::new(msg.clone()).unwrap());
+                if !errmsg.is_null() { *errmsg = alloc_cstr(&msg); }
+            } else {
+                db_ok(&mut *db);
+            }
+            return rc;
         }
-        db_ok(&mut *db);
-        return SQLITE_OK;
     }
     let pin = SCRIPT_TABLE.iter().find(|(k, _)| *k == sql).map(|(_, p)| p);
     let pin = match pin {
