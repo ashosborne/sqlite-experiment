@@ -293,3 +293,123 @@ fn misc_prefixes_001_c001() {
 fn misc_wholenumber_001_c001() {
     compare_script("misc-wholenumber", "misc-wholenumber-001", "C001", "CREATE VIRTUAL TABLE temp.w USING wholenumber; SELECT count(*) FROM w WHERE value BETWEEN 1 AND 5;");
 }
+
+#[test]
+fn misc_compress_001_c001() {
+    compare_script("misc-compress", "misc-compress-001", "C001", "SELECT hex(uncompress(compress('hello')))=hex('hello'), length(compress(zeroblob(1000)))<1000;");
+}
+
+#[test]
+fn misc_fossildelta_001_c001() {
+    compare_script("misc-fossildelta", "misc-fossildelta-001", "C001", "SELECT delta_apply('abc', delta_create('abc','abcd'))='abcd', delta_output_size(delta_create('abc','abcd'));");
+}
+
+#[test]
+fn misc_nextchar_001_c001() {
+    compare_script("misc-nextchar", "misc-nextchar-001", "C001", "CREATE TABLE w(x TEXT); CREATE INDEX wx ON w(x); INSERT INTO w VALUES('cat'),('car'),('cow'); SELECT next_char('ca','w','x');");
+}
+
+#[test]
+fn misc_sha1_001_c001() {
+    compare_script("misc-sha1", "misc-sha1-001", "C001", "SELECT sha1('abc');");
+}
+
+#[test]
+fn misc_shathree_001_c001() {
+    compare_script("misc-shathree", "misc-shathree-001", "C001", "SELECT lower(hex(sha3('abc',256)));");
+}
+
+#[test]
+fn misc_urifuncs_001_c001() {
+    compare_script("misc-urifuncs", "misc-urifuncs-001", "C001", "SELECT sqlite3_uri_parameter('main','vfs') IS NULL, sqlite3_uri_boolean('main','ro',0);");
+}
+
+#[test]
+fn misc_utilities_001_c001() {
+    compare_script("misc-utilities", "misc-utilities-001", "C001", "SELECT eval('SELECT 3'), eval('SELECT 1; SELECT 2');");
+}
+
+#[test]
+fn misc_zorder_001_c001() {
+    compare_script("misc-zorder", "misc-zorder-001", "C001", "SELECT zorder(3,5), unzorder(zorder(3,5),2,0), unzorder(zorder(3,5),2,1);");
+}
+
+#[test]
+fn misc_func_packs_001_c001() {
+    compare_script("misc-func-packs", "misc-func-packs-001", "C001", "SELECT decimal_mul('1.5','2'), 'pack' REGEXP 'p.ck';");
+}
+
+#[test]
+fn pragma_surface_001_c002() {
+    compare_script("pragma-surface", "pragma-surface-001", "C002", "PRAGMA application_id; PRAGMA application_id=42; PRAGMA application_id;");
+}
+
+#[test]
+fn pragma_surface_001_c003() {
+    compare_script("pragma-surface", "pragma-surface-001", "C003", "PRAGMA schema_version; CREATE TABLE t(a); PRAGMA schema_version;");
+}
+
+#[test]
+fn pragma_surface_001_c004() {
+    compare_script("pragma-surface", "pragma-surface-001", "C004", "PRAGMA cache_size; PRAGMA cache_size=100; PRAGMA cache_size;");
+}
+
+#[test]
+fn pragma_surface_001_c005() {
+    compare_script("pragma-surface", "pragma-surface-001", "C005", "PRAGMA recursive_triggers; PRAGMA recursive_triggers=ON; PRAGMA recursive_triggers;");
+}
+
+#[test]
+fn pragma_surface_001_c006() {
+    compare_script("pragma-surface", "pragma-surface-001", "C006", "PRAGMA defer_foreign_keys; PRAGMA defer_foreign_keys=1; PRAGMA defer_foreign_keys;");
+}
+
+#[test]
+fn pragma_surface_001_c007() {
+    compare_script("pragma-surface", "pragma-surface-001", "C007", "PRAGMA query_only; PRAGMA query_only=1; PRAGMA query_only;");
+}
+
+#[test]
+fn pragma_surface_001_c008() {
+    compare_script("pragma-surface", "pragma-surface-001", "C008", "PRAGMA temp_store; PRAGMA temp_store=2; PRAGMA temp_store;");
+}
+
+#[test]
+fn pragma_surface_001_c009() {
+    compare_script("pragma-surface", "pragma-surface-001", "C009", "PRAGMA automatic_index; PRAGMA automatic_index=0; PRAGMA automatic_index;");
+}
+
+#[test]
+fn pragma_surface_001_c010() {
+    compare_script("pragma-surface", "pragma-surface-001", "C010", "PRAGMA ignore_check_constraints; PRAGMA ignore_check_constraints=1; PRAGMA ignore_check_constraints;");
+}
+
+#[test]
+fn pragma_surface_001_c011() {
+    compare_script("pragma-surface", "pragma-surface-001", "C011", "PRAGMA case_sensitive_like=ON; SELECT 'abc' LIKE 'A%'; PRAGMA case_sensitive_like=OFF; SELECT 'abc' LIKE 'A%';");
+}
+
+#[test]
+fn pragma_surface_001_c012() {
+    compare_script("pragma-surface", "pragma-surface-001", "C012", "CREATE TABLE ic(a CHECK(a>0)); PRAGMA integrity_check; PRAGMA quick_check;");
+}
+
+#[test]
+fn pragma_surface_002_c002() {
+    compare_script("pragma-surface", "pragma-surface-002", "C002", "CREATE TABLE pt(a INTEGER PRIMARY KEY, b TEXT REFERENCES pt(a)); CREATE INDEX pi ON pt(b); SELECT count(*) FROM pragma_table_info('pt'); SELECT count(*) FROM pragma_foreign_key_list('pt'); SELECT count(*) FROM pragma_index_list('pt');");
+}
+
+#[test]
+fn pragma_surface_002_c003() {
+    compare_script("pragma-surface", "pragma-surface-002", "C003", "SELECT count(*) FROM pragma_compile_options;");
+}
+
+#[test]
+fn pragma_surface_002_c004() {
+    compare_script("pragma-surface", "pragma-surface-002", "C004", "SELECT count(*) FROM pragma_function_list, (SELECT 1) WHERE (SELECT count(*) FROM pragma_module_list)=18 AND (SELECT count(*) FROM pragma_pragma_list)=66;");
+}
+
+#[test]
+fn attach_detach_003_c001() {
+    compare_script("attach-detach", "attach-detach-003", "C001", "ATTACH ':memory:' AS aux3; CREATE TABLE main.mm(v); CREATE TABLE aux3.t(a); CREATE TRIGGER aux3.trg AFTER INSERT ON aux3.t BEGIN INSERT INTO main.mm VALUES(1); END;");
+}

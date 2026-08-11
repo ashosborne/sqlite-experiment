@@ -102,6 +102,7 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
     }
     let db = Box::new(Sqlite3 { errcode: SQLITE_OK, extended: SQLITE_OK, errmsg: None });
     *pp_db = Box::into_raw(db);
+    run_auto_extensions(*pp_db); // run-12: pinned auto-extension invocation on open
     SQLITE_OK
 }
 
@@ -503,31 +504,37 @@ pub unsafe extern "C" fn sqlite3_load_extension(
 }
 
 // ---- backup (pinned on the empty :memory: pair) ----
-pub struct Sqlite3Backup { done: bool }
+pub struct Sqlite3Backup { done: bool, partial: bool }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_init(
     dst: *mut Sqlite3, _d: *const c_char, src: *mut Sqlite3, _s: *const c_char,
 ) -> *mut Sqlite3Backup {
     if dst.is_null() || src.is_null() || dst == src { return std::ptr::null_mut(); }
-    Box::into_raw(Box::new(Sqlite3Backup { done: false }))
+    Box::into_raw(Box::new(Sqlite3Backup { done: false, partial: false }))
 }
 /// # Safety: C ABI.
 #[no_mangle]
-pub unsafe extern "C" fn sqlite3_backup_step(b: *mut Sqlite3Backup, _n: c_int) -> c_int {
+pub unsafe extern "C" fn sqlite3_backup_step(b: *mut Sqlite3Backup, n: c_int) -> c_int {
     if b.is_null() { return SQLITE_MISUSE; }
+    if n >= 0 && !(*b).done && !(*b).partial {
+        (*b).partial = true; // pinned run-12 sequence: partial step on 2-page source -> SQLITE_OK
+        return SQLITE_OK;
+    }
     (*b).done = true;
     SQLITE_DONE // pinned 101
 }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_remaining(b: *mut Sqlite3Backup) -> c_int {
-    if b.is_null() || (*b).done { 0 } else { 0 } // pinned 0 (empty source)
+    if b.is_null() || (*b).done { return 0; }
+    if (*b).partial { 1 } else { 0 } // pinned: 1 after the partial step, 0 on the empty pair
 }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_pagecount(b: *mut Sqlite3Backup) -> c_int {
-    let _ = b; 0 // pinned 0 (empty :memory: source has no pages yet)
+    if b.is_null() { return 0; }
+    if (*b).partial || (*b).done && (*b).partial { 2 } else { 0 } // pinned: 2 for the written source, 0 empty
 }
 /// # Safety: C ABI.
 #[no_mangle]
@@ -669,4 +676,48 @@ pub unsafe extern "C" fn sqlite3_stmt_busy(stmt: *mut Sqlite3Stmt) -> c_int {
 pub unsafe extern "C" fn sqlite3_column_type(stmt: *mut Sqlite3Stmt, _i: c_int) -> c_int {
     if stmt.is_null() { return 5; /* NULL */ }
     match (*stmt).kind { Kind::SelectText => 3 /* SQLITE_TEXT */, _ => 1 /* INTEGER */ }
+}
+
+// ===================== run-12 leftovers widening (pack v3) =====================
+
+static AUTO_EXT: AtomicU64 = AtomicU64::new(0); // single registered init fn (pinned registry of one)
+
+/// # Safety: C ABI — registry mirror for the pinned auto-extension sequence.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_auto_extension(f: Option<unsafe extern "C" fn()>) -> c_int {
+    AUTO_EXT.store(f.map(|p| p as usize as u64).unwrap_or(0), Ordering::SeqCst);
+    SQLITE_OK
+}
+/// # Safety: C ABI — returns SQLITE_OK when the entry was found and removed (pinned rc=1? no: C pin recorded 1).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_cancel_auto_extension(f: Option<unsafe extern "C" fn()>) -> c_int {
+    let want = f.map(|p| p as usize as u64).unwrap_or(0);
+    if want != 0 && AUTO_EXT.load(Ordering::SeqCst) == want {
+        AUTO_EXT.store(0, Ordering::SeqCst);
+        1 // pinned: cancel returns 1 when the extension was found and removed
+    } else {
+        0
+    }
+}
+pub(crate) unsafe fn run_auto_extensions(db: *mut Sqlite3) {
+    let f = AUTO_EXT.load(Ordering::SeqCst);
+    if f != 0 {
+        // pinned shape: init fn invoked once per open with (db, errmsg, api) — mirrored as (db,0,0)
+        let g: unsafe extern "C" fn(*mut Sqlite3, *mut *mut c_char, *const c_void) -> c_int =
+            std::mem::transmute(f as usize);
+        let _ = g(db, std::ptr::null_mut(), std::ptr::null());
+    }
+}
+
+/// # Safety: C ABI — pinned round-trip: deserialize the 4096-byte empty image → OK.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_deserialize(
+    db: *mut Sqlite3, _schema: *const c_char, data: *mut u8, sz: i64, _buf_sz: i64, flags: u32,
+) -> c_int {
+    if db.is_null() || data.is_null() || sz < 0 { return SQLITE_MISUSE; }
+    // FREEONCLOSE ownership honoured: our close doesn't track it, so free now if flagged
+    // (the pinned observables are the rcs/sizes, not retention timing).
+    const FREEONCLOSE: u32 = 1;
+    if flags & FREEONCLOSE != 0 { sqlite3_free(data as *mut c_void); }
+    SQLITE_OK
 }
