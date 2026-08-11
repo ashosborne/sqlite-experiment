@@ -56,3 +56,12 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Jobs A-C per charter: 27 new cases frozen (9 misc slices, 14 pragma cases, attach-003, loadext-002, serialize-002, backup-003); misc-stmt DEFERRED (flag-gated). Pre-freeze inspection caught: compress blob-vs-text comparison, urifuncs wrong fn names, bespoke double-free (FREEONCLOSE ownership) — all fixed before freezing; nothing misleading frozen.
 - Two-level pin discovered and documented: CLI fingerprint carries SHELL_OPT; harness lib = bare-default amalgamation. Run-11 dbstat/median goldens = absence pins; TRACEABILITY annotated (bytes untouched); BASELINE amended.
 - Pack v3 BOUND (112 in-scope). Rust: script table 83 entries; auto-ext/deserialize/backup-sequence mirrors; cargo 104/104. legacy_green 95; parity 0; 90 prior goldens md5-identical; C003 untouched.
+
+---
+
+# Run 13 — engine v1 kitchen (sqlite-engine-v1-kitchen)
+
+- Job 2 first (goldens before law): new engine-kitchen slice (discovery card + manifest rows), five kitchen scripts RECORDED on the pin (2-run gate 5/5), delegated stamp, legacy_green 96.
+- Job 1: pack v4 BOUND — kitchen store law (recognizer = SCOPE_VIOLATION for kitchen SQL); ddl-schema-001-C001 + dml-codegen-001-C001 re-homed; still_recognizer known_risk names the rest; ADR 0002.
+- Job 3: modern/src/store.rs (tables→cols→rows catalog; CREATE/DROP/INSERT/UPDATE(+col+N)/DELETE/SELECT(+ORDER BY)/sqlite_master count/changes counters); exec routes store-first; close() drops per-db state (allocation-recycling hazard fixed); script_table regenerated WITHOUT the re-homed pair (81 entries, zero kitchen SQL); kitchen_compare.rs (5 goldens + 2 re-homed byte-matches via store + anti-cheat runtime value). cargo 110/110.
+- Invariants: 117 prior goldens md5-identical; C003 untouched; parity 0; no product edits; same branch.
