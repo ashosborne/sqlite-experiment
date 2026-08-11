@@ -324,3 +324,17 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Notable honesty point: misc-percentile golden is rc=1 (bare build lacks ENABLE_PERCENTILE);
   the engine deliberately errors on median/percentile to match reality, not to fake success.
 - cargo test 136/136; all prior goldens md5-identical; anti-cheat 5/5; parity_green 0.
+
+## Run 18 — 2026-08-11 — engine v9: joins + scalar subqueries (pack v9)
+
+- Pack v8→v9 BOUND (+versions/9.yaml, ADR 0007): subquery law (scalar/EXISTS/correlated,
+  LIMIT inside), join law (nested-loop INNER/comma/LEFT, 2-3 tables, no planner claim).
+- 24 new cases (engine-subquery 10, engine-join 14) frozen on pinned C, 2-run determinism,
+  delegated HUMAN_ACCEPTED, legacy_green 104. ALL 24 replay byte-identical via the executor
+  on first pass — zero deferrals in the new batch.
+- eval.rs: subquery extraction → Ex::Subq/Ex::Exists with correlated outer-row threading;
+  FROM parser with aliases + ON; nested-loop joins incl. real LEFT JOIN NULL-extension;
+  real GROUP BY; multi-key ORDER BY ASC/DESC; LIMIT/OFFSET at every level.
+- v8 defer pragma-surface-002-C001 RECLAIMED (golden untouched, replays via executor).
+- Anti-cheat: runtime-keyed join + runtime scalar subquery + SCRIPT_TABLE still 0.
+- cargo 164/164; 155 prior goldens md5-identical; parity_green 0; C003 BLOCKED.

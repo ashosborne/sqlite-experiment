@@ -3,33 +3,33 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T17:51:54Z
+- Generated: 2026-08-11T20:08:24Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T17:14:20Z by `sqlite-engine-v7-schema-disk`
+- Manifest last_updated: 2026-08-11T20:03:25Z by `sqlite-engine-v9-joins-subqueries`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 187 |
-| Behaviours known | 190 |
+| Surfaces total | 189 |
+| Behaviours known | 194 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 100 |
+| legacy_green flags | 104 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 2 |
+| accepted | 4 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| documented | 190 |
+| documented | 194 |
 
 ## Surfaces per slice
 
@@ -48,7 +48,9 @@
 | ddl-schema | 3 |
 | dml-codegen | 2 |
 | engine-files | 1 |
+| engine-join | 1 |
 | engine-kitchen | 1 |
+| engine-subquery | 1 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
 | expert | 1 |

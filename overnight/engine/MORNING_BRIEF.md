@@ -1,158 +1,88 @@
-# MORNING BRIEF — engine v8: the cheat sheet is dead (run 17)
+# MORNING BRIEF — engine v9: joins + scalar subqueries (run 18)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–16 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v8-kill-script-table, TARGET_SCRIPT_TABLE_ENTRIES=0.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–17 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v9-joins-subqueries, MAX_NEW_CASES 36 (used 24).
 
-## 1. Pack @8 BOUND — cheat-sheet ban
+## 1. Pack @9 BOUND — subquery + join law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v7 → **v8 BOUND** (Ash Osborne,
-delegated). versions/1–8 retained; ADR 0006. New laws: **cheat-sheet ban** (no whole-script
-string → rows lookup, table or disguised match), **expression/SELECT law**, **function law**
-(functions computed from arguments), **anti-cheat** (runtime-varying SELECT must pass).
-Schema-validated. completeness: **incomplete**.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v8 → **v9 BOUND** (Ash Osborne,
+delegated). versions/1–9 retained; ADR 0007; schema-validated. New laws: **subquery law**
+(scalar/EXISTS/correlated, LIMIT inside, evaluated from real row sources), **join law**
+(nested-loop INNER/comma/LEFT over 2–3 real store tables; no planner claim), anti-cheat with
+runtime literals. `in_scope_cases` 174; `query_path_cases_v9` 25. completeness: **incomplete**.
 
-## 2. SCRIPT_TABLE before/after
+## 2. New cases — 24 frozen / 0 deferred
 
-| | entries |
-|---|---|
-| before (run-16 tip) | **70** (69 catalogue pins + 1 smoke sentinel) |
-| after (this run) | **0** |
+All 24 passed the two-run determinism gate on the pinned C library first try, were
+delegated HUMAN_ACCEPTED, and **all 24 replay byte-identical through the Rust executor**
+(no case needed deferral).
 
-Grep proof: `grep -c '("' modern/src/script_table.rs` → 0; no `("SELECT` / `("PRAGMA` left.
-`lib.rs` no longer imports SCRIPT_TABLE; "GENERATED lookup" comments rewritten. Unknown SQL
-now returns a real nonzero rc + errmsg (never invents success) — covered by a test.
+| Feature | Cases | Shapes |
+|---|---|---|
+| `engine-subquery-001` | C001–C005 | SELECT-list scalar `(SELECT max(b) FROM t2)`; WHERE scalar; LIMIT + LIMIT/OFFSET inside subquery; pragma_database_list twin; subquery-in-FROM + ORDER BY + LIMIT |
+| `engine-subquery-002` | C001–C005 | EXISTS true/false; correlated NOT EXISTS (empty-ish result); correlated scalar in WHERE with LIMIT; correlated SELECT-list scalar; fresh literal **900017** + empty-subquery→NULL |
+| `engine-join-001` | C001–C007 | JOIN…ON both-sides projection; INNER JOIN count; comma join + WHERE; AS aliases; no-match empty; non-equi ON (`q.a > p.a`); fresh-literal join **910033** |
+| `engine-join-002` | C001–C007 | three-table A⋈B⋈C; self-join `n p, n q`; join aggregates (count/min/max); join + **GROUP BY**; **LEFT JOIN** row shape (NULL-extended); `count(*)` vs `count(r.t)` over LEFT JOIN; single-table GROUP BY |
 
-## 3. Verdict on every former pin (69) — 50 IMPLEMENT / 19 DEFER
+## 3. v8 defers: reclaimed vs still deferred
 
-| Bucket | Case (former pin) | Verdict | Note |
-|---|---|---|---|
-| A pragma/attach | `attach-detach-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `attach-detach-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `attach-detach-003-C001` | **DEFER** | cross-schema trigger DDL validation |
-| A pragma/attach | `pragma-surface-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C002` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C003` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C004` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C005` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C006` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C007` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C008` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C009` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C010` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C011` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-001-C012` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-002-C001` | **DEFER** | scalar subquery + LIMIT over pragma_database_list |
-| A pragma/attach | `pragma-surface-002-C002` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| A pragma/attach | `pragma-surface-002-C003` | **DEFER** | C compile-option registry count |
-| A pragma/attach | `pragma-surface-002-C004` | **DEFER** | C function/module/pragma registry counts |
-| B scalar/expr/query | `builtin-scalar-agg-funcs-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `builtin-scalar-agg-funcs-003-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `expr-codegen-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `expr-codegen-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `expr-codegen-003-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `name-resolution-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `parser-grammar-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `parser-grammar-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `printf-format-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `select-codegen-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `select-codegen-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `select-codegen-003-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| B scalar/expr/query | `tokenizer-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| C json | `json-funcs-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| C json | `json-funcs-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| C json | `json-funcs-003-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| C json | `json-funcs-004-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| D date/time | `date-time-funcs-001-C001` | **DEFER** | julian-day calendar engine |
-| D date/time | `date-time-funcs-002-C001` | **DEFER** | strftime %j engine |
-| D date/time | `date-time-funcs-003-C001` | **DEFER** | month-overflow/weekday modifiers |
-| D date/time | `date-time-funcs-004-C001` | **DEFER** | timediff formatting |
-| E agg/window | `builtin-scalar-agg-funcs-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| E agg/window | `window-functions-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| E agg/window | `window-functions-002-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `analyze-stats-001-C001` | **DEFER** | ANALYZE stats engine (sqlite_stat1 content) |
-| F misc/vtab/ext | `introspection-vtabs-001-C001` | **DEFER** | dbstat vtab |
-| F misc/vtab/ext | `misc-basexx-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-completion-001-C001` | **DEFER** | completion vtab (C keyword registry) |
-| F misc/vtab/ext | `misc-compress-001-C001` | **DEFER** | zlib byte-compat |
-| F misc/vtab/ext | `misc-csv-001-C001` | **DEFER** | csv vtab |
-| F misc/vtab/ext | `misc-decimal-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-fossildelta-001-C001` | **DEFER** | fossil delta byte-compat |
-| F misc/vtab/ext | `misc-func-packs-001-C001` | **DEFER** | decimal_mul trailing-digit formatting |
-| F misc/vtab/ext | `misc-ieee754-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-nextchar-001-C001` | **DEFER** | index-probe next_char |
-| F misc/vtab/ext | `misc-percentile-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-prefixes-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-regexp-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-rot13-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-series-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-sha1-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-shathree-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-totype-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-uint-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-urifuncs-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-utilities-001-C001` | **DEFER** | eval() nested exec |
-| F misc/vtab/ext | `misc-uuid-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `misc-wholenumber-001-C001` | **DEFER** | wholenumber vtab |
-| F misc/vtab/ext | `misc-zorder-001-C001` | **IMPLEMENT** | store/eval computes it; bytes match frozen golden |
-| F misc/vtab/ext | `vacuum-001-C001` | **DEFER** | VACUUM/zeroblob rebuild |
-Every DEFER above: pin removed, replay test removed, **no store/kitchen coverage claimed**.
-Goldens stay frozen (byte-identical) for a future run. Reasons are honest capability gaps,
-not parked pins.
+- **Reclaimed: `pragma-surface-002-C001`** (scalar subquery + LIMIT over pragma_database_list)
+  — replays green through the executor against its **untouched** golden; removed from the
+  pack defer list. oneshot suite grew 50 → 51.
+- **Still deferred (18)**, reasons unchanged: 4 date/time pins, ANALYZE, VACUUM, dbstat,
+  csv/completion/wholenumber vtabs, zlib compress, fossil delta, next_char, eval(),
+  cross-schema trigger, 2 C-registry-count pins, decimal_mul formatting. None of these is
+  blocked on subquery/join shape.
 
-## 4. New modules (the executor that replaced the pins)
+## 4. What the executor now implements (modern/src/eval.rs)
 
-- `modern/src/eval.rs` (~1000 lines) — SQL tokenizer → Pratt expression parser → typed
-  evaluator (NULL/INT/REAL/TEXT/BLOB): arithmetic, `||`, comparisons, AND/OR/NOT, CASE/iif,
-  CAST, IN, IS [NOT], LIKE (+ESCAPE, case_sensitive_like) / GLOB, REGEXP (tiny), COLLATE uint,
-  hex/exp/blob/bracket literals; SELECT executor (no-FROM, FROM subquery / store table /
-  generate_series / prefixes / json_each / pragma_* TVFs, WHERE, UNION [ALL], ORDER BY),
-  aggregates (count/sum/total/avg/min/max/group_concat), two pinned window shapes
-  (row_number OVER, sum OVER ROWS 1 PRECEDING); PRAGMA get/set (user_version, application_id,
-  schema_version, cache_size, recursive_triggers, defer_foreign_keys, query_only, temp_store,
-  automatic_index, ignore_check_constraints, case_sensitive_like, integrity/quick_check);
-  ATTACH/DETACH + pragma_database_list; computed funcs: printf/%q, upper/lower/length/substr/
-  coalesce/typeof/hex/quote, sha1 + sha3 (real digests), base64, rot13, decimal add/cmp (exact
-  scaled ints), ieee754 family, zorder/unzorder, tointeger/toreal, uuid (via sqlite3_randomness).
-- `modern/src/json.rs` — real JSON parser → path evaluator → canonical serializer:
-  json_extract / -> / ->>, json_set/insert/replace/remove/patch (RFC-7396), json_valid,
-  json_type, json_each.
-- `modern/src/store.rs` — execute_script refactored to **per-statement dispatch**: kitchen
-  DDL/DML/SELECT on real tables first; everything else goes to eval with a table snapshot +
-  connection state; mixed scripts (CREATE + PRAGMA, ATTACH + SELECT) now work. CREATE/DROP
-  bump schema_version. `median`/`percentile` deliberately error (the pinned bare build has no
-  ENABLE_PERCENTILE — the frozen golden IS rc=1).
+- **Subqueries:** quote/paren-aware string extraction → `Ex::Subq` / `Ex::Exists` nodes;
+  scalar = first row/col (empty → NULL); EXISTS = non-empty; **correlated** outer-row
+  bindings threaded through items/WHERE/ON (inner columns shadow outer).
+- **Joins:** FROM parser normalizes INNER/LEFT [OUTER]/CROSS at top level, splits items
+  with optional `[AS]` aliases and `ON` expressions; **nested-loop** fold over store
+  snapshots; comma join = cartesian + WHERE; **LEFT JOIN** emits NULL-extended right
+  columns for unmatched left rows. Rows carry qualified keys (`e.name`) + bare fallback.
+- **GROUP BY:** real grouping (multi-key capable), aggregates per group, first-seen order
+  (pinned cases always ORDER BY).
+- **ORDER BY:** multi-key, ASC/DESC, output-name / qualified-name / ordinal resolution.
+- **LIMIT/OFFSET** at any select level (top level and inside subqueries).
+- INNER-only claim **plus** honestly-implemented LEFT JOIN; no RIGHT/FULL, no planner,
+  no index use.
 
-## 5. Anti-cheat results (modern/tests/anti_cheat_v8.rs) — 5/5 green
+## 5. Anti-cheat results (anti_cheat_v8.rs, v9 section) — 8/8 green
 
-- `anti_cheat_expr_runtime` — `SELECT <runtime_n>+2, <n>*3, upper(printf(...))` computed. ✅
-- `anti_cheat_pragma_roundtrip` — runtime user_version/application_id set → read back. ✅
-- `anti_cheat_json_or_scalar` — runtime literal through json_extract/json_set/length. ✅
-- `anti_cheat_script_table_is_empty` — asserts `SCRIPT_TABLE.len() == 0`. ✅
-- `anti_cheat_unknown_sql_fails_honestly` — unknown function → nonzero rc, zero rows. ✅
+- `anti_cheat_join_runtime` — runtime key {pid/time}: two tables, INNER JOIN → computed row. ✅
+- `anti_cheat_scalar_subquery_runtime` — `(SELECT max(v))`, `(SELECT v ORDER BY v LIMIT 1)`,
+  `(SELECT n+1)` with runtime n. ✅
+- `anti_cheat_script_table_still_empty` — SCRIPT_TABLE.len() == 0. ✅ (grep proof: 0 `("` pins)
+- prior v8 anti-cheat (expr/pragma/json/unknown-SQL) still green. ✅
 
 ## 6. Test suite
 
-`cargo test` — **136/136 green**: spine 11, bespoke 28+5(errors)+20(leftovers)+3, kitchen 6
-(memory kitchen incl. re-homed), files 8 + interop (C reads Rust files, integrity_check=ok),
-oneshot **50 store/eval replays** (frozen bytes), anti-cheat 5. All 240 prior golden files
-byte-identical (md5-verified) — RECORD added nothing, rewrote nothing this run.
+`cargo test` — **164/164 green**: spine 11, bespoke 28+5+20+3, kitchen 6 (memory), files 8 +
+interop 8 (C reads Rust files, integrity_check=ok — unchanged), oneshot 51 (incl. reclaimed
+pin), query_compare 24 (new), anti-cheat 8. All 155 prior golden files md5-identical; the
+only new files are the 24 RECORD additions. legacy_green 104; parity_green **0**.
 
 ## 7. Catalogue impact
 
-~30 slices (pragma surface, attach, expr/select/tokenizer, builtins, JSON, aggregates,
-windows, and 12 thin misc-* function slices) moved from **"cheat sheet only" → "Rust
-executes"**. parity_green stays **0** — replay-vs-frozen-golden is not the pack's parity gate.
+Multi-table SQL now executes in Rust: the join/subquery shapes unlock realistic queries
+across the kitchen slices (select-codegen, where-optimizer surface shapes, name-resolution,
+expr) — approx 6–8 slices move from "single-table only" to "multi-table SQL runs". The
+where-optimizer / pager / btree / vfs cards stay amber: nested-loop is **not** a planner.
 
 ## 8. Leftover (still not a full SQL engine)
 
-joins/planner · date/time engine (4 defers) · WAL/crash recovery · full integrity_check ·
-scalar subqueries + LIMIT · ANALYZE/VACUUM/dbstat · vtab modules (csv, completion,
-wholenumber) · zlib/fossil-delta byte-compat · eval() · cross-schema trigger validation ·
-C registry counts (compile_options/function_list/...) · pager/btree/vfs cards stay amber.
+cost-based planner + index selection · RIGHT/FULL OUTER · date/time engine · WAL/crash
+recovery · scalar subqueries in ORDER BY/GROUP BY positions · HAVING · correlated EXISTS
+depth beyond pinned shapes · remaining 18 v8 defers · overflow pages + on-disk UNIQUE
+autoindexes (v7 debt).
 
 completeness: **incomplete** — SQLite is NOT migrated.
 
 ## 9. Next call
 
-(a) date/time engine (clears 4 defers, real julian-day math), or (b) scalar subqueries +
-LIMIT + small joins (query-shape depth), or (c) WAL law change. Pack v9 + goldens first.
+(a) HAVING + subqueries in more positions + date/time engine (clears 4 defers), or
+(b) on-disk debt: overflow pages + UNIQUE autoindexes + file-path join twins, or
+(c) WAL law change. Pack v10 + goldens first, either way.
