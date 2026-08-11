@@ -2534,9 +2534,9 @@ behaviours:
 - behaviour_id: icu-001
   surface_id: sur-sqlite3icuinit
   name: ICU function and collation pack
-  status: accepted
+  status: documented
   slice_id: icu
-  discovery_card: null
+  discovery_card: discovery/icu/features/icu-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; ICU-backed like/regexp/upper/lower overrides + icu_load_collation for locale collations.
@@ -2561,9 +2561,9 @@ behaviours:
 - behaviour_id: jni-binding-001
   surface_id: sur-ext-jni-src-c-sqlite3-jni-c
   name: JNI adapter layer (C-to-Java bridge)
-  status: accepted
+  status: documented
   slice_id: jni-binding
-  discovery_card: null
+  discovery_card: discovery/jni-binding/features/jni-binding-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread
@@ -2776,9 +2776,9 @@ behaviours:
 - behaviour_id: misc-func-packs-001
   surface_id: sur-ext-misc-function-packs
   name: Loadable SQL-function extension pack (~18)
-  status: accepted
+  status: documented
   slice_id: misc-func-packs
-  discovery_card: null
+  discovery_card: discovery/misc-func-packs/features/misc-func-packs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
@@ -2958,9 +2958,9 @@ behaviours:
 - behaviour_id: misc-utilities-001
   surface_id: sur-ext-misc-utilities
   name: Utility extension pack (~14)
-  status: accepted
+  status: documented
   slice_id: misc-utilities
-  discovery_card: null
+  discovery_card: discovery/misc-utilities/features/misc-utilities-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused,
@@ -2977,9 +2977,9 @@ behaviours:
 - behaviour_id: misc-vfs-shims-001
   surface_id: sur-ext-misc-vfs-shims
   name: Stackable VFS shim family (9 extensions)
-  status: accepted
+  status: documented
   slice_id: misc-vfs-shims
-  discovery_card: null
+  discovery_card: discovery/misc-vfs-shims/features/misc-vfs-shims-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace
@@ -3016,9 +3016,9 @@ behaviours:
 - behaviour_id: misc-vtab-packs-001
   surface_id: sur-ext-misc-vtab-packs
   name: Loadable virtual-table extension pack (~18)
-  status: accepted
+  status: documented
   slice_id: misc-vtab-packs
-  discovery_card: null
+  discovery_card: discovery/misc-vtab-packs/features/misc-vtab-packs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
@@ -3256,9 +3256,9 @@ behaviours:
 - behaviour_id: qrf-001
   surface_id: sur-sqlite3-format-query-result
   name: Spec-driven query result formatting
-  status: accepted
+  status: documented
   slice_id: qrf
-  discovery_card: null
+  discovery_card: discovery/qrf/features/qrf-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_qrf_spec controls output mode/widths/text escaping; single public entrypoint.
@@ -3666,9 +3666,9 @@ behaviours:
 - behaviour_id: wasm-binding-001
   surface_id: sur-ext-wasm-api-sqlite3-wasm-c
   name: WASM/JS API layer with OPFS persistence
-  status: accepted
+  status: documented
   slice_id: wasm-binding
-  discovery_card: null
+  discovery_card: discovery/wasm-binding/features/wasm-binding-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:31:19Z'
+last_updated: '2026-08-11T10:32:23Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 117
-    accepted: 68
+    documented: 125
+    accepted: 60
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

@@ -5,13 +5,13 @@ seed_entrypoints:
 out_of_scope_hints:
 - core C API behaviour
 - Java build tooling
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: jni-binding-001
   name: JNI adapter layer (C-to-Java bridge)
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules.
   entrypoints:
   - kind: other
@@ -24,3 +24,4 @@ features:
   - prepare-statement-api
   open_questions:
   - Is the Java binding a consumed product surface downstream?
+  behaviour_doc: features/jni-binding-001.md

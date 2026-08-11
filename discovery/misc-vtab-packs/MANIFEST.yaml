@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - vtab mechanism
 - src introspection vtabs
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: misc-vtab-packs-001
   name: Loadable virtual-table extension pack (~18)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure, amatch, fuzzer, prefixes,
     wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
@@ -28,3 +28,4 @@ features:
   - loadext-api
   open_questions:
   - "generate_series is commonly assumed built-in downstream \u2014 confirm build config"
+  behaviour_doc: features/misc-vtab-packs-001.md

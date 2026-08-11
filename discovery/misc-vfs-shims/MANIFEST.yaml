@@ -5,12 +5,12 @@ seed_entrypoints:
 - sqlite3_cksumvfs_init()
 out_of_scope_hints:
 - core VFS
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: misc-vfs-shims-001
   name: Stackable VFS shim family (9 extensions)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace \u2014 wrappers over\
     \ a lower VFS."
@@ -26,3 +26,4 @@ features:
   - vfs-os-abstraction
   open_questions:
   - Which shims are actually deployed downstream? cksumvfs changes the file format (reserve bytes)
+  behaviour_doc: features/misc-vfs-shims-001.md

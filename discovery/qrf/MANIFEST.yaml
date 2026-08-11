@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_format_query_result()
 out_of_scope_hints:
 - shell .mode implementations
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: qrf-001
   name: Spec-driven query result formatting
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: sqlite3_qrf_spec controls output mode/widths/text escaping; single public entrypoint.
   entrypoints:
@@ -22,3 +22,4 @@ features:
   dependencies:
   - prepare-statement-api
   open_questions: []
+  behaviour_doc: features/qrf-001.md

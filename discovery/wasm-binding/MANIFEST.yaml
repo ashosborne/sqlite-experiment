@@ -4,13 +4,13 @@ seed_entrypoints:
 - ext/wasm/api/sqlite3-wasm.c
 out_of_scope_hints:
 - emscripten build tooling
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: wasm-binding-001
   name: WASM/JS API layer with OPFS persistence
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence; fiddle UI noted as
     adapter, deprioritized.
   entrypoints:
@@ -26,3 +26,4 @@ features:
   - serialize-memdb-api
   open_questions:
   - Browser target in migration scope at all?
+  behaviour_doc: features/wasm-binding-001.md

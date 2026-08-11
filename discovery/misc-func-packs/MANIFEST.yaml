@@ -5,12 +5,12 @@ seed_entrypoints:
 - sqlite3_regexp_init()
 out_of_scope_hints:
 - built-in functions
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:32:22Z'
 features:
 - id: misc-func-packs-001
   name: Loadable SQL-function extension pack (~18)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp, spellfix, nextchar, rot13,
     uuid, fossildelta, compress, urifuncs.
@@ -26,3 +26,4 @@ features:
   - loadext-api
   open_questions:
   - Which are compiled into the downstream build vs loaded at runtime?
+  behaviour_doc: features/misc-func-packs-001.md

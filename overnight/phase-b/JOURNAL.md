@@ -69,3 +69,11 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - rtree(2), geopoly(1), session(3), rbu(2), recover(2), intck(1), expert(1) → documented, observed-in-code.
 - Session gate (ENABLE_SESSION+PREUPDATE_HOOK) documented vs baseline; float32 R-tree rounding and changeset-format contracts pinned.
 - Upsert: PASS (documented=117). COVERAGE regenerated.
+
+## Batch 10 — bindings + umbrella clusters (8 cards)
+
+- icu(1), qrf(1) → documented, observed-in-code.
+- jni-binding(1), wasm-binding(1) → documented with confidence **inferred** (file/macro-level evidence; internals not traced — honest per charter, not fake observed-in-code).
+- misc-vfs-shims / misc-func-packs / misc-vtab-packs umbrella cards delegate to their thin run-2 cards; misc-vfs-shims card explicitly EXCLUDES the 3 unscanned members (mmapwarm/memtrace/pcachetrace stay hints — no cards invented).
+- misc-utilities stays a census card (never unbundled); fileio/eval security powers flagged.
+- Upsert: PASS (documented=125). COVERAGE regenerated.
