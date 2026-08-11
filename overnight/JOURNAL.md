@@ -264,3 +264,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - stop.txt: absent. Thin func unbundle continues.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 90/120 (45+45). Totals 340. Slices this run: 32 (total 92). Zero-new-streak: 0.
+
+## Resume iteration 9 — seeds: misc-uint, misc-regexp, misc-spellfix, misc-nextchar
+
+- stop.txt: absent. Thin func unbundle continues.
+- regexp carded with dialect-parity flag (own NFA dialect, not PCRE).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 98/120 (49+49). Totals 348. Slices this run: 36 (total 96). Zero-new-streak: 0.

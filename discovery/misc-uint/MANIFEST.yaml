@@ -1,0 +1,22 @@
+slice_id: misc-uint
+seed: natural-sort collation (ext/misc/uint.c)
+seed_entrypoints:
+- sqlite3_uint_init()
+out_of_scope_hints:
+- other misc-func-packs members
+phase: A
+updated_at: '2026-08-11T09:34:45Z'
+features:
+- id: misc-uint-001
+  name: UINT collating sequence
+  status: candidate
+  confidence: observed-in-code
+  summary: Collation comparing embedded unsigned integers numerically (natural sort)
+  entrypoints:
+  - kind: other
+    locator: sqlite3_uint_init()
+    evidence:
+    - ext/misc/uint.c:84
+  dependencies:
+  - loadext-api
+  open_questions: []

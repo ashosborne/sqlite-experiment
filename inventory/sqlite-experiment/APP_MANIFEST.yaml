@@ -99,13 +99,13 @@ scanned_seeds:
 - misc-ieee754
 - misc-percentile
 - misc-totype
+- misc-nextchar
+- misc-regexp
+- misc-spellfix
+- misc-uint
 unscanned_hints:
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-uint — UINT collating sequence (ext/misc/uint.c)'
-- 'ext: misc-regexp — regexp() pattern matching (ext/misc/regexp.c)'
-- 'ext: misc-spellfix — spellfix1 fuzzy-search vtab + editdist (ext/misc/spellfix.c)'
-- 'ext: misc-nextchar — next_char() function (ext/misc/nextchar.c)'
 - 'ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)'
 - 'ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)'
 - 'ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)'
@@ -938,6 +938,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/ieee754.c:329
+- surface_id: sur-sqlite3-nextchar-init
+  kind: other
+  locator: sqlite3_nextchar_init()
+  repo_path: ext/misc/nextchar.c
+  status: candidate
+  slice_id: misc-nextchar
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/nextchar.c:296
 - surface_id: sur-sqlite3-percentile-init
   kind: other
   locator: sqlite3_percentile_init()
@@ -965,6 +974,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/qpvtab.c:451
+- surface_id: sur-sqlite3-regexp-init
+  kind: other
+  locator: sqlite3_regexp_init()
+  repo_path: ext/misc/regexp.c
+  status: candidate
+  slice_id: misc-regexp
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/regexp.c:901
 - surface_id: sur-sqlite3-series-init
   kind: other
   locator: sqlite3_series_init()
@@ -992,6 +1010,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/shathree.c:830
+- surface_id: sur-sqlite3-spellfix-init
+  kind: other
+  locator: sqlite3_spellfix_init()
+  repo_path: ext/misc/spellfix.c
+  status: candidate
+  slice_id: misc-spellfix
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/spellfix.c:3085
 - surface_id: sur-sqlite3-stmt-init
   kind: other
   locator: sqlite3_stmt_init()
@@ -1019,6 +1046,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/totype.c:511
+- surface_id: sur-sqlite3-uint-init
+  kind: other
+  locator: sqlite3_uint_init()
+  repo_path: ext/misc/uint.c
+  status: candidate
+  slice_id: misc-uint
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/uint.c:84
 - surface_id: sur-sqlite3-unionvtab-init
   kind: other
   locator: sqlite3_unionvtab_init()
@@ -2619,6 +2655,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Exact float<->(mantissa,exponent) mapping functions
+- behaviour_id: misc-nextchar-001
+  surface_id: sur-sqlite3-nextchar-init
+  name: next_char() incremental completion function
+  status: candidate
+  slice_id: misc-nextchar
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column
 - behaviour_id: misc-percentile-001
   surface_id: sur-sqlite3-percentile-init
   name: percentile / median aggregates
@@ -2646,6 +2691,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtab echoing xBestIndex constraints/orderby — debugging aid for vtab authors
+- behaviour_id: misc-regexp-001
+  surface_id: sur-sqlite3-regexp-init
+  name: regexp() pattern matching
+  status: candidate
+  slice_id: misc-regexp
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; NFA regex engine backing the REGEXP operator; own dialect (not PCRE)
 - behaviour_id: misc-series-001
   surface_id: sur-sqlite3-series-init
   name: generate_series table-valued function
@@ -2673,6 +2727,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak)
+- behaviour_id: misc-spellfix-001
+  surface_id: sur-sqlite3-spellfix-init
+  name: spellfix1 fuzzy-search vtab + editdist functions
+  status: candidate
+  slice_id: misc-spellfix
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Fuzzy word search vtab with configurable edit-distance cost tables and phonetic hashing
 - behaviour_id: misc-stmt-001
   surface_id: sur-sqlite3-stmt-init
   name: sqlite_stmt introspection vtab
@@ -2700,6 +2763,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; NULL-on-failure strict conversions (unlike CAST's clamping)
+- behaviour_id: misc-uint-001
+  surface_id: sur-sqlite3-uint-init
+  name: UINT collating sequence
+  status: candidate
+  slice_id: misc-uint
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Collation comparing embedded unsigned integers numerically (natural sort)
 - behaviour_id: misc-unionvtab-001
   surface_id: sur-sqlite3-unionvtab-init
   name: unionvtab + swarmvtab (same source file)
@@ -3474,17 +3546,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:34:21Z'
+last_updated: '2026-08-11T09:34:45Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 170
+  surfaces_total: 174
   surfaces_by_status:
-    candidate: 170
-  behaviours_known: 170
+    candidate: 174
+  behaviours_known: 174
   behaviours_by_status:
-    candidate: 170
-  unscanned_hints: 10
+    candidate: 174
+  unscanned_hints: 6
   legacy_green: 0
   parity_green: 0

@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:34:22Z
+- Generated: 2026-08-11T09:34:45Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:34:21Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:34:45Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 170 |
-| Behaviours known | 170 |
-| Seeds scanned | 92 |
-| Unscanned hints (residual) | 10 |
+| Surfaces total | 174 |
+| Behaviours known | 174 |
+| Seeds scanned | 96 |
+| Unscanned hints (residual) | 6 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 170 |
+| candidate | 174 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 170 |
+| candidate | 174 |
 
 ## Surfaces per slice
 
@@ -73,15 +73,19 @@
 | misc-func-packs | 1 |
 | misc-fuzzer | 1 |
 | misc-ieee754 | 1 |
+| misc-nextchar | 1 |
 | misc-percentile | 1 |
 | misc-prefixes | 1 |
 | misc-qpvtab | 1 |
+| misc-regexp | 1 |
 | misc-series | 1 |
 | misc-sha1 | 1 |
 | misc-shathree | 1 |
+| misc-spellfix | 1 |
 | misc-stmt | 1 |
 | misc-templatevtab | 1 |
 | misc-totype | 1 |
+| misc-uint | 1 |
 | misc-unionvtab | 1 |
 | misc-utilities | 1 |
 | misc-vfs-shims | 1 |
@@ -221,14 +225,14 @@
 - `misc-ieee754`
 - `misc-percentile`
 - `misc-totype`
+- `misc-nextchar`
+- `misc-regexp`
+- `misc-spellfix`
+- `misc-uint`
 
 ## Unscanned hints (residual register)
 
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-uint — UINT collating sequence (ext/misc/uint.c)
-- ext: misc-regexp — regexp() pattern matching (ext/misc/regexp.c)
-- ext: misc-spellfix — spellfix1 fuzzy-search vtab + editdist (ext/misc/spellfix.c)
-- ext: misc-nextchar — next_char() function (ext/misc/nextchar.c)
 - ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)
 - ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)
 - ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)
