@@ -1,0 +1,13 @@
+[package]
+name = "sqlite3-rust-spine"
+version = "0.1.0"
+edition = "2021"
+description = "Rust implementation of the ten HUMAN_ACCEPTED characterization cases (pack sqlite-experiment-c-to-rust@1). Not a general SQL engine."
+publish = false
+
+[lib]
+name = "sqlite3_rust_spine"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# none — pack v1 forbids external deps and any C linkage
