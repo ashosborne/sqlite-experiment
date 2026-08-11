@@ -1,7 +1,7 @@
 slice_id: error-status-api
 source_discovery: discovery/error-status-api/MANIFEST.yaml
 phase: B
-updated_at: '2026-08-11T12:05:59Z'
+updated_at: '2026-08-11T12:30:20Z'
 batch_card_ids:
 - error-status-api-001
 cases:
@@ -20,10 +20,10 @@ cases:
   harness_path: harness/error_status_harness.c
   assert_mode: RECORDED
   observables:
-  - prepare.rc
-  - errcode.value
-  - extended_errcode.value
-  - errmsg.text-or-pointer-class
+  - prepare.rc (contract)
+  - errcode.value (contract)
+  - extended_errcode.value (contract)
+  - "errmsg.text (wording_deferred \u2014 shape-only for future COMPARE)"
   scrub: []
   deferred_reasons: []
   golden: tests/characterization/error-status-api/cases/error-status-api-001/C001.approved.txt
@@ -41,8 +41,8 @@ cases:
   harness_path: harness/error_status_harness.c
   assert_mode: RECORDED
   observables:
-  - errcode(NULL).value
-  - errmsg(NULL).text
+  - errcode(NULL).value (contract, SQLITE_NOMEM)
+  - "errmsg(NULL).text (contract string \u2014 sqlite3ErrStr)"
   scrub: []
   deferred_reasons: []
   golden: tests/characterization/error-status-api/cases/error-status-api-001/C002.approved.txt
@@ -50,3 +50,11 @@ deferred:
 - feature_id: error-status-api-001
   reason: 'Operator DEFER: exact English message strings; UTF-16 twins (errmsg16); error_offset corpus; sqlite3_limit / status64 belong to error-status-api-002/003
     (not in batch)'
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  stamped_case_ids:
+  - error-status-api-001-C001
+  - error-status-api-001-C002

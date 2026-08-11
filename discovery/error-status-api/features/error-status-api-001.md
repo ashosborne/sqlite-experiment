@@ -23,7 +23,7 @@ errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fall
 
 ## Validation rules found in code
 
-- Calling on NULL db → 'out of memory'/MISUSE-safe static answers (guarded)
+- Calling on NULL db returns errcode=7 (SQLITE_NOMEM) and errmsg 'out of memory' (static guarded answers via sqlite3ErrStr). This is not MISUSE. [Patched run 6 to match the recorded pin — was: "'out of memory'/MISUSE-safe static answers (guarded)"]
 
 ## Edge cases found in code
 
@@ -44,3 +44,7 @@ errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fall
 - `src/main.c:2866`
 - `src/main.c:2896`
 - `src/main.c:2792`
+
+## Discovery note (run 6)
+
+- Pinned by legacy RECORD run `2026-08-11T1205Z-legacy-record` on the baseline fingerprint in `overnight/BASELINE.md` (sqlite 3.54.0; API_ARMOR=0). Goldens human-accepted 2026-08-11 (Ash Osborne). errmsg English wording is `wording_deferred` (shape-only for future COMPARE); the NULL-handle 'out of memory' string is a contract (sqlite3ErrStr/SQLITE_NOMEM).

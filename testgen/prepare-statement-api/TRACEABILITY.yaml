@@ -1,7 +1,7 @@
 slice_id: prepare-statement-api
 source_discovery: discovery/prepare-statement-api/MANIFEST.yaml
 phase: B
-updated_at: '2026-08-11T12:05:59Z'
+updated_at: '2026-08-11T12:30:20Z'
 batch_card_ids:
 - prepare-statement-api-002
 cases:
@@ -67,3 +67,11 @@ deferred:
 - feature_id: prepare-statement-api-002
   reason: 'Operator DEFER: auto-reprepare/SQLITE_SCHEMA retry matrix; BUSY-on-COMMIT (not independently verified); UTF-16 variants; all other
     prepare-statement-api IDs'
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  stamped_case_ids:
+  - prepare-statement-api-002-C001
+  - prepare-statement-api-002-C002
