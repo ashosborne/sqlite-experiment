@@ -242,3 +242,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - wholenumber carded with retire-in-favour-of-series bind question.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 66/120 (33+33). Totals 316. Slices this run: 20 (total 80). Zero-new-streak: 0.
+
+## Resume iteration 6 — seeds: misc-templatevtab, misc-vtablog, misc-vtshim, misc-btreeinfo
+
+- stop.txt: absent. Thin vtab unbundle continues.
+- templatevtab flagged documentation-only (defer recommendation, prose).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 74/120 (37+37). Totals 324. Slices this run: 24 (total 84). Zero-new-streak: 0.

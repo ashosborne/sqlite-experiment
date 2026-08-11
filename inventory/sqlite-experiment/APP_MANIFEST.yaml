@@ -87,15 +87,15 @@ scanned_seeds:
 - misc-prefixes
 - misc-stmt
 - misc-wholenumber
+- misc-btreeinfo
+- misc-templatevtab
+- misc-vtablog
+- misc-vtshim
 unscanned_hints:
 - 'ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-templatevtab — template vtab skeleton (ext/misc/templatevtab.c)'
-- 'ext: misc-vtablog — logging wrapper vtab (ext/misc/vtablog.c)'
-- 'ext: misc-vtshim — vtab shim for disposable modules (ext/misc/vtshim.c)'
-- 'ext: misc-btreeinfo — sqlite_btreeinfo introspection vtab (ext/misc/btreeinfo.c)'
 - 'ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)'
 surfaces:
 - surface_id: sur-sqlite3analysisload
@@ -838,6 +838,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/amatch.c:1512
+- surface_id: sur-sqlite3-btreeinfo-init
+  kind: other
+  locator: sqlite3_btreeinfo_init()
+  repo_path: ext/misc/btreeinfo.c
+  status: candidate
+  slice_id: misc-btreeinfo
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/btreeinfo.c:439
 - surface_id: sur-sqlite3-closure-init
   kind: other
   locator: sqlite3_closure_init()
@@ -922,6 +931,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/stmt.c:334
+- surface_id: sur-sqlite3-templatevtab-init
+  kind: other
+  locator: sqlite3_templatevtab_init()
+  repo_path: ext/misc/templatevtab.c
+  status: candidate
+  slice_id: misc-templatevtab
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/templatevtab.c:260
 - surface_id: sur-sqlite3-unionvtab-init
   kind: other
   locator: sqlite3_unionvtab_init()
@@ -967,6 +985,24 @@ surfaces:
   - ext/misc/csv.c:964
   - ext/misc/zipfile.c:2294
   - ext/misc/unionvtab.c:1371
+- surface_id: sur-sqlite3-vtablog-init
+  kind: other
+  locator: sqlite3_vtablog_init()
+  repo_path: ext/misc/vtablog.c
+  status: candidate
+  slice_id: misc-vtablog
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/vtablog.c:712
+- surface_id: sur-sqlite3-vtshim-init
+  kind: other
+  locator: sqlite3_vtshim_init()
+  repo_path: ext/misc/vtshim.c
+  status: candidate
+  slice_id: misc-vtshim
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/vtshim.c:546
 - surface_id: sur-sqlite3-wholenumber-init
   kind: other
   locator: sqlite3_wholenumber_init()
@@ -2411,6 +2447,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Edit-distance based approximate matching with user-supplied cost rules
+- behaviour_id: misc-btreeinfo-001
+  surface_id: sur-sqlite3-btreeinfo-init
+  name: sqlite_btreeinfo introspection vtab
+  status: candidate
+  slice_id: misc-btreeinfo
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Per-btree stats (depth, page counts, estimated entries) via sqlite_dbpage
 - behaviour_id: misc-closure-001
   surface_id: sur-sqlite3-closure-init
   name: transitive_closure vtab
@@ -2494,6 +2539,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Rows describe currently-prepared statements (sql, busy, counters)
+- behaviour_id: misc-templatevtab-001
+  surface_id: sur-sqlite3-templatevtab-init
+  name: template vtab skeleton
+  status: candidate
+  slice_id: misc-templatevtab
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Reference implementation for writing new vtabs; not a data-path surface
 - behaviour_id: misc-unionvtab-001
   surface_id: sur-sqlite3-unionvtab-init
   name: unionvtab + swarmvtab (same source file)
@@ -2534,6 +2588,24 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
     amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
+- behaviour_id: misc-vtablog-001
+  surface_id: sur-sqlite3-vtablog-init
+  name: vtablog logging wrapper vtab
+  status: candidate
+  slice_id: misc-vtablog
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Logs every vtab method call — debugging aid
+- behaviour_id: misc-vtshim-001
+  surface_id: sur-sqlite3-vtshim-init
+  name: vtshim disposable-module wrapper
+  status: candidate
+  slice_id: misc-vtshim
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Wraps a vtab module so it can be safely unregistered while connections exist
 - behaviour_id: misc-wholenumber-001
   surface_id: sur-sqlite3-wholenumber-init
   name: wholenumber vtab
@@ -3241,17 +3313,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:32:59Z'
+last_updated: '2026-08-11T09:33:21Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 158
+  surfaces_total: 162
   surfaces_by_status:
-    candidate: 158
-  behaviours_known: 158
+    candidate: 162
+  behaviours_known: 162
   behaviours_by_status:
-    candidate: 158
-  unscanned_hints: 7
+    candidate: 162
+  unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

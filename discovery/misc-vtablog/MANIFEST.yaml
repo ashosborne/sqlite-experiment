@@ -1,0 +1,22 @@
+slice_id: misc-vtablog
+seed: vtablog tracing vtab (ext/misc/vtablog.c)
+seed_entrypoints:
+- sqlite3_vtablog_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:33:21Z'
+features:
+- id: misc-vtablog-001
+  name: vtablog logging wrapper vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: "Logs every vtab method call \u2014 debugging aid"
+  entrypoints:
+  - kind: other
+    locator: sqlite3_vtablog_init()
+    evidence:
+    - ext/misc/vtablog.c:712
+  dependencies:
+  - vtab-core
+  open_questions: []

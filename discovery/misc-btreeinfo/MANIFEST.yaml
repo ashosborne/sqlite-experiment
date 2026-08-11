@@ -1,0 +1,23 @@
+slice_id: misc-btreeinfo
+seed: btree metadata vtab (ext/misc/btreeinfo.c)
+seed_entrypoints:
+- sqlite3_btreeinfo_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:33:21Z'
+features:
+- id: misc-btreeinfo-001
+  name: sqlite_btreeinfo introspection vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Per-btree stats (depth, page counts, estimated entries) via sqlite_dbpage
+  entrypoints:
+  - kind: other
+    locator: sqlite3_btreeinfo_init()
+    evidence:
+    - ext/misc/btreeinfo.c:439
+  dependencies:
+  - vtab-core
+  - introspection-vtabs
+  open_questions: []

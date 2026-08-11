@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:32:59Z
+- Generated: 2026-08-11T09:33:22Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:32:59Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:33:21Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 158 |
-| Behaviours known | 158 |
-| Seeds scanned | 80 |
-| Unscanned hints (residual) | 7 |
+| Surfaces total | 162 |
+| Behaviours known | 162 |
+| Seeds scanned | 84 |
+| Unscanned hints (residual) | 3 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 158 |
+| candidate | 162 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 158 |
+| candidate | 162 |
 
 ## Surfaces per slice
 
@@ -64,6 +64,7 @@
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
 | misc-amatch | 1 |
+| misc-btreeinfo | 1 |
 | misc-closure | 1 |
 | misc-completion | 1 |
 | misc-csv | 1 |
@@ -73,10 +74,13 @@
 | misc-qpvtab | 1 |
 | misc-series | 1 |
 | misc-stmt | 1 |
+| misc-templatevtab | 1 |
 | misc-unionvtab | 1 |
 | misc-utilities | 1 |
 | misc-vfs-shims | 1 |
 | misc-vtab-packs | 1 |
+| misc-vtablog | 1 |
+| misc-vtshim | 1 |
 | misc-wholenumber | 1 |
 | misc-zipfile-sqlar | 1 |
 | mutex-subsystem | 1 |
@@ -197,15 +201,15 @@
 - `misc-prefixes`
 - `misc-stmt`
 - `misc-wholenumber`
+- `misc-btreeinfo`
+- `misc-templatevtab`
+- `misc-vtablog`
+- `misc-vtshim`
 
 ## Unscanned hints (residual register)
 
 - ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-templatevtab — template vtab skeleton (ext/misc/templatevtab.c)
-- ext: misc-vtablog — logging wrapper vtab (ext/misc/vtablog.c)
-- ext: misc-vtshim — vtab shim for disposable modules (ext/misc/vtshim.c)
-- ext: misc-btreeinfo — sqlite_btreeinfo introspection vtab (ext/misc/btreeinfo.c)
 - ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)
 
 ## Notes
