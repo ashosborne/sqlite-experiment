@@ -1,0 +1,48 @@
+{
+ "run_id": "2026-08-11T1900Z-legacy-record-files",
+ "slice_id": "engine-files",
+ "mode": "RECORD",
+ "target": "legacy",
+ "build": {
+  "recipe": "pin reused /tmp/sqlite-build (3.54.0/armor0/autoreset0)",
+  "determinism_gate": "two runs byte-matched"
+ },
+ "scrub_profile": "none (temp path /tmp/ef.db unlinked per case; OBS are rc/rows only, no paths)",
+ "cases": [
+  {
+   "case_id": "engine-files-001-C001",
+   "feature_id": "engine-files-001",
+   "status": "REPLAY_GREEN",
+   "golden_path": "cases/engine-files-001/C001.approved.txt",
+   "actual_path": "runs/2026-08-11T1900Z-legacy-record-files/actuals/engine-files-001-C001.replay.txt"
+  },
+  {
+   "case_id": "engine-files-001-C002",
+   "feature_id": "engine-files-001",
+   "status": "REPLAY_GREEN",
+   "golden_path": "cases/engine-files-001/C002.approved.txt",
+   "actual_path": "runs/2026-08-11T1900Z-legacy-record-files/actuals/engine-files-001-C002.replay.txt"
+  },
+  {
+   "case_id": "engine-files-001-C003",
+   "feature_id": "engine-files-001",
+   "status": "REPLAY_GREEN",
+   "golden_path": "cases/engine-files-001/C003.approved.txt",
+   "actual_path": "runs/2026-08-11T1900Z-legacy-record-files/actuals/engine-files-001-C003.replay.txt"
+  },
+  {
+   "case_id": "engine-files-001-C004",
+   "feature_id": "engine-files-001",
+   "status": "REPLAY_GREEN",
+   "golden_path": "cases/engine-files-001/C004.approved.txt",
+   "actual_path": "runs/2026-08-11T1900Z-legacy-record-files/actuals/engine-files-001-C004.replay.txt"
+  },
+  {
+   "case_id": "engine-files-001-C005",
+   "feature_id": "engine-files-001",
+   "status": "REPLAY_GREEN",
+   "golden_path": "cases/engine-files-001/C005.approved.txt",
+   "actual_path": "runs/2026-08-11T1900Z-legacy-record-files/actuals/engine-files-001-C005.replay.txt"
+  }
+ ]
+}

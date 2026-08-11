@@ -1,0 +1,19 @@
+slice_id: engine-files
+seed: "durable file-path open: write rows, close, reopen, rows persist in a C-readable SQLite DB file (composed slice, run 15)"
+seed_entrypoints: ["sqlite3_open(path) + kitchen DML/DDL + reopen SELECT"]
+out_of_scope_hints: ["WAL", "crash recovery", "VFS matrix", "overflow/interior btree pages", "UNIQUE/FK/trigger persistence"]
+phase: B
+updated_at: 2026-08-11T16:43:02Z
+features:
+  - id: engine-files-001
+    name: Durable file round-trip (write/close/reopen/select) in SQLite file format
+    status: documented
+    confidence: observed-in-code
+    summary: "sqlite3_open on a filesystem path stores rows in an on-disk SQLite database file readable by the pinned C library; data survives close/reopen. Five frozen scripts define the licensed shapes."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_open(path)"
+        evidence: ["src/main.c:3742", "src/pager.c:4789", "src/os_unix.c:6519", "src/btree.c:2562"]
+    behaviour_doc: features/engine-files-001.md
+    dependencies: ["pager", "vfs-os-abstraction", "btree", "ddl-schema", "dml-codegen"]
+    open_questions: ["WAL/crash/interior-page/advanced-schema persistence deferred to later increments"]

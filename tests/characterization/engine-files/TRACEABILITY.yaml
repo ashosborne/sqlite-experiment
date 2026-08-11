@@ -1,0 +1,38 @@
+slice_id: engine-files
+mode: RECORD
+target: legacy
+run_id: 2026-08-11T1900Z-legacy-record-files
+updated_at: '2026-08-11T16:43:02Z'
+cases:
+- case_id: engine-files-001-C001
+  feature_id: engine-files-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-files-001/C001.approved.txt
+- case_id: engine-files-001-C002
+  feature_id: engine-files-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-files-001/C002.approved.txt
+- case_id: engine-files-001-C003
+  feature_id: engine-files-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-files-001/C003.approved.txt
+- case_id: engine-files-001-C004
+  feature_id: engine-files-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-files-001/C004.approved.txt
+- case_id: engine-files-001-C005
+  feature_id: engine-files-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-files-001/C005.approved.txt
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  stamped_case_ids:
+  - engine-files-001-C001
+  - engine-files-001-C002
+  - engine-files-001-C003
+  - engine-files-001-C004
+  - engine-files-001-C005
+  note: run-15 delegated stamp (engine-v6 files charter)

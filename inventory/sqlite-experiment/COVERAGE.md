@@ -3,33 +3,33 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T15:30:37Z
+- Generated: 2026-08-11T16:43:52Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T15:30:36Z by `sqlite-engine-v1-kitchen`
+- Manifest last_updated: 2026-08-11T16:43:52Z by `sqlite-engine-v6-files`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 186 |
-| Behaviours known | 186 |
-| Seeds scanned | 108 |
+| Surfaces total | 187 |
+| Behaviours known | 187 |
+| Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 96 |
+| legacy_green flags | 97 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 1 |
+| accepted | 2 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| documented | 186 |
+| documented | 187 |
 
 ## Surfaces per slice
 
@@ -47,6 +47,7 @@
 | date-time-funcs | 4 |
 | ddl-schema | 3 |
 | dml-codegen | 2 |
+| engine-files | 1 |
 | engine-kitchen | 1 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
@@ -254,6 +255,7 @@
 - `misc-vfslog`
 - `misc-vfstrace`
 - `engine-kitchen (composed kitchen spine, run 13 — not an estate hint)`
+- `engine-files (composed durability spine, run 15)`
 
 ## Unscanned hints (residual register)
 

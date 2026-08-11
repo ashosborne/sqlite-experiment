@@ -115,6 +115,7 @@ scanned_seeds:
 - misc-vfslog
 - misc-vfstrace
 - engine-kitchen (composed kitchen spine, run 13 — not an estate hint)
+- engine-files (composed durability spine, run 15)
 unscanned_hints:
 - 'ext: misc-mmapwarm — mmap cache pre-warming helper (ext/misc/mmapwarm.c)'
 - 'ext: misc-memtrace — malloc tracing hooks (ext/misc/memtrace.c)'
@@ -2049,6 +2050,18 @@ surfaces:
   - src/update.c:285
   - src/delete.c:288
   - src/select.c:7642
+- surface_id: sur-engine-files
+  kind: other
+  locator: sqlite3_open(path) durable file
+  repo_path: src/pager.c
+  status: accepted
+  slice_id: engine-files
+  notes: composed durability spine (run 15); seam-kind=api; touches pager/vfs/btree — those slices NOT marked green
+  discovery_evidence:
+  - src/main.c:3742
+  - src/pager.c:4789
+  - src/os_unix.c:6519
+  - src/btree.c:2562
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2183,6 +2196,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks.
+    | touched by engine-files (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
 - behaviour_id: btree-002
   surface_id: sur-sqlite3btreecursor
   name: Cursor seek/insert/delete operations
@@ -3237,7 +3251,8 @@ behaviours:
   discovery_card: discovery/pager/features/pager-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety.
+  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. | touched by
+    engine-files (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
 - behaviour_id: pager-002
   surface_id: sur-sqlite3pagersetjournalmode
   name: Journal-mode state machine
@@ -3741,7 +3756,8 @@ behaviours:
   discovery_card: discovery/vfs-os-abstraction/features/vfs-os-abstraction-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Register/find/unregister VFS list with default selection.
+  notes: confidence=observed-in-code; Register/find/unregister VFS list with default selection. | touched by engine-files
+    (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
 - behaviour_id: vfs-os-abstraction-002
   surface_id: sur-unixopen
   name: Unix VFS implementation
@@ -3956,19 +3972,29 @@ behaviours:
   notes: confidence=observed-in-code; composed slice for pack v4 store law (run 13) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
     2026-08-11 (run-13 delegated stamp)
   traceability: tests/characterization/engine-kitchen/TRACEABILITY.yaml
-last_updated: '2026-08-11T15:30:36Z'
-updated_by: sqlite-engine-v1-kitchen
+- behaviour_id: engine-files-001
+  surface_id: sur-engine-files
+  name: Durable file round-trip
+  status: documented
+  slice_id: engine-files
+  discovery_card: discovery/engine-files/features/engine-files-001.md
+  traceability: tests/characterization/engine-files/TRACEABILITY.yaml
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-15 delegated stamp); C-readable SQLite file format
+last_updated: '2026-08-11T16:43:52Z'
+updated_by: sqlite-engine-v6-files
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 186
+  surfaces_total: 187
   surfaces_by_status:
     candidate: 185
-    accepted: 1
-  behaviours_known: 186
+    accepted: 2
+  behaviours_known: 187
   behaviours_by_status:
-    documented: 186
+    documented: 187
   unscanned_hints: 3
-  legacy_green: 96
+  legacy_green: 97
   parity_green: 0
