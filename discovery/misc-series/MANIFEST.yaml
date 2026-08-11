@@ -1,0 +1,24 @@
+slice_id: misc-series
+seed: generate_series TVF (ext/misc/series.c)
+seed_entrypoints:
+- sqlite3_series_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:31:57Z'
+features:
+- id: misc-series-001
+  name: generate_series table-valued function
+  status: candidate
+  confidence: observed-in-code
+  summary: Eponymous vtab producing integer sequences with start/stop/step hidden columns
+  entrypoints:
+  - kind: other
+    locator: sqlite3_series_init()
+    evidence:
+    - ext/misc/series.c:939
+  dependencies:
+  - vtab-core
+  - loadext-api
+  open_questions:
+  - "Often assumed built-in (shell embeds it) \u2014 confirm downstream build"

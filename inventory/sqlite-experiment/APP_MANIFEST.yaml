@@ -75,13 +75,28 @@ scanned_seeds:
 - jni-java-surface
 - wasm-js-api
 - wasm-opfs
+- misc-csv
+- misc-series
+- misc-unionvtab
+- misc-zipfile-sqlar
 unscanned_hints:
-- 'ext: misc-vtab-unbundle — split run-1 misc-vtab-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
-  row)'
 - 'ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
+- 'ext: misc-qpvtab — query-plan introspection vtab (ext/misc/qpvtab.c)'
+- 'ext: misc-completion — shell completion vtab (ext/misc/completion.c)'
+- 'ext: misc-closure — transitive_closure vtab (ext/misc/closure.c)'
+- 'ext: misc-amatch — approximate-match vtab (ext/misc/amatch.c)'
+- 'ext: misc-fuzzer — fuzzer vtab (ext/misc/fuzzer.c)'
+- 'ext: misc-prefixes — prefixes vtab (ext/misc/prefixes.c)'
+- 'ext: misc-wholenumber — wholenumber vtab (ext/misc/wholenumber.c)'
+- 'ext: misc-stmt — sqlite_stmt introspection vtab (ext/misc/stmt.c)'
+- 'ext: misc-templatevtab — template vtab skeleton (ext/misc/templatevtab.c)'
+- 'ext: misc-vtablog — logging wrapper vtab (ext/misc/vtablog.c)'
+- 'ext: misc-vtshim — vtab shim for disposable modules (ext/misc/vtshim.c)'
+- 'ext: misc-btreeinfo — sqlite_btreeinfo introspection vtab (ext/misc/btreeinfo.c)'
+- 'ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)'
 surfaces:
 - surface_id: sur-sqlite3analysisload
   kind: other
@@ -814,6 +829,15 @@ surfaces:
   - src/malloc.c:296
   - src/malloc.c:197
   - src/malloc.c:159
+- surface_id: sur-sqlite3-csv-init
+  kind: other
+  locator: sqlite3_csv_init()
+  repo_path: ext/misc/csv.c
+  status: candidate
+  slice_id: misc-csv
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/csv.c:964
 - surface_id: sur-ext-misc-function-packs
   kind: other
   locator: ext/misc function packs
@@ -826,6 +850,24 @@ surfaces:
   - ext/misc/regexp.c:901
   - ext/misc/spellfix.c:3085
   - ext/misc/uuid.c:213
+- surface_id: sur-sqlite3-series-init
+  kind: other
+  locator: sqlite3_series_init()
+  repo_path: ext/misc/series.c
+  status: candidate
+  slice_id: misc-series
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/series.c:939
+- surface_id: sur-sqlite3-unionvtab-init
+  kind: other
+  locator: sqlite3_unionvtab_init()
+  repo_path: ext/misc/unionvtab.c
+  status: candidate
+  slice_id: misc-unionvtab
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/unionvtab.c:1371
 - surface_id: sur-ext-misc-utilities
   kind: other
   locator: ext/misc utilities
@@ -862,6 +904,16 @@ surfaces:
   - ext/misc/csv.c:964
   - ext/misc/zipfile.c:2294
   - ext/misc/unionvtab.c:1371
+- surface_id: sur-sqlite3-zipfile-init
+  kind: other
+  locator: sqlite3_zipfile_init()
+  repo_path: ext/misc/zipfile.c
+  status: candidate
+  slice_id: misc-zipfile-sqlar
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/zipfile.c:2294
+  - ext/misc/sqlar.c:109
 - surface_id: sur-sqlite3-mutex-alloc
   kind: other
   locator: sqlite3_mutex_alloc()
@@ -2278,6 +2330,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator.
+- behaviour_id: misc-csv-001
+  surface_id: sur-sqlite3-csv-init
+  name: CSV file virtual table
+  status: candidate
+  slice_id: misc-csv
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Reads external CSV files as tables (filename= or data= args); filesystem access from
+    SQL — security-relevant
 - behaviour_id: misc-func-packs-001
   surface_id: sur-ext-misc-function-packs
   name: Loadable SQL-function extension pack (~18)
@@ -2288,6 +2350,25 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
     spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs.
+- behaviour_id: misc-series-001
+  surface_id: sur-sqlite3-series-init
+  name: generate_series table-valued function
+  status: candidate
+  slice_id: misc-series
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns
+- behaviour_id: misc-unionvtab-001
+  surface_id: sur-sqlite3-unionvtab-init
+  name: unionvtab + swarmvtab (same source file)
+  status: candidate
+  slice_id: misc-unionvtab
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Presents many identically-shaped tables (optionally lazily-attached dbs — swarmvtab)
+    as one table
 - behaviour_id: misc-utilities-001
   surface_id: sur-ext-misc-utilities
   name: Utility extension pack (~14)
@@ -2318,6 +2399,16 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
     amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
+- behaviour_id: misc-zipfile-sqlar-001
+  surface_id: sur-sqlite3-zipfile-init
+  name: zipfile vtab + sqlar functions (one optional pack)
+  status: candidate
+  slice_id: misc-zipfile-sqlar
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Read/write zip archives as tables; sqlar_compress/uncompress build the SQLite-archive
+    format on it (genuinely one pack, kept clustered)
 - behaviour_id: mutex-subsystem-001
   surface_id: sur-sqlite3-mutex-alloc
   name: Pluggable mutex abstraction
@@ -3006,17 +3097,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:30:35Z'
+last_updated: '2026-08-11T09:31:58Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 146
+  surfaces_total: 150
   surfaces_by_status:
-    candidate: 146
-  behaviours_known: 146
+    candidate: 150
+  behaviours_known: 150
   behaviours_by_status:
-    candidate: 146
-  unscanned_hints: 3
+    candidate: 150
+  unscanned_hints: 15
   legacy_green: 0
   parity_green: 0

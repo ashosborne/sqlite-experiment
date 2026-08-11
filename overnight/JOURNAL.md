@@ -219,3 +219,12 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - One YAML authoring error (stray key in global-init-config MANIFEST) caught by parse check and fixed before upsert; sqlite3_initialize evidence pinned to src/main.c:360 after verification.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 42/120 (21 surfaces + 21 behaviours). Totals 292. Slices this run: 8 (total 68). Zero-new-streak: 0.
+
+## Resume iteration 3 — hint expansion + seeds: misc-series, misc-csv, misc-zipfile-sqlar, misc-unionvtab
+
+- stop.txt: absent.
+- Hint expansion (journaled per re-seed rules): walked `misc-vtab-unbundle` — replaced the meta-hint with 17 concrete thin hints (new SLICE_IDs, prefixed misc-). Run-1 umbrella row misc-vtab-packs-001 untouched.
+- Thin-slice generator added (overnight/bin/gen_thin_slices.py) — refuses to overwrite existing slices; each thin slice = 1 evidence-cited candidate feature.
+- misc-series (built-in-assumption flag), misc-csv (fs-access security flag), misc-zipfile-sqlar (kept clustered: sqlar genuinely builds on zipfile — one optional pack), misc-unionvtab (incl. swarmvtab, same file).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 50/120 (25 surfaces + 25 behaviours). Totals 300. Slices this run: 12 (total 72). Zero-new-streak: 0.

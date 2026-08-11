@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:30:35Z
+- Generated: 2026-08-11T09:31:58Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:30:35Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:31:58Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 146 |
-| Behaviours known | 146 |
-| Seeds scanned | 68 |
-| Unscanned hints (residual) | 3 |
+| Surfaces total | 150 |
+| Behaviours known | 150 |
+| Seeds scanned | 72 |
+| Unscanned hints (residual) | 15 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 146 |
+| candidate | 150 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 146 |
+| candidate | 150 |
 
 ## Surfaces per slice
 
@@ -63,10 +63,14 @@
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
+| misc-csv | 1 |
 | misc-func-packs | 1 |
+| misc-series | 1 |
+| misc-unionvtab | 1 |
 | misc-utilities | 1 |
 | misc-vfs-shims | 1 |
 | misc-vtab-packs | 1 |
+| misc-zipfile-sqlar | 1 |
 | mutex-subsystem | 1 |
 | name-resolution | 2 |
 | pager | 2 |
@@ -173,12 +177,28 @@
 - `jni-java-surface`
 - `wasm-js-api`
 - `wasm-opfs`
+- `misc-csv`
+- `misc-series`
+- `misc-unionvtab`
+- `misc-zipfile-sqlar`
 
 ## Unscanned hints (residual register)
 
-- ext: misc-vtab-unbundle — split run-1 misc-vtab-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
+- ext: misc-qpvtab — query-plan introspection vtab (ext/misc/qpvtab.c)
+- ext: misc-completion — shell completion vtab (ext/misc/completion.c)
+- ext: misc-closure — transitive_closure vtab (ext/misc/closure.c)
+- ext: misc-amatch — approximate-match vtab (ext/misc/amatch.c)
+- ext: misc-fuzzer — fuzzer vtab (ext/misc/fuzzer.c)
+- ext: misc-prefixes — prefixes vtab (ext/misc/prefixes.c)
+- ext: misc-wholenumber — wholenumber vtab (ext/misc/wholenumber.c)
+- ext: misc-stmt — sqlite_stmt introspection vtab (ext/misc/stmt.c)
+- ext: misc-templatevtab — template vtab skeleton (ext/misc/templatevtab.c)
+- ext: misc-vtablog — logging wrapper vtab (ext/misc/vtablog.c)
+- ext: misc-vtshim — vtab shim for disposable modules (ext/misc/vtshim.c)
+- ext: misc-btreeinfo — sqlite_btreeinfo introspection vtab (ext/misc/btreeinfo.c)
+- ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)
 
 ## Notes
 
