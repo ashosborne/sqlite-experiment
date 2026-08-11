@@ -4822,8 +4822,8 @@ behaviours:
   traceability: tests/characterization/engine-upsert2/TRACEABILITY.yaml
   notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
     2026-08-11 (run-21 delegated stamp)'
-last_updated: '2026-08-11T21:14:44Z'
-updated_by: sqlite-engine-v11-thin-gap-harvest
+last_updated: '2026-08-11T21:25:40Z'
+updated_by: sqlite-engine-v12-disk-debt
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

@@ -1,0 +1,7 @@
+OBS engine-indexes-001-C004 write.rc 0
+OBS engine-indexes-001-C004 ins.rc 0
+OBS engine-indexes-001-C004 reopen.rc 0
+OBS engine-indexes-001-C004 row0.col0 1
+OBS engine-indexes-001-C004 row1.col0 5
+OBS engine-indexes-001-C004 read.rc 0
+OBS engine-indexes-001-C004 cb.rows 2

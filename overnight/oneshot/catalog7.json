@@ -1,0 +1,142 @@
+[
+{
+"id": "engine-overflow-001-C001",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE ov(a INTEGER, t TEXT); INSERT INTO ov VALUES(1,'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghi || [read] SELECT length(t), substr(t,1,10), substr(t,5991,10) FROM ov;"
+},
+{
+"id": "engine-overflow-001-C002",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE ov(a INTEGER, t TEXT); INSERT INTO ov VALUES(1,'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghi || [read] PRAGMA integrity_check; SELECT count(*) FROM ov;"
+},
+{
+"id": "engine-overflow-001-C003",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE ovb(b BLOB); INSERT INTO ovb VALUES(X'DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADB || [read] SELECT length(b), substr(hex(b),1,8), substr(hex(b),11993,8) FROM ovb;"
+},
+{
+"id": "engine-overflow-001-C004",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE mix(a INTEGER, t TEXT); INSERT INTO mix VALUES(1,'v1'); INSERT INTO mix VALUES(2,'v2'); INSERT INTO mix VAL || [read] SELECT count(*), max(length(t)) FROM mix;"
+},
+{
+"id": "engine-overflow-001-C005",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE gr(t TEXT); INSERT INTO gr VALUES('short'); || [grow.rc] UPDATE gr SET t='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabc || [read] SELECT length(t), substr(t,1,5) FROM gr;"
+},
+{
+"id": "engine-overflow-001-C006",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE sh(t TEXT); INSERT INTO sh VALUES('abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijab || [shrink.rc] UPDATE sh SET t='tiny'; || [read] SELECT length(t), t FROM sh; PRAGMA integrity_check;"
+},
+{
+"id": "engine-overflow-001-C007",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE m3(t TEXT); INSERT INTO m3 VALUES('KLMNOPQRSTKLMNOPQRSTKLMNOPQRSTKLMNOPQRSTKLMNOPQRSTKLMNOPQRSTKLMNOPQRSTKL || [read] SELECT length(t), substr(t,14991,10) FROM m3; PRAGMA integrity_check;"
+},
+{
+"id": "engine-overflow-001-C008",
+"slice": "engine-overflow",
+"feature": "engine-overflow-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE mk(t TEXT); INSERT INTO mk VALUES('qrstuvwxyzqrstuvwxyzqrstuvwxyzqrstuvwxyzqrstuvwxyzqrstuvwxyzqrstuvwxyzqr || [read] SELECT length(t), substr(t, length(t)-16, 15) FROM mk;"
+},
+{
+"id": "engine-indexes-001-C001",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE q(a INTEGER UNIQUE); INSERT INTO q VALUES(1),(2); || [dup.rc] INSERT INTO q VALUES(1); || [read] SELECT count(*) FROM q;"
+},
+{
+"id": "engine-indexes-001-C002",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE q(a INTEGER); CREATE UNIQUE INDEX qa ON q(a); INSERT INTO q VALUES(1),(2); || [dup.rc] INSERT INTO q VALUES(1); || [read] SELECT count(*) FROM q;"
+},
+{
+"id": "engine-indexes-001-C003",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE s(a INTEGER); CREATE INDEX sa ON s(a); INSERT INTO s VALUES(1),(2),(2); || [read] SELECT count(*) FROM sqlite_master WHERE type='index'; SELECT count(*) FROM pragma_index_list('s'); SELECT count(*) FROM"
+},
+{
+"id": "engine-indexes-001-C004",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE q(a INTEGER UNIQUE); INSERT INTO q VALUES(1); || [ins.rc] INSERT OR IGNORE INTO q VALUES(1),(5); || [read] SELECT a FROM q ORDER BY a;"
+},
+{
+"id": "engine-indexes-001-C005",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE k(id INTEGER PRIMARY KEY, v INTEGER); INSERT INTO k VALUES(1,10); || [upsert.rc] INSERT INTO k VALUES(1,99) ON CONFLICT(id) DO UPDATE SET v=excluded.v; || [read] SELECT v FROM k;"
+},
+{
+"id": "engine-indexes-001-C006",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE m(id INTEGER PRIMARY KEY, u TEXT UNIQUE); INSERT INTO m VALUES(1,'x'),(2,'y'); || [dup.rc] INSERT INTO m VALUES(3,'x'); || [read] SELECT count(*) FROM m; PRAGMA integrity_check;"
+},
+{
+"id": "engine-indexes-001-C007",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE d(a INTEGER); CREATE INDEX da ON d(a); DROP INDEX da; INSERT INTO d VALUES(7); || [read] SELECT count(*) FROM sqlite_master WHERE type='index'; SELECT a FROM d;"
+},
+{
+"id": "engine-indexes-001-C008",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE mc(a INTEGER, b INTEGER, UNIQUE(a,b)); INSERT INTO mc VALUES(1,1),(1,2); || [dup.rc] INSERT INTO mc VALUES(1,1); || [ok.rc] INSERT INTO mc VALUES(2,1); || [read] SELECT count(*) FROM mc; PRAGMA integrity_check;"
+},
+{
+"id": "engine-indexes-001-C009",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE nu(a INTEGER UNIQUE); INSERT INTO nu VALUES(NULL); INSERT INTO nu VALUES(NULL); || [read] SELECT count(*) FROM nu; PRAGMA integrity_check;"
+},
+{
+"id": "engine-indexes-001-C010",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE q(a INTEGER UNIQUE); INSERT INTO q VALUES(1); || [more.rc] INSERT INTO q VALUES(5); || [dup.rc] INSERT INTO q VALUES(5); || [read] SELECT count(*) FROM q;"
+},
+{
+"id": "engine-indexes-001-C011",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE tu(t TEXT UNIQUE); INSERT INTO tu VALUES('aa'),('bb'); || [dup.rc] INSERT INTO tu VALUES('aa'); || [read] SELECT count(*) FROM tu; PRAGMA integrity_check;"
+},
+{
+"id": "engine-indexes-001-C012",
+"slice": "engine-indexes",
+"feature": "engine-indexes-001",
+"kind": "script",
+"sql": "[write.rc] CREATE TABLE q(a INTEGER UNIQUE); INSERT INTO q VALUES(1); || [rep.rc] INSERT OR REPLACE INTO q VALUES(1); || [read] SELECT count(*) FROM q;"
+}
+]
