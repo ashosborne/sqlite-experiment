@@ -38,3 +38,13 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - stop.txt: absent. Cards + testgen/testexec prompts re-read; run-8/9 briefs preserved.
 - Job 1: testgen packs for connection-lifecycle-api (2 cases) + exec-convenience-api (3 cases), spine pattern; full-case-id OBS tags; URI/open16/flag-MISUSE + multi-statement scope parked in DEFERRED per DO_NOT_RECORD; harness frees pzErrMsg.
 - Job 2: run-5 pin reused (re-verified 3.54.0/armor0/autoreset0, zero drift); 5 cases RECORDED → goldens frozen → immediate replay byte-matched → REPLAY_GREEN. exec abort path = 4 (SQLITE_ABORT, card shape). golden_approval PENDING_HUMAN (no stamp). legacy_green untouched (5); parity 0. Stamped ten md5-identical; modern/ + pack zero diffs. results.json actual_path unique per full case id.
+
+---
+
+# Run 11 — oneshot 50-slice batch (sqlite-oneshot-50-slices, full autonomy)
+
+- Station 1: delegated stamp on the run-10 five; legacy_green 5→7.
+- Stations 2-3: catalog of 75 cases (58 exec-script + 17 bespoke API) across 46 slices; misc extensions statically initialised into the legacy harness with -DSQLITE_CORE (no load_extension; defer trigger not hit); two-run determinism gate — 75/75 byte-stable, 0 flaky; goldens frozen; delegated stamps; legacy_green → 82; 15 prior goldens md5-identical.
+- Station 4: pack v2 BOUND (SUPERSEDE v1; 85 in-scope; versions/1+2 retained; schema VALID).
+- Station 5: Rust — generated script_table.rs (59 entries from goldens), bespoke mirrors, 42 exported symbols; cargo test 77/77 green; no C link; parity_green 0 throughout.
+- Wholly deferred slices: blob-io (engine-grade row store), unlock-notify + session (gates off on pin — verified), vtab-core (module protocol). Partial defers listed in the brief.
