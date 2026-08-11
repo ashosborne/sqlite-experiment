@@ -57,3 +57,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - vfs-os-abstraction-003 card explicitly delegates deep contracts to run-2 vfs-win/vfs-kv cards (umbrella kept for continuity, extra line evidence added).
 - Crash-safety blind spot restated on pager-001 (harness out of scope — honest limitation, not silently ignored).
 - Upsert: PASS (documented=95). COVERAGE regenerated.
+
+## Batch 8 — vtab core, adapters, FTS (10 cards)
+
+- vtab-core(2), introspection-vtabs(1), shell-cli(2), tcl-binding(1), fts5(3), fts3(1) → documented, observed-in-code.
+- Compile-gated trio card notes none of the three gates are in the default baseline; shell dot-command surface stays dispatcher-pinned per cluster-at-bind note.
+- Upsert: PASS (documented=105). COVERAGE regenerated.

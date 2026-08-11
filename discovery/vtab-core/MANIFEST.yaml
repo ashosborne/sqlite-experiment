@@ -5,12 +5,12 @@ seed_entrypoints:
 - sqlite3_declare_vtab()
 out_of_scope_hints:
 - individual vtab implementations
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:30:12Z'
 features:
 - id: vtab-core-001
   name: Module registration and vtab lifecycle
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "create_module(+v2 destructor); CREATE VIRTUAL TABLE \u2192 xCreate; reconnect \u2192 xConnect."
   entrypoints:
@@ -25,9 +25,10 @@ features:
   dependencies:
   - ddl-schema
   open_questions: []
+  behaviour_doc: features/vtab-core-001.md
 - id: vtab-core-002
   name: declare_vtab and vtab_config negotiation
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Column-shape declaration from inside xCreate/xConnect; constraint support flags.
   entrypoints:
@@ -40,3 +41,4 @@ features:
   - vtab-core-001
   open_questions:
   - xBestIndex cost contract is a deep Phase B topic
+  behaviour_doc: features/vtab-core-002.md

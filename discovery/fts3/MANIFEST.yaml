@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3Fts3Init()
 out_of_scope_hints:
 - FTS5
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:30:12Z'
 features:
 - id: fts3-001
   name: FTS3/4 virtual table module (legacy)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Previous-generation FTS vtab (26 files); MATCH syntax differs from FTS5.
   entrypoints:
@@ -22,3 +22,4 @@ features:
   - vtab-core
   open_questions:
   - 'Retire vs migrate: does downstream still create fts3/fts4 tables?'
+  behaviour_doc: features/fts3-001.md

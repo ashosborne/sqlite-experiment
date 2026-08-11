@@ -2460,36 +2460,36 @@ behaviours:
 - behaviour_id: fts3-001
   surface_id: sur-sqlite3fts3init
   name: FTS3/4 virtual table module (legacy)
-  status: accepted
+  status: documented
   slice_id: fts3
-  discovery_card: null
+  discovery_card: discovery/fts3/features/fts3-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Previous-generation FTS vtab (26 files); MATCH syntax differs from FTS5.
 - behaviour_id: fts5-001
   surface_id: sur-sqlite3-fts5-init
   name: FTS5 virtual table module
-  status: accepted
+  status: documented
   slice_id: fts5
-  discovery_card: null
+  discovery_card: discovery/fts5/features/fts5-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; fts5 vtab create/connect, content storage variants, MATCH query execution.
 - behaviour_id: fts5-002
   surface_id: sur-fts5-api-xcreatetokenizer
   name: Tokenizer API and built-in tokenizers
-  status: accepted
+  status: documented
   slice_id: fts5
-  discovery_card: null
+  discovery_card: discovery/fts5/features/fts5-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; xCreateTokenizer(_v2) registration; unicode61/ascii/porter/trigram built-ins.
 - behaviour_id: fts5-003
   surface_id: sur-fts5-api
   name: Auxiliary functions (highlight/snippet/bm25) via fts5_api
-  status: accepted
+  status: documented
   slice_id: fts5
-  discovery_card: null
+  discovery_card: discovery/fts5/features/fts5-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; User-visible fts5_api object exposes aux-function registration; built-in ranking.
@@ -2552,9 +2552,9 @@ behaviours:
 - behaviour_id: introspection-vtabs-001
   surface_id: sur-sqlite3dbstatregister
   name: Introspection vtab trio (dbstat / sqlite_dbpage / bytecode)
-  status: accepted
+  status: documented
   slice_id: introspection-vtabs
-  discovery_card: null
+  discovery_card: discovery/introspection-vtabs/features/introspection-vtabs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE programs.
@@ -3398,27 +3398,27 @@ behaviours:
 - behaviour_id: shell-cli-001
   surface_id: sur-sqlite3-cli-main
   name: CLI entry and SQL input loop
-  status: accepted
+  status: documented
   slice_id: shell-cli
-  discovery_card: null
+  discovery_card: discovery/shell-cli/features/shell-cli-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; argv handling, rc files, interactive vs batch input, exit codes.
 - behaviour_id: shell-cli-002
   surface_id: sur-do-meta-command
   name: Dot-command surface
-  status: accepted
+  status: documented
   slice_id: shell-cli
-  discovery_card: null
+  discovery_card: discovery/shell-cli/features/shell-cli-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Meta-commands (.mode/.import/.dump/.schema/...) with own parser and modes stack.
 - behaviour_id: tcl-binding-001
   surface_id: sur-sqlite3-init
   name: TCL package init and sqlite3 command dispatch
-  status: accepted
+  status: documented
   slice_id: tcl-binding
-  discovery_card: null
+  discovery_card: discovery/tcl-binding/features/tcl-binding-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Package registration creates 'sqlite3' command; each db handle becomes a TCL command
@@ -3630,18 +3630,18 @@ behaviours:
 - behaviour_id: vtab-core-001
   surface_id: sur-sqlite3-create-module
   name: Module registration and vtab lifecycle
-  status: accepted
+  status: documented
   slice_id: vtab-core
-  discovery_card: null
+  discovery_card: discovery/vtab-core/features/vtab-core-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect.
 - behaviour_id: vtab-core-002
   surface_id: sur-sqlite3-declare-vtab
   name: declare_vtab and vtab_config negotiation
-  status: accepted
+  status: documented
   slice_id: vtab-core
-  discovery_card: null
+  discovery_card: discovery/vtab-core/features/vtab-core-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Column-shape declaration from inside xCreate/xConnect; constraint support flags.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:29:08Z'
+last_updated: '2026-08-11T10:30:12Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 95
-    accepted: 90
+    documented: 105
+    accepted: 80
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

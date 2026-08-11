@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - library behaviour
 - embedded ext/misc extensions
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:30:12Z'
 features:
 - id: shell-cli-001
   name: CLI entry and SQL input loop
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: argv handling, rc files, interactive vs batch input, exit codes.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   - connection-lifecycle-api
   - prepare-statement-api
   open_questions: []
+  behaviour_doc: features/shell-cli-001.md
 - id: shell-cli-002
   name: Dot-command surface
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Meta-commands (.mode/.import/.dump/.schema/...) with own parser and modes stack.
   entrypoints:
@@ -39,3 +40,4 @@ features:
   - shell-cli-001
   open_questions:
   - "Which dot-commands does downstream automation actually use? (large surface \u2014 cluster at bind)"
+  behaviour_doc: features/shell-cli-002.md

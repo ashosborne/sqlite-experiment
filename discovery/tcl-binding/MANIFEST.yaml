@@ -4,12 +4,12 @@ seed_entrypoints:
 - Sqlite3_Init()
 out_of_scope_hints:
 - TCL test harness commands
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:30:12Z'
 features:
 - id: tcl-binding-001
   name: TCL package init and sqlite3 command dispatch
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Package registration creates 'sqlite3' command; each db handle becomes a TCL command with ~40 subcommands.
   entrypoints:
@@ -23,3 +23,4 @@ features:
   - connection-lifecycle-api
   open_questions:
   - Is the TCL binding a product surface downstream, or test-only?
+  behaviour_doc: features/tcl-binding-001.md
