@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:35:13Z
+- Generated: 2026-08-11T09:35:52Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:35:12Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:35:51Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 178 |
-| Behaviours known | 178 |
-| Seeds scanned | 100 |
-| Unscanned hints (residual) | 2 |
+| Surfaces total | 182 |
+| Behaviours known | 182 |
+| Seeds scanned | 104 |
+| Unscanned hints (residual) | 6 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 178 |
+| candidate | 182 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 178 |
+| candidate | 182 |
 
 ## Surfaces per slice
 
@@ -64,8 +64,10 @@
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
 | misc-amatch | 1 |
+| misc-appendvfs | 1 |
 | misc-basexx | 1 |
 | misc-btreeinfo | 1 |
+| misc-cksumvfs | 1 |
 | misc-closure | 1 |
 | misc-completion | 1 |
 | misc-compress | 1 |
@@ -90,9 +92,11 @@
 | misc-totype | 1 |
 | misc-uint | 1 |
 | misc-unionvtab | 1 |
+| misc-urifuncs | 1 |
 | misc-utilities | 1 |
 | misc-uuid | 1 |
 | misc-vfs-shims | 1 |
+| misc-vfsstat | 1 |
 | misc-vtab-packs | 1 |
 | misc-vtablog | 1 |
 | misc-vtshim | 1 |
@@ -237,11 +241,19 @@
 - `misc-fossildelta`
 - `misc-rot13`
 - `misc-uuid`
+- `misc-appendvfs`
+- `misc-cksumvfs`
+- `misc-urifuncs`
+- `misc-vfsstat`
 
 ## Unscanned hints (residual register)
 
-- ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-urifuncs — URI parsing SQL functions (ext/misc/urifuncs.c)
+- ext: misc-vfstrace — VFS call tracing wrapper (ext/misc/vfstrace.c)
+- ext: misc-vfslog — VFS operation logging to file (ext/misc/vfslog.c)
+- ext: misc-tmstmpvfs — timestamped-backup VFS (ext/misc/tmstmpvfs.c)
+- ext: misc-mmapwarm — mmap cache pre-warming helper (ext/misc/mmapwarm.c)
+- ext: misc-memtrace — malloc tracing hooks (ext/misc/memtrace.c)
+- ext: misc-pcachetrace — page-cache tracing hooks (ext/misc/pcachetrace.c)
 
 ## Notes
 

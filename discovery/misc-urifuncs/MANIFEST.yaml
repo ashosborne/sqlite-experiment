@@ -1,0 +1,23 @@
+slice_id: misc-urifuncs
+seed: sqlite_uri_parameter etc. (ext/misc/urifuncs.c)
+seed_entrypoints:
+- sqlite3_urifuncs_init()
+out_of_scope_hints:
+- other misc-func-packs members
+phase: A
+updated_at: '2026-08-11T09:35:51Z'
+features:
+- id: misc-urifuncs-001
+  name: URI-parameter SQL functions
+  status: candidate
+  confidence: observed-in-code
+  summary: SQL access to URI open-parameters of the current database file
+  entrypoints:
+  - kind: other
+    locator: sqlite3_urifuncs_init()
+    evidence:
+    - ext/misc/urifuncs.c:180
+  dependencies:
+  - loadext-api
+  - connection-lifecycle-api
+  open_questions: []

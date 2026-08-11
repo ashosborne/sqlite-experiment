@@ -1,0 +1,23 @@
+slice_id: misc-vfsstat
+seed: I/O counters VFS (ext/misc/vfsstat.c)
+seed_entrypoints:
+- sqlite3_vfsstat_init()
+out_of_scope_hints:
+- other misc-vfs-shims members
+phase: A
+updated_at: '2026-08-11T09:35:51Z'
+features:
+- id: misc-vfsstat-001
+  name: vfsstat I/O statistics shim + vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Counts read/write/sync per file class; exposes vfsstat vtab for SQL queries
+  entrypoints:
+  - kind: other
+    locator: sqlite3_vfsstat_init()
+    evidence:
+    - ext/misc/vfsstat.c:806
+  dependencies:
+  - vfs-os-abstraction
+  - vtab-core
+  open_questions: []

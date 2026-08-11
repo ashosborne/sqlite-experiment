@@ -278,3 +278,13 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - rot13 flagged demo-only (defer recommendation, prose).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 106/120 (53+53). Totals 356. Slices this run: 40 (total 100). Zero-new-streak: 0.
+
+## Resume iteration 11 — hint expansion + seeds: misc-urifuncs, misc-appendvfs, misc-cksumvfs, misc-vfsstat
+
+- stop.txt: absent.
+- misc-urifuncs completes the 16-slice func unbundle (umbrella misc-func-packs-001 untouched throughout).
+- Hint expansion (journaled): walked `misc-vfs-unbundle` — replaced with 9 concrete thin hints.
+- misc-appendvfs, misc-cksumvfs (file-format impact re-flagged from run 1), misc-vfsstat walked.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 114/120 (57+57). Totals 364. Slices this run: 44 (total 104). Zero-new-streak: 0.
+- Budget note: 6 rows remain → next batch capped at 3 seeds; remaining vfs hints will stay in the residual register when the cap trips (honest cap stop, per charter).
