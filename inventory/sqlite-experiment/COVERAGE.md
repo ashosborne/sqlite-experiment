@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:24:58Z
+- Generated: 2026-08-11T09:28:03Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:24:58Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:28:02Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 125 |
-| Behaviours known | 125 |
-| Seeds scanned | 60 |
-| Unscanned hints (residual) | 11 |
+| Surfaces total | 135 |
+| Behaviours known | 135 |
+| Seeds scanned | 64 |
+| Unscanned hints (residual) | 7 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 125 |
+| candidate | 135 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 125 |
+| candidate | 135 |
 
 ## Surfaces per slice
 
@@ -41,6 +41,7 @@
 | blob-io-api | 2 |
 | btree | 2 |
 | builtin-scalar-agg-funcs | 3 |
+| compile-options-omit-enable | 3 |
 | connection-lifecycle-api | 4 |
 | date-time-funcs | 4 |
 | ddl-schema | 3 |
@@ -88,7 +89,10 @@
 | util-primitives | 1 |
 | vacuum | 2 |
 | vdbe-engine | 2 |
+| vfs-kv | 2 |
 | vfs-os-abstraction | 3 |
+| vfs-unix-variants | 3 |
+| vfs-win | 2 |
 | vtab-core | 2 |
 | wal | 2 |
 | wasm-binding | 1 |
@@ -157,13 +161,13 @@
 - `misc-utilities`
 - `misc-vfs-shims`
 - `misc-vtab-packs`
+- `compile-options-omit-enable`
+- `vfs-kv`
+- `vfs-unix-variants`
+- `vfs-win`
 
 ## Unscanned hints (residual register)
 
-- src: compile-options-omit-enable — SQLITE_OMIT_*/SQLITE_ENABLE_* gated API visibility, default vs ifdef builds (src/sqliteInt.h, src/sqlite.h.in, src/ctime.c if present)
-- src: vfs-win — Windows VFS implementation (src/os_win.c)
-- src: vfs-kv — key-value VFS backend (src/os_kv.c)
-- src: vfs-unix-variants — VxWorks / proxy-locking / alternate locking-style paths in src/os_unix.c not deep-scanned in run 1
 - src: global-init-config — sqlite3_initialize/shutdown + sqlite3_config + sqlite3_db_config (src/main.c, src/global.c); left as open question in run 1
 - ext: wasm-js-api — JS/worker/promise API surface beyond run-1 wasm-binding umbrella (ext/wasm/api/*.js, ext/wasm/api/*.c-pp.js)
 - ext: wasm-opfs — OPFS VFS + sync-access-handle pool variants (ext/wasm/api/sqlite3-vfs-opfs*, sqlite3-opfs-*)

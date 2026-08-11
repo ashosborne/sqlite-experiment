@@ -67,13 +67,11 @@ scanned_seeds:
 - misc-utilities
 - misc-vfs-shims
 - misc-vtab-packs
+- compile-options-omit-enable
+- vfs-kv
+- vfs-unix-variants
+- vfs-win
 unscanned_hints:
-- 'src: compile-options-omit-enable — SQLITE_OMIT_*/SQLITE_ENABLE_* gated API visibility, default vs ifdef builds (src/sqliteInt.h,
-  src/sqlite.h.in, src/ctime.c if present)'
-- 'src: vfs-win — Windows VFS implementation (src/os_win.c)'
-- 'src: vfs-kv — key-value VFS backend (src/os_kv.c)'
-- 'src: vfs-unix-variants — VxWorks / proxy-locking / alternate locking-style paths in src/os_unix.c not deep-scanned in run
-  1'
 - 'src: global-init-config — sqlite3_initialize/shutdown + sqlite3_config + sqlite3_db_config (src/main.c, src/global.c);
   left as open question in run 1'
 - 'ext: wasm-js-api — JS/worker/promise API surface beyond run-1 wasm-binding umbrella (ext/wasm/api/*.js, ext/wasm/api/*.c-pp.js)'
@@ -272,6 +270,37 @@ surfaces:
   - src/func.c:3322
   - src/func.c:3404
   - src/func.c:348
+- surface_id: sur-sqlite-enable-guards
+  kind: other
+  locator: SQLITE_ENABLE_* guards
+  repo_path: src/sqliteInt.h
+  status: candidate
+  slice_id: compile-options-omit-enable
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/sqliteInt.h
+  - src/os_unix.c:66
+- surface_id: sur-sqlite-omit-guards
+  kind: other
+  locator: SQLITE_OMIT_* guards
+  repo_path: src/sqliteInt.h
+  status: candidate
+  slice_id: compile-options-omit-enable
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/sqliteInt.h
+- surface_id: sur-sqlite3-compileoption-used
+  kind: other
+  locator: sqlite3_compileoption_used()
+  repo_path: src/main.c
+  status: candidate
+  slice_id: compile-options-omit-enable
+  notes: seam-kind=api; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/main.c:5220
+  - src/main.c:5253
+  - src/func.c:1051
+  - src/func.c:1075
 - surface_id: sur-sqlite3-busy-timeout
   kind: other
   locator: sqlite3_busy_timeout()
@@ -1298,6 +1327,27 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - src/vdbemem.c
+- surface_id: sur-sqlite3-kvvfs-methods
+  kind: other
+  locator: sqlite3_kvvfs_methods
+  repo_path: src/os_kv.c
+  status: candidate
+  slice_id: vfs-kv
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_kv.c:330
+  - src/os_kv.c:361
+- surface_id: sur-sqlite3kvvfsinit
+  kind: other
+  locator: sqlite3KvvfsInit()
+  repo_path: src/os_kv.c
+  status: candidate
+  slice_id: vfs-kv
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_kv.c:1094
+  - src/os_kv.c:114
+  - src/os_kv.c:893
 - surface_id: sur-sqlite3-vfs-register
   kind: other
   locator: sqlite3_vfs_register()
@@ -1330,6 +1380,59 @@ surfaces:
   - src/os_unix.c:6519
   - src/os_unix.c:8472
   - src/os_unix.c:4952
+- surface_id: sur-os-vxworks-sections
+  kind: other
+  locator: OS_VXWORKS sections
+  repo_path: src/os_unix.c
+  status: candidate
+  slice_id: vfs-unix-variants
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_unix.c:137
+- surface_id: sur-proxyiomethods
+  kind: other
+  locator: proxyIoMethods
+  repo_path: src/os_unix.c
+  status: candidate
+  slice_id: vfs-unix-variants
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_unix.c:5928
+  - src/os_unix.c:5923
+  - src/os_unix.c:8207
+- surface_id: sur-sqlite-enable-locking-style-paths
+  kind: other
+  locator: SQLITE_ENABLE_LOCKING_STYLE paths
+  repo_path: src/os_unix.c
+  status: candidate
+  slice_id: vfs-unix-variants
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_unix.c:66
+  - src/os_unix.c:61
+  - src/os_unix.c:143
+- surface_id: sur-winopen
+  kind: other
+  locator: winOpen()
+  repo_path: src/os_win.c
+  status: candidate
+  slice_id: vfs-win
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_win.c:5210
+  - src/os_win.c:5211
+  - src/os_win.c:3063
+- surface_id: sur-winshmmap
+  kind: other
+  locator: winShmMap()
+  repo_path: src/os_win.c
+  status: candidate
+  slice_id: vfs-win
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - src/os_win.c:3586
+  - src/os_win.c:3723
+  - src/os_win.c:3876
 - surface_id: sur-sqlite3-create-module
   kind: other
   locator: sqlite3_create_module()
@@ -1589,6 +1692,36 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries
     IsLikeFunction for index use.
+- behaviour_id: compile-options-omit-enable-001
+  surface_id: sur-sqlite3-compileoption-used
+  name: Compile-option diagnostics API (C + SQL)
+  status: candidate
+  slice_id: compile-options-omit-enable
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; compileoption_used/get in C and SQL report the active build matrix; itself gated by
+    SQLITE_OMIT_COMPILEOPTION_DIAGS.
+- behaviour_id: compile-options-omit-enable-002
+  surface_id: sur-sqlite-omit-guards
+  name: OMIT-gate census (surfaces removed per build)
+  status: candidate
+  slice_id: compile-options-omit-enable
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window,
+    ...) run 1 carded as default-present.
+- behaviour_id: compile-options-omit-enable-003
+  surface_id: sur-sqlite-enable-guards
+  name: ENABLE-gate census (surfaces added per build)
+  status: candidate
+  slice_id: compile-options-omit-enable
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE,
+    ...).
 - behaviour_id: connection-lifecycle-api-001
   surface_id: sur-sqlite3-open-v2
   name: Open database (sqlite3_open family + URI parsing)
@@ -2482,6 +2615,25 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.'
+- behaviour_id: vfs-kv-001
+  surface_id: sur-sqlite3kvvfsinit
+  name: kvvfs virtual filesystem
+  status: candidate
+  slice_id: vfs-kv
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage
+    primary consumer.
+- behaviour_id: vfs-kv-002
+  surface_id: sur-sqlite3-kvvfs-methods
+  name: Pluggable K/V storage method table
+  status: candidate
+  slice_id: vfs-kv
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sqlite3_kvvfs_methods xRead/xWrite/xDelete callbacks replaceable at runtime.
 - behaviour_id: vfs-os-abstraction-001
   surface_id: sur-sqlite3-vfs-register
   name: VFS registration and lookup
@@ -2509,6 +2661,53 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; os_win.c full win32 VFS; os_kv.c key-value VFS (wasm/localStorage backend).
+- behaviour_id: vfs-unix-variants-001
+  surface_id: sur-sqlite-enable-locking-style-paths
+  name: Locking-style selection matrix
+  status: candidate
+  slice_id: vfs-unix-variants
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Compile+runtime selection among 8 locking strategies; auto-detection per filesystem
+    when LOCKING_STYLE enabled.
+- behaviour_id: vfs-unix-variants-002
+  surface_id: sur-proxyiomethods
+  name: Proxy locking (conch file protocol)
+  status: candidate
+  slice_id: vfs-unix-variants
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; proxyIoMethods route locks through a conch file; macOS-specific concurrency semantics.
+- behaviour_id: vfs-unix-variants-003
+  surface_id: sur-os-vxworks-sections
+  name: VxWorks variant paths
+  status: candidate
+  slice_id: vfs-unix-variants
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; OS_VXWORKS sections switch to named semaphores and RTOS path handling.
+- behaviour_id: vfs-win-001
+  surface_id: sur-winopen
+  name: Win32 VFS registration and file open
+  status: candidate
+  slice_id: vfs-win
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines
+    run-1 vfs-os-abstraction-003.
+- behaviour_id: vfs-win-002
+  surface_id: sur-winshmmap
+  name: Windows shared-memory and mmap paths (WAL)
+  status: candidate
+  slice_id: vfs-win
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; winShmMap implements wal-index shm on win32; winFetch mmap read path.
 - behaviour_id: vtab-core-001
   surface_id: sur-sqlite3-create-module
   name: Module registration and vtab lifecycle
@@ -2592,17 +2791,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:24:58Z'
+last_updated: '2026-08-11T09:28:02Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 125
+  surfaces_total: 135
   surfaces_by_status:
-    candidate: 125
-  behaviours_known: 125
+    candidate: 135
+  behaviours_known: 135
   behaviours_by_status:
-    candidate: 125
-  unscanned_hints: 11
+    candidate: 135
+  unscanned_hints: 7
   legacy_green: 0
   parity_green: 0

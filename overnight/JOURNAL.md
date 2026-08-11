@@ -198,3 +198,13 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Not re-seeded per charter: test/ + src/test*.c (still skipped-with-reason), runtime-only behaviour (stays a METHOD_COVERAGE note), tool//generated files, run-1 seeds.
 - Schema validation: PASS. COVERAGE regenerated (hints 0 → 11).
 - Delta tally: 0/120 new candidates this run (totals 250 baseline).
+
+## Resume iteration 1 — seeds: compile-options-omit-enable, vfs-win, vfs-kv, vfs-unix-variants
+
+- stop.txt: absent.
+- compile-options-omit-enable: 3 candidates (diagnostics API C+SQL; OMIT census 77 refs; ENABLE census 51 refs). Per-option carding deferred until the baseline build is pinned — no fake per-flag cards.
+- vfs-win: 2 candidates (winVfs registration/open; win shm+mmap for WAL). Refines run-1 vfs-os-abstraction-003; umbrella row untouched.
+- vfs-kv: 2 candidates (kvvfs; pluggable sqlite3_kvvfs_methods seam).
+- vfs-unix-variants: 3 candidates (locking-style matrix; proxy/conch locking; VxWorks). These are exactly the entrypoints run-1's unix card left out.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 20/120 (10 surfaces + 10 behaviours). Totals 270. Slices this run: 4 (total 64). Zero-new-streak: 0.
