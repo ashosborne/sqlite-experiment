@@ -8,12 +8,12 @@ out_of_scope_hints:
 - UPSERT
 - FK enforcement
 - triggers
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:27:49Z'
 features:
 - id: dml-codegen-001
   name: DML statement compilation (3 write paths)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast path).
   entrypoints:
@@ -28,9 +28,10 @@ features:
   - btree
   - expr-codegen
   open_questions: []
+  behaviour_doc: features/dml-codegen-001.md
 - id: dml-codegen-002
   name: Constraint checks + ON CONFLICT resolution matrix
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes.
   entrypoints:
@@ -42,3 +43,4 @@ features:
   - dml-codegen-001
   open_questions:
   - "REPLACE-mode side effects (delete-then-insert) on triggers/FKs \u2014 parity trap"
+  behaviour_doc: features/dml-codegen-002.md

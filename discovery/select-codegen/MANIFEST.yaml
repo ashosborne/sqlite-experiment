@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - WHERE-loop planning
 - window frames
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:27:49Z'
 features:
 - id: select-codegen-001
   name: SELECT orchestration and FROM expansion
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 'Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output modes.'
   entrypoints:
@@ -23,9 +23,10 @@ features:
   - where-optimizer
   - expr-codegen
   open_questions: []
+  behaviour_doc: features/select-codegen-001.md
 - id: select-codegen-002
   name: Compound SELECT set operations
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules.
   entrypoints:
@@ -38,9 +39,10 @@ features:
   dependencies:
   - select-codegen-001
   open_questions: []
+  behaviour_doc: features/select-codegen-002.md
 - id: select-codegen-003
   name: Subquery flattening rewrite
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "Flattening under a long restriction list; changes plans invisibly \u2014 parity-relevant for corner cases."
   entrypoints:
@@ -51,3 +53,4 @@ features:
   dependencies:
   - select-codegen-001
   open_questions: []
+  behaviour_doc: features/select-codegen-003.md

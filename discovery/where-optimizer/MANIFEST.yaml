@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3WhereBegin()
 out_of_scope_hints:
 - statistics collection
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:27:49Z'
 features:
 - id: where-optimizer-001
   name: WHERE-loop generation boundary
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: WhereBegin/WhereEnd bracket loop codegen for SELECT/UPDATE/DELETE.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   - btree
   - expr-codegen
   open_questions: []
+  behaviour_doc: features/where-optimizer-001.md
 - id: where-optimizer-002
   name: Access-path enumeration and cost-based solver
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks cheapest join order.
   entrypoints:
@@ -38,3 +39,4 @@ features:
   - analyze-stats
   open_questions:
   - 'Plan parity vs result parity: agree characterization level (EQP text is version-fragile)'
+  behaviour_doc: features/where-optimizer-002.md

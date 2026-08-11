@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - page cache
 - WAL
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:27:49Z'
 features:
 - id: btree-001
   name: Btree handle and transaction boundary
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Open/close btree on a pager; read/write transaction nesting with schema-version checks.
   entrypoints:
@@ -23,9 +23,10 @@ features:
   dependencies:
   - pager
   open_questions: []
+  behaviour_doc: features/btree-001.md
 - id: btree-002
   name: Cursor seek/insert/delete operations
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Cursor positioning and mutation incl. page balancing; file-format invariants.
   entrypoints:
@@ -40,3 +41,4 @@ features:
   - btree-001
   open_questions:
   - "File-format parity (fileformat2.html) is the real contract \u2014 characterize via db-file byte comparisons?"
+  behaviour_doc: features/btree-002.md

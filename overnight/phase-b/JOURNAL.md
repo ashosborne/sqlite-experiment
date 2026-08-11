@@ -44,3 +44,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - analyze-stats(2), vacuum(2), tokenizer(2), parser-grammar(2), name-resolution(2), expr-codegen(3) → documented, observed-in-code.
 - Dialect gates carded explicitly (DQS fallback, keyword fallback, legacy_alter interactions); IN-with-NULL parity trap pinned on expr-codegen-002.
 - Upsert: PASS (documented=71). COVERAGE regenerated.
+
+## Batch 6 — SELECT/DML/planner/engine (11 cards)
+
+- select-codegen(3), dml-codegen(2), where-optimizer(2), vdbe-engine(2), btree(2) → documented, observed-in-code.
+- vdbe-engine-001 stays the 199-opcode census card (charter); bare-column-in-aggregate and REPLACE-trigger quirks pinned; dml constraint-order observability carded.
+- Upsert: PASS (documented=82). COVERAGE regenerated.

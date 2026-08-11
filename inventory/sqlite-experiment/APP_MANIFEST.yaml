@@ -2152,18 +2152,18 @@ behaviours:
 - behaviour_id: btree-001
   surface_id: sur-sqlite3btreeopen
   name: Btree handle and transaction boundary
-  status: accepted
+  status: documented
   slice_id: btree
-  discovery_card: null
+  discovery_card: discovery/btree/features/btree-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks.
 - behaviour_id: btree-002
   surface_id: sur-sqlite3btreecursor
   name: Cursor seek/insert/delete operations
-  status: accepted
+  status: documented
   slice_id: btree
-  discovery_card: null
+  discovery_card: discovery/btree/features/btree-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Cursor positioning and mutation incl. page balancing; file-format invariants.
@@ -2332,9 +2332,9 @@ behaviours:
 - behaviour_id: dml-codegen-001
   surface_id: sur-sqlite3insert
   name: DML statement compilation (3 write paths)
-  status: accepted
+  status: documented
   slice_id: dml-codegen
-  discovery_card: null
+  discovery_card: discovery/dml-codegen/features/dml-codegen-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast
@@ -2342,9 +2342,9 @@ behaviours:
 - behaviour_id: dml-codegen-002
   surface_id: sur-sqlite3generateconstraintchecks
   name: Constraint checks + ON CONFLICT resolution matrix
-  status: accepted
+  status: documented
   slice_id: dml-codegen
-  discovery_card: null
+  discovery_card: discovery/dml-codegen/features/dml-codegen-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes.
@@ -3322,9 +3322,9 @@ behaviours:
 - behaviour_id: select-codegen-001
   surface_id: sur-sqlite3select
   name: SELECT orchestration and FROM expansion
-  status: accepted
+  status: documented
   slice_id: select-codegen
-  discovery_card: null
+  discovery_card: discovery/select-codegen/features/select-codegen-001.md
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output
@@ -3332,18 +3332,18 @@ behaviours:
 - behaviour_id: select-codegen-002
   surface_id: sur-multiselect
   name: Compound SELECT set operations
-  status: accepted
+  status: documented
   slice_id: select-codegen
-  discovery_card: null
+  discovery_card: discovery/select-codegen/features/select-codegen-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules.
 - behaviour_id: select-codegen-003
   surface_id: sur-flattensubquery
   name: Subquery flattening rewrite
-  status: accepted
+  status: documented
   slice_id: select-codegen
-  discovery_card: null
+  discovery_card: discovery/select-codegen/features/select-codegen-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Flattening under a long restriction list; changes plans invisibly — parity-relevant
@@ -3519,18 +3519,18 @@ behaviours:
 - behaviour_id: vdbe-engine-001
   surface_id: sur-sqlite3vdbeexec
   name: Opcode interpreter loop
-  status: accepted
+  status: documented
   slice_id: vdbe-engine
-  discovery_card: null
+  discovery_card: discovery/vdbe-engine/features/vdbe-engine-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 199 OP_ cases; interruption, progress-callback and error unwinding semantics.
 - behaviour_id: vdbe-engine-002
   surface_id: sur-src-vdbemem-c
   name: Mem-cell value semantics (affinity/encoding conversions)
-  status: accepted
+  status: documented
   slice_id: vdbe-engine
-  discovery_card: null
+  discovery_card: discovery/vdbe-engine/features/vdbe-engine-002.md
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.'
@@ -3723,18 +3723,18 @@ behaviours:
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
   name: WHERE-loop generation boundary
-  status: accepted
+  status: documented
   slice_id: where-optimizer
-  discovery_card: null
+  discovery_card: discovery/where-optimizer/features/where-optimizer-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; WhereBegin/WhereEnd bracket loop codegen for SELECT/UPDATE/DELETE.
 - behaviour_id: where-optimizer-002
   surface_id: sur-wherepathsolver
   name: Access-path enumeration and cost-based solver
-  status: accepted
+  status: documented
   slice_id: where-optimizer
-  discovery_card: null
+  discovery_card: discovery/where-optimizer/features/where-optimizer-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:26:33Z'
+last_updated: '2026-08-11T10:27:50Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 71
-    accepted: 114
+    documented: 82
+    accepted: 103
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0
