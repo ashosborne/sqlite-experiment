@@ -1,0 +1,35 @@
+{
+  "run_id": "2026-08-11T1205Z-legacy-record",
+  "slice_id": "prepare-statement-api",
+  "mode": "RECORD",
+  "target": "legacy",
+  "build": {
+    "tree": "cursor/sqlite-estate-discovery-d22c@23b6a1ed1",
+    "recipe": "/workspace/configure && make sqlite3 sqlite3.c (out-of-tree /tmp/sqlite-build; generated files not committed)",
+    "sqlite_version": "3.54.0",
+    "fingerprint": "overnight/BASELINE.md (run 5 capture)",
+    "ENABLE_API_ARMOR": false,
+    "OMIT_AUTORESET": false
+  },
+  "scrub_profile": "none (deterministic static inputs)",
+  "cases": [
+    {"case_id": "prepare-statement-api-002-C001", "feature_id": "prepare-statement-api-002",
+     "status": "REPLAY_GREEN", "failure_class": null,
+     "golden_path": "cases/prepare-statement-api-002/C001.approved.txt",
+     "actual_path": "runs/2026-08-11T1205Z-legacy-record/actuals/C001.replay.txt",
+     "notes": "rc sequence: prepare=0, step1=100 (ROW), column_int=1 (logged, not a separate feature), step2=101 (DONE)."},
+    {"case_id": "prepare-statement-api-002-C002", "feature_id": "prepare-statement-api-002",
+     "status": "REPLAY_GREEN", "failure_class": null,
+     "golden_path": "cases/prepare-statement-api-002/C002.approved.txt",
+     "actual_path": "runs/2026-08-11T1205Z-legacy-record/actuals/C002.replay.txt",
+     "notes": "step3_after_done.rc=100 (ROW): the build auto-resets after DONE (OMIT_AUTORESET off), NOT MISUSE. Operator charter anticipated exactly this. Card sentence 'must be reset before re-stepping' describes the pre-autoreset contract — card refinement suggested (Discovery note), no golden rewrite, not a failure."},
+    {"case_id": "prepare-statement-api-002-C003", "feature_id": "prepare-statement-api-002",
+     "status": "BLOCKED", "failure_class": null,
+     "golden_path": null, "actual_path": null,
+     "failure": {"repro": ["(not executed by design)"],
+       "expected": null,
+       "actual_summary": "not captured — undefined behaviour",
+       "class": null,
+       "hypothesis": "state BLOCKED, not a failure class: stepping a finalized handle is use-after-free even under SQLITE_ENABLE_API_ARMOR (armor guards NULL, not freed memory). Harness call removed this run. Possible future replacement case: sqlite3_step(NULL)."}}
+  ]
+}

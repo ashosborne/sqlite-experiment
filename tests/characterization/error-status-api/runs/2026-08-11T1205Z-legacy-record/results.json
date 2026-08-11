@@ -1,0 +1,27 @@
+{
+  "run_id": "2026-08-11T1205Z-legacy-record",
+  "slice_id": "error-status-api",
+  "mode": "RECORD",
+  "target": "legacy",
+  "build": {
+    "tree": "cursor/sqlite-estate-discovery-d22c@23b6a1ed1",
+    "recipe": "/workspace/configure && make sqlite3 sqlite3.c (out-of-tree /tmp/sqlite-build; generated files not committed)",
+    "sqlite_version": "3.54.0",
+    "fingerprint": "overnight/BASELINE.md (run 5 capture)",
+    "ENABLE_API_ARMOR": false,
+    "OMIT_AUTORESET": false
+  },
+  "scrub_profile": "none (deterministic static inputs; no PII/timestamps/nondeterminism in observables)",
+  "cases": [
+    {"case_id": "error-status-api-001-C001", "feature_id": "error-status-api-001",
+     "status": "REPLAY_GREEN", "failure_class": null,
+     "golden_path": "cases/error-status-api-001/C001.approved.txt",
+     "actual_path": "runs/2026-08-11T1205Z-legacy-record/actuals/C001.replay.txt",
+     "notes": "errcode=1 (SQLITE_ERROR), extended=1, errmsg='near \"SELECTT\": syntax error'. Exact English wording captured in golden but NOT a pass/fail contract per operator — human review pending."},
+    {"case_id": "error-status-api-001-C002", "feature_id": "error-status-api-001",
+     "status": "REPLAY_GREEN", "failure_class": null,
+     "golden_path": "cases/error-status-api-001/C002.approved.txt",
+     "actual_path": "runs/2026-08-11T1205Z-legacy-record/actuals/C002.replay.txt",
+     "notes": "errcode(NULL)=7 (SQLITE_NOMEM), errmsg(NULL)='out of memory' — matches card's guarded static answers."}
+  ]
+}

@@ -1,0 +1,5 @@
+OBS C001 open.rc 0
+OBS C001 prepare.rc 1
+OBS C001 errcode.value 1
+OBS C001 extended_errcode.value 1
+OBS C001 errmsg.text near "SELECTT": syntax error

@@ -1,0 +1,16 @@
+slice_id: error-status-api
+source_testgen: testgen/error-status-api/TRACEABILITY.yaml
+mode: RECORD
+target: legacy
+updated_at: 2026-08-11T12:05:14Z
+run_id: 2026-08-11T1205Z-legacy-record
+cases:
+  - case_id: error-status-api-001-C001
+    feature_id: error-status-api-001
+    status: REPLAY_GREEN
+    golden_path: cases/error-status-api-001/C001.approved.txt
+  - case_id: error-status-api-001-C002
+    feature_id: error-status-api-001
+    status: REPLAY_GREEN
+    golden_path: cases/error-status-api-001/C002.approved.txt
+golden_approval: PENDING_HUMAN   # goldens frozen + replay green; human approval gates Conversion

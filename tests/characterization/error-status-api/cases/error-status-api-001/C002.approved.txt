@@ -1,0 +1,2 @@
+OBS C002 errcode(NULL).value 7
+OBS C002 errmsg(NULL).text out of memory

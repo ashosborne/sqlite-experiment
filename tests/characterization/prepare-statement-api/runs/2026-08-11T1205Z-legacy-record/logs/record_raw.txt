@@ -1,0 +1,6 @@
+OBS C001 open.rc 0
+OBS C001 prepare.rc 0
+OBS C001 step1.rc 100
+OBS C001 column_int.value 1
+OBS C001 step2.rc 101
+OBS C002 step3_after_done.rc 100

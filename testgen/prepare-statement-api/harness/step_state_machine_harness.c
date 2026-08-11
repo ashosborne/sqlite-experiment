@@ -33,12 +33,12 @@ int main(void){
   /* C002: third step after DONE, no reset (same statement, same state) */
   obs_int("C002", "step3_after_done.rc", sqlite3_step(pStmt));
 
-  /* C003: step after finalize.
-  ** CAVEAT (see CASE-003.md): guarded MISUSE only with SQLITE_ENABLE_API_ARMOR;
-  ** on an unarmored build this is use-after-free — Test execution must check the
-  ** compileoption fingerprint and mark the case BLOCKED instead of capturing UB. */
+  /* C003 REMOVED (Test execution run 5, operator charter): stepping a finalized
+  ** statement is use-after-free even under SQLITE_ENABLE_API_ARMOR (armor guards
+  ** NULL pointers, not freed handles). Case BLOCKED in TRACEABILITY — undefined
+  ** behaviour is never captured or frozen. Possible future replacement (NOT this
+  ** run): sqlite3_step(NULL) as a defined guarded-misuse probe. */
   sqlite3_finalize(pStmt);
-  obs_int("C003", "step_after_finalize.rc", sqlite3_step(pStmt));
 
   sqlite3_close(db);
   return 0;
