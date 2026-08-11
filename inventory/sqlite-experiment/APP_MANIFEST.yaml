@@ -2105,9 +2105,9 @@ behaviours:
 - behaviour_id: backup-api-001
   surface_id: sur-sqlite3-backup-init
   name: Backup lifecycle (init/step/finish)
-  status: accepted
+  status: documented
   slice_id: backup-api
-  discovery_card: null
+  discovery_card: discovery/backup-api/features/backup-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns
@@ -2115,18 +2115,18 @@ behaviours:
 - behaviour_id: backup-api-002
   surface_id: sur-sqlite3-backup-remaining
   name: Backup progress introspection
-  status: accepted
+  status: documented
   slice_id: backup-api
-  discovery_card: null
+  discovery_card: discovery/backup-api/features/backup-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; remaining()/pagecount() report progress after each step.
 - behaviour_id: backup-api-003
   surface_id: sur-sqlite3backupupdate
   name: Concurrent source-write coordination
-  status: accepted
+  status: documented
   slice_id: backup-api
-  discovery_card: null
+  discovery_card: discovery/backup-api/features/backup-api-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart
@@ -2230,9 +2230,9 @@ behaviours:
 - behaviour_id: connection-lifecycle-api-001
   surface_id: sur-sqlite3-open-v2
   name: Open database (sqlite3_open family + URI parsing)
-  status: accepted
+  status: documented
   slice_id: connection-lifecycle-api
-  discovery_card: null
+  discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by
@@ -2240,9 +2240,9 @@ behaviours:
 - behaviour_id: connection-lifecycle-api-002
   surface_id: sur-sqlite3-close-v2
   name: Close database (deferred close semantics)
-  status: accepted
+  status: documented
   slice_id: connection-lifecycle-api
-  discovery_card: null
+  discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie
@@ -2250,18 +2250,18 @@ behaviours:
 - behaviour_id: connection-lifecycle-api-003
   surface_id: sur-sqlite3-busy-timeout
   name: Busy handler / busy timeout
-  status: accepted
+  status: documented
   slice_id: connection-lifecycle-api
-  discovery_card: null
+  discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler.
 - behaviour_id: connection-lifecycle-api-004
   surface_id: sur-sqlite3-trace-v2
   name: Connection hooks and tracing
-  status: accepted
+  status: documented
   slice_id: connection-lifecycle-api
-  discovery_card: null
+  discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-004.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks.
@@ -2378,9 +2378,9 @@ behaviours:
 - behaviour_id: exec-convenience-api-001
   surface_id: sur-sqlite3-exec
   name: sqlite3_exec callback loop
-  status: accepted
+  status: documented
   slice_id: exec-convenience-api
-  discovery_card: null
+  discovery_card: discovery/exec-convenience-api/features/exec-convenience-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback
@@ -2388,9 +2388,9 @@ behaviours:
 - behaviour_id: exec-convenience-api-002
   surface_id: sur-sqlite3-get-table
   name: get_table / free_table result marshalling
-  status: accepted
+  status: documented
   slice_id: exec-convenience-api
-  discovery_card: null
+  discovery_card: discovery/exec-convenience-api/features/exec-convenience-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
@@ -3174,9 +3174,9 @@ behaviours:
 - behaviour_id: prepare-statement-api-001
   surface_id: sur-sqlite3-prepare-v2
   name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock
@@ -3184,45 +3184,45 @@ behaviours:
 - behaviour_id: prepare-statement-api-002
   surface_id: sur-sqlite3-step
   name: Step execution state machine
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
 - behaviour_id: prepare-statement-api-003
   surface_id: sur-sqlite3-bind-text
   name: Parameter binding (typed)
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings.
 - behaviour_id: prepare-statement-api-004
   surface_id: sur-sqlite3-column-text
   name: Column result access (typed, with coercions)
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-004.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
 - behaviour_id: prepare-statement-api-005
   surface_id: sur-sqlite3-finalize
   name: Reset / finalize / auto-reprepare on schema change
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-005.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
 - behaviour_id: prepare-statement-api-006
   surface_id: sur-sqlite3-stmt-readonly
   name: Statement introspection (readonly/busy/explain)
-  status: accepted
+  status: documented
   slice_id: prepare-statement-api
-  discovery_card: null
+  discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-006.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:19:28Z'
+last_updated: '2026-08-11T10:21:10Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,7 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    accepted: 185
+    accepted: 170
+    documented: 15
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

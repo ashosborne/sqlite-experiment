@@ -7,12 +7,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - SQL compilation internals
 - exec wrappers
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:21:09Z'
 features:
 - id: prepare-statement-api-001
   name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock retry).
   entrypoints:
@@ -27,9 +27,10 @@ features:
   - tokenizer
   - parser-grammar
   open_questions: []
+  behaviour_doc: features/prepare-statement-api-001.md
 - id: prepare-statement-api-002
   name: Step execution state machine
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
   entrypoints:
@@ -41,9 +42,10 @@ features:
   dependencies:
   - vdbe-engine
   open_questions: []
+  behaviour_doc: features/prepare-statement-api-002.md
 - id: prepare-statement-api-003
   name: Parameter binding (typed)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings.
   entrypoints:
@@ -55,9 +57,10 @@ features:
     - src/vdbeapi.c:155
   dependencies: []
   open_questions: []
+  behaviour_doc: features/prepare-statement-api-003.md
 - id: prepare-statement-api-004
   name: Column result access (typed, with coercions)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
   entrypoints:
@@ -70,9 +73,10 @@ features:
   dependencies: []
   open_questions:
   - Coercion matrix is behaviour-rich; likely several cards at Phase B
+  behaviour_doc: features/prepare-statement-api-004.md
 - id: prepare-statement-api-005
   name: Reset / finalize / auto-reprepare on schema change
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
   entrypoints:
@@ -84,9 +88,10 @@ features:
     - src/prepare.c:904
   dependencies: []
   open_questions: []
+  behaviour_doc: features/prepare-statement-api-005.md
 - id: prepare-statement-api-006
   name: Statement introspection (readonly/busy/explain)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
   entrypoints:
@@ -98,3 +103,4 @@ features:
     - src/vdbeapi.c:2105
   dependencies: []
   open_questions: []
+  behaviour_doc: features/prepare-statement-api-006.md

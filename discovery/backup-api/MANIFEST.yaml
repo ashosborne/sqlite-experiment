@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - VACUUM INTO
 - serialize/deserialize
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:21:09Z'
 features:
 - id: backup-api-001
   name: Backup lifecycle (init/step/finish)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns first error.
   entrypoints:
@@ -26,9 +26,10 @@ features:
   - pager
   - btree
   open_questions: []
+  behaviour_doc: features/backup-api-001.md
 - id: backup-api-002
   name: Backup progress introspection
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: remaining()/pagecount() report progress after each step.
   entrypoints:
@@ -40,9 +41,10 @@ features:
   dependencies:
   - backup-api-001
   open_questions: []
+  behaviour_doc: features/backup-api-002.md
 - id: backup-api-003
   name: Concurrent source-write coordination
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart the copy (BackupRestart).
   entrypoints:
@@ -55,3 +57,4 @@ features:
   - pager
   open_questions:
   - "Characterizable only via concurrent-writer harness \u2014 flag for test design"
+  behaviour_doc: features/backup-api-003.md
