@@ -11,7 +11,7 @@
 //! not SQLite's btree, not a planner, not durable, not concurrent. Values come
 //! from statement text; the pack forbids script-string lookup for kitchen SQL.
 
-use crate::dbfile::{self, TableImage};
+use crate::dbfile::{self, DbImage, TableImage, TriggerImage};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -45,6 +45,7 @@ struct Table {
     cols: Vec<Col>,
     rows: Vec<(i64, Vec<Val>)>, // (rowid, values)
     next_rowid: i64,
+    create_sql: String, // raw CREATE TABLE text (for durable schema)
 }
 
 #[derive(Clone)]
@@ -53,6 +54,7 @@ struct Trigger {
     body_target: String,                 // INSERT INTO <target>
     body_col: String,                    // new.<col>
     body_mult: i64,                      // new.<col> * N (N=1 when absent)
+    raw: String,                         // raw CREATE TRIGGER text (for durable schema)
 }
 
 #[derive(Default)]
@@ -77,48 +79,80 @@ thread_local! {
 }
 
 /// File-backed open: record the path and, if the file already holds a SQLite DB,
-/// load its tables into this connection's in-memory store (v5 engine reused).
+/// load its tables + FK metadata + triggers into this connection's store.
 pub fn open_file(db: usize, path: &str) {
     let pb = PathBuf::from(path);
     PATHS.with(|m| { m.borrow_mut().insert(db, pb.clone()); });
-    if let Ok(imgs) = dbfile::read_db(&pb) {
-        if !imgs.is_empty() {
-            with_store(db, |st| {
-                for img in imgs {
-                    let mut t = Table::default();
-                    t.cols = img.cols.iter().map(|n| Col { name: n.clone(), ..Default::default() }).collect();
-                    let mut maxr = 0i64;
-                    for (rid, vals) in img.rows {
-                        if rid > maxr { maxr = rid; }
-                        t.rows.push((rid, vals));
-                    }
-                    t.next_rowid = maxr;
-                    st.catalog.push(("table".into(), img.name.clone()));
-                    st.tables.push((img.name, t));
+    if let Ok(img) = dbfile::read_db(&pb) {
+        with_store(db, |st| {
+            for ti in img.tables {
+                let inner_open = ti.sql.find('(');
+                let inner_close = ti.sql.rfind(')');
+                let cols = match (inner_open, inner_close) {
+                    (Some(o), Some(c)) if c > o => parse_coldefs(&ti.sql[o + 1..c]).unwrap_or_default(),
+                    _ => ti.sql.is_empty().then(Vec::new).unwrap_or_default(),
+                };
+                let cols = if cols.is_empty() {
+                    ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
+                } else { cols };
+                let mut tab = Table { cols, create_sql: ti.sql.clone(), ..Default::default() };
+                let mut maxr = 0i64;
+                for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
+                tab.next_rowid = maxr;
+                st.catalog.push(("table".into(), ti.name.clone()));
+                st.tables.push((ti.name, tab));
+            }
+            for tg in img.triggers {
+                if let Some(Stmt::CreateTrigger { name, def, .. }) = parse_stmt(&tg.sql) {
+                    st.catalog.push(("trigger".into(), name.clone()));
+                    st.triggers.push((name, def));
                 }
-            });
-        }
+            }
+        });
     }
 }
 
-/// Persist a file-backed connection's tables to the on-disk SQLite file.
+pub fn drop_store(db: usize) {
+    STORES.with(|m| { m.borrow_mut().remove(&db); });
+}
+
+/// Persist a file-backed connection to a real (C-readable) SQLite database file.
+/// Durability limit (pack v7): column-UNIQUE constraints are stripped from the
+/// persisted table sql (rows are already de-duplicated in-session; no on-disk
+/// autoindex is built). IPK/FK/REFERENCES and triggers ARE persisted.
 pub fn save_file(db: usize) {
     let path = PATHS.with(|m| m.borrow().get(&db).cloned());
     if let Some(pb) = path {
         with_store(db, |st| {
-            let imgs: Vec<TableImage> = st.tables.iter().map(|(n, t)| TableImage {
-                name: n.clone(),
-                cols: t.cols.iter().map(|c| c.name.clone()).collect(),
-                rows: t.rows.clone(),
+            let tables: Vec<TableImage> = st.tables.iter().map(|(n, t)| {
+                let sql = if t.create_sql.is_empty() {
+                    format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
+                } else {
+                    sanitize_sql(&t.create_sql)
+                };
+                TableImage { name: n.clone(), sql, rows: t.rows.clone() }
             }).collect();
-            let _ = dbfile::write_db(&pb, &imgs);
+            let triggers: Vec<TriggerImage> = st.triggers.iter()
+                .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
+                .collect();
+            let _ = dbfile::write_db(&pb, &DbImage { tables, triggers });
         });
     }
     PATHS.with(|m| { m.borrow_mut().remove(&db); });
 }
 
-pub fn drop_store(db: usize) {
-    STORES.with(|m| { m.borrow_mut().remove(&db); });
+/// Strip on-disk-unsupported constraints (standalone UNIQUE) from persisted table
+/// sql; keep INTEGER PRIMARY KEY (rowid alias, no autoindex) and REFERENCES (FK).
+fn sanitize_sql(sql: &str) -> String {
+    let mut out = sql.to_string();
+    // remove case-insensitive standalone " UNIQUE" tokens
+    loop {
+        let up = out.to_ascii_uppercase();
+        if let Some(p) = up.find(" UNIQUE") {
+            out.replace_range(p..p + " UNIQUE".len(), "");
+        } else { break; }
+    }
+    out
 }
 
 fn with_store<R>(db: usize, f: impl FnOnce(&mut Store) -> R) -> R {
@@ -179,9 +213,9 @@ enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate }
 
 enum Stmt {
     PragmaFkOn,
-    Create { name: String, cols: Vec<Col> },
+    Create { name: String, cols: Vec<Col>, sql: String },
     CreateIndex { name: String, table: String, col: String, unique: bool },
-    CreateTrigger { name: String, def: Trigger },
+    CreateTrigger { name: String, def: Trigger, sql: String },
     Drop { name: String },
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
@@ -189,7 +223,7 @@ enum Stmt {
              upd_col: Option<String> /* DO UPDATE SET c=excluded.c */ },
     Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)> },
     Delete { name: String, wh: Option<(String, i64)> },
-    Select { items: Vec<String>, target: String, wh: Option<(String, String)>, order_by: Option<String> },
+    Select { items: Vec<String>, target: String, wh: Option<(String, Val)>, order_by: Option<String> },
 }
 
 fn parse_coldefs(inner: &str) -> Option<Vec<Col>> {
@@ -244,7 +278,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let open = s.find('(')?;
         let name = ident(&s["CREATE TABLE ".len()..open])?;
         let inner = &s[open + 1..s.rfind(')')?];
-        return Some(Stmt::Create { name, cols: parse_coldefs(inner)? });
+        return Some(Stmt::Create { name, cols: parse_coldefs(inner)?, sql: s.trim().to_string() });
     }
     if up.starts_with("CREATE UNIQUE INDEX ") || up.starts_with("CREATE INDEX ") {
         let unique = up.starts_with("CREATE UNIQUE");
@@ -280,7 +314,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             Some(m) => (ident(&e[..m])?, e[m + 1..].trim().parse::<i64>().ok()?),
             None => (ident(e)?, 1),
         };
-        return Some(Stmt::CreateTrigger { name, def: Trigger { table, body_target, body_col, body_mult } });
+        return Some(Stmt::CreateTrigger { name, def: Trigger { table, body_target, body_col, body_mult, raw: s.trim().to_string() }, sql: s.trim().to_string() });
     }
     if up.starts_with("DROP TABLE ") {
         return Some(Stmt::Drop { name: ident(&s["DROP TABLE ".len()..])? });
@@ -400,10 +434,9 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         if let Some(w) = rest.to_ascii_uppercase().find(" WHERE ") {
             let cond = rest[w + 7..].trim().to_string();
             let eq = cond.find('=')?;
-            let key = ident(&cond[..eq])?; // sqlite_master filters: name='x' | type='x'
-            if key != "name" && key != "type" { return None; }
+            let key = ident(&cond[..eq])?; // sqlite_master: name=/type= ; user tables: col=literal
             let v = parse_literal(cond[eq + 1..].trim())?;
-            wh = Some((key, v.render()?));
+            wh = Some((key, v));
             rest = rest[..w].trim().to_string();
         }
         let target = ident(&rest)?;
@@ -450,7 +483,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
         let mut ok = true;
         for s in &stmts {
             match s {
-                Stmt::Create { name, cols } => {
+                Stmt::Create { name, cols, .. } => {
                     for c in cols {
                         if let Some((p, _, _)) = &c.references {
                             if !known.contains(p) { ok = false; }
@@ -482,9 +515,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
         for stmt in stmts {
             match stmt {
                 Stmt::PragmaFkOn => st.fk_on = true,
-                Stmt::Create { name, cols } => {
+                Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
-                    st.tables.push((name, Table { cols, ..Default::default() }));
+                    st.tables.push((name, Table { cols, create_sql: sql, ..Default::default() }));
                 }
                 Stmt::CreateIndex { name, table, col, unique } => {
                     st.catalog.push(("index".into(), name.clone()));
@@ -497,7 +530,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         }
                     }
                 }
-                Stmt::CreateTrigger { name, def } => {
+                Stmt::CreateTrigger { name, def, sql: _ } => {
                     st.catalog.push(("trigger".into(), name.clone()));
                     st.triggers.push((name, def));
                 }
@@ -527,6 +560,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::RenameTable { from, to } => {
                     let t = st.tables.iter_mut().find(|(n, _)| *n == from).ok_or("no such table")?;
                     t.0 = to.clone();
+                    t.1.create_sql = format!("CREATE TABLE {}({})", to,
+                        t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                     for e in st.catalog.iter_mut() {
                         if e.0 == "table" && e.1 == from { e.1 = to.clone(); }
                     }
@@ -536,6 +571,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let d = default.clone().unwrap_or(Val::Null);
                     t.1.cols.push(Col { name: col, default, ..Default::default() });
                     for (_, r) in t.1.rows.iter_mut() { r.push(d.clone()); }
+                    t.1.create_sql = format!("CREATE TABLE {}({})", table,
+                        t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                 }
                 Stmt::Insert { name, collist, rows, policy, upd_col } => {
                     // FK pre-check (immediate, insert-time)
@@ -710,15 +747,22 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::Select { items, target, wh, order_by } => {
                     if target == "sqlite_master" {
                         let cnt = st.catalog.iter().filter(|(ty, n)| match &wh {
-                            Some((k, v)) if k == "name" => n == v,
-                            Some((k, v)) if k == "type" => ty == v,
+                            Some((k, v)) if k == "name" => Some(n.clone()) == v.render(),
+                            Some((k, v)) if k == "type" => Some(ty.clone()) == v.render(),
                             _ => true,
                         }).count();
                         out.push(vec![Some(cnt.to_string())]);
                         continue;
                     }
                     let t = st.tables.iter().find(|(n, _)| *n == target).ok_or("no such table")?;
-                    let mut rows: Vec<&(i64, Vec<Val>)> = t.1.rows.iter().collect();
+                    // user-table WHERE col=literal equality filter
+                    let wh_ci = match &wh {
+                        Some((k, _)) => Some(t.1.cols.iter().position(|c| c.name == *k).ok_or("no such column")?),
+                        None => None,
+                    };
+                    let mut rows: Vec<&(i64, Vec<Val>)> = t.1.rows.iter().filter(|(_, r)| {
+                        match (&wh, wh_ci) { (Some((_, v)), Some(ci)) => &r[ci] == v, _ => true }
+                    }).collect();
                     if let Some(ob) = &order_by {
                         let oi = t.1.cols.iter().position(|c| c.name == *ob).ok_or("no such column")?;
                         rows.sort_by_key(|(_, r)| match &r[oi] { Val::Int(i) => *i, _ => 0 });

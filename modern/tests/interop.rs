@@ -102,3 +102,94 @@ fn anti_cheat_reopen_runtime() {
     }
     let _ = std::fs::remove_file(&path);
 }
+
+// ---- run-16 (v7) mandatory interop ----
+
+#[test]
+fn rust_write_c_read_large() {
+    let cli = pin_cli();
+    assert!(std::path::Path::new(&cli).exists());
+    let n: i64 = 888_000 + (std::process::id() as i64 % 1000); // runtime value in a multi-page table
+    let path = format!("/tmp/eftest/large_{}.db", std::process::id());
+    let _ = std::fs::remove_file(&path);
+    let mut vals: Vec<String> = (1..=1500).map(|i| format!("({})", i * 3)).collect();
+    vals.push(format!("({n})"));
+    let script = format!("CREATE TABLE big(a INTEGER); INSERT INTO big VALUES {};", vals.join(","));
+    unsafe {
+        let mut db: *mut Sqlite3 = ptr::null_mut();
+        let p = CString::new(path.clone()).unwrap();
+        assert_eq!(sqlite3_open(p.as_ptr(), &mut db), 0);
+        assert_eq!(rust_exec(db, &script), 0);
+        assert_eq!(sqlite3_close(db), 0);
+    }
+    // C reads Rust's MULTI-PAGE file
+    let cnt = Command::new(&cli).arg(&path).arg("SELECT count(*) FROM big;").output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&cnt.stdout).trim(), "1501",
+               "count from multi-page file (stderr {})", String::from_utf8_lossy(&cnt.stderr));
+    let got = Command::new(&cli).arg(&path).arg(format!("SELECT a FROM big WHERE a={n};")).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&got.stdout).trim(), n.to_string());
+    // integrity check must pass (proves the b-tree is well-formed)
+    let ic = Command::new(&cli).arg(&path).arg("PRAGMA integrity_check;").output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&ic.stdout).trim(), "ok",
+               "integrity_check (stderr {})", String::from_utf8_lossy(&ic.stderr));
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn rust_write_c_read_unique_or_fk() {
+    let cli = pin_cli();
+    assert!(std::path::Path::new(&cli).exists());
+    let v: i64 = 890_000 + (std::process::id() as i64 % 1000);
+    let path = format!("/tmp/eftest/fk_{}.db", std::process::id());
+    let _ = std::fs::remove_file(&path);
+    unsafe {
+        let mut db: *mut Sqlite3 = ptr::null_mut();
+        let p = CString::new(path.clone()).unwrap();
+        assert_eq!(sqlite3_open(p.as_ptr(), &mut db), 0);
+        assert_eq!(rust_exec(db, &format!(
+            "PRAGMA foreign_keys=ON; CREATE TABLE par(id INTEGER PRIMARY KEY); \
+             CREATE TABLE chi(pid REFERENCES par(id)); INSERT INTO par VALUES({v}); INSERT INTO chi VALUES({v});"
+        )), 0);
+        assert_eq!(sqlite3_close(db), 0);
+    }
+    // valid child value present
+    let ok = Command::new(&cli).arg(&path).arg("SELECT pid FROM chi;").output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&ok.stdout).trim(), v.to_string());
+    // C enforces the FK: inserting an orphan fails
+    let bad = Command::new(&cli).arg(&path)
+        .arg(format!("PRAGMA foreign_keys=ON; INSERT INTO chi VALUES({});", v + 1)).output().unwrap();
+    assert!(!bad.status.success() || String::from_utf8_lossy(&bad.stderr).to_lowercase().contains("foreign key"),
+            "C must reject orphan FK insert (out={} err={})",
+            String::from_utf8_lossy(&bad.stdout), String::from_utf8_lossy(&bad.stderr));
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn anti_cheat_reopen_many_rows() {
+    // anti-cheat: runtime values across a multi-row reopen, not in script_table
+    let base: i64 = 860_000 + (std::process::id() as i64 % 1000);
+    let path = format!("/tmp/eftest/many_{}.db", std::process::id());
+    let _ = std::fs::remove_file(&path);
+    let vals: Vec<String> = (0..800).map(|i| format!("({})", base + i)).collect();
+    unsafe {
+        let mut db: *mut Sqlite3 = ptr::null_mut();
+        let p = CString::new(path.clone()).unwrap();
+        assert_eq!(sqlite3_open(p.as_ptr(), &mut db), 0);
+        assert_eq!(rust_exec(db, &format!("CREATE TABLE m(a INTEGER); INSERT INTO m VALUES {};", vals.join(","))), 0);
+        sqlite3_close(db);
+        // reopen fresh, count + a middle value
+        let mut db2: *mut Sqlite3 = ptr::null_mut();
+        assert_eq!(sqlite3_open(p.as_ptr(), &mut db2), 0);
+        unsafe extern "C" fn cb(arg: *mut c_void, argc: c_int, argv: *mut *mut c_char, _az: *mut *mut c_char) -> c_int {
+            let out = &mut *(arg as *mut Vec<String>);
+            for i in 0..argc as usize { let pp=*argv.add(i); out.push(if pp.is_null(){"NULL".into()}else{CStr::from_ptr(pp).to_str().unwrap().into()});}
+            0
+        }
+        let sql = CString::new("SELECT count(*) FROM m;").unwrap();
+        let mut got: Vec<String> = Vec::new();
+        sqlite3_exec(db2, sql.as_ptr(), Some(cb), &mut got as *mut Vec<String> as *mut c_void, ptr::null_mut());
+        assert_eq!(got, vec!["800".to_string()]);
+        sqlite3_close(db2);
+    }
+    let _ = std::fs::remove_file(&path);
+}
