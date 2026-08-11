@@ -1,0 +1,6 @@
+OBS backup-api-003-C001 init.nonnull 1
+OBS backup-api-003-C001 step1.rc 0
+OBS backup-api-003-C001 remaining.after_step1 1
+OBS backup-api-003-C001 pagecount.after_step1 2
+OBS backup-api-003-C001 step_rest.rc 101
+OBS backup-api-003-C001 finish.rc 0

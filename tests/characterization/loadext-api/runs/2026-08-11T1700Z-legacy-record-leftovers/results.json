@@ -1,0 +1,21 @@
+{
+ "run_id": "2026-08-11T1700Z-legacy-record-leftovers",
+ "slice_id": "loadext-api",
+ "mode": "RECORD",
+ "target": "legacy",
+ "build": {
+  "recipe": "run-5 pin reused (/tmp/sqlite-build), fingerprint re-verified 3.54.0/armor0/autoreset0",
+  "determinism_gate": "two independent runs byte-matched before freeze"
+ },
+ "scrub_profile": "none (deterministic static inputs; nondeterministic sources captured as derived booleans/shape only)",
+ "cases": [
+  {
+   "case_id": "loadext-api-002-C001",
+   "feature_id": "loadext-api-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/loadext-api-002/C001.approved.txt",
+   "actual_path": "runs/2026-08-11T1700Z-legacy-record-leftovers/actuals/loadext-api-002-C001.replay.txt"
+  }
+ ]
+}

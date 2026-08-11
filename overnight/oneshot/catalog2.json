@@ -1,0 +1,219 @@
+[
+ {
+  "id": "misc-compress-001-C001",
+  "slice": "misc-compress",
+  "feature": "misc-compress-001",
+  "kind": "script",
+  "init": [
+   "compress"
+  ],
+  "sql": "SELECT hex(uncompress(compress('hello')))=hex('hello'), length(compress(zeroblob(1000)))<1000;"
+ },
+ {
+  "id": "misc-fossildelta-001-C001",
+  "slice": "misc-fossildelta",
+  "feature": "misc-fossildelta-001",
+  "kind": "script",
+  "init": [
+   "fossildelta"
+  ],
+  "sql": "SELECT delta_apply('abc', delta_create('abc','abcd'))='abcd', delta_output_size(delta_create('abc','abcd'));"
+ },
+ {
+  "id": "misc-nextchar-001-C001",
+  "slice": "misc-nextchar",
+  "feature": "misc-nextchar-001",
+  "kind": "script",
+  "init": [
+   "nextchar"
+  ],
+  "sql": "CREATE TABLE w(x TEXT); CREATE INDEX wx ON w(x); INSERT INTO w VALUES('cat'),('car'),('cow'); SELECT next_char('ca','w','x');"
+ },
+ {
+  "id": "misc-sha1-001-C001",
+  "slice": "misc-sha1",
+  "feature": "misc-sha1-001",
+  "kind": "script",
+  "init": [
+   "sha1"
+  ],
+  "sql": "SELECT sha1('abc');"
+ },
+ {
+  "id": "misc-shathree-001-C001",
+  "slice": "misc-shathree",
+  "feature": "misc-shathree-001",
+  "kind": "script",
+  "init": [
+   "shathree"
+  ],
+  "sql": "SELECT lower(hex(sha3('abc',256)));"
+ },
+ {
+  "id": "misc-urifuncs-001-C001",
+  "slice": "misc-urifuncs",
+  "feature": "misc-urifuncs-001",
+  "kind": "script",
+  "init": [
+   "urifuncs"
+  ],
+  "sql": "SELECT sqlite3_uri_parameter('main','vfs') IS NULL, sqlite3_uri_boolean('main','ro',0);"
+ },
+ {
+  "id": "misc-utilities-001-C001",
+  "slice": "misc-utilities",
+  "feature": "misc-utilities-001",
+  "kind": "script",
+  "init": [
+   "eval"
+  ],
+  "sql": "SELECT eval('SELECT 3'), eval('SELECT 1; SELECT 2');"
+ },
+ {
+  "id": "misc-zorder-001-C001",
+  "slice": "misc-zorder",
+  "feature": "misc-zorder-001",
+  "kind": "script",
+  "init": [
+   "zorder"
+  ],
+  "sql": "SELECT zorder(3,5), unzorder(zorder(3,5),2,0), unzorder(zorder(3,5),2,1);"
+ },
+ {
+  "id": "misc-func-packs-001-C001",
+  "slice": "misc-func-packs",
+  "feature": "misc-func-packs-001",
+  "kind": "script",
+  "init": [
+   "decimal",
+   "regexp"
+  ],
+  "sql": "SELECT decimal_mul('1.5','2'), 'pack' REGEXP 'p.ck';"
+ },
+ {
+  "id": "pragma-surface-001-C002",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA application_id; PRAGMA application_id=42; PRAGMA application_id;"
+ },
+ {
+  "id": "pragma-surface-001-C003",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA schema_version; CREATE TABLE t(a); PRAGMA schema_version;"
+ },
+ {
+  "id": "pragma-surface-001-C004",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA cache_size; PRAGMA cache_size=100; PRAGMA cache_size;"
+ },
+ {
+  "id": "pragma-surface-001-C005",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA recursive_triggers; PRAGMA recursive_triggers=ON; PRAGMA recursive_triggers;"
+ },
+ {
+  "id": "pragma-surface-001-C006",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA defer_foreign_keys; PRAGMA defer_foreign_keys=1; PRAGMA defer_foreign_keys;"
+ },
+ {
+  "id": "pragma-surface-001-C007",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA query_only; PRAGMA query_only=1; PRAGMA query_only;"
+ },
+ {
+  "id": "pragma-surface-001-C008",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA temp_store; PRAGMA temp_store=2; PRAGMA temp_store;"
+ },
+ {
+  "id": "pragma-surface-001-C009",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA automatic_index; PRAGMA automatic_index=0; PRAGMA automatic_index;"
+ },
+ {
+  "id": "pragma-surface-001-C010",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA ignore_check_constraints; PRAGMA ignore_check_constraints=1; PRAGMA ignore_check_constraints;"
+ },
+ {
+  "id": "pragma-surface-001-C011",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "PRAGMA case_sensitive_like=ON; SELECT 'abc' LIKE 'A%'; PRAGMA case_sensitive_like=OFF; SELECT 'abc' LIKE 'A%';"
+ },
+ {
+  "id": "pragma-surface-001-C012",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-001",
+  "kind": "script",
+  "sql": "CREATE TABLE ic(a CHECK(a>0)); PRAGMA integrity_check; PRAGMA quick_check;"
+ },
+ {
+  "id": "pragma-surface-002-C002",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-002",
+  "kind": "script",
+  "sql": "CREATE TABLE pt(a INTEGER PRIMARY KEY, b TEXT REFERENCES pt(a)); CREATE INDEX pi ON pt(b); SELECT count(*) FROM pragma_table_info('pt'); SELECT count(*) FROM pragma_foreign_key_list('pt'); SELECT count(*) FROM pragma_index_list('pt');"
+ },
+ {
+  "id": "pragma-surface-002-C003",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-002",
+  "kind": "script",
+  "sql": "SELECT count(*) FROM pragma_compile_options;"
+ },
+ {
+  "id": "pragma-surface-002-C004",
+  "slice": "pragma-surface",
+  "feature": "pragma-surface-002",
+  "kind": "script",
+  "sql": "SELECT count(*) FROM pragma_function_list, (SELECT 1) WHERE (SELECT count(*) FROM pragma_module_list)=18 AND (SELECT count(*) FROM pragma_pragma_list)=66;"
+ },
+ {
+  "id": "attach-detach-003-C001",
+  "slice": "attach-detach",
+  "feature": "attach-detach-003",
+  "kind": "error-script",
+  "sql": "ATTACH ':memory:' AS aux3; CREATE TABLE main.mm(v); CREATE TABLE aux3.t(a); CREATE TRIGGER aux3.trg AFTER INSERT ON aux3.t BEGIN INSERT INTO main.mm VALUES(1); END;"
+ },
+ {
+  "id": "loadext-api-002-C001",
+  "slice": "loadext-api",
+  "feature": "loadext-api-002",
+  "kind": "bespoke",
+  "note": "auto_extension in-process callback invoked on open; cancel stops it"
+ },
+ {
+  "id": "serialize-memdb-api-002-C001",
+  "slice": "serialize-memdb-api",
+  "feature": "serialize-memdb-api-002",
+  "kind": "bespoke",
+  "note": "deserialize the empty-db image (no URI) then re-serialize"
+ },
+ {
+  "id": "backup-api-003-C001",
+  "slice": "backup-api",
+  "feature": "backup-api-003",
+  "kind": "bespoke",
+  "note": "single-threaded source-write between steps; rc sequence + counters only"
+ }
+]

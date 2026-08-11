@@ -6,12 +6,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT=Path('/workspace'); NOW=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-RUN="2026-08-11T1600Z-legacy-record-oneshot"
-CAT=json.loads((ROOT/'overnight/oneshot/catalog.json').read_text())
-REC=json.load(open('/tmp/record11.json'))
+import os
+RUN=os.environ.get('RUN_ID','2026-08-11T1600Z-legacy-record-oneshot')
+CAT=json.loads((ROOT/os.environ.get('CATALOG','overnight/oneshot/catalog.json')).read_text())
+REC=json.load(open(os.environ.get('RECORD_JSON','/tmp/record11.json')))
 CAP=REC['captures']
 STAMP={"status":"HUMAN_ACCEPTED","operator":"Ash Osborne","date":"2026-08-11","tz":"Europe/London",
-       "note":"run-11 delegated stamp (full-autonomy charter)"}
+       "note":os.environ.get("STAMP_NOTE","run-11 delegated stamp (full-autonomy charter)")}
 
 by_slice=defaultdict(list)
 for c in CAT: by_slice[c['slice']].append(c)
@@ -97,12 +98,12 @@ for b in app['behaviours']:
         b['legacy_green']=True
         b['traceability']=f"tests/characterization/{b['slice_id']}/TRACEABILITY.yaml"
         base=(b.get('notes') or '')
-        add="legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)"
+        add=os.environ.get('NOTE_ADD','legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)')
         if add not in base: b['notes']=f"{base} | {add}"
 lg=sum(1 for b in app['behaviours'] if b.get('legacy_green'))
 assert not any(b.get('parity_green') for b in app['behaviours'])
 app['counts']['legacy_green']=lg
-app['last_updated']=NOW; app['updated_by']='sqlite-oneshot-50-slices'
+app['last_updated']=NOW; app['updated_by']=os.environ.get('UPDATED_BY','sqlite-oneshot-50-slices')
 jsonschema.validate(app,json.load(open(ROOT/'migration-factory/schemas/app-manifest.schema.json')))
 header=p.read_text().split('schema_version:')[0]
 p.write_text(header+yaml.safe_dump(app,sort_keys=False,width=120,allow_unicode=True))

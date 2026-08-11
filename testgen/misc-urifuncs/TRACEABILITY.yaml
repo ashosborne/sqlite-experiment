@@ -1,0 +1,25 @@
+slice_id: misc-urifuncs
+source_discovery: discovery/misc-urifuncs/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- misc-urifuncs-001
+cases:
+- id: misc-urifuncs-001-C001
+  feature_id: misc-urifuncs-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/misc-urifuncs-001/CASE-001.md
+  golden: tests/characterization/misc-urifuncs/cases/misc-urifuncs-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/misc-urifuncs/features/misc-urifuncs-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-12 delegated stamp (leftovers charter)
+  stamped_case_ids:
+  - misc-urifuncs-001-C001
+updated_at: '2026-08-11T15:00:20Z'

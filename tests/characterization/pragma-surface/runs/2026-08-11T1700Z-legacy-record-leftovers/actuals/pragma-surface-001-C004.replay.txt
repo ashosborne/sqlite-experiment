@@ -1,0 +1,4 @@
+OBS pragma-surface-001-C004 row0.col0 -2000
+OBS pragma-surface-001-C004 row1.col0 100
+OBS pragma-surface-001-C004 exec.rc 0
+OBS pragma-surface-001-C004 cb.rows 2

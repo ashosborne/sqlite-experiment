@@ -1,0 +1,4 @@
+OBS pragma-surface-001-C012 row0.col0 ok
+OBS pragma-surface-001-C012 row1.col0 ok
+OBS pragma-surface-001-C012 exec.rc 0
+OBS pragma-surface-001-C012 cb.rows 2

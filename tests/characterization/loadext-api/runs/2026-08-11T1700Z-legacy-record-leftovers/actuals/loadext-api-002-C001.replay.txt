@@ -1,0 +1,4 @@
+OBS loadext-api-002-C001 register.rc 0
+OBS loadext-api-002-C001 calls.after_open 1
+OBS loadext-api-002-C001 cancel.rc 1
+OBS loadext-api-002-C001 calls.after_cancel_open 1

@@ -2084,10 +2084,11 @@ behaviours:
   status: documented
   slice_id: attach-detach
   discovery_card: discovery/attach-detach/features/attach-detach-003.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; sqlite3FixInit/sqlite3Fix* reject cross-db references inside triggers/views of attached
-    dbs.
+    dbs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
 - behaviour_id: auth-callback-api-001
   surface_id: sur-sqlite3-set-authorizer
   name: Authorizer registration and dispatch
@@ -2136,10 +2137,11 @@ behaviours:
   status: documented
   slice_id: backup-api
   discovery_card: discovery/backup-api/features/backup-api-003.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart
-    the copy (BackupRestart).
+    the copy (BackupRestart). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/backup-api/TRACEABILITY.yaml
 - behaviour_id: blob-io-api-001
   surface_id: sur-sqlite3-blob-open
   name: Blob handle open/close/reopen
@@ -2712,10 +2714,11 @@ behaviours:
   status: documented
   slice_id: loadext-api
   discovery_card: discovery/loadext-api/features/loadext-api-002.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
-    APIs.
+    APIs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/loadext-api/TRACEABILITY.yaml
 - behaviour_id: malloc-subsystem-001
   surface_id: sur-sqlite3-malloc64
   name: Public malloc API and memory accounting
@@ -2811,9 +2814,11 @@ behaviours:
   status: documented
   slice_id: misc-compress
   discovery_card: discovery/misc-compress/features/misc-compress-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Deflate-based blob compression with size-prefixed format
+  notes: confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-compress/TRACEABILITY.yaml
 - behaviour_id: misc-csv-001
   surface_id: sur-sqlite3-csv-init
   name: CSV file virtual table
@@ -2842,19 +2847,23 @@ behaviours:
   status: documented
   slice_id: misc-fossildelta
   discovery_card: discovery/misc-fossildelta/features/misc-fossildelta-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them
+  notes: confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-fossildelta/TRACEABILITY.yaml
 - behaviour_id: misc-func-packs-001
   surface_id: sur-ext-misc-function-packs
   name: Loadable SQL-function extension pack (~18)
   status: documented
   slice_id: misc-func-packs
   discovery_card: discovery/misc-func-packs/features/misc-func-packs-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
-    spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs.
+    spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-12 delegated stamp)
+  traceability: tests/characterization/misc-func-packs/TRACEABILITY.yaml
 - behaviour_id: misc-fuzzer-001
   surface_id: sur-sqlite3-fuzzer-init
   name: fuzzer vtab (string mutation search)
@@ -2881,9 +2890,11 @@ behaviours:
   status: documented
   slice_id: misc-nextchar
   discovery_card: discovery/misc-nextchar/features/misc-nextchar-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column
+  notes: confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-nextchar/TRACEABILITY.yaml
 - behaviour_id: misc-percentile-001
   surface_id: sur-sqlite3-percentile-init
   name: percentile / median aggregates
@@ -2954,18 +2965,22 @@ behaviours:
   status: documented
   slice_id: misc-sha1
   discovery_card: discovery/misc-sha1/features/misc-sha1-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests
+  notes: confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-12 delegated stamp)
+  traceability: tests/characterization/misc-sha1/TRACEABILITY.yaml
 - behaviour_id: misc-shathree-001
   surface_id: sur-sqlite3-shathree-init
   name: sha3() hash functions
   status: documented
   slice_id: misc-shathree
   discovery_card: discovery/misc-shathree/features/misc-shathree-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak)
+  notes: confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-shathree/TRACEABILITY.yaml
 - behaviour_id: misc-spellfix-001
   surface_id: sur-sqlite3-spellfix-init
   name: spellfix1 fuzzy-search vtab + editdist functions
@@ -3040,19 +3055,23 @@ behaviours:
   status: documented
   slice_id: misc-urifuncs
   discovery_card: discovery/misc-urifuncs/features/misc-urifuncs-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; SQL access to URI open-parameters of the current database file
+  notes: confidence=observed-in-code; SQL access to URI open-parameters of the current database file | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-urifuncs/TRACEABILITY.yaml
 - behaviour_id: misc-utilities-001
   surface_id: sur-ext-misc-utilities
   name: Utility extension pack (~14)
   status: documented
   slice_id: misc-utilities
   discovery_card: discovery/misc-utilities/features/misc-utilities-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused,
-    noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize.
+    noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-utilities/TRACEABILITY.yaml
 - behaviour_id: misc-uuid-001
   surface_id: sur-sqlite3-uuid-init
   name: uuid generation/conversion functions
@@ -3158,9 +3177,11 @@ behaviours:
   status: documented
   slice_id: misc-zorder
   discovery_card: discovery/misc-zorder/features/misc-zorder-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing
+  notes: confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/misc-zorder/TRACEABILITY.yaml
 - behaviour_id: mutex-subsystem-001
   surface_id: sur-sqlite3-mutex-alloc
   name: Pluggable mutex abstraction
@@ -3262,7 +3283,7 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path);
     per-pragma flags control schema-load and result shape. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
-    delegated stamp)'
+    delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
 - behaviour_id: pragma-surface-002
   surface_id: sur-pragmavtabmodule
@@ -3273,7 +3294,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Result-returning pragmas exposed as pragma_<name>() table-valued functions. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp)
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
 - behaviour_id: prepare-statement-api-001
   surface_id: sur-sqlite3-prepare-v2
@@ -3491,9 +3513,11 @@ behaviours:
   status: documented
   slice_id: serialize-memdb-api
   discovery_card: discovery/serialize-memdb-api/features/serialize-memdb-api-002.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+  traceability: tests/characterization/serialize-memdb-api/TRACEABILITY.yaml
 - behaviour_id: session-001
   surface_id: sur-sqlite3session-create
   name: Session lifecycle and change recording
@@ -3907,8 +3931,8 @@ behaviours:
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls. | legacy RECORD REPLAY_GREEN
     + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
   traceability: tests/characterization/window-functions/TRACEABILITY.yaml
-last_updated: '2026-08-11T14:38:35Z'
-updated_by: sqlite-oneshot-50-slices
+last_updated: '2026-08-11T15:00:20Z'
+updated_by: sqlite-oneshot-leftovers
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -3920,5 +3944,5 @@ counts:
   behaviours_by_status:
     documented: 185
   unscanned_hints: 3
-  legacy_green: 82
+  legacy_green: 95
   parity_green: 0

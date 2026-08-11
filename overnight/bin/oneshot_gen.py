@@ -8,12 +8,13 @@ from pathlib import Path
 
 ROOT = Path('/workspace')
 BUILD = Path('/tmp/sqlite-build')
-CAT = json.loads((ROOT/'overnight/oneshot/catalog.json').read_text())
+import os
+CAT = json.loads((ROOT/os.environ.get('CATALOG','overnight/oneshot/catalog.json')).read_text())
 INITS = {"uuid":"sqlite3_uuid_init","regexp":"sqlite3_regexp_init","series":"sqlite3_series_init",
  "csv":"sqlite3_csv_init","decimal":"sqlite3_decimal_init","base64":"sqlite3_base64_init",
  "rot13":"sqlite3_rot_init","totype":"sqlite3_totype_init","uint":"sqlite3_uint_init",
  "ieee754":"sqlite3_ieee_init","completion":"sqlite3_completion_init","prefixes":"sqlite3_prefixes_init",
- "wholenumber":"sqlite3_wholenumber_init"}
+ "wholenumber":"sqlite3_wholenumber_init","compress":"sqlite3_compress_init","fossildelta":"sqlite3_fossildelta_init","nextchar":"sqlite3_nextchar_init","sha1":"sqlite3_sha_init","shathree":"sqlite3_shathree_init","urifuncs":"sqlite3_urifuncs_init","eval":"sqlite3_eval_init","zorder":"sqlite3_zorder_init"}
 
 def cesc(s):
     return s.replace('\\','\\\\').replace('"','\\"').replace('\n','\\n')
@@ -68,16 +69,16 @@ int main(void){
     (Path('/tmp/script_harness.c')).write_text(src)
     ext_srcs=" ".join(f"/workspace/ext/misc/{e}.c" for e in exts)
     cmd=(f"gcc -DSQLITE_CORE -I{BUILD} -I/workspace/src /tmp/script_harness.c {ext_srcs} "
-         f"{BUILD}/sqlite3.c -lpthread -ldl -lm -o {BUILD}/harness/script11 -w")
+         f"{BUILD}/sqlite3.c -lpthread -ldl -lm -lz -o {BUILD}/harness/script_gen -w")
     r=subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if r.returncode: sys.exit(f"compile failed:\n{r.stderr[-3000:]}")
     print(f"script harness compiled ({len(scripts)} cases, exts: {exts})")
 
 def record():
-    out1=subprocess.run([f"{BUILD}/harness/script11"],capture_output=True,text=True).stdout
-    out2=subprocess.run([f"{BUILD}/harness/script11"],capture_output=True,text=True).stdout
-    b1=subprocess.run([f"{BUILD}/harness/bespoke11"],capture_output=True,text=True).stdout
-    b2=subprocess.run([f"{BUILD}/harness/bespoke11"],capture_output=True,text=True).stdout
+    out1=subprocess.run([f"{BUILD}/harness/script_gen"],capture_output=True,text=True).stdout
+    out2=subprocess.run([f"{BUILD}/harness/script_gen"],capture_output=True,text=True).stdout
+    b1=subprocess.run([os.environ.get("BESPOKE_BIN", f"{BUILD}/harness/bespoke11")],capture_output=True,text=True).stdout
+    b2=subprocess.run([os.environ.get("BESPOKE_BIN", f"{BUILD}/harness/bespoke11")],capture_output=True,text=True).stdout
     def split(txt):
         m=defaultdict(list)
         for l in txt.splitlines():
@@ -92,7 +93,7 @@ def record():
         else: flaky.append(cid)
     json.dump({"green":green,"flaky":flaky,
                "captures":{cid:r1[cid] for cid in green}},
-              open('/tmp/record11.json','w'))
+              open(os.environ.get('RECORD_JSON','/tmp/record11.json'),'w'))
     print(f"RECORD: {len(green)} deterministic (2-run byte-match), {len(flaky)} flaky -> BLOCKED: {flaky}")
 
 if __name__=="__main__":

@@ -1,0 +1,25 @@
+slice_id: misc-compress
+source_discovery: discovery/misc-compress/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- misc-compress-001
+cases:
+- id: misc-compress-001-C001
+  feature_id: misc-compress-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/misc-compress-001/CASE-001.md
+  golden: tests/characterization/misc-compress/cases/misc-compress-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/misc-compress/features/misc-compress-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-12 delegated stamp (leftovers charter)
+  stamped_case_ids:
+  - misc-compress-001-C001
+updated_at: '2026-08-11T15:00:20Z'

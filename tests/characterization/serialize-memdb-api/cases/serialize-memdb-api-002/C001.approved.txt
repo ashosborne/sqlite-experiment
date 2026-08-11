@@ -1,0 +1,3 @@
+OBS serialize-memdb-api-002-C001 deserialize.rc 0
+OBS serialize-memdb-api-002-C001 reserialize.size 4096
+OBS serialize-memdb-api-002-C001 roundtrip.same_size 1

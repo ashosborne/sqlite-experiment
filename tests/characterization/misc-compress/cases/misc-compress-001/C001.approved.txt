@@ -1,0 +1,4 @@
+OBS misc-compress-001-C001 row0.col0 1
+OBS misc-compress-001-C001 row0.col1 1
+OBS misc-compress-001-C001 exec.rc 0
+OBS misc-compress-001-C001 cb.rows 1

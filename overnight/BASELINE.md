@@ -115,3 +115,22 @@ Note for cards/censuses: the bare-configure default is NOT feature-minimal — i
 FTS3/FTS4, RTREE, MATH_FUNCTIONS, PERCENTILE, STMTVTAB, DBSTAT/DBPAGE/BYTECODE vtabs,
 UNKNOWN_SQL_FUNCTION, and sets DQS=0 (double-quoted strings OFF, stricter than historic default).
 This refines the compile-options census cards' assumptions; completeness remains incomplete.
+
+## Two-level pin amendment (run 12, 2026-08-11) — IMPORTANT
+
+The compileoption fingerprint above was dumped from the **sqlite3 CLI binary**, which the Makefile
+builds with extra `SHELL_OPT` defines (DQS=0, ENABLE_BYTECODE_VTAB, DBPAGE, DBSTAT, EXPLAIN_COMMENTS,
+FTS4, OFFSET_SQL_FUNC, PERCENTILE, RTREE, STMTVTAB, UNKNOWN_SQL_FUNCTION, STRICT_SUBTYPE). The
+**characterization harnesses** compile `sqlite3.c` bare (`cc` with no `-D` flags), so the *harness
+library pin* is the bare-default amalgamation: none of those SHELL_OPT features exist there, and the
+Makefile-level `MATH_FUNCTIONS`/`PERCENTILE` opts are absent too. API_ARMOR and OMIT_AUTORESET are
+off on both levels (verified), so all rc pins stand.
+
+Consequences (honest record):
+- `introspection-vtabs-001-C001` and `misc-percentile-001-C001` (run 11) pin **feature absence**
+  (rc=1 `no such table: dbstat` / `no such function: median`) on the harness lib — annotated in
+  their TRACEABILITY rows; golden bytes untouched; Rust mirrors the same absence.
+- `misc-stmt` (run 12) is **DEFERRED**: freezing it positively would require compiling the harness
+  with `SQLITE_ENABLE_STMTVTAB` — a compile-flag flip, forbidden by charter.
+- Future runs that want the SHELL_OPT features must re-pin explicitly (new BASELINE section + new
+  goldens), never silently.

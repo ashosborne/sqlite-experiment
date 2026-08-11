@@ -7,6 +7,8 @@ cases:
   status: REPLAY_GREEN
   golden_path: cases/misc-percentile-001/C001.approved.txt
   run_id: 2026-08-11T1600Z-legacy-record-oneshot
+  notes: "HONESTY NOTE (run 12): this golden pins rc=1 \u2014 the ABSENCE of median/percentile on the harness pin (bare-default amalgamation,\
+    \ no SHELL_OPT enables). It does NOT exercise the feature. See BASELINE.md two-level-pin amendment."
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne
@@ -15,5 +17,5 @@ golden_approval:
   note: run-11 delegated stamp (full-autonomy charter)
   stamped_case_ids:
   - misc-percentile-001-C001
-updated_at: '2026-08-11T14:38:35Z'
+updated_at: '2026-08-11T15:00:21Z'
 run_id: 2026-08-11T1600Z-legacy-record-oneshot
