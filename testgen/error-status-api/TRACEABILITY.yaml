@@ -1,0 +1,39 @@
+slice_id: error-status-api
+source_discovery: discovery/error-status-api/MANIFEST.yaml
+phase: B
+updated_at: 2026-08-11T11:39:22Z
+batch_card_ids: [error-status-api-001]
+
+cases:
+  - id: error-status-api-001-C001
+    feature_id: error-status-api-001
+    title: "errmsg + errcode after failed prepare of invalid SQL — as implemented"
+    status: specified
+    kind: characterization
+    evidence_gate: observed-in-code
+    discovery_evidence: ["src/main.c:2743", "src/main.c:2851", "discovery/error-status-api/features/error-status-api-001.md"]
+    boundary: "C API: sqlite3_prepare_v2() failure then sqlite3_errcode()/sqlite3_errmsg()"
+    spec_path: scenarios/error-status-api-001/CASE-001.md
+    harness_path: harness/error_status_harness.c
+    assert_mode: TO_BE_RECORDED
+    observables: ["prepare.rc", "errcode.value", "extended_errcode.value", "errmsg.text-or-pointer-class"]
+    scrub: []
+    deferred_reasons: []
+  - id: error-status-api-001-C002
+    feature_id: error-status-api-001
+    title: "errmsg/errcode on NULL db handle — MISUSE-safe static answers as implemented"
+    status: specified
+    kind: characterization
+    evidence_gate: observed-in-code
+    discovery_evidence: ["discovery/error-status-api/features/error-status-api-001.md (Validation rules section)", "src/main.c:2743"]
+    boundary: "C API: sqlite3_errcode(NULL) / sqlite3_errmsg(NULL)"
+    spec_path: scenarios/error-status-api-001/CASE-002.md
+    harness_path: harness/error_status_harness.c
+    assert_mode: TO_BE_RECORDED
+    observables: ["errcode(NULL).value", "errmsg(NULL).text"]
+    scrub: []
+    deferred_reasons: []
+
+deferred:
+  - feature_id: error-status-api-001
+    reason: "Operator DEFER: exact English message strings; UTF-16 twins (errmsg16); error_offset corpus; sqlite3_limit / status64 belong to error-status-api-002/003 (not in batch)"

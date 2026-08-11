@@ -1,0 +1,53 @@
+slice_id: prepare-statement-api
+source_discovery: discovery/prepare-statement-api/MANIFEST.yaml
+phase: B
+updated_at: 2026-08-11T11:40:19Z
+batch_card_ids: [prepare-statement-api-002]
+
+cases:
+  - id: prepare-statement-api-002-C001
+    feature_id: prepare-statement-api-002
+    title: "Single-row SELECT: step → ROW, step → DONE — rc sequence as implemented"
+    status: specified
+    kind: characterization
+    evidence_gate: observed-in-code
+    discovery_evidence: ["src/vdbeapi.c:980", "discovery/prepare-statement-api/features/prepare-statement-api-002.md"]
+    boundary: "C API: sqlite3_prepare_v2('SELECT 1') then sqlite3_step() twice"
+    spec_path: scenarios/prepare-statement-api-002/CASE-001.md
+    harness_path: harness/step_state_machine_harness.c
+    assert_mode: TO_BE_RECORDED
+    observables: ["prepare.rc", "step1.rc", "step2.rc", "column_int.value"]
+    scrub: []
+    deferred_reasons: []
+  - id: prepare-statement-api-002-C002
+    feature_id: prepare-statement-api-002
+    title: "step again after DONE without reset — code as implemented (card: must reset before re-stepping)"
+    status: specified
+    kind: characterization
+    evidence_gate: observed-in-code
+    discovery_evidence: ["src/vdbeapi.c:980", "discovery/prepare-statement-api/features/prepare-statement-api-002.md (Behaviour section)"]
+    boundary: "C API: third sqlite3_step() after DONE, no sqlite3_reset()"
+    spec_path: scenarios/prepare-statement-api-002/CASE-002.md
+    harness_path: harness/step_state_machine_harness.c
+    assert_mode: TO_BE_RECORDED
+    observables: ["step3_after_done.rc"]
+    scrub: []
+    deferred_reasons: []
+  - id: prepare-statement-api-002-C003
+    feature_id: prepare-statement-api-002
+    title: "step a finalized statement — MISUSE per card validation (API_ARMOR caveat recorded)"
+    status: specified
+    kind: characterization
+    evidence_gate: observed-in-code
+    discovery_evidence: ["discovery/prepare-statement-api/features/prepare-statement-api-002.md (Validation rules section)", "src/vdbeapi.c:980"]
+    boundary: "C API: sqlite3_step() on a handle already passed to sqlite3_finalize()"
+    spec_path: scenarios/prepare-statement-api-002/CASE-003.md
+    harness_path: harness/step_state_machine_harness.c
+    assert_mode: TO_BE_RECORDED
+    observables: ["step_after_finalize.rc (armor-dependent — see spec caveat)"]
+    scrub: []
+    deferred_reasons: []
+
+deferred:
+  - feature_id: prepare-statement-api-002
+    reason: "Operator DEFER: auto-reprepare/SQLITE_SCHEMA retry matrix; BUSY-on-COMMIT (not independently verified); UTF-16 variants; all other prepare-statement-api IDs"

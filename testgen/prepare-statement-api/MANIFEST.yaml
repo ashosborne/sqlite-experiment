@@ -1,0 +1,12 @@
+slice_id: prepare-statement-api
+run: testgen-spine-2026-08-11
+phase: B
+batch_card_ids: [prepare-statement-api-002]
+matrix_gate: "Pre-approved by operator paste (Ash Osborne, run-4 charter) — no second human gate required"
+scenarios:
+  - case_id: prepare-statement-api-002-C001
+    status: specified
+  - case_id: prepare-statement-api-002-C002
+    status: specified
+  - case_id: prepare-statement-api-002-C003
+    status: specified
