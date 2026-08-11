@@ -1,0 +1,23 @@
+slice_id: misc-completion
+seed: completion candidates vtab (ext/misc/completion.c)
+seed_entrypoints:
+- sqlite3_completion_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:36Z'
+features:
+- id: misc-completion-001
+  name: completion vtab (shell tab-completion)
+  status: candidate
+  confidence: observed-in-code
+  summary: Suggests keywords/schema names for interactive completion; embedded by the shell
+  entrypoints:
+  - kind: other
+    locator: sqlite3_completion_init()
+    evidence:
+    - ext/misc/completion.c:510
+  dependencies:
+  - vtab-core
+  - shell-cli
+  open_questions: []

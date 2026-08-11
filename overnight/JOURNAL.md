@@ -228,3 +228,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - misc-series (built-in-assumption flag), misc-csv (fs-access security flag), misc-zipfile-sqlar (kept clustered: sqlar genuinely builds on zipfile — one optional pack), misc-unionvtab (incl. swarmvtab, same file).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 50/120 (25 surfaces + 25 behaviours). Totals 300. Slices this run: 12 (total 72). Zero-new-streak: 0.
+
+## Resume iteration 4 — seeds: misc-qpvtab, misc-completion, misc-closure, misc-amatch
+
+- stop.txt: absent. Thin vtab unbundle continues (4 of 17 remaining walked).
+- closure carded with "superseded by recursive CTE?" bind question.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 58/120 (29+29). Totals 308. Slices this run: 16 (total 76). Zero-new-streak: 0.

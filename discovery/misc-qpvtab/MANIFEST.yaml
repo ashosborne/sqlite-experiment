@@ -1,0 +1,22 @@
+slice_id: misc-qpvtab
+seed: 'qpvtab: xBestIndex inputs exposed as rows (ext/misc/qpvtab.c)'
+seed_entrypoints:
+- sqlite3_qpvtab_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:36Z'
+features:
+- id: misc-qpvtab-001
+  name: query-plan introspection vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: "Eponymous vtab echoing xBestIndex constraints/orderby \u2014 debugging aid for vtab authors"
+  entrypoints:
+  - kind: other
+    locator: sqlite3_qpvtab_init()
+    evidence:
+    - ext/misc/qpvtab.c:451
+  dependencies:
+  - vtab-core
+  open_questions: []

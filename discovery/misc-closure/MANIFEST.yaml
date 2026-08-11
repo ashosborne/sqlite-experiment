@@ -1,0 +1,23 @@
+slice_id: misc-closure
+seed: hierarchy walking vtab (ext/misc/closure.c)
+seed_entrypoints:
+- sqlite3_closure_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:32:36Z'
+features:
+- id: misc-closure-001
+  name: transitive_closure vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Transitive closure over parent-pointer tables with idcolumn/parentcolumn args
+  entrypoints:
+  - kind: other
+    locator: sqlite3_closure_init()
+    evidence:
+    - ext/misc/closure.c:985
+  dependencies:
+  - vtab-core
+  open_questions:
+  - Superseded by recursive CTEs downstream?

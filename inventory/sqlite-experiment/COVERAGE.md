@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:31:58Z
+- Generated: 2026-08-11T09:32:37Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:31:58Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:32:37Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 150 |
-| Behaviours known | 150 |
-| Seeds scanned | 72 |
-| Unscanned hints (residual) | 15 |
+| Surfaces total | 154 |
+| Behaviours known | 154 |
+| Seeds scanned | 76 |
+| Unscanned hints (residual) | 11 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 150 |
+| candidate | 154 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 150 |
+| candidate | 154 |
 
 ## Surfaces per slice
 
@@ -63,8 +63,12 @@
 | json-funcs | 4 |
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
+| misc-amatch | 1 |
+| misc-closure | 1 |
+| misc-completion | 1 |
 | misc-csv | 1 |
 | misc-func-packs | 1 |
+| misc-qpvtab | 1 |
 | misc-series | 1 |
 | misc-unionvtab | 1 |
 | misc-utilities | 1 |
@@ -181,15 +185,15 @@
 - `misc-series`
 - `misc-unionvtab`
 - `misc-zipfile-sqlar`
+- `misc-amatch`
+- `misc-closure`
+- `misc-completion`
+- `misc-qpvtab`
 
 ## Unscanned hints (residual register)
 
 - ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-qpvtab — query-plan introspection vtab (ext/misc/qpvtab.c)
-- ext: misc-completion — shell completion vtab (ext/misc/completion.c)
-- ext: misc-closure — transitive_closure vtab (ext/misc/closure.c)
-- ext: misc-amatch — approximate-match vtab (ext/misc/amatch.c)
 - ext: misc-fuzzer — fuzzer vtab (ext/misc/fuzzer.c)
 - ext: misc-prefixes — prefixes vtab (ext/misc/prefixes.c)
 - ext: misc-wholenumber — wholenumber vtab (ext/misc/wholenumber.c)
