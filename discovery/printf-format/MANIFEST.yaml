@@ -5,12 +5,12 @@ seed_entrypoints:
 - printf() SQL function
 out_of_scope_hints:
 - general builtin funcs
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:23:51Z'
 features:
 - id: printf-format-001
   name: SQL printf()/format() functions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives.
   entrypoints:
@@ -22,9 +22,10 @@ features:
     - src/printf.c:244
   dependencies: []
   open_questions: []
+  behaviour_doc: features/printf-format-001.md
 - id: printf-format-002
   name: C API mprintf/vmprintf/snprintf
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Public C formatting entrypoints sharing the same core formatter.
   entrypoints:
@@ -35,9 +36,10 @@ features:
     - src/printf.c:1559
   dependencies: []
   open_questions: []
+  behaviour_doc: features/printf-format-002.md
 - id: printf-format-003
   name: sqlite3_str string-builder API
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Dynamic string accumulator with error-state and precision/width caps.
   entrypoints:
@@ -49,3 +51,4 @@ features:
   dependencies:
   - malloc-subsystem
   open_questions: []
+  behaviour_doc: features/printf-format-003.md

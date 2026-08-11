@@ -2170,9 +2170,9 @@ behaviours:
 - behaviour_id: builtin-scalar-agg-funcs-001
   surface_id: sur-sqlite3registerbuiltinfunctions
   name: Core scalar function family
-  status: accepted
+  status: documented
   slice_id: builtin-scalar-agg-funcs
-  discovery_card: null
+  discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling
@@ -2180,9 +2180,9 @@ behaviours:
 - behaviour_id: builtin-scalar-agg-funcs-002
   surface_id: sur-abuiltinfunc-aggregates
   name: Aggregate function family
-  status: accepted
+  status: documented
   slice_id: builtin-scalar-agg-funcs
-  discovery_card: null
+  discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable)
@@ -2190,9 +2190,9 @@ behaviours:
 - behaviour_id: builtin-scalar-agg-funcs-003
   surface_id: sur-likefunc
   name: LIKE/GLOB pattern matching + case sensitivity toggle
-  status: accepted
+  status: documented
   slice_id: builtin-scalar-agg-funcs
-  discovery_card: null
+  discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries
@@ -2268,36 +2268,36 @@ behaviours:
 - behaviour_id: date-time-funcs-001
   surface_id: sur-datefunc-datetimefunc
   name: Core date/time conversion functions
-  status: accepted
+  status: documented
   slice_id: date-time-funcs
-  discovery_card: null
+  discovery_card: discovery/date-time-funcs/features/date-time-funcs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD.
 - behaviour_id: date-time-funcs-002
   surface_id: sur-strftimefunc
   name: strftime formatting
-  status: accepted
+  status: documented
   slice_id: date-time-funcs
-  discovery_card: null
+  discovery_card: discovery/date-time-funcs/features/date-time-funcs-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; %-directive formatter over parsed DateTime.
 - behaviour_id: date-time-funcs-003
   surface_id: sur-computejd-modifiers
   name: Modifier grammar (localtime, +N units, weekday, start of ...)
-  status: accepted
+  status: documented
   slice_id: date-time-funcs
-  discovery_card: null
+  discovery_card: discovery/date-time-funcs/features/date-time-funcs-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
 - behaviour_id: date-time-funcs-004
   surface_id: sur-timedifffunc
   name: timediff interval arithmetic
-  status: accepted
+  status: documented
   slice_id: date-time-funcs
-  discovery_card: null
+  discovery_card: discovery/date-time-funcs/features/date-time-funcs-004.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes.
@@ -2598,36 +2598,36 @@ behaviours:
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
-  status: accepted
+  status: documented
   slice_id: json-funcs
-  discovery_card: null
+  discovery_card: discovery/json-funcs/features/json-funcs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Path-expression extraction; text vs SQL-value return differs between -> and ->>.
 - behaviour_id: json-funcs-002
   surface_id: sur-jsonsetfunc
   name: JSON mutation family (set/insert/replace/patch/remove)
-  status: accepted
+  status: documented
   slice_id: json-funcs
-  discovery_card: null
+  discovery_card: discovery/json-funcs/features/json-funcs-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB.
 - behaviour_id: json-funcs-003
   surface_id: sur-jsonvalidfunc
   name: JSON validation and typing
-  status: accepted
+  status: documented
   slice_id: json-funcs
-  discovery_card: null
+  discovery_card: discovery/json-funcs/features/json-funcs-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; json_valid with flags argument distinguishes JSON5/JSONB acceptance.
 - behaviour_id: json-funcs-004
   surface_id: sur-jsoneachmodule
   name: json_each / json_tree table-valued functions
-  status: accepted
+  status: documented
   slice_id: json-funcs
-  discovery_card: null
+  discovery_card: discovery/json-funcs/features/json-funcs-004.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path.
@@ -3229,27 +3229,27 @@ behaviours:
 - behaviour_id: printf-format-001
   surface_id: sur-printffunc
   name: SQL printf()/format() functions
-  status: accepted
+  status: documented
   slice_id: printf-format
-  discovery_card: null
+  discovery_card: discovery/printf-format/features/printf-format-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives.
 - behaviour_id: printf-format-002
   surface_id: sur-sqlite3-mprintf
   name: C API mprintf/vmprintf/snprintf
-  status: accepted
+  status: documented
   slice_id: printf-format
-  discovery_card: null
+  discovery_card: discovery/printf-format/features/printf-format-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Public C formatting entrypoints sharing the same core formatter.
 - behaviour_id: printf-format-003
   surface_id: sur-sqlite3-str-new
   name: sqlite3_str string-builder API
-  status: accepted
+  status: documented
   slice_id: printf-format
-  discovery_card: null
+  discovery_card: discovery/printf-format/features/printf-format-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:22:35Z'
+last_updated: '2026-08-11T10:23:52Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    accepted: 155
-    documented: 30
+    accepted: 141
+    documented: 44
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

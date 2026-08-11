@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3RegisterJsonFunctions()
 out_of_scope_hints:
 - vtab mechanism itself
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:23:51Z'
 features:
 - id: json-funcs-001
   name: JSON path extraction (json_extract, ->, ->>)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Path-expression extraction; text vs SQL-value return differs between -> and ->>.
   entrypoints:
@@ -20,9 +20,10 @@ features:
     - src/json.c:5660
   dependencies: []
   open_questions: []
+  behaviour_doc: features/json-funcs-001.md
 - id: json-funcs-002
   name: JSON mutation family (set/insert/replace/patch/remove)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Create-or-update semantics per variant; jsonb_* return binary JSONB.
   entrypoints:
@@ -36,9 +37,10 @@ features:
   dependencies: []
   open_questions:
   - JSONB byte-format stability guarantees for downstream storage?
+  behaviour_doc: features/json-funcs-002.md
 - id: json-funcs-003
   name: JSON validation and typing
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: json_valid with flags argument distinguishes JSON5/JSONB acceptance.
   entrypoints:
@@ -48,9 +50,10 @@ features:
     - src/json.c:4700
   dependencies: []
   open_questions: []
+  behaviour_doc: features/json-funcs-003.md
 - id: json-funcs-004
   name: json_each / json_tree table-valued functions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path.
   entrypoints:
@@ -61,3 +64,4 @@ features:
   dependencies:
   - vtab-core
   open_questions: []
+  behaviour_doc: features/json-funcs-004.md

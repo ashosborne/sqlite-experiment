@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3RegisterDateTimeFunctions()
 out_of_scope_hints:
 - other builtin functions
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:23:51Z'
 features:
 - id: date-time-funcs-001
   name: Core date/time conversion functions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD.
   entrypoints:
@@ -23,9 +23,10 @@ features:
     - src/date.c:1858
   dependencies: []
   open_questions: []
+  behaviour_doc: features/date-time-funcs-001.md
 - id: date-time-funcs-002
   name: strftime formatting
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: '%-directive formatter over parsed DateTime.'
   entrypoints:
@@ -36,9 +37,10 @@ features:
   dependencies:
   - date-time-funcs-001
   open_questions: []
+  behaviour_doc: features/date-time-funcs-002.md
 - id: date-time-funcs-003
   name: Modifier grammar (localtime, +N units, weekday, start of ...)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
   entrypoints:
@@ -53,9 +55,10 @@ features:
   - vfs-os-abstraction
   open_questions:
   - "localtime depends on host tz database \u2014 characterization must pin TZ"
+  behaviour_doc: features/date-time-funcs-003.md
 - id: date-time-funcs-004
   name: timediff interval arithmetic
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes.
   entrypoints:
@@ -66,3 +69,4 @@ features:
   dependencies:
   - date-time-funcs-001
   open_questions: []
+  behaviour_doc: features/date-time-funcs-004.md

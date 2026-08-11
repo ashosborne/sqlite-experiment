@@ -26,3 +26,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - blob-io(2), serialize-memdb(2), loadext(2), unlock-notify(1), auth(2), attach(3), error-status(3) → documented, observed-in-code.
 - unlock-notify card documents the gated contract explicitly (ENABLE_UNLOCK_NOTIFY + shared-cache NOT in the default baseline build).
 - Upsert: PASS (documented=30). COVERAGE regenerated.
+
+## Batch 3 — SQL function surfaces (14 cards)
+
+- builtin-scalar-agg-funcs(3), date-time-funcs(4), json-funcs(4), printf-format(3) → documented, observed-in-code.
+- Registry/family cards stay clustered per charter (no per-function explosion); parity traps carried into cards (ASCII-only LIKE folding, sum overflow, %q/%Q, localtime TZ pinning, JSON5-in/canonical-out).
+- Upsert: PASS (documented=44). COVERAGE regenerated.

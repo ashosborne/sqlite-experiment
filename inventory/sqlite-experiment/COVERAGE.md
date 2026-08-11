@@ -3,9 +3,9 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T10:22:36Z
+- Generated: 2026-08-11T10:23:52Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T10:22:35Z by `sqlite-deepen-all`
+- Manifest last_updated: 2026-08-11T10:23:52Z by `sqlite-deepen-all`
 
 ## Counts
 
@@ -28,8 +28,8 @@
 
 | Status | Count |
 | --- | --- |
-| accepted | 155 |
-| documented | 30 |
+| accepted | 141 |
+| documented | 44 |
 
 ## Surfaces per slice
 
