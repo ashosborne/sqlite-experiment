@@ -1,0 +1,22 @@
+slice_id: misc-fossildelta
+seed: delta_create/apply/output_size (ext/misc/fossildelta.c)
+seed_entrypoints:
+- sqlite3_fossildelta_init()
+out_of_scope_hints:
+- other misc-func-packs members
+phase: A
+updated_at: '2026-08-11T09:35:12Z'
+features:
+- id: misc-fossildelta-001
+  name: fossil delta functions + delta_parse vtab
+  status: candidate
+  confidence: observed-in-code
+  summary: Fossil-format binary deltas between blobs; delta_parse TVF decodes them
+  entrypoints:
+  - kind: other
+    locator: sqlite3_fossildelta_init()
+    evidence:
+    - ext/misc/fossildelta.c:1111
+  dependencies:
+  - loadext-api
+  open_questions: []

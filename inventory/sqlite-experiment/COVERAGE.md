@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:34:45Z
+- Generated: 2026-08-11T09:35:13Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:34:45Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:35:12Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 174 |
-| Behaviours known | 174 |
-| Seeds scanned | 96 |
-| Unscanned hints (residual) | 6 |
+| Surfaces total | 178 |
+| Behaviours known | 178 |
+| Seeds scanned | 100 |
+| Unscanned hints (residual) | 2 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 174 |
+| candidate | 178 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 174 |
+| candidate | 178 |
 
 ## Surfaces per slice
 
@@ -68,8 +68,10 @@
 | misc-btreeinfo | 1 |
 | misc-closure | 1 |
 | misc-completion | 1 |
+| misc-compress | 1 |
 | misc-csv | 1 |
 | misc-decimal | 1 |
+| misc-fossildelta | 1 |
 | misc-func-packs | 1 |
 | misc-fuzzer | 1 |
 | misc-ieee754 | 1 |
@@ -78,6 +80,7 @@
 | misc-prefixes | 1 |
 | misc-qpvtab | 1 |
 | misc-regexp | 1 |
+| misc-rot13 | 1 |
 | misc-series | 1 |
 | misc-sha1 | 1 |
 | misc-shathree | 1 |
@@ -88,6 +91,7 @@
 | misc-uint | 1 |
 | misc-unionvtab | 1 |
 | misc-utilities | 1 |
+| misc-uuid | 1 |
 | misc-vfs-shims | 1 |
 | misc-vtab-packs | 1 |
 | misc-vtablog | 1 |
@@ -229,14 +233,14 @@
 - `misc-regexp`
 - `misc-spellfix`
 - `misc-uint`
+- `misc-compress`
+- `misc-fossildelta`
+- `misc-rot13`
+- `misc-uuid`
 
 ## Unscanned hints (residual register)
 
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)
-- ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)
-- ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)
-- ext: misc-compress — compress()/uncompress() zlib functions (ext/misc/compress.c)
 - ext: misc-urifuncs — URI parsing SQL functions (ext/misc/urifuncs.c)
 
 ## Notes

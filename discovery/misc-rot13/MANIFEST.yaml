@@ -1,0 +1,23 @@
+slice_id: misc-rot13
+seed: rot13 demo cipher (ext/misc/rot13.c)
+seed_entrypoints:
+- sqlite3_rot_init()
+out_of_scope_hints:
+- other misc-func-packs members
+phase: A
+updated_at: '2026-08-11T09:35:12Z'
+features:
+- id: misc-rot13-001
+  name: rot13() function + collation
+  status: candidate
+  confidence: observed-in-code
+  summary: rot13(X) scalar + rot13 collation (demo-grade obfuscation)
+  entrypoints:
+  - kind: other
+    locator: sqlite3_rot_init()
+    evidence:
+    - ext/misc/rot13.c:100
+  dependencies:
+  - loadext-api
+  open_questions:
+  - "Demo-only \u2014 recommend defer"

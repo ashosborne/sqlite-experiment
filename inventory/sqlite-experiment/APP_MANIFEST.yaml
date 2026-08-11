@@ -103,13 +103,13 @@ scanned_seeds:
 - misc-regexp
 - misc-spellfix
 - misc-uint
+- misc-compress
+- misc-fossildelta
+- misc-rot13
+- misc-uuid
 unscanned_hints:
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)'
-- 'ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)'
-- 'ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)'
-- 'ext: misc-compress — compress()/uncompress() zlib functions (ext/misc/compress.c)'
 - 'ext: misc-urifuncs — URI parsing SQL functions (ext/misc/urifuncs.c)'
 surfaces:
 - surface_id: sur-sqlite3analysisload
@@ -890,6 +890,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/completion.c:510
+- surface_id: sur-sqlite3-compress-init
+  kind: other
+  locator: sqlite3_compress_init()
+  repo_path: ext/misc/compress.c
+  status: candidate
+  slice_id: misc-compress
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/compress.c:122
 - surface_id: sur-sqlite3-csv-init
   kind: other
   locator: sqlite3_csv_init()
@@ -908,6 +917,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/decimal.c:922
+- surface_id: sur-sqlite3-fossildelta-init
+  kind: other
+  locator: sqlite3_fossildelta_init()
+  repo_path: ext/misc/fossildelta.c
+  status: candidate
+  slice_id: misc-fossildelta
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/fossildelta.c:1111
 - surface_id: sur-ext-misc-function-packs
   kind: other
   locator: ext/misc function packs
@@ -983,6 +1001,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/regexp.c:901
+- surface_id: sur-sqlite3-rot-init
+  kind: other
+  locator: sqlite3_rot_init()
+  repo_path: ext/misc/rot13.c
+  status: candidate
+  slice_id: misc-rot13
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/rot13.c:100
 - surface_id: sur-sqlite3-series-init
   kind: other
   locator: sqlite3_series_init()
@@ -1076,6 +1103,15 @@ surfaces:
   - ext/misc/dbdump.c:695
   - ext/misc/eval.c:119
   - ext/misc/memstat.c:422
+- surface_id: sur-sqlite3-uuid-init
+  kind: other
+  locator: sqlite3_uuid_init()
+  repo_path: ext/misc/uuid.c
+  status: candidate
+  slice_id: misc-uuid
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/uuid.c:213
 - surface_id: sur-ext-misc-vfs-shims
   kind: other
   locator: ext/misc VFS shims
@@ -2608,6 +2644,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell
+- behaviour_id: misc-compress-001
+  surface_id: sur-sqlite3-compress-init
+  name: compress()/uncompress() zlib functions
+  status: candidate
+  slice_id: misc-compress
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Deflate-based blob compression with size-prefixed format
 - behaviour_id: misc-csv-001
   surface_id: sur-sqlite3-csv-init
   name: CSV file virtual table
@@ -2627,6 +2672,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence
+- behaviour_id: misc-fossildelta-001
+  surface_id: sur-sqlite3-fossildelta-init
+  name: fossil delta functions + delta_parse vtab
+  status: candidate
+  slice_id: misc-fossildelta
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them
 - behaviour_id: misc-func-packs-001
   surface_id: sur-ext-misc-function-packs
   name: Loadable SQL-function extension pack (~18)
@@ -2700,6 +2754,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; NFA regex engine backing the REGEXP operator; own dialect (not PCRE)
+- behaviour_id: misc-rot13-001
+  surface_id: sur-sqlite3-rot-init
+  name: rot13() function + collation
+  status: candidate
+  slice_id: misc-rot13
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; rot13(X) scalar + rot13 collation (demo-grade obfuscation)
 - behaviour_id: misc-series-001
   surface_id: sur-sqlite3-series-init
   name: generate_series table-valued function
@@ -2792,6 +2855,15 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused,
     noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize.
+- behaviour_id: misc-uuid-001
+  surface_id: sur-sqlite3-uuid-init
+  name: uuid generation/conversion functions
+  status: candidate
+  slice_id: misc-uuid
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; RFC-4122 v4 generation + text/blob conversions
 - behaviour_id: misc-vfs-shims-001
   surface_id: sur-ext-misc-vfs-shims
   name: Stackable VFS shim family (9 extensions)
@@ -3546,17 +3618,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:34:45Z'
+last_updated: '2026-08-11T09:35:12Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 174
+  surfaces_total: 178
   surfaces_by_status:
-    candidate: 174
-  behaviours_known: 174
+    candidate: 178
+  behaviours_known: 178
   behaviours_by_status:
-    candidate: 174
-  unscanned_hints: 6
+    candidate: 178
+  unscanned_hints: 2
   legacy_green: 0
   parity_green: 0

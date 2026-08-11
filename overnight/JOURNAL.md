@@ -271,3 +271,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - regexp carded with dialect-parity flag (own NFA dialect, not PCRE).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 98/120 (49+49). Totals 348. Slices this run: 36 (total 96). Zero-new-streak: 0.
+
+## Resume iteration 10 — seeds: misc-rot13, misc-uuid, misc-fossildelta, misc-compress
+
+- stop.txt: absent. Thin func unbundle continues.
+- rot13 flagged demo-only (defer recommendation, prose).
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 106/120 (53+53). Totals 356. Slices this run: 40 (total 100). Zero-new-streak: 0.
