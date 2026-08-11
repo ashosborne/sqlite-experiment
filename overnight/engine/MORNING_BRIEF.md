@@ -1,72 +1,83 @@
-# MORNING BRIEF — engine v11: thin-gap harvest (run 21)
+# MORNING BRIEF — engine v12: disk debt paid (run 22)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–20 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v11-thin-gap-harvest, GOAL = honest full growth.
-MAX_NEW_CASES 40 (used 33). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–21 stamped alongside.
+Charter: FULL_AUTONOMY overnight, COMMIT_AS sqlite-engine-v12-disk-debt.
+MAX_NEW_CASES 40 (used 20). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @11 BOUND
+## 1. Pack @12 BOUND — overflow + UNIQUE durability laws
 
-versions/11.yaml + ADR 0009, schema-validated. All laws carried (cheat-sheet ban, kitchen,
-durability, join/subquery, completion-sweep); WAL forbidden; no planner claim.
-completeness: **incomplete**.
+versions/12.yaml + ADR 0010, schema-validated. **Overflow law** (payloads exceeding one
+leaf use real overflow chains C accepts) + **index/UNIQUE durability law** (UNIQUE and
+secondary indexes persist as on-disk index b-trees; reopen enforces as C does; stripping
+UNIQUE from persisted SQL is banned — the v7 shortcut is now illegal). WAL still
+forbidden. completeness: **incomplete**.
 
-## 2. Histogram before → after
+## 2. What was implemented (modern/src/dbfile.rs + store.rs)
 
-| State | run 20 | **run 21** |
+- **Overflow chains:** SQLite local/spill formula (maxLocal 4061, minLocal 489, surplus
+  rule), 4-byte first-overflow pointer in cells, 4-byte next pointers per chain page;
+  reader reassembles chains incl. C-written files. `Val::Blob` (serial 12+2n) end-to-end,
+  X'…' literals.
+- **Index b-trees:** leaf 0x0a pages; records = key columns + rowid, binary-collation
+  sort with rowid tie-break; column autoindexes (`sqlite_autoindex_<t>_<n>`, NULL sql in
+  sqlite_schema — exactly C's shape), multi-column `UNIQUE(a,b)` table constraints,
+  explicit `CREATE [UNIQUE] INDEX` (sql persisted); DROP INDEX persisted.
+- **Reopen enforcement from the durable schema:** UNIQUE stays in persisted SQL; open
+  re-derives column flags + UNIQUE(a,b) sets + explicit index defs from the file. A
+  latent bug fell out: `conflict_row` treated NULL==NULL as a duplicate — the C golden
+  (two NULLs allowed in a UNIQUE column) forced the fix.
+
+## 3. Interop results (mandatory honesty gates — both PASS)
+
+- `rust_write_c_read_overflow` — pinned C CLI on a Rust file: **PRAGMA integrity_check →
+  ok**, `length(t)=9000`, tail substr exact, and **full-payload equality** (`t='…'` → 1).
+- `rust_write_c_unique_after_reopen` — pinned C CLI **itself rejects duplicates**
+  ("UNIQUE constraint failed") against Rust-written autoindex b-trees (int + text);
+  Rust reopen gives rc 19; count stays 2.
+- Plus `anti_cheat_overflow_runtime` (runtime marker at offset 7001 of an overflow chain,
+  read back by C) and `anti_cheat_unique_runtime` (runtime key unique-enforced after
+  reopen). Prior `rust_write_c_read_large`, FK interop, memory kitchen: still PASS.
+
+## 4. Cases: 20 frozen / 0 deferred
+
+engine-overflow-001 C001–C008 (long TEXT 6000, integrity_check, 6000-byte BLOB, mixed
+page, UPDATE grow/shrink, 15000-char multi-overflow, frozen marker) ·
+engine-indexes-001 C001–C012 (UNIQUE col / UNIQUE INDEX / secondary index visibility /
+OR IGNORE / upsert / IPK+UNIQUE / DROP INDEX / UNIQUE(a,b) / NULL uniqueness /
+post-reopen growth / TEXT UNIQUE / OR REPLACE). Two-run deterministic, delegated
+HUMAN_ACCEPTED, all 20 replay byte-identical through the Rust engine.
+
+## 5. Scoreboard before → after
+
+| State | run 21 | **run 22** |
 |---|---|---|
-| full (converted, parity UNVERIFIED) | 26 | **45** |
-| partial | 72 | **60** |
+| full | 45 | **47** (+engine-overflow-001, +engine-indexes-001) |
+| partial | 60 | 60 (2 notes materially tightened) |
 | none | 103 | 103 |
-| behaviours known | 201 | 208 (+7 harvest slices) |
+| behaviours | 208 | 210 |
 
-## 3. Behaviours flipped to full (12 + 7 new)
+**ddl-schema-002 stays partial — deliberately.** Its note now reads: durable index
+lifecycle real (on-disk b-trees, reopen-enforced, C-side duplicate rejection proven);
+still absent: expression/partial/multi-column *explicit* indexes, index-driven lookups,
+multi-leaf index b-trees. Flipping it full would have been greenwash.
+upsert-001 note tightened likewise (durable conflict targets real; expression targets absent).
 
-**Tier A:** builtin-scalar-agg-funcs-002 (DISTINCT + FILTER + HAVING close the aggregate
-family). **Tier B:** misc-sha1-001 & misc-shathree-001 (sha1_query/sha3_query via the
-extension's exact row-hash protocol — S{n}:sql · R · N/I/F/T/B big-endian value images) ·
-misc-basexx-001 (base85 + is_base85 with SQLite's numeral set + trailing newline) ·
-misc-ieee754-001 (from_blob/to_blob complete the set) · misc-uint-001 (collation now in
-ORDER BY) · misc-totype-001 (blob/overflow/integral-real strictness pinned + real) ·
-misc-uuid-001 (canonicalization) · name-resolution-002 (COLLATE terms + NULLS FIRST/LAST) ·
-foreign-keys-002 (action matrix: +ON UPDATE CASCADE/SET NULL, +ON DELETE SET DEFAULT) ·
-triggers-001 (INSTEAD OF on views, DROP TRIGGER, UPDATE OF — DDL lifecycle complete) ·
-ddl-schema-003 (RENAME COLUMN + DROP COLUMN complete the ALTER family).
-**New harvest slices (7, full from birth):** engine-agg-having / misc2 / order2 / fk2 /
-trig2 / ddl2 / upsert2 -001.
+## 6. cargo + anti-cheat
 
-## 4. Stayed partial — with honestly tighter notes (4)
+`cargo test` **268/268** (disk_debt 20, disk_debt_interop 5, all 16 prior suites
+unchanged green). SCRIPT_TABLE still 0. All 236 prior goldens md5-identical.
 
-misc-decimal-001 (decimal_exp + true arbitrary precision absent — i128-bounded) ·
-printf-format-001 (thousands-separator ',' flag + %p absent) · triggers-002
-(RAISE(IGNORE/FAIL/ROLLBACK), INSTEAD OF UPDATE/DELETE firing absent) · upsert-002
-(multi-assignment SET breadth absent). Prefer under-claiming: none of these was flipped.
+## 7. Honest leftovers
 
-## 5. New cases: 33 frozen / 0 deferred
+expression/partial indexes · multi-column explicit CREATE INDEX · index-driven lookups
+(scans remain) · multi-leaf index b-trees · freelist (files fully rewritten on save) ·
+WAL/crash recovery · everything in the none column (fts5, wasm/jni, vfs/pager/btree
+cards stay amber — this run implements format structures, not the btree module card).
 
-engine-agg-having 8 · engine-misc2 12 · engine-order2 2 · engine-fk2 3 · engine-trig2 5
-(incl. RAISE error-script) · engine-ddl2 2 · engine-upsert2 1. Two-run deterministic,
-delegated HUMAN_ACCEPTED, all replay byte-identical via the executor. C taught us:
-decimal_pow2 renders `+1.024e+03`, base85 appends a newline, `PRAGMA busy_timeout` style
-set-returns persist. Golden-caught executor bugs fixed: `_` treated as a word boundary
-(`ieee754_from_blob` parsed as FROM), kitchen SELECT silently dropping ORDER BY clauses
-it could not parse.
+**SQLite is NOT migrated.** 47 of 210 behaviours done in modern; all parity UNVERIFIED.
 
-## 6. Anti-cheat + suite
+## 8. Next call
 
-anti-cheat **12/12** (new: runtime HAVING/DISTINCT group; runtime sha1_query digests
-differ across statements; base85∘base85 round-trip of runtime ieee754 bits;
-SCRIPT_TABLE still 0). `cargo test` **243/243**; all 216 prior goldens md5-identical;
-memory + file kitchens green.
-
-## 7. Explicit honesty line
-
-**SQLite is NOT migrated.** 45 of 208 behaviours are done in modern; all 45 are
-`parity: UNVERIFIED`; parity_green 0; nothing `verified`.
-
-## 8. Next call (from the new tops)
-
-Remaining leaders unchanged (fts5, wasm/jni, vfs/pager/btree/wal estate, blob-io,
-compile-options). Partial closers within reach: (a) window-functions family breadth
-(row_number/rank/lag/lead + frames — 2 cards), (b) prepare/bind/column API widening
-(typed binds + column matrix, 6 partial cards), (c) on-disk debt (overflow pages +
-UNIQUE autoindexes → ddl-schema-002 + engine-files notes). Pack v12 + goldens first.
+(a) index-driven lookups + multi-column explicit indexes (finishes ddl-schema-002
+honestly), (b) prepare/bind/column API widening (6 partial cards), or (c) freelist +
+incremental save (durability polish). Pack v13 + goldens first.

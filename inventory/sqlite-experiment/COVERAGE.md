@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-11T21:14:44Z
+- Generated: 2026-08-11T21:33:16Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T21:14:44Z by `sqlite-engine-v11-thin-gap-harvest`
+- Manifest last_updated: 2026-08-11T21:33:16Z by `sqlite-engine-v12-disk-debt`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 103 | Not started in modern |
 | partial | 60 | Some modern execution; gaps in notes |
-| full (converted) | 45 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 47 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -65,6 +65,8 @@
 - `engine-trig2-001` — Trigger surface completion (INSTEAD OF/DROP/RAISE/OF/recursive)
 - `engine-ddl2-001` — ALTER RENAME COLUMN / DROP COLUMN
 - `engine-upsert2-001` — Upsert DO UPDATE ... WHERE
+- `engine-overflow-001` — Overflow page chains (durable large payloads)
+- `engine-indexes-001` — On-disk UNIQUE / secondary index b-trees
 
 ### Partial in modern
 
@@ -77,7 +79,7 @@
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
-- `ddl-schema-002` — CREATE INDEX tracked, UNIQUE enforced in-session; no real index b-trees or on-disk UNIQUE autoindexes
+- `ddl-schema-002` — index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced, DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes, index-driven lookups, multi-leaf index b-trees
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
 - `dml-codegen-002` — IGNORE/REPLACE/ABORT/FAIL + CHECK/NOT NULL/UNIQUE/FK real; OR ROLLBACK absent (no transactions), CHECK-on-UPDATE unpinned
 - `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
@@ -123,7 +125,7 @@
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
 - `triggers-002` — old/new, WHEN, B/A ordering, RAISE(ABORT), UPDATE OF, recursive_triggers real; RAISE(IGNORE/FAIL/ROLLBACK) and INSTEAD OF UPDATE/DELETE firing absent
-- `upsert-001` — conflict-target to PK/UNIQUE column real; index-expression targets and target WHERE absent
+- `upsert-001` — conflict targets (PK/UNIQUE col) now DURABLE: OR IGNORE/REPLACE + DO UPDATE resolve against on-disk unique indexes after reopen; index-expression targets and target WHERE still absent
 - `upsert-002` — DO NOTHING / DO UPDATE SET c=excluded.c + conditional WHERE real; multi-assignment SET breadth absent
 - `util-primitives-001` — PRNG (sqlite3_randomness) real; UTF codecs and hash primitives absent
 - `window-functions-001` — row_number + sum OVER real for pinned shapes; the built-in window family breadth absent
@@ -239,25 +241,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 203 |
-| Behaviours known | 208 |
+| Surfaces total | 205 |
+| Behaviours known | 210 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 118 |
+| legacy_green flags | 120 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 18 |
+| accepted | 20 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 45 |
+| converted | 47 |
 | documented | 163 |
 
 ## Surfaces per slice
@@ -283,10 +285,12 @@
 | engine-files | 1 |
 | engine-fk2 | 1 |
 | engine-funcs | 1 |
+| engine-indexes | 1 |
 | engine-join | 1 |
 | engine-kitchen | 1 |
 | engine-misc2 | 1 |
 | engine-order2 | 1 |
+| engine-overflow | 1 |
 | engine-pragma | 1 |
 | engine-setops | 1 |
 | engine-subquery | 1 |

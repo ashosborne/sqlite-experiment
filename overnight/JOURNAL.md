@@ -377,3 +377,17 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Golden-caught bugs: '_' word-boundary in find_kw_top; kitchen SELECT dropping unparseable ORDER BY.
 - Scoreboard: full 26→45, partial 72→60 (4 tightened, none greenwashed), none 103; behaviours 208;
   legacy_green 118; parity 0. cargo 243/243; anti-cheat 12/12; prior goldens md5-identical.
+
+## Run 22 — 2026-08-12 — engine v12: disk debt (pack v12)
+
+- Pack v11→v12 BOUND (+versions/12, ADR 0010): overflow law + index/UNIQUE durability law
+  (UNIQUE-stripping banned). 20 goldens (engine-overflow 8, engine-indexes 12), 2-run gate,
+  delegated stamp, zero deferrals, all Rust-replayed.
+- dbfile.rs: real overflow chains (local/spill formula, chain pointers, reader reassembly),
+  index b-trees (0x0a; autoindex NULL-sql schema rows, UNIQUE(a,b), explicit indexes),
+  Val::Blob serials. store.rs: UNIQUE persists; reopen re-derives enforcement; DROP INDEX;
+  NULL-distinct unique fix (C009 golden caught conflict_row NULL bug).
+- HONESTY GATES PASS: C integrity_check=ok + exact payload on Rust overflow files; C itself
+  rejects duplicates against Rust autoindex b-trees; runtime marker/key anti-cheats.
+- ddl-schema-002 kept partial (expression/multi-col explicit indexes, index lookups absent).
+- Scoreboard full 45→47; cargo 268/268; 236 prior goldens md5-identical; parity 0.

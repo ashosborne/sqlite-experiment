@@ -2214,6 +2214,24 @@ surfaces:
   notes: composed thin-gap-harvest slice (run 21); seam-kind=api
   discovery_evidence:
   - src/upsert.c:1
+- surface_id: sur-engine-overflow
+  kind: other
+  locator: sqlite3_open(path)+exec engine-overflow scripts
+  repo_path: src/btree.c
+  status: accepted
+  slice_id: engine-overflow
+  notes: composed disk-debt slice (run 22); seam-kind=api
+  discovery_evidence:
+  - src/btree.c:70
+- surface_id: sur-engine-indexes
+  kind: other
+  locator: sqlite3_open(path)+exec engine-indexes scripts
+  repo_path: src/btree.c
+  status: accepted
+  slice_id: engine-indexes
+  notes: composed disk-debt slice (run 22); seam-kind=api
+  discovery_evidence:
+  - src/btree.c:80
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2591,8 +2609,10 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: CREATE INDEX tracked, UNIQUE enforced in-session; no real index b-trees or on-disk UNIQUE autoindexes'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-22 disk
+    debt) — gaps: index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced,
+    DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes,
+    index-driven lookups, multi-leaf index b-trees'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: ddl-schema-003
@@ -4140,8 +4160,9 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: conflict-target to PK/UNIQUE column real; index-expression targets and target WHERE absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-22 disk debt) —
+    gaps: conflict targets (PK/UNIQUE col) now DURABLE: OR IGNORE/REPLACE + DO UPDATE resolve against on-disk unique indexes
+    after reopen; index-expression targets and target WHERE still absent'
   traceability: tests/characterization/upsert/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: upsert-002
@@ -4822,20 +4843,50 @@ behaviours:
   traceability: tests/characterization/engine-upsert2/TRACEABILITY.yaml
   notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
     2026-08-11 (run-21 delegated stamp)'
-last_updated: '2026-08-11T21:25:40Z'
+- behaviour_id: engine-overflow-001
+  surface_id: sur-engine-overflow
+  name: Overflow page chains (durable large payloads)
+  status: converted
+  slice_id: engine-overflow
+  discovery_card: discovery/engine-overflow/features/engine-overflow-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 12
+  traceability: tests/characterization/engine-overflow/TRACEABILITY.yaml
+  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate
+    rejection; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
+- behaviour_id: engine-indexes-001
+  surface_id: sur-engine-indexes
+  name: On-disk UNIQUE / secondary index b-trees
+  status: converted
+  slice_id: engine-indexes
+  discovery_card: discovery/engine-indexes/features/engine-indexes-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 12
+  traceability: tests/characterization/engine-indexes/TRACEABILITY.yaml
+  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate
+    rejection; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
+last_updated: '2026-08-11T21:33:16Z'
 updated_by: sqlite-engine-v12-disk-debt
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 203
+  surfaces_total: 205
   surfaces_by_status:
     candidate: 185
-    accepted: 18
-  behaviours_known: 208
+    accepted: 20
+  behaviours_known: 210
   behaviours_by_status:
     documented: 163
-    converted: 45
+    converted: 47
   unscanned_hints: 3
-  legacy_green: 118
+  legacy_green: 120
   parity_green: 0

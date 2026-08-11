@@ -1,0 +1,9 @@
+slice_id: engine-indexes
+app_id: sqlite-experiment
+seed: composed disk-debt slice (run 22)
+status: accepted
+features:
+- feature_id: engine-indexes-001
+  name: On-disk UNIQUE / secondary index b-trees
+  status: accepted
+  evidence: [src/btree.c:80]

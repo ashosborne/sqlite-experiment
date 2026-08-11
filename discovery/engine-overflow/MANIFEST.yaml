@@ -1,0 +1,9 @@
+slice_id: engine-overflow
+app_id: sqlite-experiment
+seed: composed disk-debt slice (run 22)
+status: accepted
+features:
+- feature_id: engine-overflow-001
+  name: Overflow page chains (durable large payloads)
+  status: accepted
+  evidence: [src/btree.c:70]
