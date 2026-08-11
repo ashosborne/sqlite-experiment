@@ -34,3 +34,13 @@ COMMIT_AS sqlite-testgen-spine. No RECORD / goldens / conversion. Resumed from b
   - prepare-statement-api-002: DONE sentence → autoreset truth (third step returns ROW(100) on this pin; manual rule = OMIT_AUTORESET=on contract only); finalized-statement line → "NOT observed and not safely observable (UAF even with armor); C003 permanently BLOCKED" (no observed-MISUSE claim left).
   - Discovery notes appended to both cards pointing at run 2026-08-11T1205Z-legacy-record + BASELINE fingerprint.
 - APP_MANIFEST: prepare-statement-api-002 notes += not-conversion-ready-while-C003-BLOCKED; pending-approval notes flipped to HUMAN_ACCEPTED; legacy_green still exactly the 2 stamped IDs; parity_green all false; schema VALID; COVERAGE regenerated. No other card touched. No PACK authored.
+
+## Job 2 — new spine batch (6 cases, 3 IDs)
+
+- 6 TO_BE_RECORDED cases specified for prepare-statement-api-001/003/005 exactly per the approved matrix (no additions). TRACEABILITY appended (9 rows total; 002 rows + stamp preserved). DEFERRED/README updated.
+- New harness prepare_bind_reset_harness.c: compile-checked against the pinned run-5 amalgamation (gcc link OK), NOT executed — execution would be RECORD, forbidden this run. Hard boundary honoured: handle never touched after finalize (005-C002 captures finalize.rc only).
+- Run-4 brief preserved as MORNING_BRIEF-2026-08-11-run4.md; run-6 brief written to MORNING_BRIEF.md.
+
+## End of run 6 — validation
+
+- Goldens byte-identical (md5 verified); stamp present in 4 files; C003 blocked; legacy_green exactly 2; parity_green 0; APP_MANIFEST schema VALID; write scope clean throughout; no product diffs.
