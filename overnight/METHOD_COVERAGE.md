@@ -45,3 +45,36 @@ Phase A pass produced evidence-cited candidates for that method family this run.
 **Conclusion:** checklist addressed for every family that exists in this estate; absent families
 recorded as observed-absent rather than silently skipped. `estate_scan=partial` note retained in
 APP_MANIFEST — zero-diff re-scan would still not equal completeness (residuals 1–7 above).
+
+---
+
+# Resume run 2 addendum — residual hunt (2026-08-10)
+
+This run walked run-1 residuals 1, 4, 5, 6 and the global-init-config open question, plus unbundled
+the three ext/misc umbrella clusters into 42 planned thin slices (39 scanned before the 120-delta cap).
+
+## Residuals walked this run
+
+| Run-1 residual | Now | Slices |
+| --- | --- | --- |
+| 1. Compile-time option matrix | **Carded** (diagnostics API + OMIT/ENABLE censuses; per-option carding deferred until baseline build pinned) | compile-options-omit-enable |
+| 4. Platform variants | **Carded** (win32 incl. shm/mmap, kvvfs incl. pluggable K/V methods, unix locking-style matrix/proxy/VxWorks) | vfs-win, vfs-kv, vfs-unix-variants |
+| 5. ext/wasm JS breadth | **Carded** (capi projection, oo1, worker1/promiser, OPFS async-proxy + sahpool) | wasm-js-api, wasm-opfs |
+| 6. ext/jni Java tree | **Carded** (capi Java layer, wrapper1, fts5 bindings) | jni-java-surface |
+| (open question) global init/config | **Carded** | global-init-config |
+
+## Still-open residuals (unchanged from run 1, restated honestly)
+
+2. **Crash/fault-injection behaviour** — harness remains under `test/`/`src/test_*.c` (out of scope by charter; not an oracle). Pager/WAL crash semantics still evidence-thin.
+3. **Generated-code surfaces** — unchanged; cited via source inputs only.
+7. **Runtime-only behaviour** (contention, memory pressure) — no static seam; per charter NOT minted as cards.
+8. **Out-of-scope trees** — unchanged.
+
+## New residuals from this run
+
+- 3 unscanned thin vfs-shim hints left when the 120-delta cap tripped: `misc-mmapwarm`, `misc-memtrace`, `misc-pcachetrace` (in APP_MANIFEST `unscanned_hints`).
+- Per-compile-option surface diffs: carding one slice per OMIT/ENABLE flag only makes sense after a human pins the baseline build config (else 128 speculative cards).
+- ext/wasm JS breadth below the API layer (utility namespaces, tester infrastructure) and ext/jni annotation/test packages — noted, deliberately not carded (test/annotation support, not product seams).
+
+**Conclusion:** `estate_scan=partial` remains in APP_MANIFEST notes. Empty or short hint lists after
+this run still do not mean complete — residuals 2/3/7 + the baseline-config decision are the honest gap.

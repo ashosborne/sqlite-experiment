@@ -302,3 +302,10 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Residual register (honest, per charter — empty hints would still ≠ complete): 3 thin vfs-shim hints remain unscanned: misc-mmapwarm, misc-memtrace, misc-pcachetrace (all ext/misc trace/warm helpers).
 - Run-1 rows untouched throughout: 250 baseline rows still candidate; umbrella rows (misc-vtab-packs, misc-func-packs, misc-vfs-shims, wasm-binding, jni-binding, vfs-os-abstraction) not modified — refined by 47 new thin/residual slices instead.
 - Proceeding to end-of-run artefacts: METHOD_COVERAGE resume section + new MORNING_BRIEF.
+
+## End of resume run 2 — closing artefacts + validation
+
+- METHOD_COVERAGE.md: resume addendum appended (residuals 1/4/5/6 + open question carded; residuals 2/3/7 restated; new residuals: 3 unscanned trace-helper hints, per-option carding awaits baseline pinning).
+- MORNING_BRIEF.md: new brief for this resume (run-1 brief preserved as MORNING_BRIEF-2026-08-10.md).
+- Final validation: APP_MANIFEST schema VALID; 107 slice manifests, 185 features all candidate+evidence; statuses {candidate} only; estate_scan=partial retained; run-1 rows spot-checked untouched; no completion-% strings.
+- Final tally: this run +47 slices, +60 surfaces, +60 behaviours = 120/120 delta (stop). Estate totals: 107 slices, 370 candidates, 3 hints in residual register.
