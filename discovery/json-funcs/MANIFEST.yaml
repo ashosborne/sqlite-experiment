@@ -1,51 +1,63 @@
 slice_id: json-funcs
-seed: "JSON SQL functions + json_each/json_tree vtabs (incl. JSONB)"
-seed_entrypoints: ["sqlite3RegisterJsonFunctions()"]
-out_of_scope_hints: ["vtab mechanism itself"]
+seed: JSON SQL functions + json_each/json_tree vtabs (incl. JSONB)
+seed_entrypoints:
+- sqlite3RegisterJsonFunctions()
+out_of_scope_hints:
+- vtab mechanism itself
 phase: A
-updated_at: 2026-08-10T17:56:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: json-funcs-001
-    name: JSON path extraction (json_extract, ->, ->>)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Path-expression extraction; text vs SQL-value return differs between -> and ->>."
-    entrypoints:
-      - kind: other
-        locator: "jsonExtractFunc()"
-        evidence: ["src/json.c:4071", "src/json.c:5660"]
-    dependencies: []
-    open_questions: []
-  - id: json-funcs-002
-    name: JSON mutation family (set/insert/replace/patch/remove)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Create-or-update semantics per variant; jsonb_* return binary JSONB."
-    entrypoints:
-      - kind: other
-        locator: "jsonSetFunc()"
-        evidence: ["src/json.c:4548", "src/json.c:4389", "src/json.c:5695", "src/json.c:5696"]
-    dependencies: []
-    open_questions: ["JSONB byte-format stability guarantees for downstream storage?"]
-  - id: json-funcs-003
-    name: JSON validation and typing
-    status: candidate
-    confidence: observed-in-code
-    summary: "json_valid with flags argument distinguishes JSON5/JSONB acceptance."
-    entrypoints:
-      - kind: other
-        locator: "jsonValidFunc()"
-        evidence: ["src/json.c:4700"]
-    dependencies: []
-    open_questions: []
-  - id: json-funcs-004
-    name: json_each / json_tree table-valued functions
-    status: candidate
-    confidence: observed-in-code
-    summary: "Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path."
-    entrypoints:
-      - kind: other
-        locator: "jsonEachModule"
-        evidence: ["src/json.c:5627"]
-    dependencies: ["vtab-core"]
-    open_questions: []
+- id: json-funcs-001
+  name: JSON path extraction (json_extract, ->, ->>)
+  status: accepted
+  confidence: observed-in-code
+  summary: Path-expression extraction; text vs SQL-value return differs between -> and ->>.
+  entrypoints:
+  - kind: other
+    locator: jsonExtractFunc()
+    evidence:
+    - src/json.c:4071
+    - src/json.c:5660
+  dependencies: []
+  open_questions: []
+- id: json-funcs-002
+  name: JSON mutation family (set/insert/replace/patch/remove)
+  status: accepted
+  confidence: observed-in-code
+  summary: Create-or-update semantics per variant; jsonb_* return binary JSONB.
+  entrypoints:
+  - kind: other
+    locator: jsonSetFunc()
+    evidence:
+    - src/json.c:4548
+    - src/json.c:4389
+    - src/json.c:5695
+    - src/json.c:5696
+  dependencies: []
+  open_questions:
+  - JSONB byte-format stability guarantees for downstream storage?
+- id: json-funcs-003
+  name: JSON validation and typing
+  status: accepted
+  confidence: observed-in-code
+  summary: json_valid with flags argument distinguishes JSON5/JSONB acceptance.
+  entrypoints:
+  - kind: other
+    locator: jsonValidFunc()
+    evidence:
+    - src/json.c:4700
+  dependencies: []
+  open_questions: []
+- id: json-funcs-004
+  name: json_each / json_tree table-valued functions
+  status: accepted
+  confidence: observed-in-code
+  summary: Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path.
+  entrypoints:
+  - kind: other
+    locator: jsonEachModule
+    evidence:
+    - src/json.c:5627
+  dependencies:
+  - vtab-core
+  open_questions: []

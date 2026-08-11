@@ -1,73 +1,100 @@
 slice_id: prepare-statement-api
-seed: "prepared statement lifecycle: prepare/bind/step/column/reset/finalize"
-seed_entrypoints: ["sqlite3_prepare_v2()", "sqlite3_step()", "sqlite3_finalize()"]
-out_of_scope_hints: ["SQL compilation internals", "exec wrappers"]
+seed: 'prepared statement lifecycle: prepare/bind/step/column/reset/finalize'
+seed_entrypoints:
+- sqlite3_prepare_v2()
+- sqlite3_step()
+- sqlite3_finalize()
+out_of_scope_hints:
+- SQL compilation internals
+- exec wrappers
 phase: A
-updated_at: 2026-08-10T17:50:52Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: prepare-statement-api-001
-    name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock retry)."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_prepare_v2()"
-        evidence: ["src/prepare.c:955", "src/prepare.c:700", "src/prepare.c:854", "src/sqlite.h.in:4637"]
-    dependencies: ["tokenizer", "parser-grammar"]
-    open_questions: []
-  - id: prepare-statement-api-002
-    name: Step execution state machine
-    status: candidate
-    confidence: observed-in-code
-    summary: "sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_step()"
-        evidence: ["src/vdbeapi.c:980", "src/sqlite.h.in:5347"]
-    dependencies: ["vdbe-engine"]
-    open_questions: []
-  - id: prepare-statement-api-003
-    name: Parameter binding (typed)
-    status: candidate
-    confidence: observed-in-code
-    summary: "bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_bind_text()"
-        evidence: ["src/vdbeapi.c:1892", "src/vdbeapi.c:1816", "src/vdbeapi.c:155"]
-    dependencies: []
-    open_questions: []
-  - id: prepare-statement-api-004
-    name: Column result access (typed, with coercions)
-    status: candidate
-    confidence: observed-in-code
-    summary: "column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_column_text()"
-        evidence: ["src/vdbeapi.c:1448", "src/vdbeapi.c:1468", "src/vdbeapi.c:1333"]
-    dependencies: []
-    open_questions: ["Coercion matrix is behaviour-rich; likely several cards at Phase B"]
-  - id: prepare-statement-api-005
-    name: Reset / finalize / auto-reprepare on schema change
-    status: candidate
-    confidence: observed-in-code
-    summary: "reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_finalize()"
-        evidence: ["src/vdbeapi.c:105", "src/vdbeapi.c:134", "src/prepare.c:904"]
-    dependencies: []
-    open_questions: []
-  - id: prepare-statement-api-006
-    name: Statement introspection (readonly/busy/explain)
-    status: candidate
-    confidence: observed-in-code
-    summary: "stmt_readonly/stmt_busy/stmt_explain expose statement state without executing."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_stmt_readonly()"
-        evidence: ["src/vdbeapi.c:2090", "src/vdbeapi.c:2141", "src/vdbeapi.c:2105"]
-    dependencies: []
-    open_questions: []
+- id: prepare-statement-api-001
+  name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
+  status: accepted
+  confidence: observed-in-code
+  summary: Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock retry).
+  entrypoints:
+  - kind: api
+    locator: sqlite3_prepare_v2()
+    evidence:
+    - src/prepare.c:955
+    - src/prepare.c:700
+    - src/prepare.c:854
+    - src/sqlite.h.in:4637
+  dependencies:
+  - tokenizer
+  - parser-grammar
+  open_questions: []
+- id: prepare-statement-api-002
+  name: Step execution state machine
+  status: accepted
+  confidence: observed-in-code
+  summary: sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_step()
+    evidence:
+    - src/vdbeapi.c:980
+    - src/sqlite.h.in:5347
+  dependencies:
+  - vdbe-engine
+  open_questions: []
+- id: prepare-statement-api-003
+  name: Parameter binding (typed)
+  status: accepted
+  confidence: observed-in-code
+  summary: bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_bind_text()
+    evidence:
+    - src/vdbeapi.c:1892
+    - src/vdbeapi.c:1816
+    - src/vdbeapi.c:155
+  dependencies: []
+  open_questions: []
+- id: prepare-statement-api-004
+  name: Column result access (typed, with coercions)
+  status: accepted
+  confidence: observed-in-code
+  summary: column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_column_text()
+    evidence:
+    - src/vdbeapi.c:1448
+    - src/vdbeapi.c:1468
+    - src/vdbeapi.c:1333
+  dependencies: []
+  open_questions:
+  - Coercion matrix is behaviour-rich; likely several cards at Phase B
+- id: prepare-statement-api-005
+  name: Reset / finalize / auto-reprepare on schema change
+  status: accepted
+  confidence: observed-in-code
+  summary: reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_finalize()
+    evidence:
+    - src/vdbeapi.c:105
+    - src/vdbeapi.c:134
+    - src/prepare.c:904
+  dependencies: []
+  open_questions: []
+- id: prepare-statement-api-006
+  name: Statement introspection (readonly/busy/explain)
+  status: accepted
+  confidence: observed-in-code
+  summary: stmt_readonly/stmt_busy/stmt_explain expose statement state without executing.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_stmt_readonly()
+    evidence:
+    - src/vdbeapi.c:2090
+    - src/vdbeapi.c:2141
+    - src/vdbeapi.c:2105
+  dependencies: []
+  open_questions: []

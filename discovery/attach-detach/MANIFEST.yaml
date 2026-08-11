@@ -1,40 +1,54 @@
 slice_id: attach-detach
-seed: "ATTACH / DETACH DATABASE statement behaviour"
-seed_entrypoints: ["sqlite3Attach()", "sqlite3Detach()"]
-out_of_scope_hints: ["schema loading internals", "open flags"]
+seed: ATTACH / DETACH DATABASE statement behaviour
+seed_entrypoints:
+- sqlite3Attach()
+- sqlite3Detach()
+out_of_scope_hints:
+- schema loading internals
+- open flags
 phase: A
-updated_at: 2026-08-10T17:54:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: attach-detach-001
-    name: ATTACH DATABASE
-    status: candidate
-    confidence: observed-in-code
-    summary: "ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name errors, URI handling."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3Attach()"
-        evidence: ["src/attach.c:449", "src/attach.c:74"]
-    dependencies: ["connection-lifecycle-api", "ddl-schema"]
-    open_questions: []
-  - id: attach-detach-002
-    name: DETACH DATABASE
-    status: candidate
-    confidence: observed-in-code
-    summary: "Removes attached db; errors if db is locked or in use."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3Detach()"
-        evidence: ["src/attach.c:429", "src/attach.c:293"]
-    dependencies: ["attach-detach-001"]
-    open_questions: []
-  - id: attach-detach-003
-    name: Cross-database name fixation for DDL
-    status: candidate
-    confidence: observed-in-code
-    summary: "sqlite3FixInit/sqlite3Fix* reject cross-db references inside triggers/views of attached dbs."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3FixInit()"
-        evidence: ["src/attach.c:533", "src/attach.c:561"]
-    dependencies: ["ddl-schema"]
-    open_questions: []
+- id: attach-detach-001
+  name: ATTACH DATABASE
+  status: accepted
+  confidence: observed-in-code
+  summary: ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name errors, URI handling.
+  entrypoints:
+  - kind: other
+    locator: sqlite3Attach()
+    evidence:
+    - src/attach.c:449
+    - src/attach.c:74
+  dependencies:
+  - connection-lifecycle-api
+  - ddl-schema
+  open_questions: []
+- id: attach-detach-002
+  name: DETACH DATABASE
+  status: accepted
+  confidence: observed-in-code
+  summary: Removes attached db; errors if db is locked or in use.
+  entrypoints:
+  - kind: other
+    locator: sqlite3Detach()
+    evidence:
+    - src/attach.c:429
+    - src/attach.c:293
+  dependencies:
+  - attach-detach-001
+  open_questions: []
+- id: attach-detach-003
+  name: Cross-database name fixation for DDL
+  status: accepted
+  confidence: observed-in-code
+  summary: sqlite3FixInit/sqlite3Fix* reject cross-db references inside triggers/views of attached dbs.
+  entrypoints:
+  - kind: other
+    locator: sqlite3FixInit()
+    evidence:
+    - src/attach.c:533
+    - src/attach.c:561
+  dependencies:
+  - ddl-schema
+  open_questions: []

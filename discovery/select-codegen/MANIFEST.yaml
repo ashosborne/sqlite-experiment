@@ -1,40 +1,53 @@
 slice_id: select-codegen
-seed: "SELECT compilation (joins, subqueries, compound selects)"
-seed_entrypoints: ["sqlite3Select()"]
-out_of_scope_hints: ["WHERE-loop planning", "window frames"]
+seed: SELECT compilation (joins, subqueries, compound selects)
+seed_entrypoints:
+- sqlite3Select()
+out_of_scope_hints:
+- WHERE-loop planning
+- window frames
 phase: A
-updated_at: 2026-08-10T18:00:55Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: select-codegen-001
-    name: SELECT orchestration and FROM expansion
-    status: candidate
-    confidence: observed-in-code
-    summary: "Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output modes."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3Select()"
-        evidence: ["src/select.c:7642", "src/select.c:5929"]
-    dependencies: ["where-optimizer", "expr-codegen"]
-    open_questions: []
-  - id: select-codegen-002
-    name: Compound SELECT set operations
-    status: candidate
-    confidence: observed-in-code
-    summary: "UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules."
-    entrypoints:
-      - kind: other
-        locator: "multiSelect()"
-        evidence: ["src/select.c:2978", "src/select.c:2905", "src/select.c:3443"]
-    dependencies: ["select-codegen-001"]
-    open_questions: []
-  - id: select-codegen-003
-    name: Subquery flattening rewrite
-    status: candidate
-    confidence: observed-in-code
-    summary: "Flattening under a long restriction list; changes plans invisibly — parity-relevant for corner cases."
-    entrypoints:
-      - kind: other
-        locator: "flattenSubquery()"
-        evidence: ["src/select.c:4334"]
-    dependencies: ["select-codegen-001"]
-    open_questions: []
+- id: select-codegen-001
+  name: SELECT orchestration and FROM expansion
+  status: accepted
+  confidence: observed-in-code
+  summary: 'Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output modes.'
+  entrypoints:
+  - kind: other
+    locator: sqlite3Select()
+    evidence:
+    - src/select.c:7642
+    - src/select.c:5929
+  dependencies:
+  - where-optimizer
+  - expr-codegen
+  open_questions: []
+- id: select-codegen-002
+  name: Compound SELECT set operations
+  status: accepted
+  confidence: observed-in-code
+  summary: UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules.
+  entrypoints:
+  - kind: other
+    locator: multiSelect()
+    evidence:
+    - src/select.c:2978
+    - src/select.c:2905
+    - src/select.c:3443
+  dependencies:
+  - select-codegen-001
+  open_questions: []
+- id: select-codegen-003
+  name: Subquery flattening rewrite
+  status: accepted
+  confidence: observed-in-code
+  summary: "Flattening under a long restriction list; changes plans invisibly \u2014 parity-relevant for corner cases."
+  entrypoints:
+  - kind: other
+    locator: flattenSubquery()
+    evidence:
+    - src/select.c:4334
+  dependencies:
+  - select-codegen-001
+  open_questions: []

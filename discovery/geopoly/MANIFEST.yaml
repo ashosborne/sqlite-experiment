@@ -1,18 +1,25 @@
 slice_id: geopoly
-seed: "GeoJSON polygon vtab + geopoly_* SQL functions"
-seed_entrypoints: ["sqlite3_geopoly_init()"]
-out_of_scope_hints: ["core rtree"]
+seed: GeoJSON polygon vtab + geopoly_* SQL functions
+seed_entrypoints:
+- sqlite3_geopoly_init()
+out_of_scope_hints:
+- core rtree
 phase: A
-updated_at: 2026-08-10T18:09:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: geopoly-001
-    name: Geopoly vtab and polygon functions
-    status: candidate
-    confidence: observed-in-code
-    summary: "geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function query planning."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3_geopoly_init()"
-        evidence: ["ext/rtree/geopoly.c:1795", "ext/rtree/geopoly.c:1237", "ext/rtree/geopoly.c:1180", "ext/rtree/geopoly.c:1753"]
-    dependencies: ["rtree"]
-    open_questions: []
+- id: geopoly-001
+  name: Geopoly vtab and polygon functions
+  status: accepted
+  confidence: observed-in-code
+  summary: geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function query planning.
+  entrypoints:
+  - kind: other
+    locator: sqlite3_geopoly_init()
+    evidence:
+    - ext/rtree/geopoly.c:1795
+    - ext/rtree/geopoly.c:1237
+    - ext/rtree/geopoly.c:1180
+    - ext/rtree/geopoly.c:1753
+  dependencies:
+  - rtree
+  open_questions: []

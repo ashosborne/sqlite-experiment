@@ -1,29 +1,39 @@
 slice_id: rtree
-seed: "R-tree spatial index virtual table"
-seed_entrypoints: ["sqlite3RtreeInit()"]
-out_of_scope_hints: ["geopoly"]
+seed: R-tree spatial index virtual table
+seed_entrypoints:
+- sqlite3RtreeInit()
+out_of_scope_hints:
+- geopoly
 phase: A
-updated_at: 2026-08-10T18:09:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: rtree-001
-    name: R-tree virtual table module
-    status: candidate
-    confidence: observed-in-code
-    summary: "rtree/rtree_i32 modules, 1-5 dimensions, node storage in shadow tables."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3RtreeInit()"
-        evidence: ["ext/rtree/rtree.c:4325", "ext/rtree/rtree.c:3379", "ext/rtree/rtree.c:4485"]
-    dependencies: ["vtab-core"]
-    open_questions: []
-  - id: rtree-002
-    name: Custom geometry/query callback API (MATCH)
-    status: candidate
-    confidence: observed-in-code
-    summary: "geometry_callback (legacy) and query_callback (scored traversal) create MATCH-usable SQL functions."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_rtree_query_callback()"
-        evidence: ["ext/rtree/rtree.c:4457", "ext/rtree/rtree.c:4433", "ext/rtree/rtree.c:361"]
-    dependencies: ["rtree-001"]
-    open_questions: []
+- id: rtree-001
+  name: R-tree virtual table module
+  status: accepted
+  confidence: observed-in-code
+  summary: rtree/rtree_i32 modules, 1-5 dimensions, node storage in shadow tables.
+  entrypoints:
+  - kind: other
+    locator: sqlite3RtreeInit()
+    evidence:
+    - ext/rtree/rtree.c:4325
+    - ext/rtree/rtree.c:3379
+    - ext/rtree/rtree.c:4485
+  dependencies:
+  - vtab-core
+  open_questions: []
+- id: rtree-002
+  name: Custom geometry/query callback API (MATCH)
+  status: accepted
+  confidence: observed-in-code
+  summary: geometry_callback (legacy) and query_callback (scored traversal) create MATCH-usable SQL functions.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_rtree_query_callback()
+    evidence:
+    - ext/rtree/rtree.c:4457
+    - ext/rtree/rtree.c:4433
+    - ext/rtree/rtree.c:361
+  dependencies:
+  - rtree-001
+  open_questions: []

@@ -1,29 +1,37 @@
 slice_id: pcache
-seed: "pluggable page cache (pcache interface + default pcache1)"
-seed_entrypoints: ["sqlite3PCacheSetDefault()"]
-out_of_scope_hints: ["pager usage of the cache"]
+seed: pluggable page cache (pcache interface + default pcache1)
+seed_entrypoints:
+- sqlite3PCacheSetDefault()
+out_of_scope_hints:
+- pager usage of the cache
 phase: A
-updated_at: 2026-08-10T18:04:08Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: pcache-001
-    name: Pluggable pcache2 interface boundary
-    status: candidate
-    confidence: observed-in-code
-    summary: "sqlite3_pcache_methods2 plugin seam installed via sqlite3_config."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3PcacheInitialize()"
-        evidence: ["src/pcache.c:299"]
-    dependencies: []
-    open_questions: ["Does downstream install a custom pcache?"]
-  - id: pcache-002
-    name: Default pcache1 (LRU, purgeable pages, memory pressure)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Default cache with group LRU, soft/hard limits, release-memory hooks."
-    entrypoints:
-      - kind: other
-        locator: "pcache1Create()"
-        evidence: ["src/pcache1.c:764", "src/pcache1.c:1197", "src/pcache1.c:1198"]
-    dependencies: ["malloc-subsystem"]
-    open_questions: []
+- id: pcache-001
+  name: Pluggable pcache2 interface boundary
+  status: accepted
+  confidence: observed-in-code
+  summary: sqlite3_pcache_methods2 plugin seam installed via sqlite3_config.
+  entrypoints:
+  - kind: other
+    locator: sqlite3PcacheInitialize()
+    evidence:
+    - src/pcache.c:299
+  dependencies: []
+  open_questions:
+  - Does downstream install a custom pcache?
+- id: pcache-002
+  name: Default pcache1 (LRU, purgeable pages, memory pressure)
+  status: accepted
+  confidence: observed-in-code
+  summary: Default cache with group LRU, soft/hard limits, release-memory hooks.
+  entrypoints:
+  - kind: other
+    locator: pcache1Create()
+    evidence:
+    - src/pcache1.c:764
+    - src/pcache1.c:1197
+    - src/pcache1.c:1198
+  dependencies:
+  - malloc-subsystem
+  open_questions: []

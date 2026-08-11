@@ -1,18 +1,25 @@
 slice_id: util-primitives
-seed: "shared primitives: UTF conversion, PRNG, hash tables"
-seed_entrypoints: ["sqlite3_randomness()"]
-out_of_scope_hints: ["bitvec/rowset internals"]
+seed: 'shared primitives: UTF conversion, PRNG, hash tables'
+seed_entrypoints:
+- sqlite3_randomness()
+out_of_scope_hints:
+- bitvec/rowset internals
 phase: A
-updated_at: 2026-08-10T18:05:49Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: util-primitives-001
-    name: Shared primitives (UTF codecs, PRNG, hash)
-    status: candidate
-    confidence: observed-in-code
-    summary: "UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_randomness()"
-        evidence: ["src/random.c:59", "src/utf.c:175", "src/utf.c:475", "src/hash.c:23"]
-    dependencies: []
-    open_questions: ["Invalid-UTF handling is parity-relevant for text functions"]
+- id: util-primitives-001
+  name: Shared primitives (UTF codecs, PRNG, hash)
+  status: accepted
+  confidence: observed-in-code
+  summary: UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_randomness()
+    evidence:
+    - src/random.c:59
+    - src/utf.c:175
+    - src/utf.c:475
+    - src/hash.c:23
+  dependencies: []
+  open_questions:
+  - Invalid-UTF handling is parity-relevant for text functions

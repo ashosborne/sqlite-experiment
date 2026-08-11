@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vfs-shims members
 phase: A
-updated_at: '2026-08-11T09:36:55Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-tmstmpvfs-001
   name: timestamped-backup VFS
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: "Keeps timestamped copies of the database on write \u2014 simple point-in-time backups"
   entrypoints:

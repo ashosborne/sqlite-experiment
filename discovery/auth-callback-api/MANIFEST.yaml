@@ -1,29 +1,38 @@
 slice_id: auth-callback-api
-seed: "compile-time authorizer callback (sqlite3_set_authorizer)"
-seed_entrypoints: ["sqlite3_set_authorizer()"]
-out_of_scope_hints: ["parser call sites"]
+seed: compile-time authorizer callback (sqlite3_set_authorizer)
+seed_entrypoints:
+- sqlite3_set_authorizer()
+out_of_scope_hints:
+- parser call sites
 phase: A
-updated_at: 2026-08-10T17:54:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: auth-callback-api-001
-    name: Authorizer registration and dispatch
-    status: candidate
-    confidence: observed-in-code
-    summary: "Per-connection callback consulted at compile time per action code; DENY errors the statement, IGNORE downgrades."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_set_authorizer()"
-        evidence: ["src/auth.c:70", "src/auth.c:238"]
-    dependencies: ["prepare-statement-api"]
-    open_questions: []
-  - id: auth-callback-api-002
-    name: Column-read authorization (IGNORE yields NULL)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Read authorization per column; SQLITE_IGNORE causes NULL substitution in results."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3AuthReadCol()"
-        evidence: ["src/auth.c:104", "src/auth.c:136", "src/auth.c:182"]
-    dependencies: ["auth-callback-api-001"]
-    open_questions: []
+- id: auth-callback-api-001
+  name: Authorizer registration and dispatch
+  status: accepted
+  confidence: observed-in-code
+  summary: Per-connection callback consulted at compile time per action code; DENY errors the statement, IGNORE downgrades.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_set_authorizer()
+    evidence:
+    - src/auth.c:70
+    - src/auth.c:238
+  dependencies:
+  - prepare-statement-api
+  open_questions: []
+- id: auth-callback-api-002
+  name: Column-read authorization (IGNORE yields NULL)
+  status: accepted
+  confidence: observed-in-code
+  summary: Read authorization per column; SQLITE_IGNORE causes NULL substitution in results.
+  entrypoints:
+  - kind: other
+    locator: sqlite3AuthReadCol()
+    evidence:
+    - src/auth.c:104
+    - src/auth.c:136
+    - src/auth.c:182
+  dependencies:
+  - auth-callback-api-001
+  open_questions: []

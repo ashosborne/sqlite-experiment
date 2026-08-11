@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vfs-shims members
 phase: A
-updated_at: '2026-08-11T09:36:55Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-vfslog-001
   name: vfslog binary operation logger
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog (SQLITE_EXTRA_INIT
     hook)

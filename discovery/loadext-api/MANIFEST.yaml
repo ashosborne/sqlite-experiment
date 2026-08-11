@@ -1,29 +1,43 @@
 slice_id: loadext-api
-seed: "runtime loadable extension mechanism"
-seed_entrypoints: ["sqlite3_load_extension()", "sqlite3_auto_extension()"]
-out_of_scope_hints: ["individual ext/ extensions"]
+seed: runtime loadable extension mechanism
+seed_entrypoints:
+- sqlite3_load_extension()
+- sqlite3_auto_extension()
+out_of_scope_hints:
+- individual ext/ extensions
 phase: A
-updated_at: 2026-08-10T17:52:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: loadext-api-001
-    name: Load extension with enable gate
-    status: candidate
-    confidence: observed-in-code
-    summary: "dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default (enable_load_extension gate)."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_load_extension()"
-        evidence: ["src/loadext.c:731", "src/loadext.c:561", "src/loadext.c:762", "src/sqlite.h.in:7609"]
-    dependencies: ["vfs-os-abstraction"]
-    open_questions: ["Security posture: is runtime loading allowed in target at all?"]
-  - id: loadext-api-002
-    name: Auto-extension registry
-    status: candidate
-    confidence: observed-in-code
-    summary: "Process-global list of init functions invoked for each new connection; cancel/reset APIs."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_auto_extension()"
-        evidence: ["src/loadext.c:811", "src/loadext.c:861", "src/loadext.c:889", "src/loadext.c:911"]
-    dependencies: []
-    open_questions: []
+- id: loadext-api-001
+  name: Load extension with enable gate
+  status: accepted
+  confidence: observed-in-code
+  summary: dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default (enable_load_extension
+    gate).
+  entrypoints:
+  - kind: api
+    locator: sqlite3_load_extension()
+    evidence:
+    - src/loadext.c:731
+    - src/loadext.c:561
+    - src/loadext.c:762
+    - src/sqlite.h.in:7609
+  dependencies:
+  - vfs-os-abstraction
+  open_questions:
+  - 'Security posture: is runtime loading allowed in target at all?'
+- id: loadext-api-002
+  name: Auto-extension registry
+  status: accepted
+  confidence: observed-in-code
+  summary: Process-global list of init functions invoked for each new connection; cancel/reset APIs.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_auto_extension()
+    evidence:
+    - src/loadext.c:811
+    - src/loadext.c:861
+    - src/loadext.c:889
+    - src/loadext.c:911
+  dependencies: []
+  open_questions: []

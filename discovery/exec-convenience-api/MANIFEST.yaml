@@ -1,29 +1,40 @@
 slice_id: exec-convenience-api
-seed: "one-shot SQL execution convenience wrappers (exec, get_table)"
-seed_entrypoints: ["sqlite3_exec()", "sqlite3_get_table()"]
-out_of_scope_hints: ["prepared-statement core"]
+seed: one-shot SQL execution convenience wrappers (exec, get_table)
+seed_entrypoints:
+- sqlite3_exec()
+- sqlite3_get_table()
+out_of_scope_hints:
+- prepared-statement core
 phase: A
-updated_at: 2026-08-10T17:50:52Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: exec-convenience-api-001
-    name: sqlite3_exec callback loop
-    status: candidate
-    confidence: observed-in-code
-    summary: "Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback return aborts with SQLITE_ABORT; errmsg ownership rules."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_exec()"
-        evidence: ["src/legacy.c:30", "src/sqlite.h.in:430"]
-    dependencies: ["prepare-statement-api"]
-    open_questions: []
-  - id: exec-convenience-api-002
-    name: get_table / free_table result marshalling
-    status: candidate
-    confidence: observed-in-code
-    summary: "Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_get_table()"
-        evidence: ["src/table.c:116", "src/table.c:185"]
-    dependencies: ["exec-convenience-api-001"]
-    open_questions: ["Deprecated in docs? Verify migration target need."]
+- id: exec-convenience-api-001
+  name: sqlite3_exec callback loop
+  status: accepted
+  confidence: observed-in-code
+  summary: Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback return aborts with SQLITE_ABORT;
+    errmsg ownership rules.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_exec()
+    evidence:
+    - src/legacy.c:30
+    - src/sqlite.h.in:430
+  dependencies:
+  - prepare-statement-api
+  open_questions: []
+- id: exec-convenience-api-002
+  name: get_table / free_table result marshalling
+  status: accepted
+  confidence: observed-in-code
+  summary: Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_get_table()
+    evidence:
+    - src/table.c:116
+    - src/table.c:185
+  dependencies:
+  - exec-convenience-api-001
+  open_questions:
+  - Deprecated in docs? Verify migration target need.

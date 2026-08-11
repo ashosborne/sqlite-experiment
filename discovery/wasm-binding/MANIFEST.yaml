@@ -1,18 +1,28 @@
 slice_id: wasm-binding
-seed: "WASM/JS binding (sqlite3.js API, OPFS VFS, fiddle)"
-seed_entrypoints: ["ext/wasm/api/sqlite3-wasm.c"]
-out_of_scope_hints: ["emscripten build tooling"]
+seed: WASM/JS binding (sqlite3.js API, OPFS VFS, fiddle)
+seed_entrypoints:
+- ext/wasm/api/sqlite3-wasm.c
+out_of_scope_hints:
+- emscripten build tooling
 phase: A
-updated_at: 2026-08-10T18:11:50Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: wasm-binding-001
-    name: WASM/JS API layer with OPFS persistence
-    status: candidate
-    confidence: observed-in-code
-    summary: "C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence; fiddle UI noted as adapter, deprioritized."
-    entrypoints:
-      - kind: other
-        locator: "ext/wasm/api/sqlite3-wasm.c"
-        evidence: ["ext/wasm/api/sqlite3-wasm.c:236", "ext/wasm/api/sqlite3-wasm.c:145", "ext/wasm/api/sqlite3-api-glue.c-pp.js", "ext/wasm/api/sqlite3-api-oo1.c-pp.js"]
-    dependencies: ["vfs-os-abstraction", "serialize-memdb-api"]
-    open_questions: ["Browser target in migration scope at all?"]
+- id: wasm-binding-001
+  name: WASM/JS API layer with OPFS persistence
+  status: accepted
+  confidence: observed-in-code
+  summary: C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence; fiddle UI noted as
+    adapter, deprioritized.
+  entrypoints:
+  - kind: other
+    locator: ext/wasm/api/sqlite3-wasm.c
+    evidence:
+    - ext/wasm/api/sqlite3-wasm.c:236
+    - ext/wasm/api/sqlite3-wasm.c:145
+    - ext/wasm/api/sqlite3-api-glue.c-pp.js
+    - ext/wasm/api/sqlite3-api-oo1.c-pp.js
+  dependencies:
+  - vfs-os-abstraction
+  - serialize-memdb-api
+  open_questions:
+  - Browser target in migration scope at all?

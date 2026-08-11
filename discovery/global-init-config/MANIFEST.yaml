@@ -1,40 +1,57 @@
 slice_id: global-init-config
-seed: "process-wide init/shutdown + global and per-db configuration"
-seed_entrypoints: ["sqlite3_initialize()", "sqlite3_config()", "sqlite3_db_config()"]
-out_of_scope_hints: ["configured subsystem behaviour"]
+seed: process-wide init/shutdown + global and per-db configuration
+seed_entrypoints:
+- sqlite3_initialize()
+- sqlite3_config()
+- sqlite3_db_config()
+out_of_scope_hints:
+- configured subsystem behaviour
 phase: A
-updated_at: 2026-08-10T19:20:00Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: global-init-config-001
-    name: Library init/shutdown lifecycle
-    status: candidate
-    confidence: observed-in-code
-    summary: "Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open paths."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_initialize()"
-        evidence: ["src/main.c:360", "src/main.c:389", "src/sqlite.h.in:1689"]
-    dependencies: ["malloc-subsystem", "mutex-subsystem"]
-    open_questions: []
-  - id: global-init-config-002
-    name: Global configuration op matrix
-    status: candidate
-    confidence: observed-in-code
-    summary: "sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_config()"
-        evidence: ["src/main.c:443", "src/main.c:453", "src/global.c:238", "src/sqlite.h.in:1729"]
-    dependencies: ["global-init-config-001"]
-    open_questions: []
-  - id: global-init-config-003
-    name: Per-connection configuration (db_config)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb gate..."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_db_config()"
-        evidence: ["src/main.c:967", "src/sqlite.h.in:1748"]
-    dependencies: []
-    open_questions: ["Which db_config toggles does downstream set? (defaults differ by option)"]
+- id: global-init-config-001
+  name: Library init/shutdown lifecycle
+  status: accepted
+  confidence: observed-in-code
+  summary: Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open paths.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_initialize()
+    evidence:
+    - src/main.c:360
+    - src/main.c:389
+    - src/sqlite.h.in:1689
+  dependencies:
+  - malloc-subsystem
+  - mutex-subsystem
+  open_questions: []
+- id: global-init-config-002
+  name: Global configuration op matrix
+  status: accepted
+  confidence: observed-in-code
+  summary: sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_config()
+    evidence:
+    - src/main.c:443
+    - src/main.c:453
+    - src/global.c:238
+    - src/sqlite.h.in:1729
+  dependencies:
+  - global-init-config-001
+  open_questions: []
+- id: global-init-config-003
+  name: Per-connection configuration (db_config)
+  status: accepted
+  confidence: observed-in-code
+  summary: 'Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb gate...'
+  entrypoints:
+  - kind: api
+    locator: sqlite3_db_config()
+    evidence:
+    - src/main.c:967
+    - src/sqlite.h.in:1748
+  dependencies: []
+  open_questions:
+  - Which db_config toggles does downstream set? (defaults differ by option)

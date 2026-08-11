@@ -1,29 +1,42 @@
 slice_id: vtab-core
-seed: "virtual table mechanism"
-seed_entrypoints: ["sqlite3_create_module()", "sqlite3_declare_vtab()"]
-out_of_scope_hints: ["individual vtab implementations"]
+seed: virtual table mechanism
+seed_entrypoints:
+- sqlite3_create_module()
+- sqlite3_declare_vtab()
+out_of_scope_hints:
+- individual vtab implementations
 phase: A
-updated_at: 2026-08-10T18:05:49Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: vtab-core-001
-    name: Module registration and vtab lifecycle
-    status: candidate
-    confidence: observed-in-code
-    summary: "create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_create_module()"
-        evidence: ["src/vtab.c:108", "src/vtab.c:123", "src/vtab.c:774", "src/vtab.c:699", "src/sqlite.h.in:8002"]
-    dependencies: ["ddl-schema"]
-    open_questions: []
-  - id: vtab-core-002
-    name: declare_vtab and vtab_config negotiation
-    status: candidate
-    confidence: observed-in-code
-    summary: "Column-shape declaration from inside xCreate/xConnect; constraint support flags."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_declare_vtab()"
-        evidence: ["src/vtab.c:815", "src/vtab.c:1339"]
-    dependencies: ["vtab-core-001"]
-    open_questions: ["xBestIndex cost contract is a deep Phase B topic"]
+- id: vtab-core-001
+  name: Module registration and vtab lifecycle
+  status: accepted
+  confidence: observed-in-code
+  summary: "create_module(+v2 destructor); CREATE VIRTUAL TABLE \u2192 xCreate; reconnect \u2192 xConnect."
+  entrypoints:
+  - kind: api
+    locator: sqlite3_create_module()
+    evidence:
+    - src/vtab.c:108
+    - src/vtab.c:123
+    - src/vtab.c:774
+    - src/vtab.c:699
+    - src/sqlite.h.in:8002
+  dependencies:
+  - ddl-schema
+  open_questions: []
+- id: vtab-core-002
+  name: declare_vtab and vtab_config negotiation
+  status: accepted
+  confidence: observed-in-code
+  summary: Column-shape declaration from inside xCreate/xConnect; constraint support flags.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_declare_vtab()
+    evidence:
+    - src/vtab.c:815
+    - src/vtab.c:1339
+  dependencies:
+  - vtab-core-001
+  open_questions:
+  - xBestIndex cost contract is a deep Phase B topic

@@ -1,29 +1,38 @@
 slice_id: vfs-kv
-seed: "key-value VFS backend (src/os_kv.c)"
-seed_entrypoints: ["sqlite3KvvfsInit()"]
-out_of_scope_hints: ["wasm JS glue"]
+seed: key-value VFS backend (src/os_kv.c)
+seed_entrypoints:
+- sqlite3KvvfsInit()
+out_of_scope_hints:
+- wasm JS glue
 phase: A
-updated_at: 2026-08-11T09:27:47Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: vfs-kv-001
-    name: kvvfs virtual filesystem
-    status: candidate
-    confidence: observed-in-code
-    summary: "VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage primary consumer."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3KvvfsInit()"
-        evidence: ["src/os_kv.c:1094", "src/os_kv.c:114", "src/os_kv.c:893"]
-    dependencies: []
-    open_questions: []
-  - id: vfs-kv-002
-    name: Pluggable K/V storage method table
-    status: candidate
-    confidence: observed-in-code
-    summary: "sqlite3_kvvfs_methods xRead/xWrite/xDelete callbacks replaceable at runtime."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3_kvvfs_methods"
-        evidence: ["src/os_kv.c:330", "src/os_kv.c:361"]
-    dependencies: ["vfs-kv-001"]
-    open_questions: ["Non-wasm consumers exist?"]
+- id: vfs-kv-001
+  name: kvvfs virtual filesystem
+  status: accepted
+  confidence: observed-in-code
+  summary: VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage primary consumer.
+  entrypoints:
+  - kind: other
+    locator: sqlite3KvvfsInit()
+    evidence:
+    - src/os_kv.c:1094
+    - src/os_kv.c:114
+    - src/os_kv.c:893
+  dependencies: []
+  open_questions: []
+- id: vfs-kv-002
+  name: Pluggable K/V storage method table
+  status: accepted
+  confidence: observed-in-code
+  summary: sqlite3_kvvfs_methods xRead/xWrite/xDelete callbacks replaceable at runtime.
+  entrypoints:
+  - kind: other
+    locator: sqlite3_kvvfs_methods
+    evidence:
+    - src/os_kv.c:330
+    - src/os_kv.c:361
+  dependencies:
+  - vfs-kv-001
+  open_questions:
+  - Non-wasm consumers exist?

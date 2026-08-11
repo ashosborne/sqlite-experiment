@@ -1,18 +1,23 @@
 slice_id: intck
-seed: "incremental integrity check extension"
-seed_entrypoints: ["sqlite3_intck_open()"]
-out_of_scope_hints: ["PRAGMA integrity_check"]
+seed: incremental integrity check extension
+seed_entrypoints:
+- sqlite3_intck_open()
+out_of_scope_hints:
+- PRAGMA integrity_check
 phase: A
-updated_at: 2026-08-10T18:10:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: intck-001
-    name: Incremental integrity-check lifecycle
-    status: candidate
-    confidence: observed-in-code
-    summary: "open/step/unlock/message API running integrity checks in resumable units."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_intck_open()"
-        evidence: ["ext/intck/sqlite3intck.c:801", "ext/intck/sqlite3intck.c:849", "ext/intck/sqlite3intck.c:907"]
-    dependencies: []
-    open_questions: []
+- id: intck-001
+  name: Incremental integrity-check lifecycle
+  status: accepted
+  confidence: observed-in-code
+  summary: open/step/unlock/message API running integrity checks in resumable units.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_intck_open()
+    evidence:
+    - ext/intck/sqlite3intck.c:801
+    - ext/intck/sqlite3intck.c:849
+    - ext/intck/sqlite3intck.c:907
+  dependencies: []
+  open_questions: []

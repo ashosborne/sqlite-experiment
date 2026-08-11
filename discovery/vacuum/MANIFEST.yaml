@@ -1,29 +1,40 @@
 slice_id: vacuum
-seed: "VACUUM and VACUUM INTO"
-seed_entrypoints: ["sqlite3Vacuum()"]
-out_of_scope_hints: ["auto_vacuum", "backup API"]
+seed: VACUUM and VACUUM INTO
+seed_entrypoints:
+- sqlite3Vacuum()
+out_of_scope_hints:
+- auto_vacuum
+- backup API
 phase: A
-updated_at: 2026-08-10T17:59:25Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: vacuum-001
-    name: VACUUM full rebuild
-    status: candidate
-    confidence: observed-in-code
-    summary: "Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3RunVacuum()"
-        evidence: ["src/vacuum.c:105", "src/vacuum.c:143"]
-    dependencies: ["pager", "btree"]
-    open_questions: []
-  - id: vacuum-002
-    name: VACUUM INTO target file
-    status: candidate
-    confidence: observed-in-code
-    summary: "Rebuild into named URI target; source unchanged."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3Vacuum(INTO)"
-        evidence: ["src/vacuum.c:147", "src/vacuum.c:245", "src/vacuum.c:250"]
-    dependencies: ["vacuum-001"]
-    open_questions: []
+- id: vacuum-001
+  name: VACUUM full rebuild
+  status: accepted
+  confidence: observed-in-code
+  summary: Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes.
+  entrypoints:
+  - kind: other
+    locator: sqlite3RunVacuum()
+    evidence:
+    - src/vacuum.c:105
+    - src/vacuum.c:143
+  dependencies:
+  - pager
+  - btree
+  open_questions: []
+- id: vacuum-002
+  name: VACUUM INTO target file
+  status: accepted
+  confidence: observed-in-code
+  summary: Rebuild into named URI target; source unchanged.
+  entrypoints:
+  - kind: other
+    locator: sqlite3Vacuum(INTO)
+    evidence:
+    - src/vacuum.c:147
+    - src/vacuum.c:245
+    - src/vacuum.c:250
+  dependencies:
+  - vacuum-001
+  open_questions: []

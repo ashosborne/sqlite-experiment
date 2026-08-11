@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vtab-packs members
 phase: A
-updated_at: '2026-08-11T09:31:57Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-csv-001
   name: CSV file virtual table
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: "Reads external CSV files as tables (filename= or data= args); filesystem access from SQL \u2014 security-relevant"
   entrypoints:

@@ -1,40 +1,62 @@
 slice_id: builtin-scalar-agg-funcs
-seed: "built-in scalar and aggregate SQL functions registry"
-seed_entrypoints: ["sqlite3RegisterBuiltinFunctions()"]
-out_of_scope_hints: ["date/time funcs", "JSON funcs", "window funcs", "printf"]
+seed: built-in scalar and aggregate SQL functions registry
+seed_entrypoints:
+- sqlite3RegisterBuiltinFunctions()
+out_of_scope_hints:
+- date/time funcs
+- JSON funcs
+- window funcs
+- printf
 phase: A
-updated_at: 2026-08-10T17:54:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: builtin-scalar-agg-funcs-001
-    name: Core scalar function family
-    status: candidate
-    confidence: observed-in-code
-    summary: "~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling per function."
-    entrypoints:
-      - kind: other
-        locator: "sqlite3RegisterBuiltinFunctions()"
-        evidence: ["src/func.c:3311", "src/func.c:3322", "src/func.c:3404", "src/func.c:348"]
-    dependencies: ["utf-util"]
-    open_questions: ["Family needs sub-clustering at bind time (string vs numeric vs blob)"]
-  - id: builtin-scalar-agg-funcs-002
-    name: Aggregate function family
-    status: candidate
-    confidence: observed-in-code
-    summary: "count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable) semantics."
-    entrypoints:
-      - kind: other
-        locator: "aBuiltinFunc[] aggregates"
-        evidence: ["src/func.c:3408", "src/func.c:1929", "src/func.c:3357", "src/func.c:3360"]
-    dependencies: []
-    open_questions: ["sum vs total overflow/NULL divergence is behaviour-rich"]
-  - id: builtin-scalar-agg-funcs-003
-    name: LIKE/GLOB pattern matching + case sensitivity toggle
-    status: candidate
-    confidence: observed-in-code
-    summary: "like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries IsLikeFunction for index use."
-    entrypoints:
-      - kind: other
-        locator: "likeFunc()"
-        evidence: ["src/func.c:921", "src/func.c:2348", "src/func.c:2361", "src/func.c:2388"]
-    dependencies: ["where-optimizer"]
-    open_questions: []
+- id: builtin-scalar-agg-funcs-001
+  name: Core scalar function family
+  status: accepted
+  confidence: observed-in-code
+  summary: ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling per function.
+  entrypoints:
+  - kind: other
+    locator: sqlite3RegisterBuiltinFunctions()
+    evidence:
+    - src/func.c:3311
+    - src/func.c:3322
+    - src/func.c:3404
+    - src/func.c:348
+  dependencies:
+  - utf-util
+  open_questions:
+  - Family needs sub-clustering at bind time (string vs numeric vs blob)
+- id: builtin-scalar-agg-funcs-002
+  name: Aggregate function family
+  status: accepted
+  confidence: observed-in-code
+  summary: count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable) semantics.
+  entrypoints:
+  - kind: other
+    locator: aBuiltinFunc[] aggregates
+    evidence:
+    - src/func.c:3408
+    - src/func.c:1929
+    - src/func.c:3357
+    - src/func.c:3360
+  dependencies: []
+  open_questions:
+  - sum vs total overflow/NULL divergence is behaviour-rich
+- id: builtin-scalar-agg-funcs-003
+  name: LIKE/GLOB pattern matching + case sensitivity toggle
+  status: accepted
+  confidence: observed-in-code
+  summary: like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries IsLikeFunction for index
+    use.
+  entrypoints:
+  - kind: other
+    locator: likeFunc()
+    evidence:
+    - src/func.c:921
+    - src/func.c:2348
+    - src/func.c:2361
+    - src/func.c:2388
+  dependencies:
+  - where-optimizer
+  open_questions: []

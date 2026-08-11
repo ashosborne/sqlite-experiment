@@ -1,29 +1,43 @@
 slice_id: serialize-memdb-api
-seed: "database serialize/deserialize + in-memory VFS (memdb)"
-seed_entrypoints: ["sqlite3_serialize()", "sqlite3_deserialize()"]
-out_of_scope_hints: ["file-backed VFS", "backup API"]
+seed: database serialize/deserialize + in-memory VFS (memdb)
+seed_entrypoints:
+- sqlite3_serialize()
+- sqlite3_deserialize()
+out_of_scope_hints:
+- file-backed VFS
+- backup API
 phase: A
-updated_at: 2026-08-10T17:52:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: serialize-memdb-api-001
-    name: Serialize / deserialize byte-image round-trip
-    status: candidate
-    confidence: observed-in-code
-    summary: "serialize copies or references the db image; deserialize swaps a connection onto a memory image with FREEONCLOSE/RESIZEABLE flags."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_serialize()"
-        evidence: ["src/memdb.c:750", "src/memdb.c:841", "src/sqlite.h.in:11248", "src/sqlite.h.in:11326"]
-    dependencies: ["pager"]
-    open_questions: ["SQLITE_ENABLE_DESERIALIZE gating in target build?"]
-  - id: serialize-memdb-api-002
-    name: memdb in-memory VFS
-    status: candidate
-    confidence: observed-in-code
-    summary: "Registered VFS 'memdb' provides byte-array file semantics incl. shared named images."
-    entrypoints:
-      - kind: other
-        locator: "memdb_vfs"
-        evidence: ["src/memdb.c:137", "src/memdb.c:542"]
-    dependencies: ["vfs-os-abstraction"]
-    open_questions: []
+- id: serialize-memdb-api-001
+  name: Serialize / deserialize byte-image round-trip
+  status: accepted
+  confidence: observed-in-code
+  summary: serialize copies or references the db image; deserialize swaps a connection onto a memory image with FREEONCLOSE/RESIZEABLE
+    flags.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_serialize()
+    evidence:
+    - src/memdb.c:750
+    - src/memdb.c:841
+    - src/sqlite.h.in:11248
+    - src/sqlite.h.in:11326
+  dependencies:
+  - pager
+  open_questions:
+  - SQLITE_ENABLE_DESERIALIZE gating in target build?
+- id: serialize-memdb-api-002
+  name: memdb in-memory VFS
+  status: accepted
+  confidence: observed-in-code
+  summary: Registered VFS 'memdb' provides byte-array file semantics incl. shared named images.
+  entrypoints:
+  - kind: other
+    locator: memdb_vfs
+    evidence:
+    - src/memdb.c:137
+    - src/memdb.c:542
+  dependencies:
+  - vfs-os-abstraction
+  open_questions: []

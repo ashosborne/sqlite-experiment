@@ -1,29 +1,39 @@
 slice_id: rbu
-seed: "RBU: resumable bulk update / vacuum"
-seed_entrypoints: ["sqlite3rbu_open()"]
-out_of_scope_hints: ["rbu demo CLI", "core wal"]
+seed: 'RBU: resumable bulk update / vacuum'
+seed_entrypoints:
+- sqlite3rbu_open()
+out_of_scope_hints:
+- rbu demo CLI
+- core wal
 phase: A
-updated_at: 2026-08-10T18:10:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: rbu-001
-    name: RBU update lifecycle (resumable apply)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Applies rbu-format delta db in steps; interruptible/resumable via state db; wal-stage handoff."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3rbu_open()"
-        evidence: ["ext/rbu/sqlite3rbu.c:4210", "ext/rbu/sqlite3rbu.c:3713", "ext/rbu/sqlite3rbu.c:4272"]
-    dependencies: ["wal", "vfs-os-abstraction"]
-    open_questions: []
-  - id: rbu-002
-    name: RBU vacuum mode
-    status: candidate
-    confidence: observed-in-code
-    summary: "Same stepping engine used for incremental vacuum."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3rbu_vacuum()"
-        evidence: ["ext/rbu/sqlite3rbu.c:4222"]
-    dependencies: ["rbu-001"]
-    open_questions: []
+- id: rbu-001
+  name: RBU update lifecycle (resumable apply)
+  status: accepted
+  confidence: observed-in-code
+  summary: Applies rbu-format delta db in steps; interruptible/resumable via state db; wal-stage handoff.
+  entrypoints:
+  - kind: api
+    locator: sqlite3rbu_open()
+    evidence:
+    - ext/rbu/sqlite3rbu.c:4210
+    - ext/rbu/sqlite3rbu.c:3713
+    - ext/rbu/sqlite3rbu.c:4272
+  dependencies:
+  - wal
+  - vfs-os-abstraction
+  open_questions: []
+- id: rbu-002
+  name: RBU vacuum mode
+  status: accepted
+  confidence: observed-in-code
+  summary: Same stepping engine used for incremental vacuum.
+  entrypoints:
+  - kind: api
+    locator: sqlite3rbu_vacuum()
+    evidence:
+    - ext/rbu/sqlite3rbu.c:4222
+  dependencies:
+  - rbu-001
+  open_questions: []

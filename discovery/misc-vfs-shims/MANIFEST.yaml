@@ -1,18 +1,28 @@
 slice_id: misc-vfs-shims
-seed: "ext/misc VFS wrapper extensions"
-seed_entrypoints: ["sqlite3_appendvfs_init()", "sqlite3_cksumvfs_init()"]
-out_of_scope_hints: ["core VFS"]
+seed: ext/misc VFS wrapper extensions
+seed_entrypoints:
+- sqlite3_appendvfs_init()
+- sqlite3_cksumvfs_init()
+out_of_scope_hints:
+- core VFS
 phase: A
-updated_at: 2026-08-10T18:13:06Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: misc-vfs-shims-001
-    name: Stackable VFS shim family (9 extensions)
-    status: candidate
-    confidence: observed-in-code
-    summary: "appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace — wrappers over a lower VFS."
-    entrypoints:
-      - kind: other
-        locator: "ext/misc VFS shims"
-        evidence: ["ext/misc/appendvfs.c:651", "ext/misc/cksumvfs.c:833", "ext/misc/vfsstat.c:806", "ext/misc/tmstmpvfs.c:1029"]
-    dependencies: ["vfs-os-abstraction"]
-    open_questions: ["Which shims are actually deployed downstream? cksumvfs changes the file format (reserve bytes)"]
+- id: misc-vfs-shims-001
+  name: Stackable VFS shim family (9 extensions)
+  status: accepted
+  confidence: observed-in-code
+  summary: "appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace \u2014 wrappers over\
+    \ a lower VFS."
+  entrypoints:
+  - kind: other
+    locator: ext/misc VFS shims
+    evidence:
+    - ext/misc/appendvfs.c:651
+    - ext/misc/cksumvfs.c:833
+    - ext/misc/vfsstat.c:806
+    - ext/misc/tmstmpvfs.c:1029
+  dependencies:
+  - vfs-os-abstraction
+  open_questions:
+  - Which shims are actually deployed downstream? cksumvfs changes the file format (reserve bytes)

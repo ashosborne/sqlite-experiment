@@ -1,51 +1,68 @@
 slice_id: date-time-funcs
-seed: "date/time SQL functions"
-seed_entrypoints: ["sqlite3RegisterDateTimeFunctions()"]
-out_of_scope_hints: ["other builtin functions"]
+seed: date/time SQL functions
+seed_entrypoints:
+- sqlite3RegisterDateTimeFunctions()
+out_of_scope_hints:
+- other builtin functions
 phase: A
-updated_at: 2026-08-10T17:56:13Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: date-time-funcs-001
-    name: Core date/time conversion functions
-    status: candidate
-    confidence: observed-in-code
-    summary: "date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD."
-    entrypoints:
-      - kind: other
-        locator: "dateFunc()/datetimeFunc()"
-        evidence: ["src/date.c:1351", "src/date.c:1249", "src/date.c:1210", "src/date.c:1228", "src/date.c:1858"]
-    dependencies: []
-    open_questions: []
-  - id: date-time-funcs-002
-    name: strftime formatting
-    status: candidate
-    confidence: observed-in-code
-    summary: "%-directive formatter over parsed DateTime."
-    entrypoints:
-      - kind: other
-        locator: "strftimeFunc()"
-        evidence: ["src/date.c:1463"]
-    dependencies: ["date-time-funcs-001"]
-    open_questions: []
-  - id: date-time-funcs-003
-    name: Modifier grammar (localtime, +N units, weekday, start of ...)
-    status: candidate
-    confidence: observed-in-code
-    summary: "Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion."
-    entrypoints:
-      - kind: other
-        locator: "computeJD()+modifiers"
-        evidence: ["src/date.c:260", "src/date.c:763", "src/date.c:821", "src/date.c:898"]
-    dependencies: ["vfs-os-abstraction"]
-    open_questions: ["localtime depends on host tz database — characterization must pin TZ"]
-  - id: date-time-funcs-004
-    name: timediff interval arithmetic
-    status: candidate
-    confidence: observed-in-code
-    summary: "Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes."
-    entrypoints:
-      - kind: other
-        locator: "timediffFunc()"
-        evidence: ["src/date.c:1671"]
-    dependencies: ["date-time-funcs-001"]
-    open_questions: []
+- id: date-time-funcs-001
+  name: Core date/time conversion functions
+  status: accepted
+  confidence: observed-in-code
+  summary: date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD.
+  entrypoints:
+  - kind: other
+    locator: dateFunc()/datetimeFunc()
+    evidence:
+    - src/date.c:1351
+    - src/date.c:1249
+    - src/date.c:1210
+    - src/date.c:1228
+    - src/date.c:1858
+  dependencies: []
+  open_questions: []
+- id: date-time-funcs-002
+  name: strftime formatting
+  status: accepted
+  confidence: observed-in-code
+  summary: '%-directive formatter over parsed DateTime.'
+  entrypoints:
+  - kind: other
+    locator: strftimeFunc()
+    evidence:
+    - src/date.c:1463
+  dependencies:
+  - date-time-funcs-001
+  open_questions: []
+- id: date-time-funcs-003
+  name: Modifier grammar (localtime, +N units, weekday, start of ...)
+  status: accepted
+  confidence: observed-in-code
+  summary: Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
+  entrypoints:
+  - kind: other
+    locator: computeJD()+modifiers
+    evidence:
+    - src/date.c:260
+    - src/date.c:763
+    - src/date.c:821
+    - src/date.c:898
+  dependencies:
+  - vfs-os-abstraction
+  open_questions:
+  - "localtime depends on host tz database \u2014 characterization must pin TZ"
+- id: date-time-funcs-004
+  name: timediff interval arithmetic
+  status: accepted
+  confidence: observed-in-code
+  summary: Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes.
+  entrypoints:
+  - kind: other
+    locator: timediffFunc()
+    evidence:
+    - src/date.c:1671
+  dependencies:
+  - date-time-funcs-001
+  open_questions: []

@@ -1,18 +1,28 @@
 slice_id: unlock-notify-api
-seed: "shared-cache unlock notification (sqlite3_unlock_notify)"
-seed_entrypoints: ["sqlite3_unlock_notify()"]
-out_of_scope_hints: ["busy handler", "shared-cache internals"]
+seed: shared-cache unlock notification (sqlite3_unlock_notify)
+seed_entrypoints:
+- sqlite3_unlock_notify()
+out_of_scope_hints:
+- busy handler
+- shared-cache internals
 phase: A
-updated_at: 2026-08-10T17:52:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: unlock-notify-api-001
-    name: Unlock notification with deadlock detection
-    status: candidate
-    confidence: observed-in-code
-    summary: "Registers callback fired when the blocking connection unlocks; cycle detection returns SQLITE_LOCKED; fire-and-forget async seam."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_unlock_notify()"
-        evidence: ["src/notify.c:148", "src/notify.c:201", "src/notify.c:229", "src/notify.c:328"]
-    dependencies: ["btree"]
-    open_questions: ["SQLITE_ENABLE_UNLOCK_NOTIFY + shared-cache both required — enabled in target build?"]
+- id: unlock-notify-api-001
+  name: Unlock notification with deadlock detection
+  status: accepted
+  confidence: observed-in-code
+  summary: Registers callback fired when the blocking connection unlocks; cycle detection returns SQLITE_LOCKED; fire-and-forget
+    async seam.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_unlock_notify()
+    evidence:
+    - src/notify.c:148
+    - src/notify.c:201
+    - src/notify.c:229
+    - src/notify.c:328
+  dependencies:
+  - btree
+  open_questions:
+  - "SQLITE_ENABLE_UNLOCK_NOTIFY + shared-cache both required \u2014 enabled in target build?"

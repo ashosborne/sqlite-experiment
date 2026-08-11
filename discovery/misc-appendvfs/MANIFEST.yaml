@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vfs-shims members
 phase: A
-updated_at: '2026-08-11T09:35:51Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-appendvfs-001
   name: appendvfs (db appended to host file)
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: Opens a db image appended to another file (e.g. self-contained executable) with marker + offset handling
   entrypoints:

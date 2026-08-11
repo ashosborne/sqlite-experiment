@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vtab-packs members
 phase: A
-updated_at: '2026-08-11T09:31:57Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-unionvtab-001
   name: unionvtab + swarmvtab (same source file)
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: "Presents many identically-shaped tables (optionally lazily-attached dbs \u2014 swarmvtab) as one table"
   entrypoints:

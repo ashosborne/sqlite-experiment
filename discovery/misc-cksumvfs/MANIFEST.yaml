@@ -5,11 +5,11 @@ seed_entrypoints:
 out_of_scope_hints:
 - other misc-vfs-shims members
 phase: A
-updated_at: '2026-08-11T09:35:51Z'
+updated_at: '2026-08-11T10:19:28Z'
 features:
 - id: misc-cksumvfs-001
   name: cksumvfs per-page checksums
-  status: candidate
+  status: accepted
   confidence: observed-in-code
   summary: "8-byte per-page checksums in reserve bytes; verification on read \u2014 FILE-FORMAT IMPACT (reserve-bytes requirement)"
   entrypoints:

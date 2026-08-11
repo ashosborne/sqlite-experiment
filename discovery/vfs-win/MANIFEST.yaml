@@ -1,29 +1,41 @@
 slice_id: vfs-win
-seed: "Windows VFS implementation (src/os_win.c)"
-seed_entrypoints: ["sqlite3_os_init() [win]", "winOpen()"]
-out_of_scope_hints: ["unix VFS", "core VFS registry"]
+seed: Windows VFS implementation (src/os_win.c)
+seed_entrypoints:
+- sqlite3_os_init() [win]
+- winOpen()
+out_of_scope_hints:
+- unix VFS
+- core VFS registry
 phase: A
-updated_at: 2026-08-11T09:27:47Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: vfs-win-001
-    name: Win32 VFS registration and file open
-    status: candidate
-    confidence: observed-in-code
-    summary: "winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines run-1 vfs-os-abstraction-003."
-    entrypoints:
-      - kind: other
-        locator: "winOpen()"
-        evidence: ["src/os_win.c:5210", "src/os_win.c:5211", "src/os_win.c:3063"]
-    dependencies: []
-    open_questions: ["Windows in migration scope?"]
-  - id: vfs-win-002
-    name: Windows shared-memory and mmap paths (WAL)
-    status: candidate
-    confidence: observed-in-code
-    summary: "winShmMap implements wal-index shm on win32; winFetch mmap read path."
-    entrypoints:
-      - kind: other
-        locator: "winShmMap()"
-        evidence: ["src/os_win.c:3586", "src/os_win.c:3723", "src/os_win.c:3876"]
-    dependencies: ["wal"]
-    open_questions: []
+- id: vfs-win-001
+  name: Win32 VFS registration and file open
+  status: accepted
+  confidence: observed-in-code
+  summary: winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines run-1 vfs-os-abstraction-003.
+  entrypoints:
+  - kind: other
+    locator: winOpen()
+    evidence:
+    - src/os_win.c:5210
+    - src/os_win.c:5211
+    - src/os_win.c:3063
+  dependencies: []
+  open_questions:
+  - Windows in migration scope?
+- id: vfs-win-002
+  name: Windows shared-memory and mmap paths (WAL)
+  status: accepted
+  confidence: observed-in-code
+  summary: winShmMap implements wal-index shm on win32; winFetch mmap read path.
+  entrypoints:
+  - kind: other
+    locator: winShmMap()
+    evidence:
+    - src/os_win.c:3586
+    - src/os_win.c:3723
+    - src/os_win.c:3876
+  dependencies:
+  - wal
+  open_questions: []

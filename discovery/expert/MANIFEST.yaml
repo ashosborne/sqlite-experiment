@@ -1,18 +1,25 @@
 slice_id: expert
-seed: "sqlite3expert index-recommendation library"
-seed_entrypoints: ["sqlite3_expert_new()"]
-out_of_scope_hints: ["expert CLI main"]
+seed: sqlite3expert index-recommendation library
+seed_entrypoints:
+- sqlite3_expert_new()
+out_of_scope_hints:
+- expert CLI main
 phase: A
-updated_at: 2026-08-10T18:10:30Z
+updated_at: '2026-08-11T10:19:28Z'
 features:
-  - id: expert-001
-    name: Index recommendation lifecycle
-    status: candidate
-    confidence: observed-in-code
-    summary: "Collect SQL workload, analyze against hypothetical indexes, report candidates + EQP."
-    entrypoints:
-      - kind: api
-        locator: "sqlite3_expert_new()"
-        evidence: ["ext/expert/sqlite3expert.c:1988", "ext/expert/sqlite3expert.c:2093", "ext/expert/sqlite3expert.c:2142", "ext/expert/sqlite3expert.c:2196"]
-    dependencies: ["where-optimizer"]
-    open_questions: []
+- id: expert-001
+  name: Index recommendation lifecycle
+  status: accepted
+  confidence: observed-in-code
+  summary: Collect SQL workload, analyze against hypothetical indexes, report candidates + EQP.
+  entrypoints:
+  - kind: api
+    locator: sqlite3_expert_new()
+    evidence:
+    - ext/expert/sqlite3expert.c:1988
+    - ext/expert/sqlite3expert.c:2093
+    - ext/expert/sqlite3expert.c:2142
+    - ext/expert/sqlite3expert.c:2196
+  dependencies:
+  - where-optimizer
+  open_questions: []
