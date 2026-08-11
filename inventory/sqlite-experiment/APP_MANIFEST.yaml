@@ -2233,10 +2233,10 @@ behaviours:
   status: documented
   slice_id: connection-lifecycle-api
   discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by
-    sqlite3ParseUri (vfs/mode/cache params).
+    sqlite3ParseUri (vfs/mode/cache params). | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
   traceability: tests/characterization/connection-lifecycle-api/TRACEABILITY.yaml
 - behaviour_id: connection-lifecycle-api-002
   surface_id: sur-sqlite3-close-v2
@@ -2384,10 +2384,10 @@ behaviours:
   status: documented
   slice_id: exec-convenience-api
   discovery_card: discovery/exec-convenience-api/features/exec-convenience-api-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback
-    return aborts with SQLITE_ABORT; errmsg ownership rules.
+    return aborts with SQLITE_ABORT; errmsg ownership rules. | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
   traceability: tests/characterization/exec-convenience-api/TRACEABILITY.yaml
 - behaviour_id: exec-convenience-api-002
   surface_id: sur-sqlite3-get-table
@@ -3777,8 +3777,8 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T14:02:56Z'
-updated_by: sqlite-record-open-exec
+last_updated: '2026-08-11T14:34:09Z'
+updated_by: sqlite-oneshot-50-slices
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -3790,5 +3790,5 @@ counts:
   behaviours_by_status:
     documented: 185
   unscanned_hints: 3
-  legacy_green: 5
+  legacy_green: 7
   parity_green: 0

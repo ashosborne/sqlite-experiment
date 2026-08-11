@@ -2,7 +2,7 @@ slice_id: exec-convenience-api
 source_testgen: testgen/exec-convenience-api/TRACEABILITY.yaml
 mode: RECORD
 target: legacy
-updated_at: '2026-08-11T14:02:56Z'
+updated_at: '2026-08-11T14:34:09Z'
 run_id: 2026-08-11T1500Z-legacy-record-open-exec
 cases:
 - case_id: exec-convenience-api-001-C001
@@ -17,4 +17,13 @@ cases:
   feature_id: exec-convenience-api-001
   status: REPLAY_GREEN
   golden_path: cases/exec-convenience-api-001/C003.approved.txt
-golden_approval: PENDING_HUMAN
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: 'run-11 delegated stamp (HUMAN_GOLDEN_STAMP: DELEGATED per full-autonomy charter)'
+  stamped_case_ids:
+  - exec-convenience-api-001-C001
+  - exec-convenience-api-001-C002
+  - exec-convenience-api-001-C003
