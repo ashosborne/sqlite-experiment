@@ -83,3 +83,13 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Job 1: pack v6 BOUND — DURABILITY LAW (C-readable SQLite file required; private dump = SCOPE_VIOLATION; WAL out of scope); data.file_format_parity set; ADR 0004; versions/1-6.
 - Job 3: modern/src/dbfile.rs — real SQLite on-disk format writer+reader (100-byte header, sqlite_schema leaf, per-table leaf pages, serial-type records, varints). sqlite3_open(path) loads file into the v5 store; close saves it. HONESTY GATE PASS: rust_write_c_read (pinned CLI reads Rust's file); c_write_rust_read PASS; anti_cheat_reopen_runtime PASS. Five engine-files golden replays green. cargo 119/119. No C link; 45 exported symbols.
 - Invariants: 122 prior goldens md5-identical; C003 BLOCKED; parity 0; :memory: kitchen unchanged; same branch.
+
+---
+
+# Run 16 — engine v7 multi-page + durable schema (sqlite-engine-v7-schema-disk)
+
+- dbfile.rs v7: interior table b-trees (0x05 + right-most pointer) + leaves, INTEGER PRIMARY KEY=rowid, sqlite_schema rows for tables (REFERENCES kept) + triggers. read supports interior traversal + parses C-written files. store: capture raw CREATE sql, sanitize (strip standalone UNIQUE) on persist, reload FK/triggers on open; SELECT gained WHERE col=literal.
+- MANDATORY interop PASS: rust_write_c_read_large (C integrity_check=ok on 1500-row multi-page Rust file; count 1501; runtime value via WHERE) and rust_write_c_read_unique_or_fk (C enforces FK on Rust file: orphan rejected). Plus c_write_rust_read, anti_cheat_reopen_runtime/_many_rows.
+- 28-case file batch (A size/pages 6, B schema-on-disk 12, C twins 10) generated as ONE case list -> C harness (golden, 2-run determinism) + generated Rust replay; delegated HUMAN_ACCEPTED. Batch SQL absent from script_table (grep 0).
+- Deferred honestly: overflow pages; post-reopen UNIQUE-index enforcement (column-UNIQUE stripped from persisted sql, rows deduped in-session).
+- De-flaked loadext_002 (db-pointer set vs global counter). cargo 150/150. Pack v7 BOUND (in_scope 150; durable_path 33); ADR 0005. legacy_green 100/190; parity 0; 127 prior goldens md5-identical; C003 BLOCKED; no C link/wasm/WAL.

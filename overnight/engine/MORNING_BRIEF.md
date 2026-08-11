@@ -1,63 +1,76 @@
-# MORNING BRIEF — sqlite-experiment run 15: engine v6, durable files the C library can read
+# MORNING BRIEF — sqlite-experiment run 16: engine v7, multi-page + durable schema on disk
 
-Run: 2026-08-11 · from `4ee6e851a` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-engine-v6-files`
-(Run-14 brief preserved as `MORNING_BRIEF-2026-08-11-run14.md`.)
+Run: 2026-08-11 · from `75af6d9ed` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-engine-v7-schema-disk`
+(Run-15 brief preserved as `MORNING_BRIEF-2026-08-11-run15.md`.)
 
-## 1. Pack @6 BOUND — the durability law (quoted)
+## 1. Pack @7 BOUND — the multi-page + persist-rules law (quoted)
 
-`sqlite-experiment-c-to-rust@6` — **BOUND** (SUPERSEDE v5; versions/1–6 retained; schema-valid; 122 in-scope). `forbidden[0]`:
+`sqlite-experiment-c-to-rust@7` — **BOUND** (SUPERSEDE v6; versions/1–7 retained; schema-valid; 150 in-scope). `forbidden[0]`:
 
-> "DURABILITY LAW (v6): for a file-path open, persisting kitchen data only in process memory while claiming the file worked, OR using a Rust-only dump format (JSON/bincode/msgpack) as the on-disk durability format, is a SCOPE_VIOLATION. The file must be a SQLite database file the pinned C library can open and SELECT from. PRAGMA journal_mode=WAL is out of scope this version."
+> "MULTI-PAGE + PERSIST-RULES LAW (v7): a file-path kitchen exceeding one leaf MUST use real SQLite multi-page b-trees (interior 0x05 + leaves) the pinned C library reads (integrity_check must pass); FK declarations (REFERENCES) and triggers the memory kitchen supports MUST be persisted in sqlite_schema so reopen + C observe them. Answering any durable_path_cases SQL by script_table string-match remains a SCOPE_VIOLATION. WAL still forbidden."
 
-## 2. File goldens frozen + stamped
+## 2. New cases: 28 frozen, 0 deferred-in-batch (2 themes deferred at design)
 
-New slice `engine-files` (discovery card cites main.c/pager.c/os_unix.c/btree.c). Five durable
-round-trips (write → close → reopen → SELECT) frozen on the pinned C library
-(`2026-08-11T1900Z-legacy-record-files`, two-run determinism 5/5) and delegated HUMAN_ACCEPTED:
-C001 (INTEGER 7), C002 (INTEGER+TEXT, ORDER BY), C003 (INSERT then UPDATE/DELETE across two
-reopens → [3,12]), C004 (777001 survives), C005 (424243 survives).
+| Batch | Feature | Cases | Themes |
+| --- | --- | --- | --- |
+| A (size/pages) | engine-files-002 | 6 | 1200-row multi-leaf count + WHERE middle row; 40×200-char TEXT multi-leaf count + specific text; 40-row mixed; small mixed ORDER BY with fresh literal 888002 |
+| B (schema on disk) | engine-files-003 | 12 | FK orphan-after-reopen→19, FK valid, CASCADE, trigger persist+fire, sqlite_master lists trigger, ALTER RENAME, ALTER ADD COLUMN DEFAULT, PK upsert DO NOTHING/DO UPDATE, IPK survives, multi-column, two-FK-tables |
+| C (catalogue twins) | engine-files-004 | 10 | engine-kitchen C001–C005 durable twins, name-resolution, UNIQUE-INDEX + column-UNIQUE dedup twins, FK CASCADE, trigger*2 |
 
-## 3. How persistence works (one paragraph)
+All 28 recorded on the pin C (`2026-08-11T2000Z-legacy-record-files-batch`, two-run determinism 164/164 OBS
+lines), delegated HUMAN_ACCEPTED. **Design-time deferrals (honest, in pack `known_risks`):** overflow pages
+(TEXT > one leaf) and post-reopen UNIQUE-index enforcement (non-IPK autoindex b-trees) — column-UNIQUE is
+stripped from persisted sql (rows already de-duplicated in-session), so a duplicate insert *after* reopen is
+not enforced on disk this version. Not cheated.
 
-`sqlite3_open(path)` on a real path loads any existing SQLite file into the in-memory v5 store, all
-DDL/DML/SELECT run there, and `sqlite3_close` serialises the store back to the file. The format is
-the genuine SQLite on-disk layout (`modern/src/dbfile.rs`): a 100-byte database header, page 1
-holding the `sqlite_schema` b-tree leaf, and one b-tree leaf page per user table with rows encoded
-as records (SQLite serial types). Page size 4096, rollback-journal header, no WAL. Limits: single
-leaf page per table (tiny data — no interior/overflow pages), INTEGER/TEXT/NULL, and UNIQUE/FK/
-triggers are not persisted to disk (memory kitchen keeps them).
+## 3. Page kinds implemented
 
-## 4. Interop results
+Table b-tree **leaf** pages (0x0d) and **interior** pages (0x05) with a right-most pointer — real
+multi-leaf b-trees for large tables. Records use SQLite serial types + varints. INTEGER PRIMARY KEY
+stored as rowid (column NULL). `sqlite_schema` (page 1 leaf) carries table rows (with REFERENCES/FK sql)
+and trigger rows (type='trigger', rootpage 0, sql). **Overflow pages: not implemented** (deferred).
 
-- **`rust_write_c_read` — PASS (mandatory):** Rust writes a file with a runtime value; the pinned
-  `sqlite3` CLI opens it and `SELECT`s the value back. This is the honesty gate — C reads Rust.
-- **`c_write_rust_read` — PASS (best-effort, not deferred):** the pinned CLI creates a DB; Rust's
-  `dbfile::read_db` parses it and SELECTs the value.
-- **`anti_cheat_reopen_runtime` — PASS:** runtime integer, Rust close/reopen, SELECT back
-  (`// anti-cheat: not in script_table`).
+## 4. Interop results (both mandatory C-read tests PASS)
+
+- **`rust_write_c_read_large` — PASS:** Rust writes a 1500-row multi-page table with a runtime value; the
+  pinned C CLI reports `count(*)=1501`, reads the runtime value via `WHERE`, and **`PRAGMA integrity_check`
+  returns `ok`** (proves the interior b-tree is well-formed to C).
+- **`rust_write_c_read_unique_or_fk` — PASS (via FK):** Rust writes an IPK parent + FK child; C reads the
+  valid child and **rejects an orphan insert** (`FOREIGN KEY constraint failed`).
+- Also green: `c_write_rust_read`, `rust_write_c_read`, `anti_cheat_reopen_runtime`, `anti_cheat_reopen_many_rows`.
 
 ## 5. cargo test
 
-**119/119 green** — 8 spine + 69 generated script compares + 20 kitchen/re-homed (v4/v5) + 5
-engine-files replays + 3 interop + 3 leftovers + 11 bespoke. The v4/v5 **memory kitchen is
-untouched and still green**; `:memory:` opens never touch the file path.
+**150/150 green** — 8 spine + 69 generated script compares + 20 kitchen/re-homed + 5 engine-files (v6) +
+28 file-batch (v7) + 6 interop + 3 leftovers + 11 bespoke. The `:memory:` memory kitchen is unchanged and
+still green. (De-flaked `loadext_002`: it now tracks auto-inited db pointers instead of a process-global
+counter, robust under parallel test threads.)
 
-## 6. Still incomplete
+## 6. Catalogue impact — durable file evidence
 
-WAL, crash recovery, the VFS matrix, interior/overflow b-tree pages, full btree feature parity, and
-persisted UNIQUE/FK/triggers on disk. `pager-*`, `vfs-*`, `btree-*`, `vdbe-engine-*` stay
-documented-but-not-green (APP_MANIFEST notes "touched by engine-files, not frozen" — no green flag).
+Behaviours with durable **file-path** evidence now: engine-files-001..004 (the 33 durable cases), covering
+size/pages, FK, triggers, ALTER, PK upserts, IPK, multi-column, and durable twins of engine-kitchen /
+name-resolution / ddl / dml / fk. Memory-only-but-not-durable still: everything else in the 190-behaviour
+catalogue (the recognizer/expression scripts, and advanced constraints whose on-disk enforcement is deferred).
+`legacy_green` = **100 of 190**.
 
-## 7. completeness: incomplete
+## 7. Leftover (as expected)
 
-122 cases; `legacy_green` = 97 of 187 behaviours; a toy single-page file writer. **SQLite is not migrated.**
+WAL, crash recovery, VFS matrix, overflow pages, on-disk UNIQUE-index enforcement after reopen, joins,
+wasm/jni/bindings, and the whole engine core (`vdbe-engine`, `btree`, `pager`, `pcache`, `where-optimizer`)
+which remain documented-but-not-green (honest notes, no green flags).
 
-## 8. Invariants
+## 8. completeness: incomplete
 
-All 122 prior goldens byte-identical (md5). C003 (UAF) still BLOCKED. Same branch, no PR, no wasm,
-no `sqlite3.c` link in `modern/`, no private durability format. `parity_green` = 0.
+150 in-scope cases; a real-but-toy pager/b-tree that stores multi-page tables and durable FK/triggers.
+No WAL, no overflow, no planner. **SQLite is not migrated.**
 
-## 9. Next operator call
+## 9. Invariants
 
-WAL/crash-safety (big pager law change), OR widen memory kitchen (JOIN/WHERE/expressions), OR more
-schema on disk (multi-page tables, persisted indexes/FK). Pack v7 + goldens first.
+All 127 prior goldens byte-identical (md5). C003 (UAF) BLOCKED. Same branch, no PR, no wasm, no
+`sqlite3.c` link (45 exported symbols), no private durability format, no WAL. `parity_green` = 0.
+
+## 10. Next operator call
+
+WAL + crash-safety (big pager law change), OR overflow pages + on-disk UNIQUE autoindexes (finish durable
+schema), OR joins/expressions in the kitchen. Pack v8 + goldens first, either way.
