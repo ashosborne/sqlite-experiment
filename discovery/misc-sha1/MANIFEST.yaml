@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_sha_init()
 out_of_scope_hints:
 - other misc-func-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:36:16Z'
 features:
 - id: misc-sha1-001
   name: sha1() hash functions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: sha1(X) and sha1_query(SQL) digests
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - loadext-api
   open_questions:
   - "Legacy hash \u2014 retire vs keep"
+  behaviour_doc: features/misc-sha1-001.md

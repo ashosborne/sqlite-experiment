@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_btreeinfo_init()
 out_of_scope_hints:
 - other misc-vtab-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:36:16Z'
 features:
 - id: misc-btreeinfo-001
   name: sqlite_btreeinfo introspection vtab
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Per-btree stats (depth, page counts, estimated entries) via sqlite_dbpage
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - vtab-core
   - introspection-vtabs
   open_questions: []
+  behaviour_doc: features/misc-btreeinfo-001.md

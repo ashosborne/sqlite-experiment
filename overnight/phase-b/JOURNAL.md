@@ -94,3 +94,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 
 - misc-series/csv/zipfile-sqlar/unionvtab/qpvtab/completion/closure/amatch/fuzzer/prefixes/wholenumber/stmt/templatevtab → documented, observed-in-code.
 - Upsert: PASS (documented=159). COVERAGE regenerated.
+
+## Batch 14 — thin misc cards B (13 cards)
+
+- misc-vtablog/vtshim/btreeinfo/zorder/basexx/sha1/shathree/decimal/ieee754/percentile/totype/uint/regexp → documented, observed-in-code.
+- Type asymmetry (sha1 hex TEXT vs sha3 BLOB) and strict-conversion contracts pinned; regexp non-PCRE dialect carded.
+- Upsert: PASS (documented=172). COVERAGE regenerated.

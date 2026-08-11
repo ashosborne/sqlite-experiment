@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_percentile_init()
 out_of_scope_hints:
 - other misc-func-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:36:16Z'
 features:
 - id: misc-percentile-001
   name: percentile / median aggregates
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Order-statistics aggregates incl. percentile_cont/percentile_disc variants
   entrypoints:
@@ -20,3 +20,4 @@ features:
   dependencies:
   - loadext-api
   open_questions: []
+  behaviour_doc: features/misc-percentile-001.md

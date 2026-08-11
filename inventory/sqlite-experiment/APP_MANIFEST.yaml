@@ -2692,9 +2692,9 @@ behaviours:
 - behaviour_id: misc-basexx-001
   surface_id: sur-sqlite3-basexx-init
   name: base64 + base85 + combined basexx encoders (one optional pack)
-  status: accepted
+  status: documented
   slice_id: misc-basexx
-  discovery_card: null
+  discovery_card: discovery/misc-basexx/features/misc-basexx-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; base64()/base85() blob<->text conversions; basexx.c registers both — kept as the one
@@ -2702,9 +2702,9 @@ behaviours:
 - behaviour_id: misc-btreeinfo-001
   surface_id: sur-sqlite3-btreeinfo-init
   name: sqlite_btreeinfo introspection vtab
-  status: accepted
+  status: documented
   slice_id: misc-btreeinfo
-  discovery_card: null
+  discovery_card: discovery/misc-btreeinfo/features/misc-btreeinfo-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Per-btree stats (depth, page counts, estimated entries) via sqlite_dbpage
@@ -2758,9 +2758,9 @@ behaviours:
 - behaviour_id: misc-decimal-001
   surface_id: sur-sqlite3-decimal-init
   name: arbitrary-precision decimal arithmetic
-  status: accepted
+  status: documented
   slice_id: misc-decimal
-  discovery_card: null
+  discovery_card: discovery/misc-decimal/features/misc-decimal-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence
@@ -2795,9 +2795,9 @@ behaviours:
 - behaviour_id: misc-ieee754-001
   surface_id: sur-sqlite3-ieee-init
   name: IEEE754 float decomposition functions
-  status: accepted
+  status: documented
   slice_id: misc-ieee754
-  discovery_card: null
+  discovery_card: discovery/misc-ieee754/features/misc-ieee754-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Exact float<->(mantissa,exponent) mapping functions
@@ -2813,9 +2813,9 @@ behaviours:
 - behaviour_id: misc-percentile-001
   surface_id: sur-sqlite3-percentile-init
   name: percentile / median aggregates
-  status: accepted
+  status: documented
   slice_id: misc-percentile
-  discovery_card: null
+  discovery_card: discovery/misc-percentile/features/misc-percentile-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Order-statistics aggregates incl. percentile_cont/percentile_disc variants
@@ -2840,9 +2840,9 @@ behaviours:
 - behaviour_id: misc-regexp-001
   surface_id: sur-sqlite3-regexp-init
   name: regexp() pattern matching
-  status: accepted
+  status: documented
   slice_id: misc-regexp
-  discovery_card: null
+  discovery_card: discovery/misc-regexp/features/misc-regexp-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; NFA regex engine backing the REGEXP operator; own dialect (not PCRE)
@@ -2867,18 +2867,18 @@ behaviours:
 - behaviour_id: misc-sha1-001
   surface_id: sur-sqlite3-sha-init
   name: sha1() hash functions
-  status: accepted
+  status: documented
   slice_id: misc-sha1
-  discovery_card: null
+  discovery_card: discovery/misc-sha1/features/misc-sha1-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests
 - behaviour_id: misc-shathree-001
   surface_id: sur-sqlite3-shathree-init
   name: sha3() hash functions
-  status: accepted
+  status: documented
   slice_id: misc-shathree
-  discovery_card: null
+  discovery_card: discovery/misc-shathree/features/misc-shathree-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak)
@@ -2921,18 +2921,18 @@ behaviours:
 - behaviour_id: misc-totype-001
   surface_id: sur-sqlite3-totype-init
   name: strict conversion functions tointeger/toreal
-  status: accepted
+  status: documented
   slice_id: misc-totype
-  discovery_card: null
+  discovery_card: discovery/misc-totype/features/misc-totype-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; NULL-on-failure strict conversions (unlike CAST's clamping)
 - behaviour_id: misc-uint-001
   surface_id: sur-sqlite3-uint-init
   name: UINT collating sequence
-  status: accepted
+  status: documented
   slice_id: misc-uint
-  discovery_card: null
+  discovery_card: discovery/misc-uint/features/misc-uint-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Collation comparing embedded unsigned integers numerically (natural sort)
@@ -3026,18 +3026,18 @@ behaviours:
 - behaviour_id: misc-vtablog-001
   surface_id: sur-sqlite3-vtablog-init
   name: vtablog logging wrapper vtab
-  status: accepted
+  status: documented
   slice_id: misc-vtablog
-  discovery_card: null
+  discovery_card: discovery/misc-vtablog/features/misc-vtablog-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Logs every vtab method call — debugging aid
 - behaviour_id: misc-vtshim-001
   surface_id: sur-sqlite3-vtshim-init
   name: vtshim disposable-module wrapper
-  status: accepted
+  status: documented
   slice_id: misc-vtshim
-  discovery_card: null
+  discovery_card: discovery/misc-vtshim/features/misc-vtshim-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Wraps a vtab module so it can be safely unregistered while connections exist
@@ -3063,9 +3063,9 @@ behaviours:
 - behaviour_id: misc-zorder-001
   surface_id: sur-sqlite3-zorder-init
   name: z-order curve mapping functions
-  status: accepted
+  status: documented
   slice_id: misc-zorder
-  discovery_card: null
+  discovery_card: discovery/misc-zorder/features/misc-zorder-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:35:25Z'
+last_updated: '2026-08-11T10:36:17Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 159
-    accepted: 26
+    documented: 172
+    accepted: 13
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_decimal_init()
 out_of_scope_hints:
 - other misc-func-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:36:16Z'
 features:
 - id: misc-decimal-001
   name: arbitrary-precision decimal arithmetic
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Exact decimal arithmetic over text representations; decimal collating sequence
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - loadext-api
   open_questions:
   - Financial-math consumers downstream?
+  behaviour_doc: features/misc-decimal-001.md
