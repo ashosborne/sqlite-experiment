@@ -132,3 +132,32 @@ fn anti_cheat_setop_and_check_runtime() {
     assert_eq!(rc2, 19, "runtime CHECK violation must be computed");
     assert!(rows2.is_empty());
 }
+
+// ---- pack v11 anti-cheat: HAVING/DISTINCT + thin-misc over runtime values ----
+
+#[test]
+fn anti_cheat_having_distinct_runtime() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE hd(k TEXT, v INTEGER); INSERT INTO hd VALUES('x',{n}),('x',{n}),('y',1); \
+         SELECT k, count(DISTINCT v), sum(v) FROM hd GROUP BY k HAVING sum(v) > {} ORDER BY k;", n));
+    assert_eq!(rc, 0);
+    assert_eq!(rows, vec![vec![Some("x".into()), Some("1".into()), Some((n * 2).to_string())]]);
+}
+
+#[test]
+fn anti_cheat_thin_misc_runtime() {
+    let n = runtime_int();
+    // sha1_query over a runtime-varying statement: computed via the real protocol + digest
+    let (rc, rows) = exec_collect(&format!("SELECT sha1_query('SELECT {n}'), sha1_query('SELECT {}');", n + 1));
+    assert_eq!(rc, 0);
+    let (a, b) = (rows[0][0].clone().unwrap(), rows[0][1].clone().unwrap());
+    assert_eq!(a.len(), 40);
+    assert_ne!(a, b, "different queries must hash differently (computed, not pinned)");
+    // base85 round-trip of runtime bytes
+    let (rc2, rows2) = exec_collect(&format!(
+        "SELECT hex(base85(base85(ieee754_to_blob({n}.5))));"));
+    assert_eq!(rc2, 0);
+    assert_eq!(rows2[0][0].as_deref().map(|h| h.to_lowercase()),
+               Some(format!("{:016x}", (n as f64 + 0.5).to_bits())));
+}

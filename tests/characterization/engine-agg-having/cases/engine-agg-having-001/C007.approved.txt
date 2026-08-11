@@ -1,0 +1,2 @@
+OBS engine-agg-having-001-C007 exec.rc 0
+OBS engine-agg-having-001-C007 cb.rows 0

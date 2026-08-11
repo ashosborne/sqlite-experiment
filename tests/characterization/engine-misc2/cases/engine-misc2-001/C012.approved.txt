@@ -1,0 +1,4 @@
+OBS engine-misc2-001-C012 row0.col0 my""id
+OBS engine-misc2-001-C012 row0.col1 0xff|010
+OBS engine-misc2-001-C012 exec.rc 0
+OBS engine-misc2-001-C012 cb.rows 1

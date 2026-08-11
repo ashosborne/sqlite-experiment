@@ -12,7 +12,7 @@ import os
 CAT = json.loads((ROOT/os.environ.get('CATALOG','overnight/oneshot/catalog.json')).read_text())
 INITS = {"uuid":"sqlite3_uuid_init","regexp":"sqlite3_regexp_init","series":"sqlite3_series_init",
  "csv":"sqlite3_csv_init","decimal":"sqlite3_decimal_init","base64":"sqlite3_base64_init",
- "rot13":"sqlite3_rot_init","totype":"sqlite3_totype_init","uint":"sqlite3_uint_init",
+ "rot13":"sqlite3_rot_init","totype":"sqlite3_totype_init","base85":"sqlite3_base85_init","uint":"sqlite3_uint_init",
  "ieee754":"sqlite3_ieee_init","completion":"sqlite3_completion_init","prefixes":"sqlite3_prefixes_init",
  "wholenumber":"sqlite3_wholenumber_init","compress":"sqlite3_compress_init","fossildelta":"sqlite3_fossildelta_init","nextchar":"sqlite3_nextchar_init","sha1":"sqlite3_sha_init","shathree":"sqlite3_shathree_init","urifuncs":"sqlite3_urifuncs_init","eval":"sqlite3_eval_init","zorder":"sqlite3_zorder_init"}
 

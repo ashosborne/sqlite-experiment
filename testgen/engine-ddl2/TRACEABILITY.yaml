@@ -1,0 +1,36 @@
+slice_id: engine-ddl2
+source_discovery: discovery/engine-ddl2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-ddl2-001
+cases:
+- id: engine-ddl2-001-C001
+  feature_id: engine-ddl2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-ddl2-001/CASE-001.md
+  golden: tests/characterization/engine-ddl2/cases/engine-ddl2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-ddl2/features/engine-ddl2-001.md
+- id: engine-ddl2-001-C002
+  feature_id: engine-ddl2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-ddl2-001/CASE-002.md
+  golden: tests/characterization/engine-ddl2/cases/engine-ddl2-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-ddl2/features/engine-ddl2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-21 delegated stamp (full-autonomy charter, thin-gap harvest)
+  stamped_case_ids:
+  - engine-ddl2-001-C001
+  - engine-ddl2-001-C002
+updated_at: '2026-08-11T21:05:51Z'

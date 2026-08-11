@@ -1,0 +1,146 @@
+slice_id: engine-misc2
+source_discovery: discovery/engine-misc2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-misc2-001
+cases:
+- id: engine-misc2-001-C001
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-001.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C002
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-002.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C003
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-003.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C004
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-004.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C005
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-005.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C006
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-006.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C007
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-007.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C007.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C008
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-008.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C008.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C009
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-009.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C009.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C010
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-010.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C010.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C011
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-011.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C011.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+- id: engine-misc2-001-C012
+  feature_id: engine-misc2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-misc2-001/CASE-012.md
+  golden: tests/characterization/engine-misc2/cases/engine-misc2-001/C012.approved.txt
+  discovery_evidence:
+  - discovery/engine-misc2/features/engine-misc2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-21 delegated stamp (full-autonomy charter, thin-gap harvest)
+  stamped_case_ids:
+  - engine-misc2-001-C001
+  - engine-misc2-001-C002
+  - engine-misc2-001-C003
+  - engine-misc2-001-C004
+  - engine-misc2-001-C005
+  - engine-misc2-001-C006
+  - engine-misc2-001-C007
+  - engine-misc2-001-C008
+  - engine-misc2-001-C009
+  - engine-misc2-001-C010
+  - engine-misc2-001-C011
+  - engine-misc2-001-C012
+updated_at: '2026-08-11T21:05:51Z'

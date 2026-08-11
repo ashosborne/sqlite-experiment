@@ -1,0 +1,4 @@
+OBS engine-trig2-001-C005 row0.col0 3
+OBS engine-trig2-001-C005 row0.col1 3
+OBS engine-trig2-001-C005 exec.rc 0
+OBS engine-trig2-001-C005 cb.rows 1

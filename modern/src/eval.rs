@@ -183,6 +183,7 @@ enum Ex {
     Collate(Box<Ex>, String),
     Subq(String),
     Exists(String),
+    Filtered(Box<Ex>, Box<Ex>), // aggregate FILTER (WHERE ...)
 }
 #[derive(Clone, Debug)]
 enum LitV { Null, Int(i64), Real(f64), Str(String), Blob(Vec<u8>) }
@@ -273,9 +274,18 @@ impl P {
         if self.eat_punct("-") { let e = self.unary()?; return Ok(Ex::Unary("-".into(), Box::new(e))); }
         if self.eat_punct("+") { return self.unary(); }
         let mut e = self.primary()?;
-        // postfix COLLATE / -> ->>
+        // postfix COLLATE / FILTER / -> ->>
         loop {
             if self.eat_kw("collate") { if let Tok::Id(c) = self.peek().clone() { self.i += 1; e = Ex::Collate(Box::new(e), c); continue; } }
+            if self.kw("filter") {
+                self.i += 1;
+                if !self.eat_punct("(") { return Err("expected ( after FILTER".into()); }
+                if !self.eat_kw("where") { return Err("expected WHERE in FILTER".into()); }
+                let w = self.expr()?;
+                if !self.eat_punct(")") { return Err("expected )".into()); }
+                e = Ex::Filtered(Box::new(e), Box::new(w));
+                continue;
+            }
             if self.eat_punct("->") { let r = self.primary()?; e = Ex::Func("->".into(), vec![e, r]); continue; }
             if self.eat_punct("->>") { let r = self.primary()?; e = Ex::Func("->>".into(), vec![e, r]); continue; }
             break;
@@ -314,10 +324,12 @@ impl P {
                 }
                 if self.punct("(") {
                     self.i += 1; let mut args = Vec::new();
+                    let distinct = self.eat_kw("distinct");
                     if self.punct("*") { self.i += 1; args.push(Ex::Col("*".into())); }
                     else if !self.punct(")") { loop { args.push(self.expr()?); if !self.eat_punct(",") { break; } } }
                     if !self.eat_punct(")") { return Err("expected )".into()); }
-                    return Ok(Ex::Func(id, args));
+                    let name = if distinct { format!("{id}#distinct") } else { id };
+                    return Ok(Ex::Func(name, args));
                 }
                 Ok(Ex::Col(id))
             }
@@ -488,6 +500,8 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
                     let o = match coll.as_deref() {
                         Some("uint") => uint_cmp(&x.as_text(), &y.as_text()),
                         Some("rot13") => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
+                        Some("nocase") => x.as_text().to_lowercase().cmp(&y.as_text().to_lowercase()),
+                        Some("decimal") => dec_cmp(&x.as_text(), &y.as_text()).cmp(&0),
                         _ => vcmp(&x, &y),
                     };
                     let r = match op.as_str() {
@@ -544,6 +558,7 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
             let (_c, rows) = select_rows_o(ctx, sql, row)?;
             V::Int((!rows.is_empty()) as i64)
         }
+        Ex::Filtered(f, _) => eval_expr(f, row, ctx)?, // non-agg context: filter is agg-only
     })
 }
 
@@ -600,6 +615,7 @@ fn substitute_subqs(e: Ex, subs: &[String]) -> Ex {
         Ex::IsNull(x, n) => Ex::IsNull(Box::new(substitute_subqs(*x, subs)), n),
         Ex::Is(a, b, n) => Ex::Is(Box::new(substitute_subqs(*a,subs)), Box::new(substitute_subqs(*b,subs)), n),
         Ex::Collate(x, c) => Ex::Collate(Box::new(substitute_subqs(*x, subs)), c),
+        Ex::Filtered(f, w) => Ex::Filtered(Box::new(substitute_subqs(*f, subs)), Box::new(substitute_subqs(*w, subs))),
         other => other,
     }
 }
@@ -699,7 +715,9 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "timediff" => V::Text(crate::datetime::timediff(&a(0)?, &a(1)?)?),
         // ---- misc thin funcs (computed from args) ----
         "rot13" => V::Text(a(0)?.as_text().chars().map(rot13c).collect()),
-        "tointeger" => match a(0)? { V::Int(i)=>V::Int(i), V::Text(t)=> t.trim().parse::<i64>().map(V::Int).unwrap_or(V::Null), _=>V::Null },
+        "tointeger" => match a(0)? { V::Int(i)=>V::Int(i),
+            V::Real(r) => if r == r.trunc() && r.abs() < 9.2e18 { V::Int(r as i64) } else { V::Null },
+            V::Text(t)=> t.trim().parse::<i64>().map(V::Int).unwrap_or(V::Null), _=>V::Null },
         "toreal" => match a(0)? { V::Real(r)=>V::Real(r), V::Int(i)=>V::Real(i as f64), V::Text(t)=> t.trim().parse::<f64>().map(V::Real).unwrap_or(V::Null), _=>V::Null },
         "zorder" => { let mut z=0i64; let n=args.len(); for bit in 0..21 { for (k,_) in args.iter().enumerate() {
                           let v=eval_expr(&args[k],row,ctx)?.as_i64(); z |= ((v>>bit)&1) << (bit*n + k); } } V::Int(z) }
@@ -711,6 +729,23 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "ieee754_exponent" => { let (_,e)=ieee_parts(a(0)?.as_f64()); V::Int(e) }
         "base64" => match a(0)? { V::Blob(b)=>V::Text(b64_encode(&b)), V::Text(t)=>V::Blob(b64_decode(&t)?), V::Null=>V::Null, v=>V::Text(b64_encode(v.as_text().as_bytes())) },
         "sha1" => V::Text(sha1_hex(a(0)?.as_text().as_bytes())),
+        "sha1_query" => V::Text(sha1_hex(&query_hash_stream(ctx, &a(0)?.as_text())?)),
+        "sha3_query" => { let bits = if args.len() > 1 { a(1)?.as_i64() } else { 256 };
+            V::Blob(sha3_bytes(&query_hash_stream(ctx, &a(0)?.as_text())?, bits as usize)) }
+        "base85" => match a(0)? {
+            V::Blob(b) => V::Text(b85_encode(&b)),
+            V::Text(s) => V::Blob(b85_decode(&s)),
+            V::Null => V::Null,
+            v => V::Blob(b85_decode(&v.as_text())),
+        },
+        "is_base85" => { let s = a(0)?.as_text();
+            V::Int(s.chars().all(|c| matches!(c, '#'..='&' | '*'..='z') || c.is_ascii_whitespace()) as i64) }
+        "ieee754_from_blob" => { let b = match a(0)? { V::Blob(b) => b, _ => return Err("blob required".into()) };
+            if b.len() != 8 { return Err("8-byte blob required".into()); }
+            V::Real(f64::from_bits(u64::from_be_bytes(b[..8].try_into().unwrap()))) }
+        "ieee754_to_blob" => V::Blob(a(0)?.as_f64().to_bits().to_be_bytes().to_vec()),
+        "decimal" => V::Text(dec_canon(&a(0)?.as_text())),
+        "decimal_pow2" => V::Text(dec_pow2(a(0)?.as_i64())),
         "sha3" => { let bits = if args.len()>1 { a(1)?.as_i64() } else { 256 };
                     V::Blob(sha3_bytes(a(0)?.as_text().as_bytes(), bits as usize)) }
         "decimal_add" => V::Text(dec_add(&a(0)?.as_text(), &a(1)?.as_text())),
@@ -720,8 +755,10 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "decimal_mul" => V::Text(dec_mul(&a(0)?.as_text(), &a(1)?.as_text())),
         "decimal_cmp" => { let c = dec_cmp(&a(0)?.as_text(), &a(1)?.as_text()); V::Int(c as i64) }
         "uuid" => V::Text(uuid_v4()),
-        "uuid_str" => V::Text(a(0)?.as_text()),
-        "uuid_blob" => V::Blob(a(0)?.as_text().replace('-',"").as_bytes().chunks(2).filter_map(|c| u8::from_str_radix(std::str::from_utf8(c).ok()?,16).ok()).collect()),
+        "uuid_str" => { let hx = uuid_hex(&a(0)?)?;
+            V::Text(format!("{}-{}-{}-{}-{}", &hx[0..8], &hx[8..12], &hx[12..16], &hx[16..20], &hx[20..32])) }
+        "uuid_blob" => { let hx = uuid_hex(&a(0)?)?;
+            V::Blob((0..32).step_by(2).map(|i| u8::from_str_radix(&hx[i..i+2], 16).unwrap()).collect()) }
         "sqlite3_uri_parameter" => V::Null,   // :memory: connection has no URI params
         "sqlite3_uri_boolean" => a(2)?,        // default value
         "regexp" => { let ok = tiny_regexp(&a(1)?.as_text(), &a(0)?.as_text()); V::Int(ok as i64) }
@@ -834,6 +871,108 @@ fn tiny_regexp(pat: &str, text: &str) -> bool {
     if anchored { m(&tc, &pc) }
     else { (0..=tc.len()).any(|k| m(&tc[k..], &pc)) }
 }
+/// canonical lowercase 32-hex-digit extraction for uuid_str/uuid_blob (braces/dashes/case tolerated)
+fn uuid_hex(v: &V) -> Result<String, String> {
+    let hx: String = match v {
+        V::Blob(b) => b.iter().map(|x| format!("{:02x}", x)).collect(),
+        other => other.as_text().chars().filter(|c| c.is_ascii_hexdigit()).map(|c| c.to_ascii_lowercase()).collect(),
+    };
+    if hx.len() != 32 { return Err("not a valid UUID".into()); }
+    Ok(hx)
+}
+/// the byte stream sha1_query()/sha3_query() hash: per statement "S{n}:"+sql,
+/// per row "R", per value N | I+8BE | F+8BE | T{n}:+bytes | B{n}:+bytes
+fn query_hash_stream(ctx: &Ctx, sql: &str) -> Result<Vec<u8>, String> {
+    let mut buf: Vec<u8> = Vec::new();
+    for stmt in sql.split(';') {
+        let stmt = stmt.trim();
+        if stmt.is_empty() { continue; }
+        buf.extend_from_slice(format!("S{}:", stmt.len()).as_bytes());
+        buf.extend_from_slice(stmt.as_bytes());
+        let (_c, rows) = select_rows_o(ctx, stmt, &Row::new())?;
+        for r in rows {
+            buf.push(b'R');
+            for v in r {
+                match v {
+                    V::Null => buf.push(b'N'),
+                    V::Int(i) => { buf.push(b'I'); buf.extend_from_slice(&(i as u64).to_be_bytes()); }
+                    V::Real(f) => { buf.push(b'F'); buf.extend_from_slice(&f.to_bits().to_be_bytes()); }
+                    V::Text(t) => { buf.extend_from_slice(format!("T{}:", t.len()).as_bytes()); buf.extend_from_slice(t.as_bytes()); }
+                    V::Blob(b) => { buf.extend_from_slice(format!("B{}:", b.len()).as_bytes()); buf.extend_from_slice(&b); }
+                }
+            }
+        }
+    }
+    Ok(buf)
+}
+/// SQLite base85.c encoding: 4-byte groups big-endian -> 5 numerals (MSB first),
+/// tail of n bytes -> n+1 numerals, trailing newline when content was produced.
+fn b85_numeral(d: u8) -> char { if d < 4 { (d + b'#') as char } else { (d - 4 + b'*') as char } }
+fn b85_encode(b: &[u8]) -> String {
+    let mut out = String::new();
+    let mut chunks = b.chunks_exact(4);
+    for ch in &mut chunks {
+        let mut qv = u32::from_be_bytes(ch.try_into().unwrap()) as u64;
+        let mut grp = ['#'; 5];
+        for k in (0..5).rev() { grp[k] = b85_numeral((qv % 85) as u8); qv /= 85; }
+        out.extend(grp);
+    }
+    let rem = chunks.remainder();
+    if !rem.is_empty() {
+        let mut qv = 0u64;
+        for &x in rem { qv = (qv << 8) | x as u64; }
+        let n = rem.len() + 1;
+        let mut grp = vec!['#'; n];
+        for k in (0..n).rev() { grp[k] = b85_numeral((qv % 85) as u8); qv /= 85; }
+        out.extend(grp);
+    }
+    if !out.is_empty() || b.is_empty() { out.push('\n'); }
+    out
+}
+fn b85_decode(s: &str) -> Vec<u8> {
+    let digits: Vec<u8> = s.chars().filter(|c| matches!(c, '#'..='&' | '*'..='z'))
+        .map(|c| if c <= '&' { c as u8 - b'#' } else { c as u8 - b'*' + 4 }).collect();
+    let mut out = Vec::new();
+    for grp in digits.chunks(5) {
+        let nbo = match grp.len() { 5 => 4, 4 => 3, 3 => 2, 2 => 1, _ => 0 };
+        if nbo == 0 { break; }
+        let mut qv = 0u64;
+        for &d in grp { qv = qv * 85 + d as u64; }
+        for k in (0..nbo).rev() { out.push(((qv >> (8 * k)) & 0xff) as u8); }
+    }
+    out
+}
+/// decimal(X): canonical decimal text (strip leading zeros, keep trailing fraction digits)
+fn dec_canon(s: &str) -> String {
+    let t = s.trim();
+    let (neg, t) = match t.strip_prefix('-') { Some(r) => (true, r), None => (false, t.strip_prefix('+').unwrap_or(t)) };
+    let (i, f) = match t.split_once('.') { Some((a, b)) => (a, Some(b)), None => (t, None) };
+    let i = i.trim_start_matches('0');
+    let i = if i.is_empty() { "0" } else { i };
+    let mut out = String::new();
+    if neg { out.push('-'); }
+    out.push_str(i);
+    if let Some(f) = f { out.push('.'); out.push_str(f); }
+    out
+}
+/// decimal_pow2(N): exact 2^N in the C decimal extension's exponential form (+D.DDDe+EE)
+fn dec_pow2(n: i64) -> String {
+    let digits: String; let exp: i64;
+    if n >= 0 {
+        let v: i128 = 1i128 << n.min(126);
+        digits = v.to_string();
+        exp = digits.len() as i64 - 1;
+    } else {
+        let m = (-n) as u32;
+        let v: i128 = 5i128.pow(m.min(54)); // 5^54 < i128::MAX
+        digits = v.to_string();
+        exp = digits.len() as i64 - 1 + n; // 5^m * 10^-m normalized
+    }
+    let d: Vec<char> = digits.chars().collect();
+    let mut mant: String = d[1..].iter().collect();
+    while mant.ends_with('0') { mant.pop(); }
+    format!("+{}.{}e{}{:02}", d[0], mant, if exp < 0 { '-' } else { '+' }, exp.abs())
+}
 fn sha1_hex(data: &[u8]) -> String {
     let mut h: [u32;5] = [0x67452301,0xEFCDAB89,0x98BADCFE,0x10325476,0xC3D2E1F0];
     let ml = (data.len() as u64) * 8;
@@ -925,9 +1064,9 @@ fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, Str
         let c = cs[i]; i += 1;
         if c != '%' { out.push(c); continue; }
         // flags
-        let (mut minus, mut zero, mut plus, mut space) = (false, false, false, false);
+        let (mut minus, mut zero, mut plus, mut space, mut alt) = (false, false, false, false, false);
         while i < cs.len() {
-            match cs[i] { '-' => minus = true, '0' => zero = true, '+' => plus = true, ' ' => space = true, '#' | '!' | ',' => {}, _ => break }
+            match cs[i] { '-' => minus = true, '0' => zero = true, '+' => plus = true, ' ' => space = true, '#' => alt = true, '!' | ',' => {}, _ => break }
             i += 1;
         }
         let mut width = 0usize;
@@ -949,9 +1088,10 @@ fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, Str
                 if zero && !minus && width > sign.len() + s.len() { s = format!("{}{}", "0".repeat(width - sign.len() - s.len()), s); }
                 format!("{}{}", sign, s) }
             'u' => (v.as_i64() as u64).to_string(),
-            'x' => format!("{:x}", v.as_i64()),
-            'X' => format!("{:X}", v.as_i64()),
-            'o' => format!("{:o}", v.as_i64()),
+            'x' => { let s = format!("{:x}", v.as_i64()); if alt && v.as_i64() != 0 { format!("0x{s}") } else { s } }
+            'X' => { let s = format!("{:X}", v.as_i64()); if alt && v.as_i64() != 0 { format!("0X{s}") } else { s } }
+            'o' => { let s = format!("{:o}", v.as_i64()); if alt { format!("0{s}") } else { s } }
+            'w' => v.as_text().replace('"', "\"\""),
             'f' | 'F' => { let p = prec.unwrap_or(6); let f = v.as_f64();
                 let mut s = format!("{:.*}", p, f.abs());
                 let sign = if f.is_sign_negative() { "-" } else if plus { "+" } else { "" };
@@ -981,8 +1121,9 @@ fn find_kw_top(s: &str, kw: &str) -> Option<usize> {
     while i < b.len() {
         match b[i] { b'(' => depth += 1, b')' => depth -= 1, _ => {} }
         if depth == 0 && up[i..].starts_with(&kwu) {
-            let before = i == 0 || !b[i-1].is_ascii_alphanumeric();
-            let after = i + kwu.len() >= b.len() || !b[i+kwu.len()].is_ascii_alphanumeric();
+            let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+            let before = i == 0 || !word(b[i-1]);
+            let after = i + kwu.len() >= b.len() || !word(b[i+kwu.len()]);
             if before && after { return Some(i); }
         }
         i += 1;
@@ -1064,7 +1205,7 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     Err(format!("no such table: {f}"))
 }
 
-fn is_agg(name: &str) -> bool { matches!(name.to_ascii_lowercase().as_str(),
+fn is_agg(name: &str) -> bool { matches!(name.to_ascii_lowercase().trim_end_matches("#distinct"),
     "count"|"sum"|"total"|"avg"|"min"|"max"|"group_concat") }
 fn expr_has_agg(e: &Ex) -> bool {
     match e { Ex::Func(n, a) => (is_agg(n) && !(matches!(n.to_ascii_lowercase().as_str(), "min"|"max") && a.len() > 1)) || a.iter().any(expr_has_agg),
@@ -1073,15 +1214,28 @@ fn expr_has_agg(e: &Ex) -> bool {
         Ex::InList(x, xs) => expr_has_agg(x) || xs.iter().any(expr_has_agg),
         Ex::Like(x, y, _, _) => expr_has_agg(x) || expr_has_agg(y),
         Ex::Case(w, el) => w.iter().any(|(a,b)| expr_has_agg(a)||expr_has_agg(b)) || el.as_ref().map_or(false, |e| expr_has_agg(e)),
+        Ex::Filtered(f, _) => expr_has_agg(f),
         _ => false }
 }
 fn eval_agg(e: &Ex, rows: &[Row], ctx: &Ctx) -> Result<V, String> {
+    if let Ex::Filtered(f, w) = e {
+        // aggregate FILTER (WHERE ...): restrict the input rows for real
+        let mut keep = Vec::new();
+        for r in rows { if eval_expr(w, r, ctx)?.truthy() == Some(true) { keep.push(r.clone()); } }
+        return eval_agg(f, &keep, ctx);
+    }
     if let Ex::Func(name, args) = e {
-        let ln = name.to_ascii_lowercase();
+        let full = name.to_ascii_lowercase();
+        let distinct = full.ends_with("#distinct");
+        let ln = full.trim_end_matches("#distinct").to_string();
         if is_agg(&ln) && !(matches!(ln.as_str(), "min"|"max") && args.len() > 1) {
             let is_star = matches!(args.get(0), Some(Ex::Col(c)) if c == "*");
             let mut vals = Vec::new();
             if !is_star { for r in rows { let v = eval_expr(&args[0], r, ctx)?; if !matches!(v, V::Null) { vals.push(v); } } }
+            if distinct {
+                let mut seen = std::collections::HashSet::new();
+                vals.retain(|v| seen.insert(format!("{:?}", v.render())));
+            }
             return Ok(match ln.as_str() {
                 "count" => V::Int(if is_star { rows.len() as i64 } else { vals.len() as i64 }),
                 "sum" => { if vals.is_empty() { V::Null } else if vals.iter().all(|v| matches!(v, V::Int(_))) { V::Int(vals.iter().map(|v| v.as_i64()).sum()) } else { V::Real(vals.iter().map(|v| v.as_f64()).sum()) } }
@@ -1095,8 +1249,16 @@ fn eval_agg(e: &Ex, rows: &[Row], ctx: &Ctx) -> Result<V, String> {
             });
         }
     }
-    // non-aggregate expr in an aggregate query: evaluate against first row
-    eval_expr(e, rows.first().cloned().as_ref().unwrap_or(&Row::new()), ctx)
+    // composite expressions over aggregates (e.g. HAVING sum(v) > 4): recurse
+    match e {
+        Ex::Bin(op, a, b) if expr_has_agg(e) => {
+            let (x, y) = (eval_agg(a, rows, ctx)?, eval_agg(b, rows, ctx)?);
+            let xe = Ex::Lit(match x { V::Null => LitV::Null, V::Int(i) => LitV::Int(i), V::Real(r) => LitV::Real(r), V::Text(t) => LitV::Str(t), V::Blob(b) => LitV::Blob(b) });
+            let ye = Ex::Lit(match y { V::Null => LitV::Null, V::Int(i) => LitV::Int(i), V::Real(r) => LitV::Real(r), V::Text(t) => LitV::Str(t), V::Blob(b) => LitV::Blob(b) });
+            eval_expr(&Ex::Bin(op.clone(), Box::new(xe), Box::new(ye)), &Row::new(), ctx)
+        }
+        _ => eval_expr(e, rows.first().cloned().as_ref().unwrap_or(&Row::new()), ctx),
+    }
 }
 
 fn item_alias(item: &str) -> (String, String) {
@@ -1261,7 +1423,16 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
     let mut rest = s[6..].to_string();
     // GROUP BY (top level; ORDER BY/LIMIT already stripped by select_rows_o)
     let mut group_str: Option<String> = None;
-    if let Some(g) = find_kw_top(&rest, "GROUP BY") { group_str = Some(rest[g+8..].trim().to_string()); rest = rest[..g].trim().to_string(); }
+    let mut having_str: Option<String> = None;
+    if let Some(g) = find_kw_top(&rest, "GROUP BY") {
+        let mut gtxt = rest[g+8..].trim().to_string();
+        if let Some(h) = find_kw_top(&gtxt, "HAVING") {
+            having_str = Some(gtxt[h+6..].trim().to_string());
+            gtxt = gtxt[..h].trim().to_string();
+        }
+        group_str = Some(gtxt);
+        rest = rest[..g].trim().to_string();
+    }
     let from_pos = find_kw_top(&rest, "FROM");
     let where_pos = find_kw_top(&rest, "WHERE");
     let items_end = [from_pos, where_pos].into_iter().flatten().min().unwrap_or(rest.len());
@@ -1335,8 +1506,13 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
             if !groups.contains_key(&key) { order.push(key.clone()); }
             groups.entry(key).or_default().push(env);
         }
+        let having_ex = match &having_str { Some(h) => Some(parse_expr_full(h)?), None => None };
         for key in order {
             let rows = &groups[&key];
+            if let Some(h) = &having_ex {
+                // HAVING is evaluated over the group (aggregates allowed)
+                if eval_agg(h, rows, ctx)?.truthy() != Some(true) { continue; }
+            }
             let mut orow = Vec::new();
             for e in &exprs { orow.push(eval_agg(e, rows, ctx)?); }
             out.push(orow);
@@ -1444,25 +1620,54 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
         }
     }
     if let Some(ob) = order {
-        // multi-key ORDER BY over output columns (name, qualified name, or 1-based ordinal), ASC/DESC
-        let mut keys: Vec<(usize, bool)> = Vec::new();
+        // ORDER BY term: <name|ordinal> [COLLATE c] [ASC|DESC] [NULLS FIRST|LAST]
+        struct OKey { ci: usize, desc: bool, coll: Option<String>, nulls_first: Option<bool> }
+        let mut keys: Vec<OKey> = Vec::new();
         for term in split_top(&ob, ',') {
-            let mut wds = term.split_whitespace();
-            let name = wds.next().unwrap_or("1").to_string();
-            let desc = wds.next().map_or(false, |w| w.eq_ignore_ascii_case("DESC"));
+            let words: Vec<String> = term.split_whitespace().map(|w| w.to_string()).collect();
+            let name = words.first().cloned().unwrap_or_else(|| "1".into());
+            let mut desc = false; let mut coll = None; let mut nulls_first = None;
+            let mut wi = 1;
+            while wi < words.len() {
+                let w = words[wi].to_ascii_uppercase();
+                match w.as_str() {
+                    "COLLATE" => { if wi + 1 < words.len() { coll = Some(words[wi+1].to_ascii_lowercase()); wi += 1; } }
+                    "ASC" => desc = false,
+                    "DESC" => desc = true,
+                    "NULLS" => { if wi + 1 < words.len() { nulls_first = Some(words[wi+1].eq_ignore_ascii_case("FIRST")); wi += 1; } }
+                    _ => {}
+                }
+                wi += 1;
+            }
             let ci = name.parse::<usize>().map(|n| n - 1).unwrap_or_else(|_| {
                 colnames.iter().position(|c| *c == name)
                     .or_else(|| colnames.iter().position(|c| c.rsplit('.').next() == name.rsplit('.').next()))
                     .unwrap_or(0)
             });
-            keys.push((ci, desc));
+            keys.push(OKey { ci, desc, coll, nulls_first });
         }
         rows.sort_by(|a, b| {
-            for (ci, desc) in &keys {
-                let o = vcmp(a.get(*ci).unwrap_or(&V::Null), b.get(*ci).unwrap_or(&V::Null));
-                if o != std::cmp::Ordering::Equal { return if *desc { o.reverse() } else { o }; }
+            use std::cmp::Ordering::*;
+            for k in &keys {
+                let (x, y) = (a.get(k.ci).unwrap_or(&V::Null), b.get(k.ci).unwrap_or(&V::Null));
+                let (nx, ny) = (matches!(x, V::Null), matches!(y, V::Null));
+                if nx || ny {
+                    if nx && ny { continue; }
+                    // SQLite default: NULLs first ASC, last DESC; explicit NULLS overrides
+                    let first = k.nulls_first.unwrap_or(!k.desc);
+                    return if nx { if first { Less } else { Greater } }
+                           else { if first { Greater } else { Less } };
+                }
+                let o = match k.coll.as_deref() {
+                    Some("uint") => uint_cmp(&x.as_text(), &y.as_text()),
+                    Some("rot13") => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
+                    Some("nocase") => x.as_text().to_lowercase().cmp(&y.as_text().to_lowercase()),
+                    Some("decimal") => dec_cmp(&x.as_text(), &y.as_text()).cmp(&0),
+                    _ => vcmp(x, y),
+                };
+                if o != Equal { return if k.desc { o.reverse() } else { o }; }
             }
-            std::cmp::Ordering::Equal
+            Equal
         });
     }
     if let Some((n, off)) = limit {

@@ -1,0 +1,266 @@
+[
+{
+"id": "engine-agg-having-001-C001",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT count(v), count(DISTINCT v) FROM g;"
+},
+{
+"id": "engine-agg-having-001-C002",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT sum(v), sum(DISTINCT v) FROM g;"
+},
+{
+"id": "engine-agg-having-001-C003",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT group_concat(DISTINCT k) FROM g;"
+},
+{
+"id": "engine-agg-having-001-C004",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT count(*) FILTER (WHERE v > 1) FROM g;"
+},
+{
+"id": "engine-agg-having-001-C005",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT k, sum(v) FROM g GROUP BY k HAVING sum(v) > 4 ORDER BY k;"
+},
+{
+"id": "engine-agg-having-001-C006",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT k, count(*) FROM g GROUP BY k HAVING count(*) >= 3 ORDER BY k;"
+},
+{
+"id": "engine-agg-having-001-C007",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT k FROM g GROUP BY k HAVING max(v) < 0;"
+},
+{
+"id": "engine-agg-having-001-C008",
+"slice": "engine-agg-having",
+"feature": "engine-agg-having-001",
+"kind": "script",
+"sql": "CREATE TABLE g(k TEXT, v INTEGER); INSERT INTO g VALUES('a',1),('a',1),('a',2),('b',5); SELECT k, total(v) FILTER (WHERE v > 1), count(DISTINCT v) FROM g GROUP BY k HAVING count(*) > 1 ORDER BY k;"
+},
+{
+"id": "engine-misc2-001-C001",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT sha1_query('SELECT 1');",
+"init": [
+"sha1"
+]
+},
+{
+"id": "engine-misc2-001-C002",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "CREATE TABLE hq(a INTEGER, b TEXT); INSERT INTO hq VALUES(1,'x'),(2,NULL); SELECT sha1_query('SELECT a, b FROM hq');",
+"init": [
+"sha1"
+]
+},
+{
+"id": "engine-misc2-001-C003",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT lower(hex(sha3_query('SELECT 1',256)));",
+"init": [
+"shathree"
+]
+},
+{
+"id": "engine-misc2-001-C004",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT replace(base85(X'DEADBEEF'),char(10),'|'), is_base85(replace(base85(X'DEADBEEF'),char(10),'')), is_base85('~');",
+"init": [
+"base85"
+]
+},
+{
+"id": "engine-misc2-001-C005",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT hex(base85(base85(X'0102030405')));",
+"init": [
+"base85"
+]
+},
+{
+"id": "engine-misc2-001-C006",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT ieee754_from_blob(X'3FF0000000000000'), hex(ieee754_to_blob(1.5));",
+"init": [
+"ieee754"
+]
+},
+{
+"id": "engine-misc2-001-C007",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT decimal('7.10'), decimal('-0012.3400'), decimal_pow2(10), decimal_pow2(-3);",
+"init": [
+"decimal"
+]
+},
+{
+"id": "engine-misc2-001-C008",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT '10' < '9', '10' < '9' COLLATE decimal;",
+"init": [
+"decimal"
+]
+},
+{
+"id": "engine-misc2-001-C009",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "CREATE TABLE u(t TEXT); INSERT INTO u VALUES('x10'),('x9'),('x2'); SELECT t FROM u ORDER BY t COLLATE uint;",
+"init": [
+"uint"
+]
+},
+{
+"id": "engine-misc2-001-C010",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT tointeger(X'31') IS NULL, tointeger('9223372036854775808') IS NULL, tointeger(12.0), tointeger(12.5) IS NULL, toreal('abc') IS NULL;",
+"init": [
+"totype"
+]
+},
+{
+"id": "engine-misc2-001-C011",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT uuid_str('{A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11}'), hex(uuid_blob('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'));",
+"init": [
+"uuid"
+]
+},
+{
+"id": "engine-misc2-001-C012",
+"slice": "engine-misc2",
+"feature": "engine-misc2-001",
+"kind": "script",
+"sql": "SELECT printf('%w','my\"id'), printf('%#x|%#o', 255, 8);"
+},
+{
+"id": "engine-order2-001-C001",
+"slice": "engine-order2",
+"feature": "engine-order2-001",
+"kind": "script",
+"sql": "CREATE TABLE o(t TEXT); INSERT INTO o VALUES('b'),('A'),('c'),(NULL); SELECT t FROM o ORDER BY t COLLATE nocase NULLS LAST;"
+},
+{
+"id": "engine-order2-001-C002",
+"slice": "engine-order2",
+"feature": "engine-order2-001",
+"kind": "script",
+"sql": "CREATE TABLE o(t TEXT); INSERT INTO o VALUES('b'),('A'),('c'),(NULL); SELECT t FROM o ORDER BY t DESC NULLS FIRST;"
+},
+{
+"id": "engine-fk2-001-C001",
+"slice": "engine-fk2",
+"feature": "engine-fk2-001",
+"kind": "script",
+"sql": "PRAGMA foreign_keys=ON; CREATE TABLE p(id INTEGER PRIMARY KEY); CREATE TABLE c(pid REFERENCES p(id) ON UPDATE CASCADE); INSERT INTO p VALUES(1); INSERT INTO c VALUES(1); UPDATE p SET id=9 WHERE id=1; SELECT pid FROM c;"
+},
+{
+"id": "engine-fk2-001-C002",
+"slice": "engine-fk2",
+"feature": "engine-fk2-001",
+"kind": "script",
+"sql": "PRAGMA foreign_keys=ON; CREATE TABLE p(id INTEGER PRIMARY KEY); CREATE TABLE c(pid REFERENCES p(id) ON UPDATE SET NULL); INSERT INTO p VALUES(1); INSERT INTO c VALUES(1); UPDATE p SET id=9 WHERE id=1; SELECT count(*), count(pid) FROM c;"
+},
+{
+"id": "engine-fk2-001-C003",
+"slice": "engine-fk2",
+"feature": "engine-fk2-001",
+"kind": "script",
+"sql": "PRAGMA foreign_keys=ON; CREATE TABLE p(id INTEGER PRIMARY KEY); CREATE TABLE c(pid INTEGER DEFAULT 7 REFERENCES p(id) ON DELETE SET DEFAULT); INSERT INTO p VALUES(1),(7); INSERT INTO c VALUES(1); DELETE FROM p WHERE id=1; SELECT pid FROM c;"
+},
+{
+"id": "engine-trig2-001-C001",
+"slice": "engine-trig2",
+"feature": "engine-trig2-001",
+"kind": "script",
+"sql": "CREATE TABLE bt(a INTEGER); CREATE VIEW bv AS SELECT a FROM bt; CREATE TRIGGER ti INSTEAD OF INSERT ON bv BEGIN INSERT INTO bt VALUES(new.a * 10); END; INSERT INTO bv VALUES(4); SELECT a FROM bt;"
+},
+{
+"id": "engine-trig2-001-C002",
+"slice": "engine-trig2",
+"feature": "engine-trig2-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TABLE lg(v INTEGER); CREATE TRIGGER tg AFTER INSERT ON t BEGIN INSERT INTO lg VALUES(1); END; SELECT count(*) FROM sqlite_master WHERE type='trigger'; DROP TRIGGER tg; SELECT count(*) FROM sqlite_master WHERE type='trigger'; INSERT INTO t VALUES(1); SELECT count(*) FROM lg;"
+},
+{
+"id": "engine-trig2-001-C003",
+"slice": "engine-trig2",
+"feature": "engine-trig2-001",
+"kind": "error-script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TRIGGER tr BEFORE INSERT ON t WHEN new.a < 0 BEGIN SELECT RAISE(ABORT,'no negatives'); END; INSERT INTO t VALUES(-5);"
+},
+{
+"id": "engine-trig2-001-C004",
+"slice": "engine-trig2",
+"feature": "engine-trig2-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER, b INTEGER); CREATE TABLE lg(v INTEGER); CREATE TRIGGER tu AFTER UPDATE OF a ON t BEGIN INSERT INTO lg VALUES(1); END; INSERT INTO t VALUES(1,1); UPDATE t SET b=2 WHERE a=1; UPDATE t SET a=3 WHERE b=2; SELECT count(*) FROM lg;"
+},
+{
+"id": "engine-trig2-001-C005",
+"slice": "engine-trig2",
+"feature": "engine-trig2-001",
+"kind": "script",
+"sql": "PRAGMA recursive_triggers=ON; CREATE TABLE t(a INTEGER); CREATE TRIGGER tr AFTER INSERT ON t WHEN new.a < 3 BEGIN INSERT INTO t VALUES(new.a + 1); END; INSERT INTO t VALUES(1); SELECT count(*), max(a) FROM t;"
+},
+{
+"id": "engine-ddl2-001-C001",
+"slice": "engine-ddl2",
+"feature": "engine-ddl2-001",
+"kind": "script",
+"sql": "CREATE TABLE r(a INTEGER, b TEXT); INSERT INTO r VALUES(1,'x'); ALTER TABLE r RENAME COLUMN b TO c; SELECT c FROM r;"
+},
+{
+"id": "engine-ddl2-001-C002",
+"slice": "engine-ddl2",
+"feature": "engine-ddl2-001",
+"kind": "script",
+"sql": "CREATE TABLE r(a INTEGER, b TEXT); INSERT INTO r VALUES(1,'x'); ALTER TABLE r DROP COLUMN b; SELECT count(*) FROM pragma_table_info('r'); SELECT a FROM r;"
+},
+{
+"id": "engine-upsert2-001-C001",
+"slice": "engine-upsert2",
+"feature": "engine-upsert2-001",
+"kind": "script",
+"sql": "CREATE TABLE u(k INTEGER PRIMARY KEY, v INTEGER); INSERT INTO u VALUES(1,10); INSERT INTO u VALUES(1,99) ON CONFLICT(k) DO UPDATE SET v = excluded.v WHERE excluded.v > 50; INSERT INTO u VALUES(1,5) ON CONFLICT(k) DO UPDATE SET v = excluded.v WHERE excluded.v > 50; SELECT v FROM u;"
+}
+]

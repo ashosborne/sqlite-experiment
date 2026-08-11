@@ -1,0 +1,6 @@
+OBS engine-order2-001-C002 row0.col0 NULL
+OBS engine-order2-001-C002 row1.col0 c
+OBS engine-order2-001-C002 row2.col0 b
+OBS engine-order2-001-C002 row3.col0 A
+OBS engine-order2-001-C002 exec.rc 0
+OBS engine-order2-001-C002 cb.rows 4

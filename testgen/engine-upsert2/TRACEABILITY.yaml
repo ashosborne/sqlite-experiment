@@ -1,0 +1,25 @@
+slice_id: engine-upsert2
+source_discovery: discovery/engine-upsert2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-upsert2-001
+cases:
+- id: engine-upsert2-001-C001
+  feature_id: engine-upsert2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-upsert2-001/CASE-001.md
+  golden: tests/characterization/engine-upsert2/cases/engine-upsert2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-upsert2/features/engine-upsert2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-21 delegated stamp (full-autonomy charter, thin-gap harvest)
+  stamped_case_ids:
+  - engine-upsert2-001-C001
+updated_at: '2026-08-11T21:05:51Z'

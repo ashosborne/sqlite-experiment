@@ -1,0 +1,4 @@
+OBS engine-agg-having-001-C005 row0.col0 b
+OBS engine-agg-having-001-C005 row0.col1 5
+OBS engine-agg-having-001-C005 exec.rc 0
+OBS engine-agg-having-001-C005 cb.rows 1
