@@ -1,0 +1,132 @@
+# Architecture PACK — sqlite-experiment C-to-Rust spine (v1)
+# BOUND by human charter (run-9 operator paste = the bind act). Immutable; changes require v2 + re-bind.
+pack_id: sqlite-experiment-c-to-rust
+version: 1
+status: BOUND
+bound_by: Ash Osborne
+bound_at: "2026-08-11T14:30:00+01:00"
+migration_id: sqlite-experiment-rust
+slice_ids: [error-status-api, prepare-statement-api]
+
+target_stack:
+  language: rust
+  destination: whole-library-c-to-rust
+  crate_type: cdylib          # plus rlib so in-repo tests can call the ABI
+  modern_root: modern/
+  dependencies: none          # zero external crates in v1
+style: incremental-engine-rewrite
+
+layout:
+  crate_root: modern/
+  lib: modern/src/lib.rs
+  tests: modern/tests/spine_compare.rs
+  naming: "public C ABI symbols keep exact sqlite3_* names and integer codes from src/sqlite.h.in"
+
+boundaries:
+  in_scope_cases:            # EXACTLY the ten HUMAN_ACCEPTED goldens — nothing else is licensed
+    - error-status-api-001-C001
+    - error-status-api-001-C002
+    - prepare-statement-api-001-C001
+    - prepare-statement-api-001-C002
+    - prepare-statement-api-002-C001
+    - prepare-statement-api-002-C002
+    - prepare-statement-api-003-C001
+    - prepare-statement-api-003-C002
+    - prepare-statement-api-005-C001
+    - prepare-statement-api-005-C002
+  unmapped_blocked:
+    - prepare-statement-api-002-C003   # UAF; stays BLOCKED; no Rust probe, no step-after-finalize path anywhere
+  exported_symbols_only_pinned: true   # unpinned symbols are not exported
+
+api_contract_policy:
+  authority: "src/sqlite.h.in symbol names + integer result codes (read-only reference)"
+  parity_oracle: "the ten *.approved.txt goldens (read-only; never rewritten)"
+  wording_deferred:
+    - "error-status-api-001-C001 errmsg.text — shape-only; COMPARE must not fail on English wording"
+  contract_strings:
+    - "error-status-api-001-C002 errmsg(NULL) == 'out of memory' (sqlite3ErrStr/SQLITE_NOMEM)"
+  pinned_semantics:
+    - "third sqlite3_step after DONE returns SQLITE_ROW (100) via autoreset (OMIT_AUTORESET=off pin) — NOT MISUSE"
+    - "sqlite3_reset preserves bindings"
+    - "bind index out of range returns SQLITE_RANGE (25)"
+    - "whitespace/comment-only SQL prepares to SQLITE_OK + NULL stmt, tail consumed"
+
+data:
+  stores: none               # v1 statement machine is in-memory; no file format, no btree, no pager
+  file_format_parity: out-of-scope-v1
+
+authn_authz:
+  model: none                # library seam; no authn/authz surface in the ten pinned cases
+
+interop:
+  c_linkage: forbidden       # standalone Rust; do NOT link sqlite3.c or anything under src/
+  mixed_c_rust_link: forbidden
+  safe_wrapper_api: forbidden  # no rusqlite-shaped safe API in v1; raw C ABI only
+
+mapping_rules:
+  - "sqlite3/sqlite3_stmt opaque C handles -> Box'ed Rust structs passed as raw pointers"
+  - "per-connection error state (errcode/extended/errmsg) -> fields on the Rust sqlite3 struct; NULL-handle answers are static"
+  - "statement state machine Ready->Row->Done with autoreset-on-step-after-DONE -> Rust enum; bindings survive reset"
+  - "pinned SQL inputs ('SELECT 1', 'SELECT ?', whitespace/comment-only, invalid token) -> recognizer, not a general SQL engine"
+  - "result codes -> integer constants identical to sqlite.h.in values"
+
+non_goals:
+  - general SQL parsing/execution beyond the ten pinned sequences
+  - VDBE, btree, pager, WAL, VFS, file I/O of any kind (this is not a VDBE)
+  - UTF-16 APIs, busy handlers, schema reprepare (not pinned in v1)
+  - performance parity
+  - replacing or wrapping the C library for any consumer
+
+quality_gates:
+  characterization: "REPLAY_GREEN + HUMAN_ACCEPTED on all ten in-scope cases (runs 5 and 7; stamps runs 6 and 8)"
+  verification: "NOT run in v1 — cargo test is a self-check on this branch, not factory COMPARE; parity stays UNVERIFIED"
+  commands:
+    - "cargo test --manifest-path modern/Cargo.toml"
+  done_checks:
+    - "all ten integer/handle observables asserted against the goldens (errmsg wording excluded on ES-C001)"
+    - "goldens byte-identical after the run"
+    - "no exported symbol outside the pinned table"
+  review_skills: [migration-correctness]
+
+forbidden:
+  - linking or compiling sqlite3.c / src/** / ext/** into the crate
+  - editing goldens or TRACEABILITY statuses
+  - implementing or probing prepare-statement-api-002-C003 (step-after-finalize)
+  - exporting unpinned symbols
+  - rusqlite-shaped safe wrapper API
+  - flipping parity_green (Verification owns COMPARE)
+  - per-case branches or PRs (ONE_BRANCH law)
+
+edit_surface:
+  allow:
+    - modern/**
+    - architecture/sqlite-experiment-rust/**
+    - overnight/convert/**
+    - Cargo.toml
+    - .gitignore
+  deny:
+    - src/**
+    - ext/**
+    - test/**
+    - tests/characterization/**
+    - discovery/**
+
+known_risks:
+  - "recognizer-not-engine: any consumer sending unpinned SQL gets SQLITE_ERROR — acceptable in v1, must widen in v2"
+  - "autoreset pin: if a future baseline sets OMIT_AUTORESET the 002-C002 golden diverges — re-pin before v2"
+  - "wording drift on errmsg is expected and non-failing (wording_deferred)"
+
+evidence:
+  discovery_manifest: discovery/prepare-statement-api/MANIFEST.yaml
+  behaviour_cards:
+    - discovery/error-status-api/features/error-status-api-001.md
+    - discovery/prepare-statement-api/features/prepare-statement-api-001.md
+    - discovery/prepare-statement-api/features/prepare-statement-api-002.md
+    - discovery/prepare-statement-api/features/prepare-statement-api-003.md
+    - discovery/prepare-statement-api/features/prepare-statement-api-005.md
+  testgen_traceability: testgen/prepare-statement-api/TRACEABILITY.yaml
+  replay_green_run_ids:
+    - 2026-08-11T1205Z-legacy-record
+    - 2026-08-11T1310Z-legacy-record-six
+
+change_policy: "BOUND is immutable. Changes require versions/v2 snapshot + SUPERSEDE + human re-bind. pack_id@version citations must stay resolvable."
