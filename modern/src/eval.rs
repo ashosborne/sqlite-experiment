@@ -180,6 +180,8 @@ enum Ex {
     IsNull(Box<Ex>, bool /*is not*/),
     Is(Box<Ex>, Box<Ex>, bool /*not*/),
     Collate(Box<Ex>, String),
+    Subq(String),
+    Exists(String),
 }
 #[derive(Clone, Debug)]
 enum LitV { Null, Int(i64), Real(f64), Str(String), Blob(Vec<u8>) }
@@ -304,6 +306,11 @@ impl P {
             Tok::Id(id) => {
                 self.i += 1;
                 if id.eq_ignore_ascii_case("null") { return Ok(Ex::Lit(LitV::Null)); }
+                if id.eq_ignore_ascii_case("exists") {
+                    if let Tok::Id(ph) = self.peek().clone() {
+                        if ph.starts_with("__subq_") { self.i += 1; return Ok(Ex::Func("__exists".into(), vec![Ex::Col(ph)])); }
+                    }
+                }
                 if self.punct("(") {
                     self.i += 1; let mut args = Vec::new();
                     if self.punct("*") { self.i += 1; args.push(Ex::Col("*".into())); }
@@ -407,7 +414,7 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
         },
         Ex::Col(name) => {
             let key = name.rsplit('.').next().unwrap_or(name);
-            row.get(key).or_else(|| row.get(name)).cloned()
+            row.get(name).or_else(|| row.get(key)).cloned()
                 .ok_or_else(|| format!("no such column: {name}"))?
         }
         Ex::Collate(e, _c) => eval_expr(e, row, ctx)?,
@@ -496,7 +503,78 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
             }
         }
         Ex::Func(name, args) => eval_func(name, args, row, ctx)?,
+        Ex::Subq(sql) => {
+            let (_c, rows) = select_rows_o(ctx, sql, row)?;
+            match rows.into_iter().next() { Some(r) => r.into_iter().next().unwrap_or(V::Null), None => V::Null }
+        }
+        Ex::Exists(sql) => {
+            let (_c, rows) = select_rows_o(ctx, sql, row)?;
+            V::Int((!rows.is_empty()) as i64)
+        }
     })
+}
+
+// ---------------- subquery extraction (string level, quote/paren aware) ----------------
+fn extract_subqueries(s: &str) -> (String, Vec<String>) {
+    let cs: Vec<char> = s.chars().collect();
+    let mut out = String::new(); let mut subs = Vec::new();
+    let mut i = 0; let mut inq = false;
+    while i < cs.len() {
+        let c = cs[i];
+        if c == '\'' { inq = !inq; out.push(c); i += 1; continue; }
+        if inq { out.push(c); i += 1; continue; }
+        if c == '(' {
+            // lookahead: is this (SELECT ...)?
+            let mut j = i + 1; while j < cs.len() && cs[j].is_whitespace() { j += 1; }
+            let word: String = cs[j..].iter().take(6).collect();
+            if word.eq_ignore_ascii_case("select") {
+                let mut depth = 1; let mut k = i + 1; let mut q = false;
+                while k < cs.len() && depth > 0 {
+                    match cs[k] { '\'' => q = !q, '(' if !q => depth += 1, ')' if !q => depth -= 1, _ => {} }
+                    k += 1;
+                }
+                let inner: String = cs[i+1..k-1].iter().collect();
+                out.push_str(&format!(" __subq_{} ", subs.len()));
+                subs.push(inner);
+                i = k; continue;
+            }
+        }
+        out.push(c); i += 1;
+    }
+    (out, subs)
+}
+fn substitute_subqs(e: Ex, subs: &[String]) -> Ex {
+    let sub_of = |name: &str| -> Option<String> {
+        name.strip_prefix("__subq_").and_then(|n| n.parse::<usize>().ok()).and_then(|n| subs.get(n).cloned())
+    };
+    match e {
+        Ex::Col(name) => match sub_of(&name) { Some(sql) => Ex::Subq(sql), None => Ex::Col(name) },
+        Ex::Func(n, args) => {
+            let args: Vec<Ex> = args.into_iter().map(|a| substitute_subqs(a, subs)).collect();
+            if n == "__exists" {
+                if let Some(Ex::Subq(sql)) = args.into_iter().next() { return Ex::Exists(sql); }
+                return Ex::Lit(LitV::Null);
+            }
+            Ex::Func(n, args)
+        }
+        Ex::Unary(o, x) => Ex::Unary(o, Box::new(substitute_subqs(*x, subs))),
+        Ex::Bin(o, a, b) => Ex::Bin(o, Box::new(substitute_subqs(*a, subs)), Box::new(substitute_subqs(*b, subs))),
+        Ex::Case(w, el) => Ex::Case(w.into_iter().map(|(a,b)| (substitute_subqs(a,subs), substitute_subqs(b,subs))).collect(),
+                                    el.map(|e| Box::new(substitute_subqs(*e, subs)))),
+        Ex::Cast(x, ty) => Ex::Cast(Box::new(substitute_subqs(*x, subs)), ty),
+        Ex::InList(x, xs) => Ex::InList(Box::new(substitute_subqs(*x, subs)), xs.into_iter().map(|a| substitute_subqs(a,subs)).collect()),
+        Ex::Like(a, b, esc, g) => Ex::Like(Box::new(substitute_subqs(*a,subs)), Box::new(substitute_subqs(*b,subs)), esc, g),
+        Ex::IsNull(x, n) => Ex::IsNull(Box::new(substitute_subqs(*x, subs)), n),
+        Ex::Is(a, b, n) => Ex::Is(Box::new(substitute_subqs(*a,subs)), Box::new(substitute_subqs(*b,subs)), n),
+        Ex::Collate(x, c) => Ex::Collate(Box::new(substitute_subqs(*x, subs)), c),
+        other => other,
+    }
+}
+/// Parse an expression string, extracting (SELECT ...) subqueries into Ex::Subq/Ex::Exists.
+fn parse_expr_full(s: &str) -> Result<Ex, String> {
+    let (s2, subs) = extract_subqueries(s);
+    let e = P::new(&s2)?.expr()?;
+    Ok(substitute_subqs(e, &subs))
 }
 
 fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String> {
@@ -766,7 +844,7 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     let f = from.trim();
     if f.starts_with('(') {
         let inner = &f[1..f.rfind(')').ok_or("bad subquery")?];
-        let (cols, rows) = select_rows(ctx, inner)?;
+        let (cols, rows) = select_rows_o(ctx, inner, &Row::new())?;
         let rmaps = rows.into_iter().map(|r| cols.iter().cloned().zip(r).collect()).collect();
         return Ok((cols, rmaps));
     }
@@ -863,45 +941,194 @@ fn item_alias(item: &str) -> (String, String) {
     (item.trim().to_string(), item.trim().to_string())
 }
 
-fn select_core(ctx: &Ctx, sql: &str) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+// ---------------- FROM clause: single items, comma joins, INNER/LEFT JOIN ----------------
+fn find_top_char(s: &str, want: char) -> Option<usize> {
+    let mut depth = 0; let mut inq = false;
+    for (i, c) in s.char_indices() {
+        match c { '\'' => inq = !inq, '(' if !inq => depth += 1, ')' if !inq => depth -= 1,
+                  c if c == want && depth == 0 && !inq => return Some(i), _ => {} }
+    }
+    None
+}
+
+/// depth/quote-aware case-insensitive replace of a top-level keyword phrase
+fn replace_top(s: &str, from: &str, to: &str) -> String {
+    let mut out = String::new(); let mut rest = s.to_string();
+    loop {
+        match find_kw_top(&rest, from) {
+            Some(p) => { out.push_str(&rest[..p]); out.push_str(to); rest = rest[p+from.len()..].to_string(); }
+            None => { out.push_str(&rest); return out; }
+        }
+    }
+}
+
+/// one FROM item: base source (table / (subquery) / tvf) + optional [AS] alias.
+/// returns (qualifier, colnames, rows-with-bare-keys)
+fn item_source(ctx: &Ctx, item: &str, outer: &Row) -> Result<(String, Vec<String>, Vec<Row>), String> {
+    let it = item.trim();
+    // split base / alias at top level
+    let cs: Vec<char> = it.chars().collect();
+    let mut depth = 0; let mut inq = false; let mut base_end = cs.len();
+    for (i, &c) in cs.iter().enumerate() {
+        match c { '\'' => inq = !inq, '(' if !inq => depth += 1, ')' if !inq => depth -= 1,
+                  c if c.is_whitespace() && depth == 0 && !inq && i > 0 => { base_end = i; break; } _ => {} }
+    }
+    let base: String = cs[..base_end].iter().collect();
+    let mut alias: String = cs[base_end..].iter().collect::<String>().trim().to_string();
+    if alias.to_ascii_uppercase().starts_with("AS ") { alias = alias[3..].trim().to_string(); }
+    let (cols, rows) = if base.starts_with('(') {
+        let inner = &base[1..base.rfind(')').ok_or("bad subquery in FROM")?];
+        let (c, rs) = select_rows_o(ctx, inner, outer)?;
+        (c.clone(), rs.into_iter().map(|r| c.iter().cloned().zip(r).collect::<Row>()).collect())
+    } else {
+        source_rows(ctx, &base)?
+    };
+    let qual = if !alias.is_empty() { alias } else { base.trim().to_string() };
+    Ok((qual, cols, rows))
+}
+
+/// nested-loop FROM evaluation: comma joins (cartesian; WHERE filters later),
+/// INNER JOIN ... ON, LEFT [OUTER] JOIN ... ON. Rows carry qualified (alias.col)
+/// keys plus bare col keys (first-wins on collision; pinned cases qualify ambiguity).
+fn parse_from(ctx: &Ctx, from: &str, outer: &Row) -> Result<Vec<Row>, String> {
+    // normalize separators at top level
+    let mut f = replace_top(from, "LEFT OUTER JOIN", " LEFTJOIN ");
+    f = replace_top(&f, "LEFT JOIN", " LEFTJOIN ");
+    f = replace_top(&f, "INNER JOIN", " JOIN ");
+    f = replace_top(&f, "CROSS JOIN", " , ");
+    // split into (kind, segment)
+    let mut segs: Vec<(u8, String)> = Vec::new(); // 0=first, 1=comma, 2=inner, 3=left
+    let mut rest = f.trim().to_string(); let mut kind = 0u8;
+    loop {
+        let pj = find_kw_top(&rest, "JOIN");
+        let pl = find_kw_top(&rest, "LEFTJOIN");
+        let comma_pos = find_top_char(&rest, ',');
+        // find earliest separator
+        let mut best: Option<(usize, u8, usize)> = None; // (pos, kind, sep_len)
+        if let Some(p) = pl { best = Some((p, 3, 8)); }
+        if let Some(p) = pj { if best.map_or(true, |b| p < b.0) { best = Some((p, 2, 4)); } }
+        if let Some(p) = comma_pos { if best.map_or(true, |b| p < b.0) { best = Some((p, 1, 1)); } }
+        match best {
+            Some((p, k, l)) => { segs.push((kind, rest[..p].trim().to_string())); kind = k; rest = rest[p+l..].trim().to_string(); }
+            None => { segs.push((kind, rest.trim().to_string())); break; }
+        }
+    }
+    // fold nested loop
+    let mut acc: Vec<Row> = Vec::new();
+    for (i, (k, seg)) in segs.iter().enumerate() {
+        let (item_str, on_str) = match find_kw_top(seg, "ON") {
+            Some(p) => (seg[..p].trim().to_string(), Some(seg[p+2..].trim().to_string())),
+            None => (seg.trim().to_string(), None),
+        };
+        let (qual, cols, rows) = item_source(ctx, &item_str, outer)?;
+        let qrows: Vec<Row> = rows.iter().map(|r| {
+            let mut m = Row::new();
+            for c in &cols {
+                let v = r.get(c).cloned().unwrap_or(V::Null);
+                m.insert(format!("{qual}.{c}"), v.clone());
+                m.entry(c.clone()).or_insert(v);
+            }
+            m
+        }).collect();
+        if i == 0 { acc = qrows; continue; }
+        let on_ex = match &on_str { Some(o) => Some(parse_expr_full(o)?), None => None };
+        let mut next: Vec<Row> = Vec::new();
+        for l in &acc {
+            let mut matched = false;
+            for r in &qrows {
+                let mut m = l.clone();
+                for (kk, vv) in r { m.entry(kk.clone()).or_insert_with(|| vv.clone()); }
+                let keep = match &on_ex {
+                    Some(e) => { let mut env = m.clone(); for (ok, ov) in outer { env.entry(ok.clone()).or_insert_with(|| ov.clone()); }
+                                 eval_expr(e, &env, ctx)?.truthy() == Some(true) }
+                    None => true,
+                };
+                if keep { matched = true; next.push(m); }
+            }
+            if *k == 3 && !matched {
+                // LEFT JOIN: keep left row, right columns NULL
+                let mut m = l.clone();
+                for c in &cols { m.insert(format!("{qual}.{c}"), V::Null); m.entry(c.clone()).or_insert(V::Null); }
+                next.push(m);
+            }
+        }
+        acc = next;
+    }
+    Ok(acc)
+}
+
+fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
     let s = sql.trim();
     let up = s.to_ascii_uppercase();
     if !up.starts_with("SELECT") { return Err("not a SELECT".into()); }
-    let rest = &s[6..];
-    let from_pos = find_kw_top(rest, "FROM");
-    let where_pos = find_kw_top(rest, "WHERE");
+    let mut rest = s[6..].to_string();
+    // GROUP BY (top level; ORDER BY/LIMIT already stripped by select_rows_o)
+    let mut group_str: Option<String> = None;
+    if let Some(g) = find_kw_top(&rest, "GROUP BY") { group_str = Some(rest[g+8..].trim().to_string()); rest = rest[..g].trim().to_string(); }
+    let from_pos = find_kw_top(&rest, "FROM");
+    let where_pos = find_kw_top(&rest, "WHERE");
     let items_end = [from_pos, where_pos].into_iter().flatten().min().unwrap_or(rest.len());
-    let items_str = &rest[..items_end];
+    let items_str = rest[..items_end].to_string();
     let (from_str, where_str) = match (from_pos, where_pos) {
-        (Some(f), Some(w)) if w > f => (Some(rest[f+4..w].trim()), Some(rest[w+5..].trim())),
-        (Some(f), None) => (Some(rest[f+4..].trim()), None),
-        (None, Some(w)) => (None, Some(rest[w+5..].trim())),
+        (Some(f), Some(w)) if w > f => (Some(rest[f+4..w].trim().to_string()), Some(rest[w+5..].trim().to_string())),
+        (Some(f), None) => (Some(rest[f+4..].trim().to_string()), None),
+        (None, Some(w)) => (None, Some(rest[w+5..].trim().to_string())),
         _ => (None, None),
     };
-    let items: Vec<(String, String)> = split_top(items_str, ',').iter().map(|i| item_alias(i)).collect();
+    let items: Vec<(String, String)> = split_top(&items_str, ',').iter().map(|i| item_alias(i)).collect();
 
     // window handling (two pinned shapes)
     if items.iter().any(|(e, _)| find_kw_top(e, "OVER").is_some()) {
-        return window_select(ctx, &items, from_str.unwrap_or(""));
+        return window_select(ctx, &items, from_str.as_deref().unwrap_or(""));
     }
 
-    let (_cols, src) = match from_str { Some(f) => source_rows(ctx, f)?, None => (vec![], vec![Row::new()]) };
+    let src: Vec<Row> = match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] };
+    // env for expression evaluation = inner row + outer bindings (inner wins)
+    let with_outer = |r: &Row| -> Row {
+        let mut m = r.clone();
+        for (k, v) in outer { m.entry(k.clone()).or_insert_with(|| v.clone()); }
+        m
+    };
     // WHERE
-    let src: Vec<Row> = if let Some(w) = where_str {
-        let mut pw = P::new(w)?; let we = pw.expr()?;
-        src.into_iter().filter(|r| eval_expr(&we, r, ctx).ok().and_then(|v| v.truthy()) == Some(true)).collect()
+    let src: Vec<Row> = if let Some(w) = &where_str {
+        let we = parse_expr_full(w)?;
+        let mut keep = Vec::new();
+        for r in src { if eval_expr(&we, &with_outer(&r), ctx)?.truthy() == Some(true) { keep.push(r); } }
+        keep
     } else { src };
 
     let colnames: Vec<String> = items.iter().map(|(_, a)| a.clone()).collect();
-    let exprs: Vec<Ex> = items.iter().map(|(e, _)| P::new(e).and_then(|mut p| p.expr())).collect::<Result<_,_>>()?;
-    let has_agg = exprs.iter().any(expr_has_agg);
+    let exprs: Vec<Ex> = items.iter().map(|(e, _)| parse_expr_full(e)).collect::<Result<_,_>>()?;
     let mut out = Vec::new();
-    if has_agg {
-        let mut row = Vec::new();
-        for e in &exprs { row.push(eval_agg(e, &src, ctx)?); }
-        out.push(row);
+    if let Some(g) = group_str {
+        // real grouping: key exprs evaluated per row, groups in first-seen order
+        let key_exprs: Vec<Ex> = split_top(&g, ',').iter().map(|k| parse_expr_full(k)).collect::<Result<_,_>>()?;
+        let mut order: Vec<String> = Vec::new();
+        let mut groups: std::collections::HashMap<String, Vec<Row>> = std::collections::HashMap::new();
+        for r in &src {
+            let env = with_outer(r);
+            let mut kv = Vec::new();
+            for ke in &key_exprs { kv.push(format!("{:?}", eval_expr(ke, &env, ctx)?.render())); }
+            let key = kv.join("\u{1}");
+            if !groups.contains_key(&key) { order.push(key.clone()); }
+            groups.entry(key).or_default().push(env);
+        }
+        for key in order {
+            let rows = &groups[&key];
+            let mut orow = Vec::new();
+            for e in &exprs { orow.push(eval_agg(e, rows, ctx)?); }
+            out.push(orow);
+        }
     } else {
-        for r in &src { let mut orow = Vec::new(); for e in &exprs { orow.push(eval_expr(e, r, ctx)?); } out.push(orow); }
+        let env_rows: Vec<Row> = src.iter().map(|r| with_outer(r)).collect();
+        let has_agg = exprs.iter().any(expr_has_agg);
+        if has_agg {
+            let mut row = Vec::new();
+            for e in &exprs { row.push(eval_agg(e, &env_rows, ctx)?); }
+            out.push(row);
+        } else {
+            for r in &env_rows { let mut orow = Vec::new(); for e in &exprs { orow.push(eval_expr(e, r, ctx)?); } out.push(orow); }
+        }
     }
     Ok((colnames, out))
 }
@@ -935,8 +1162,19 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str) -> Result<(V
     Ok((items.iter().map(|(_, a)| a.clone()).collect(), out))
 }
 
-fn select_rows(ctx: &Ctx, sql: &str) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
     let mut s = sql.trim().trim_end_matches(';').trim().to_string();
+    // trailing LIMIT [OFFSET] (top level; textually after ORDER BY)
+    let mut limit: Option<(usize, usize)> = None;
+    if let Some(p) = find_kw_top(&s, "LIMIT") {
+        let tail = s[p+5..].trim().to_string();
+        s = s[..p].trim().to_string();
+        let (n, off) = match find_kw_top(&tail, "OFFSET") {
+            Some(o) => (tail[..o].trim().to_string(), tail[o+6..].trim().parse::<usize>().map_err(|_| "bad OFFSET")?),
+            None => (tail, 0),
+        };
+        limit = Some((n.trim().parse::<usize>().map_err(|_| "bad LIMIT")?, off));
+    }
     // trailing ORDER BY (top level)
     let mut order: Option<String> = None;
     if let Some(p) = find_kw_top(&s, "ORDER BY") { order = Some(s[p+8..].trim().to_string()); s = s[..p].trim().to_string(); }
@@ -957,7 +1195,7 @@ fn select_rows(ctx: &Ctx, sql: &str) -> Result<(Vec<String>, Vec<Vec<V>>), Strin
     let mut rows: Vec<Vec<V>> = Vec::new();
     let mut dedup = false;
     for (i, (core, all)) in parts.iter().enumerate() {
-        let (cn, rs) = select_core(ctx, core)?;
+        let (cn, rs) = select_core(ctx, core, outer)?;
         if i == 0 { colnames = cn; } else if !all { dedup = true; }
         rows.extend(rs);
     }
@@ -966,9 +1204,29 @@ fn select_rows(ctx: &Ctx, sql: &str) -> Result<(Vec<String>, Vec<Vec<V>>), Strin
         rows.retain(|r| seen.insert(r.iter().map(|v| format!("{:?}", v.render())).collect::<Vec<_>>().join("\u{1}")));
     }
     if let Some(ob) = order {
-        let key = ob.split_whitespace().next().unwrap_or("1").to_string();
-        let ci = key.parse::<usize>().map(|n| n - 1).unwrap_or_else(|_| colnames.iter().position(|c| *c == key).unwrap_or(0));
-        rows.sort_by(|a, b| vcmp(a.get(ci).unwrap_or(&V::Null), b.get(ci).unwrap_or(&V::Null)));
+        // multi-key ORDER BY over output columns (name, qualified name, or 1-based ordinal), ASC/DESC
+        let mut keys: Vec<(usize, bool)> = Vec::new();
+        for term in split_top(&ob, ',') {
+            let mut wds = term.split_whitespace();
+            let name = wds.next().unwrap_or("1").to_string();
+            let desc = wds.next().map_or(false, |w| w.eq_ignore_ascii_case("DESC"));
+            let ci = name.parse::<usize>().map(|n| n - 1).unwrap_or_else(|_| {
+                colnames.iter().position(|c| *c == name)
+                    .or_else(|| colnames.iter().position(|c| c.rsplit('.').next() == name.rsplit('.').next()))
+                    .unwrap_or(0)
+            });
+            keys.push((ci, desc));
+        }
+        rows.sort_by(|a, b| {
+            for (ci, desc) in &keys {
+                let o = vcmp(a.get(*ci).unwrap_or(&V::Null), b.get(*ci).unwrap_or(&V::Null));
+                if o != std::cmp::Ordering::Equal { return if *desc { o.reverse() } else { o }; }
+            }
+            std::cmp::Ordering::Equal
+        });
+    }
+    if let Some((n, off)) = limit {
+        rows = rows.into_iter().skip(off).take(n).collect();
     }
     Ok((colnames, rows))
 }
@@ -991,7 +1249,7 @@ pub fn run_stmt(ctx: &mut Ctx, sql: &str) -> Result<Option<Vec<Vec<Option<String
         return Ok(Some(vec![]));
     }
     if up.starts_with("SELECT") {
-        let (_c, rows) = select_rows(ctx, s)?;
+        let (_c, rows) = select_rows_o(ctx, s, &Row::new())?;
         return Ok(Some(rows.into_iter().map(|r| r.into_iter().map(|v| v.render()).collect()).collect()));
     }
     Ok(None)

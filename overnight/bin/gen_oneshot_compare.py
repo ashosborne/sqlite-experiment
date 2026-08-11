@@ -5,7 +5,8 @@ kitchen_compare) + deferred pins (no store coverage claimed)."""
 import json, os
 from pathlib import Path
 ROOT=Path('/workspace')
-CAT=[x for p in ['overnight/oneshot/catalog.json','overnight/oneshot/catalog2.json'] for x in json.loads((ROOT/p).read_text())]
+CATS=os.environ.get('CATALOGS','overnight/oneshot/catalog.json,overnight/oneshot/catalog2.json').split(',')
+CAT=[x for p in CATS for x in json.loads((ROOT/p).read_text())]
 EXCLUDE=set(os.environ.get('EXCLUDE_IDS','').split(',')) - {''}
 def resc(s): return s.replace('\\','\\\\').replace('"','\\"')
 out=['//! GENERATED (pack v8): store+eval executor replays — no script_table.',
@@ -20,5 +21,5 @@ for c in CAT:
             f'    compare_script("{c["slice"]}", "{feat}", "{cnum}", "{resc(c["sql"])}");',
             f'}}','']
     n+=1
-Path('modern/tests/oneshot_compare.rs').write_text("\n".join(out))
+Path(os.environ.get('OUT','modern/tests/oneshot_compare.rs')).write_text("\n".join(out))
 print(f"emitted {n} store/eval replay tests (excluded {len(EXCLUDE)})")

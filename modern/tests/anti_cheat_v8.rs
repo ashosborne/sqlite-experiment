@@ -73,3 +73,35 @@ fn anti_cheat_unknown_sql_fails_honestly() {
     assert_ne!(rc, 0, "unknown SQL must not invent success");
     assert!(rows.is_empty());
 }
+
+// ---- pack v9 anti-cheat: joins + scalar subqueries computed from runtime values ----
+
+#[test]
+fn anti_cheat_join_runtime() {
+    let k = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE ja(k INTEGER, n TEXT); INSERT INTO ja VALUES({k},'left'),({},'other'); \
+         CREATE TABLE jb(k INTEGER, t TEXT); INSERT INTO jb VALUES({k},'hit'); \
+         SELECT ja.n, jb.t FROM ja JOIN jb ON ja.k = jb.k;", k + 1));
+    assert_eq!(rc, 0);
+    assert_eq!(rows, vec![vec![Some("left".to_string()), Some("hit".to_string())]]);
+}
+
+#[test]
+fn anti_cheat_scalar_subquery_runtime() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE sq(v INTEGER); INSERT INTO sq VALUES({n}),({}); \
+         SELECT (SELECT max(v) FROM sq), (SELECT v FROM sq ORDER BY v LIMIT 1), \
+                (SELECT {n} + 1);", n - 5));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0][0].as_deref(), Some((n).to_string().as_str()));
+    assert_eq!(rows[0][1].as_deref(), Some((n - 5).to_string().as_str()));
+    assert_eq!(rows[0][2].as_deref(), Some((n + 1).to_string().as_str()));
+}
+
+#[test]
+fn anti_cheat_script_table_still_empty() {
+    assert_eq!(sqlite3_rust_spine::script_table::SCRIPT_TABLE.len(), 0,
+        "pack v9 law: SCRIPT_TABLE must stay at zero behavioural pins");
+}

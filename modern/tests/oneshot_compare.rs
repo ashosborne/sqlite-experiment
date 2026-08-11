@@ -8,6 +8,11 @@ fn pragma_surface_001_C001() {
 }
 
 #[test]
+fn pragma_surface_002_C001() {
+    compare_script("pragma-surface", "pragma-surface-002", "C001", "SELECT count(*), (SELECT name FROM pragma_database_list LIMIT 1) FROM pragma_database_list;");
+}
+
+#[test]
 fn attach_detach_001_C001() {
     compare_script("attach-detach", "attach-detach-001", "C001", "ATTACH ':memory:' AS aux1; SELECT count(*) FROM pragma_database_list;");
 }
