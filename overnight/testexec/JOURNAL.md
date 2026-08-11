@@ -74,3 +74,12 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Two golden-caught bugs fixed pre-ship: trigger-body trim order; SELECT parser swallowing pragma_compile_options (referenced-table gate added — store only claims tables it created/owns).
 - script_table regenerated: 70 entries, zero user-table SQL (grep proof in brief). kitchen_compare grew to 20 tests incl. anti_cheat_runtime_fk_round_trip. cargo 111/111.
 - Pack v5 BOUND (kitchen_path 18; per-ID still_recognizer reasons replace the blanket note). 122 goldens md5-identical; C003 BLOCKED; parity 0; no RECORD this run (charter: ALLOW_RECORD false — none needed).
+
+---
+
+# Run 15 — engine v6 durable files (sqlite-engine-v6-files)
+
+- Job 2 first: engine-files slice + five durable file round-trips RECORDED on the pin C (2-run gate 5/5), delegated stamp; legacy_green 97. pager/vfs/btree given a "touched, not frozen" note — no fake green.
+- Job 1: pack v6 BOUND — DURABILITY LAW (C-readable SQLite file required; private dump = SCOPE_VIOLATION; WAL out of scope); data.file_format_parity set; ADR 0004; versions/1-6.
+- Job 3: modern/src/dbfile.rs — real SQLite on-disk format writer+reader (100-byte header, sqlite_schema leaf, per-table leaf pages, serial-type records, varints). sqlite3_open(path) loads file into the v5 store; close saves it. HONESTY GATE PASS: rust_write_c_read (pinned CLI reads Rust's file); c_write_rust_read PASS; anti_cheat_reopen_runtime PASS. Five engine-files golden replays green. cargo 119/119. No C link; 45 exported symbols.
+- Invariants: 122 prior goldens md5-identical; C003 BLOCKED; parity 0; :memory: kitchen unchanged; same branch.
