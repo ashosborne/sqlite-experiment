@@ -1,43 +1,56 @@
-# MORNING BRIEF — sqlite-experiment run 5: Test execution RECORD (legacy)
+# MORNING BRIEF — sqlite-experiment run 7: Test execution RECORD (six prepare-statement cases)
 
-Run: 2026-08-11 · `2026-08-11T1205Z-legacy-record` · from `23b6a1ed1` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-testexec-record`
-MODE=RECORD · TARGET=legacy only. No COMPARE, no modern, no Conversion.
+Run: 2026-08-11 · `2026-08-11T1310Z-legacy-record-six` · from `44ac80fba` · committed as `sqlite-testexec-record-six`
+MODE=RECORD · TARGET=legacy only. (Run-5 brief preserved as `MORNING_BRIEF-2026-08-11-run5.md`.)
 
-## 1. Build + fingerprint
+## 1. Build + fingerprint vs run 5
 
-- Pinned baseline built out-of-tree (`/tmp/sqlite-build`; generated amalgamation/binaries **not** committed): `/workspace/configure && make sqlite3 sqlite3.c`, default flags. `sqlite_version()` = **3.54.0**.
-- Fingerprint **captured** and appended to `overnight/BASELINE.md` (closes the run-4 "not captured" line):
-  - **ENABLE_API_ARMOR = off** (as expected) · **OMIT_AUTORESET = off** (as expected)
-  - Notable bare-configure defaults recorded: FTS3/FTS4, RTREE, MATH_FUNCTIONS, PERCENTILE, STMTVTAB, DBSTAT/DBPAGE/BYTECODE vtabs enabled; **DQS=0**. These refine the compile-options census cards.
+Run-5 out-of-tree build **reused** (`/tmp/sqlite-build`); `src/`/`ext/` verified zero-diff since the
+run-5 build base, and the fingerprint re-verified live: **sqlite 3.54.0, ENABLE_API_ARMOR=0,
+OMIT_AUTORESET=0 — exact match to the BASELINE pin. No rebuild, no second pin, BASELINE dump untouched.**
+Harness compiled fresh against that amalgamation (public C API only; no path steps a finalized handle).
 
-## 2. Goldens + replay (the four approved cases only)
+## 2. Six goldens + replay
 
-| Case | RECORD result | Immediate replay |
+| Case | RECORD actuals | Replay |
 | --- | --- | --- |
-| error-status-api-001-C001 | errcode=1, extended=1, errmsg=`near "SELECTT": syntax error` | **REPLAY_GREEN** (byte-match) |
-| error-status-api-001-C002 | errcode(NULL)=7 (SQLITE_NOMEM), errmsg(NULL)=`out of memory` | **REPLAY_GREEN** |
-| prepare-statement-api-002-C001 | prepare=0 → step=100 (ROW) → col=1 → step=101 (DONE) | **REPLAY_GREEN** |
-| prepare-statement-api-002-C002 | third step after DONE = **100 (ROW)** — autoreset, not MISUSE (charter predicted this) | **REPLAY_GREEN** |
+| prepare-statement-api-001-C001 | prepare=0, stmt non-NULL, pzTail consumed | **REPLAY_GREEN** |
+| prepare-statement-api-001-C002 | whitespace/comment-only SQL → OK + NULL stmt | **REPLAY_GREEN** |
+| prepare-statement-api-003-C001 | bind=0 → ROW(100) → column=7 | **REPLAY_GREEN** |
+| prepare-statement-api-003-C002 | bind index OOR (same stmt after reset) → **25 (SQLITE_RANGE)** | **REPLAY_GREEN** |
+| prepare-statement-api-005-C001 | explicit reset-from-DONE: reset=0, re-step ROW, **bound 42 preserved** | **REPLAY_GREEN** |
+| prepare-statement-api-005-C002 | finalize live stmt → 0 (contract = finalize.rc only; setup rcs frozen as extras, not promoted) | **REPLAY_GREEN** |
 
-Goldens: `tests/characterization/<slice>/cases/.../C00n.approved.txt` · run SoT: `runs/2026-08-11T1205Z-legacy-record/{results.json,REPORT.md,actuals,logs}` · scrub profile: none (deterministic static inputs). `legacy_green` set **only** on `error-status-api-001` and `prepare-statement-api-002`; the other 183 behaviours untouched.
+All replays byte-matched. Goldens: `tests/characterization/prepare-statement-api/cases/<FEATURE_ID>/C00n.approved.txt`;
+run SoT: `runs/2026-08-11T1310Z-legacy-record-six/{results.json,REPORT.md,actuals,logs}`.
+The four HUMAN_ACCEPTED goldens verified **byte-identical** (md5) — untouched, unrenamed.
 
-## 3. C003 BLOCKED
+## 3. Hygiene (done first, words not goldens)
 
-`prepare-statement-api-002-C003` (step a finalized statement) — **BLOCKED, not captured**: use-after-free even with API_ARMOR (armor guards NULL, not freed handles). The capture call was **removed from the harness**; TRACEABILITY (both testgen and tests/characterization) carries the reason. No UB frozen. Optional future replacement (`sqlite3_step(NULL)`) deliberately NOT done this run.
+- 002-C002 TRACE title: dropped "(card: must reset before re-stepping)" → autoreset wording.
+- 002-C003 TRACE title + CASE-003.md: retitled **"BLOCKED — UAF, do not RECORD"**; the old "try RECORD if API_ARMOR" advice removed (armor guards NULL, not freed handles); step(NULL) noted as a future C004, not this ID.
+- error-status-001-C002 TRACE title: dropped "MISUSE-safe" → SQLITE_NOMEM / 'out of memory' wording.
+- 003-C002 spec now states the bind is on the same stmt after `sqlite3_reset` (matches harness).
+- 001-C002 spec observable renamed `pzTail.rest` (matches harness).
+- 005-C001 spec notes it is explicit **reset-from-DONE** on the autoreset pin (distinct from 002-C002).
 
-## 4. Flags for humans
+## 4. Flags kept honest
 
-- **errmsg wording**: frozen verbatim in the C001 golden but not a pass/fail contract — needs a human look at golden approval.
-- **Card refinement suggested** (Discovery note, no golden rewrite): prepare-statement-api-002's "must be reset before re-stepping" sentence describes the manual contract; the pinned build auto-resets (OMIT_AUTORESET off) and returns ROW.
+- **legacy_green NOT flipped** on 001/003/005 — still exactly the two stamped IDs. These six goldens are `PENDING_HUMAN` (recorded in TRACEABILITY beside the run-6 stamp, which covers only the 002 pair).
+- C003 still BLOCKED. Nothing captured for it.
 
 ## 5. What this run did NOT do
 
-No COMPARE / modern runs, no Conversion, no PACK, no Discovery seeding, no `test/` TCL / testfixture / sqllogictest, no product-source edits (verified zero diffs), no goldens for any other feature ID.
+No re-RECORD of the four stamped cases, no COMPARE/modern, no Conversion, no PACK.yaml, no Discovery
+seeding, no `test/` TCL/testfixture/sqllogictest, no `src/`/`ext/` edits, no generated files committed.
 
 ## 6. completeness: incomplete
 
-Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes). 2 of 185 behaviours now legacy-green-flagged pending golden approval.
+Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes).
 
 ## 7. Closing ask
 
-**Approve these four goldens?** (`tests/characterization/*/cases/**.approved.txt` + run reports.) Approval unlocks the next stage decisions (more RECORD batches, or Architecture PACK authoring toward Conversion). C003 stays blocked until you choose the `sqlite3_step(NULL)` replacement case or drop it.
+**Approve these six goldens?** On stamp, the whole prepare-statement spine (001/002/003/005) plus
+error-status-001 would be characterization-pinned — ready for the next batch decision (error-status-002/003,
+exec-convenience, connection-lifecycle) or the first Architecture PACK conversation. Still not Conversion-ready:
+stamp ≠ PACK ≠ Convert, and 002-C003 stays blocked.

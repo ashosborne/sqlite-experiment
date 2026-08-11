@@ -1,0 +1,7 @@
+OBS 005-C001 prepare.rc 0
+OBS 005-C001 bind.rc 0
+OBS 005-C001 step_row.rc 100
+OBS 005-C001 step_done.rc 101
+OBS 005-C001 reset.rc 0
+OBS 005-C001 post_reset_step.rc 100
+OBS 005-C001 column_after_reset.value 42

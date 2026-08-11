@@ -15,7 +15,7 @@ Evidence gate: observed-in-code · Citations: `src/prepare.c:955`, `src/prepare.
 ## Observables to capture
 - `prepare.rc` (card shape: SQLITE_OK)
 - `stmt.isnull` (card shape: NULL statement — recorded as implemented, not asserted)
-- `pzTail.consumed`
+- `pzTail.rest` (the unconsumed text, or '(consumed)' — name aligned with the harness observable)
 
 ## Scrub
 - None.

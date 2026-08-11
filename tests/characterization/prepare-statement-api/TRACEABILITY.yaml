@@ -2,7 +2,7 @@ slice_id: prepare-statement-api
 source_testgen: testgen/prepare-statement-api/TRACEABILITY.yaml
 mode: RECORD
 target: legacy
-updated_at: '2026-08-11T12:30:20Z'
+updated_at: '2026-08-11T13:02:56Z'
 run_id: 2026-08-11T1205Z-legacy-record
 cases:
 - case_id: prepare-statement-api-002-C001
@@ -19,6 +19,36 @@ cases:
   golden_path: null
   blocked_reason: "unsafe capture \u2014 use-after-free: stepping a finalized handle is UAF even with API_ARMOR (armor checks NULL, not freed\
     \ memory); harness call removed; UB never frozen"
+- case_id: prepare-statement-api-001-C001
+  feature_id: prepare-statement-api-001
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-001/C001.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
+- case_id: prepare-statement-api-001-C002
+  feature_id: prepare-statement-api-001
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-001/C002.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
+- case_id: prepare-statement-api-003-C001
+  feature_id: prepare-statement-api-003
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-003/C001.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
+- case_id: prepare-statement-api-003-C002
+  feature_id: prepare-statement-api-003
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-003/C002.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
+- case_id: prepare-statement-api-005-C001
+  feature_id: prepare-statement-api-005
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-005/C001.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
+- case_id: prepare-statement-api-005-C002
+  feature_id: prepare-statement-api-005
+  status: REPLAY_GREEN
+  golden_path: cases/prepare-statement-api-005/C002.approved.txt
+  run_id: 2026-08-11T1310Z-legacy-record-six
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne
@@ -27,3 +57,13 @@ golden_approval:
   stamped_case_ids:
   - prepare-statement-api-002-C001
   - prepare-statement-api-002-C002
+pending_golden_approval:
+  status: PENDING_HUMAN
+  case_ids:
+  - prepare-statement-api-001-C001
+  - prepare-statement-api-001-C002
+  - prepare-statement-api-003-C001
+  - prepare-statement-api-003-C002
+  - prepare-statement-api-005-C001
+  - prepare-statement-api-005-C002
+  note: run-6 HUMAN_ACCEPTED stamp above covers ONLY the 002 pair

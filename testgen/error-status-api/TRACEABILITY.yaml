@@ -1,7 +1,7 @@
 slice_id: error-status-api
 source_discovery: discovery/error-status-api/MANIFEST.yaml
 phase: B
-updated_at: '2026-08-11T12:30:20Z'
+updated_at: '2026-08-11T13:00:56Z'
 batch_card_ids:
 - error-status-api-001
 cases:
@@ -29,7 +29,7 @@ cases:
   golden: tests/characterization/error-status-api/cases/error-status-api-001/C001.approved.txt
 - id: error-status-api-001-C002
   feature_id: error-status-api-001
-  title: "errmsg/errcode on NULL db handle \u2014 MISUSE-safe static answers as implemented"
+  title: "errcode/errmsg on NULL db handle \u2014 SQLITE_NOMEM / 'out of memory' static answers as implemented"
   status: REPLAY_GREEN
   kind: characterization
   evidence_gate: observed-in-code

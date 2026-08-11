@@ -10,3 +10,12 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Notable: C002 step-after-DONE returned SQLITE_ROW (100) via autoreset — as the charter predicted; card sentence pins the manual contract → card-refinement note for Discovery in REPORT.md (no golden rewrite, no failure class).
 - errmsg wording frozen as captured but flagged: NOT a pass/fail contract; human review at golden approval.
 - TRACEABILITY updated both places (testgen: 4× REPLAY_GREEN, C003 blocked; tests/characterization: run TRACEABILITY + golden_approval PENDING_HUMAN). APP_MANIFEST: legacy_green=true ONLY on error-status-api-001 + prepare-statement-api-002 (charter + schema: after real REPLAY_GREEN); other 183 untouched. Schema VALID; COVERAGE regenerated.
+
+---
+
+# Run 7 — RECORD six (sqlite-testexec-record-six)
+
+- stop.txt: absent. Hygiene first: TRACE titles (002-C002 autoreset wording, 002-C003 "BLOCKED — UAF, do not RECORD", error-status C002 drop "MISUSE-safe"), CASE-003.md rewritten without armor advice, 003-C002/001-C002/005-C001 specs aligned with harness flow. Harness control flow untouched.
+- Build: run-5 build reused; fingerprint re-verified live (3.54.0 / armor 0 / autoreset 0); zero src/ext diffs since run-5 base; BASELINE dump NOT rewritten. Harness compiled fresh.
+- RECORD: six cases captured (scrub: none); goldens frozen; immediate replay byte-matched all six → REPLAY_GREEN. Stamped four verified byte-identical (md5). C003 not touched.
+- Traceability: testgen six → REPLAY_GREEN (assert_mode RECORDED); tests/characterization six rows appended with run id; pending_golden_approval=PENDING_HUMAN recorded beside the run-6 stamp (which covers only the 002 pair). legacy_green unchanged (exactly 2). No PACK, no COMPARE, no Conversion.

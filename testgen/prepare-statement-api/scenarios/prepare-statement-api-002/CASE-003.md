@@ -1,26 +1,16 @@
-# prepare-statement-api-002-C003 — step a finalized statement
+# prepare-statement-api-002-C003 — BLOCKED — UAF, do not RECORD
 
-Feature: `prepare-statement-api-002` · Kind: characterization · Assert mode: **TO_BE_RECORDED**
-Evidence gate: observed-in-code · Citations: card Validation section ("Stepping a finalized
-statement → SQLITE_MISUSE"), `src/vdbeapi.c:980`
+Feature: `prepare-statement-api-002` · Kind: characterization · Status: **BLOCKED (permanent)**
+Evidence gate: blocked · Citations: card Validation section (patched run 6: "NOT observed and not
+safely observable"), `src/vdbeapi.c:980`
 
-## Preconditions / fixtures
-- A prepared statement that has been passed to `sqlite3_finalize()`.
+## Why this case is blocked
 
-## Boundary invoke
-1. `sqlite3_finalize(stmt)`
-2. `rc = sqlite3_step(stmt)`  /* handle already finalized */
+Stepping a statement handle after `sqlite3_finalize()` is **use-after-free**. This holds even when
+`SQLITE_ENABLE_API_ARMOR` is compiled in — armor guards NULL pointers, not freed memory. There is
+no safe way to capture this observable; undefined behaviour is never executed, recorded, or frozen.
 
-## Observables to capture
-- `step_after_finalize.rc`
-
-## Honest caveat (recorded for Test execution review)
-- After finalize the handle memory is freed; the guarded-MISUSE answer is reliable when the build
-  compiles the safety checks (`SQLITE_ENABLE_API_ARMOR`); without armor this is
-  use-after-free territory and the observable may be undefined rather than a stable rc.
-- Action for RECORD: capture the rc on the pinned baseline build AND note whether API_ARMOR is in
-  the compileoption fingerprint. If the baseline lacks armor, Test execution should classify this
-  case `BLOCKED (unsafe capture on unarmored build)` rather than freeze a golden from UB.
-
-## Scrub
-- None.
+- The harness contains no code path that touches a handle after finalize (call removed in run 5).
+- No golden exists; `golden_path: null` in TRACEABILITY.
+- Any future pin of the *defined* guarded path (`sqlite3_step(NULL)`) would be a **new case ID
+  (C004)** requiring its own operator approval — it must not be recorded under this ID.
