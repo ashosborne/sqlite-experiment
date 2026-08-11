@@ -3,19 +3,19 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T16:43:52Z
+- Generated: 2026-08-11T17:14:21Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T16:43:52Z by `sqlite-engine-v6-files`
+- Manifest last_updated: 2026-08-11T17:14:20Z by `sqlite-engine-v7-schema-disk`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 187 |
-| Behaviours known | 187 |
+| Behaviours known | 190 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 97 |
+| legacy_green flags | 100 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -29,7 +29,7 @@
 
 | Status | Count |
 | --- | --- |
-| documented | 187 |
+| documented | 190 |
 
 ## Surfaces per slice
 
