@@ -1,58 +1,48 @@
-# MORNING BRIEF — sqlite-experiment run 8: stamp six + run-folder tidy
+# MORNING BRIEF — sqlite-experiment run 10: RECORD connection-lifecycle + exec-convenience
 
-Run: 2026-08-11 · from `f48f47f4a` · committed as `sqlite-stamp-six` · STAGE: stamp (no RECORD, no COMPARE, no PACK, no Conversion)
-(Run-7 brief preserved as `MORNING_BRIEF-2026-08-11-run7.md`.)
+Run: 2026-08-11 · `2026-08-11T1500Z-legacy-record-open-exec` · from `d763513` · committed as `sqlite-record-open-exec`
+MODE=RECORD · TARGET=legacy · same branch, no PR. (Run-8 brief preserved as `MORNING_BRIEF-2026-08-11-run8.md`;
+run-9 convert brief unchanged at `overnight/convert/MORNING_BRIEF.md`.)
 
-## 1. Six IDs HUMAN_ACCEPTED
+## 1. Five goldens + replay + pin
 
-`golden_approval` in both `testgen/prepare-statement-api/TRACEABILITY.yaml` and
-`tests/characterization/prepare-statement-api/TRACEABILITY.yaml` now reads HUMAN_ACCEPTED
-(Ash Osborne, 2026-08-11, Europe/London) with `stamped_case_ids` = the 002 pair **plus** the six
-run-7 cases (run-6 stamp extended, not overwritten; history noted). `pending_golden_approval`
-cleared with a note. All eight cases stay REPLAY_GREEN. All ten goldens verified **byte-identical**
-(md5 before/after). No renames.
+Run-5 build reused; fingerprint re-verified live: **3.54.0, ENABLE_API_ARMOR=0, OMIT_AUTORESET=0** —
+matches BASELINE (not rewritten); zero `src/`/`ext/` drift.
 
-## 2. Run-folder collision fixed
+| Case | RECORD actuals | Replay |
+| --- | --- | --- |
+| connection-lifecycle-api-001-C001 | open.rc=0, db.nonnull=1 | **REPLAY_GREEN** |
+| connection-lifecycle-api-001-C002 | close.rc=0 | **REPLAY_GREEN** |
+| exec-convenience-api-001-C001 | exec.rc=0, cb.calls=1, cb.argc=1, cb.argv0=`1` | **REPLAY_GREEN** |
+| exec-convenience-api-001-C002 | exec.rc=0 (NULL callback, side-effect run) | **REPLAY_GREEN** |
+| exec-convenience-api-001-C003 | callback returned 1 → **exec.rc=4 (SQLITE_ABORT)**, cb.calls=1 | **REPLAY_GREEN** |
 
-`runs/2026-08-11T1310Z-legacy-record-six/actuals/` previously aliased six cases onto two files
-(`C001.replay.txt` held 005-C001's lines; results.json pointed three cases at it). Fixed by
-**splitting `logs/record_raw.txt`** — no harness re-run:
-- six full-id files written (`prepare-statement-api-00X-C00n.replay.txt`), each containing only that case's OBS lines
-- colliding `C001.replay.txt`/`C002.replay.txt` deleted
-- every `results.json` `actual_path` re-pointed at the matching full-id file (REPORT.md had no stale links)
-- byte-check: each new actual matches its `cases/<FEATURE_ID>/C00n.approved.txt` golden exactly
+Goldens under `tests/characterization/{connection-lifecycle-api,exec-convenience-api}/cases/`;
+actuals carry **full case ids** (run-7 collision lesson); `results.json` actual_paths unique per case.
+`golden_approval: PENDING_HUMAN` — **no stamp this run**.
 
-## 3. Glance lines match the pin
+## 2. Not recorded (per DO_NOT_RECORD)
 
-- prepare-statement-api-002 card Summary (and the observables line): "SQLITE_ROW/DONE/BUSY/MISUSE contract"
-  → "return codes as implemented on this pin: ROW/DONE (autoreset after DONE); BUSY only where evidenced.
-  Finalized-handle is UAF / not observed — MISUSE is not a recorded contract."
-- APP_MANIFEST prepare-statement-api-002 notes: same tidy; "not conversion-ready while C003 BLOCKED" kept.
-- COVERAGE.md regenerated from the manifest.
+URI mode=/vfs=/cache= matrix (parked in DEFERRED — the pin's fingerprint lists no USE_URI),
+empty-filename temp open, open16/UTF-16, illegal open_v2 flag MISUSE (needs flag-matrix SME),
+and prepare-statement-api-002-C003 (still BLOCKED; no step(NULL)).
 
-## 4. legacy_green now 5
+## 3. Untouched surfaces
 
-`error-status-api-001`, `prepare-statement-api-001/002/003/005` — all with human-stamped goldens.
-Other 180 behaviours stay `legacy_green: false`. Every `parity_green` stays false.
+`modern/` and the BOUND pack: zero diffs. The ten stamped goldens: md5-verified byte-identical.
+No `src/`/`ext/`/`test/` edits.
 
-## 5. C003 still BLOCKED
+## 4. Flags
 
-UAF; `golden_path: null`; no `sqlite3_step(NULL)` invented under C003 or C004.
+`legacy_green` still **5** (unchanged — none set on connection/exec this run). `parity_green` still **0**.
+APP_MANIFEST got traceability pointers only; schema VALID.
 
-## 6. What this run did NOT do
+## 5. completeness: incomplete
 
-No RECORD, no new `*.approved.txt`, no harness execution, no COMPARE, no Conversion, no PACK.yaml,
-no Discovery seeding, no product edits.
+Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes). 15 goldens now
+exist: 10 stamped + 5 pending.
 
-## 7. completeness: incomplete
+## 6. Closing ask
 
-Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes). 5 of 185 behaviours
-legacy-green; nothing parity-green; Conversion still refused (no BOUND pack exists).
-
-## 8. Closing ask
-
-Two doors, pick one (or neither):
-1. **More RECORD** — next spine batch: `connection-lifecycle-api-001` / `exec-convenience-api-001`
-   (cards documented + observed-in-code; harness pattern proven; same pin).
-2. **Land the DRAFT pack** — author `architecture/<MIGRATION_ID>/PACK.yaml` as `status: DRAFT` on
-   this branch (still **not** BIND — human architect binds in git per the Architecture skill).
+**Stamp these five, then pack v2 (SUPERSEDE v1 + human re-bind) + convert the new symbols
+(`sqlite3_exec` + callback marshalling, open/close already in the crate) on this same branch?**

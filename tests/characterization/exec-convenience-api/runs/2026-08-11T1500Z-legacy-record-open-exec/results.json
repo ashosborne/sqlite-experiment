@@ -1,0 +1,41 @@
+{
+  "run_id": "2026-08-11T1500Z-legacy-record-open-exec",
+  "slice_id": "exec-convenience-api",
+  "mode": "RECORD",
+  "target": "legacy",
+  "build": {
+    "tree": "cursor/sqlite-estate-discovery-d22c@d76351390 (src/ext zero-diff since run-5 build base)",
+    "recipe": "run-5 out-of-tree build reused (/tmp/sqlite-build); fingerprint re-verified: 3.54.0, ENABLE_API_ARMOR=0, OMIT_AUTORESET=0 \u2014 matches overnight/BASELINE.md",
+    "sqlite_version": "3.54.0"
+  },
+  "scrub_profile": "none (deterministic static inputs)",
+  "cases": [
+    {
+      "case_id": "exec-convenience-api-001-C001",
+      "feature_id": "exec-convenience-api-001",
+      "status": "REPLAY_GREEN",
+      "failure_class": null,
+      "golden_path": "cases/exec-convenience-api-001/C001.approved.txt",
+      "actual_path": "runs/2026-08-11T1500Z-legacy-record-open-exec/actuals/exec-convenience-api-001-C001.replay.txt",
+      "notes": "exec.rc=0, cb.calls=1, cb.argc=1, cb.argv0='1' (text)"
+    },
+    {
+      "case_id": "exec-convenience-api-001-C002",
+      "feature_id": "exec-convenience-api-001",
+      "status": "REPLAY_GREEN",
+      "failure_class": null,
+      "golden_path": "cases/exec-convenience-api-001/C002.approved.txt",
+      "actual_path": "runs/2026-08-11T1500Z-legacy-record-open-exec/actuals/exec-convenience-api-001-C002.replay.txt",
+      "notes": "exec.rc=0 with NULL callback (side-effect run, no crash)"
+    },
+    {
+      "case_id": "exec-convenience-api-001-C003",
+      "feature_id": "exec-convenience-api-001",
+      "status": "REPLAY_GREEN",
+      "failure_class": null,
+      "golden_path": "cases/exec-convenience-api-001/C003.approved.txt",
+      "actual_path": "runs/2026-08-11T1500Z-legacy-record-open-exec/actuals/exec-convenience-api-001-C003.replay.txt",
+      "notes": "callback returned 1 -> exec.rc=4 (SQLITE_ABORT, card shape), cb.calls=1"
+    }
+  ]
+}

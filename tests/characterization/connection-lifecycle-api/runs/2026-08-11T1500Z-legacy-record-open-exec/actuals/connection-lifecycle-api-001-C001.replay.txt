@@ -1,0 +1,2 @@
+OBS connection-lifecycle-api-001-C001 open.rc 0
+OBS connection-lifecycle-api-001-C001 db.nonnull 1

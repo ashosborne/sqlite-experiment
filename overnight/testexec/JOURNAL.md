@@ -30,3 +30,11 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Job 3: prep-002 card Summary + observables line de-MISUSE'd (pin wording); APP_MANIFEST note same tidy, conversion-block note kept; COVERAGE regenerated.
 - Job 4: legacy_green → exactly 5 (error-status-001 + prep 001/002/003/005); parity_green all false; counts updated; schema VALID.
 - All 10 goldens md5-verified byte-identical. No RECORD/COMPARE/PACK/Conversion. Run-7 brief preserved as MORNING_BRIEF-2026-08-11-run7.md.
+
+---
+
+# Run 10 — testgen + RECORD open/exec (sqlite-record-open-exec)
+
+- stop.txt: absent. Cards + testgen/testexec prompts re-read; run-8/9 briefs preserved.
+- Job 1: testgen packs for connection-lifecycle-api (2 cases) + exec-convenience-api (3 cases), spine pattern; full-case-id OBS tags; URI/open16/flag-MISUSE + multi-statement scope parked in DEFERRED per DO_NOT_RECORD; harness frees pzErrMsg.
+- Job 2: run-5 pin reused (re-verified 3.54.0/armor0/autoreset0, zero drift); 5 cases RECORDED → goldens frozen → immediate replay byte-matched → REPLAY_GREEN. exec abort path = 4 (SQLITE_ABORT, card shape). golden_approval PENDING_HUMAN (no stamp). legacy_green untouched (5); parity 0. Stamped ten md5-identical; modern/ + pack zero diffs. results.json actual_path unique per full case id.

@@ -1,0 +1,71 @@
+slice_id: exec-convenience-api
+source_discovery: discovery/exec-convenience-api/MANIFEST.yaml
+phase: B
+updated_at: '2026-08-11T14:02:56Z'
+batch_card_ids:
+- exec-convenience-api-001
+matrix_gate: Pre-approved by operator paste (Ash Osborne, run-10 charter)
+cases:
+- id: exec-convenience-api-001-C001
+  feature_id: exec-convenience-api-001
+  title: exec SELECT 1 with recording callback returning 0
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/legacy.c:30
+  - discovery/exec-convenience-api/features/exec-convenience-api-001.md
+  boundary: 'C API: sqlite3_exec(db, "SELECT 1", cb, &state, &err)'
+  spec_path: scenarios/exec-convenience-api-001/CASE-001.md
+  harness_path: harness/exec_harness.c
+  assert_mode: RECORDED
+  observables:
+  - exec.rc
+  - cb.calls
+  - cb.argc
+  - cb.argv0
+  scrub: []
+  deferred_reasons: []
+  golden: tests/characterization/exec-convenience-api/cases/exec-convenience-api-001/C001.approved.txt
+- id: exec-convenience-api-001-C002
+  feature_id: exec-convenience-api-001
+  title: "exec SELECT 1 with NULL callback \u2014 side-effect only"
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/legacy.c:30
+  - discovery/exec-convenience-api/features/exec-convenience-api-001.md
+  boundary: 'C API: sqlite3_exec(db, "SELECT 1", NULL, NULL, NULL)'
+  spec_path: scenarios/exec-convenience-api-001/CASE-002.md
+  harness_path: harness/exec_harness.c
+  assert_mode: RECORDED
+  observables:
+  - exec.rc
+  scrub: []
+  deferred_reasons: []
+  golden: tests/characterization/exec-convenience-api/cases/exec-convenience-api-001/C002.approved.txt
+- id: exec-convenience-api-001-C003
+  feature_id: exec-convenience-api-001
+  title: "callback returns 1 on first row \u2014 abort path"
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/legacy.c:30
+  - discovery/exec-convenience-api/features/exec-convenience-api-001.md (non-zero callback return aborts with SQLITE_ABORT)
+  boundary: 'C API: sqlite3_exec with callback returning 1'
+  spec_path: scenarios/exec-convenience-api-001/CASE-003.md
+  harness_path: harness/exec_harness.c
+  assert_mode: RECORDED
+  observables:
+  - exec.rc
+  - cb.calls
+  scrub: []
+  deferred_reasons: []
+  golden: tests/characterization/exec-convenience-api/cases/exec-convenience-api-001/C003.approved.txt
+deferred:
+- feature_id: exec-convenience-api-001
+  reason: 'Operator scope: no multi-statement rollback, no CREATE TABLE side-effect cases, no abort-mid-script this run; errmsg-ownership corpus
+    later. get_table (002) is another ID.'
+golden_approval: PENDING_HUMAN
