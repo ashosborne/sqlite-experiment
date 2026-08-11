@@ -249,3 +249,12 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - templatevtab flagged documentation-only (defer recommendation, prose).
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 74/120 (37+37). Totals 324. Slices this run: 24 (total 84). Zero-new-streak: 0.
+
+## Resume iteration 7 — hint expansion + seeds: misc-zorder, misc-basexx, misc-sha1, misc-shathree
+
+- stop.txt: absent.
+- misc-zorder completes the 17-slice vtab unbundle (umbrella misc-vtab-packs-001 untouched throughout).
+- Hint expansion (journaled): walked `misc-func-unbundle` — replaced with 16 concrete thin hints. basexx kept as the one genuine cluster (basexx.c registers base64+base85 together).
+- misc-basexx, misc-sha1 (retire-vs-keep flag), misc-shathree walked.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 82/120 (41+41). Totals 332. Slices this run: 28 (total 88). Zero-new-streak: 0.

@@ -91,12 +91,26 @@ scanned_seeds:
 - misc-templatevtab
 - misc-vtablog
 - misc-vtshim
+- misc-basexx
+- misc-sha1
+- misc-shathree
+- misc-zorder
 unscanned_hints:
-- 'ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
-  row)'
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)'
+- 'ext: misc-decimal — arbitrary-precision decimal arithmetic (ext/misc/decimal.c)'
+- 'ext: misc-ieee754 — IEEE754 float decomposition functions (ext/misc/ieee754.c)'
+- 'ext: misc-percentile — percentile/median aggregate (ext/misc/percentile.c)'
+- 'ext: misc-totype — tointeger/toreal strict conversions (ext/misc/totype.c)'
+- 'ext: misc-uint — UINT collating sequence (ext/misc/uint.c)'
+- 'ext: misc-regexp — regexp() pattern matching (ext/misc/regexp.c)'
+- 'ext: misc-spellfix — spellfix1 fuzzy-search vtab + editdist (ext/misc/spellfix.c)'
+- 'ext: misc-nextchar — next_char() function (ext/misc/nextchar.c)'
+- 'ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)'
+- 'ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)'
+- 'ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)'
+- 'ext: misc-compress — compress()/uncompress() zlib functions (ext/misc/compress.c)'
+- 'ext: misc-urifuncs — URI parsing SQL functions (ext/misc/urifuncs.c)'
 surfaces:
 - surface_id: sur-sqlite3analysisload
   kind: other
@@ -838,6 +852,17 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/amatch.c:1512
+- surface_id: sur-sqlite3-basexx-init
+  kind: other
+  locator: sqlite3_basexx_init()
+  repo_path: ext/misc/basexx.c
+  status: candidate
+  slice_id: misc-basexx
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/basexx.c:70
+  - ext/misc/base64.c:278
+  - ext/misc/base85.c:355
 - surface_id: sur-sqlite3-btreeinfo-init
   kind: other
   locator: sqlite3_btreeinfo_init()
@@ -922,6 +947,24 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/series.c:939
+- surface_id: sur-sqlite3-sha-init
+  kind: other
+  locator: sqlite3_sha_init()
+  repo_path: ext/misc/sha1.c
+  status: candidate
+  slice_id: misc-sha1
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/sha1.c:418
+- surface_id: sur-sqlite3-shathree-init
+  kind: other
+  locator: sqlite3_shathree_init()
+  repo_path: ext/misc/shathree.c
+  status: candidate
+  slice_id: misc-shathree
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/shathree.c:830
 - surface_id: sur-sqlite3-stmt-init
   kind: other
   locator: sqlite3_stmt_init()
@@ -1022,6 +1065,15 @@ surfaces:
   discovery_evidence:
   - ext/misc/zipfile.c:2294
   - ext/misc/sqlar.c:109
+- surface_id: sur-sqlite3-zorder-init
+  kind: other
+  locator: sqlite3_zorder_init()
+  repo_path: ext/misc/zorder.c
+  status: candidate
+  slice_id: misc-zorder
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/zorder.c:119
 - surface_id: sur-sqlite3-mutex-alloc
   kind: other
   locator: sqlite3_mutex_alloc()
@@ -2447,6 +2499,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Edit-distance based approximate matching with user-supplied cost rules
+- behaviour_id: misc-basexx-001
+  surface_id: sur-sqlite3-basexx-init
+  name: base64 + base85 + combined basexx encoders (one optional pack)
+  status: candidate
+  slice_id: misc-basexx
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; base64()/base85() blob<->text conversions; basexx.c registers both — kept as the one
+    genuine pack
 - behaviour_id: misc-btreeinfo-001
   surface_id: sur-sqlite3-btreeinfo-init
   name: sqlite_btreeinfo introspection vtab
@@ -2530,6 +2592,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns
+- behaviour_id: misc-sha1-001
+  surface_id: sur-sqlite3-sha-init
+  name: sha1() hash functions
+  status: candidate
+  slice_id: misc-sha1
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests
+- behaviour_id: misc-shathree-001
+  surface_id: sur-sqlite3-shathree-init
+  name: sha3() hash functions
+  status: candidate
+  slice_id: misc-shathree
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak)
 - behaviour_id: misc-stmt-001
   surface_id: sur-sqlite3-stmt-init
   name: sqlite_stmt introspection vtab
@@ -2625,6 +2705,15 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Read/write zip archives as tables; sqlar_compress/uncompress build the SQLite-archive
     format on it (genuinely one pack, kept clustered)
+- behaviour_id: misc-zorder-001
+  surface_id: sur-sqlite3-zorder-init
+  name: z-order curve mapping functions
+  status: candidate
+  slice_id: misc-zorder
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing
 - behaviour_id: mutex-subsystem-001
   surface_id: sur-sqlite3-mutex-alloc
   name: Pluggable mutex abstraction
@@ -3313,17 +3402,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:33:21Z'
+last_updated: '2026-08-11T09:34:00Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 162
+  surfaces_total: 166
   surfaces_by_status:
-    candidate: 162
-  behaviours_known: 162
+    candidate: 166
+  behaviours_known: 166
   behaviours_by_status:
-    candidate: 162
-  unscanned_hints: 3
+    candidate: 166
+  unscanned_hints: 14
   legacy_green: 0
   parity_green: 0

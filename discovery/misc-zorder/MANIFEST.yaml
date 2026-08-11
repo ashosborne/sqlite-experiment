@@ -1,0 +1,22 @@
+slice_id: misc-zorder
+seed: zorder/unzorder functions (ext/misc/zorder.c)
+seed_entrypoints:
+- sqlite3_zorder_init()
+out_of_scope_hints:
+- other misc-vtab-packs members
+phase: A
+updated_at: '2026-08-11T09:33:59Z'
+features:
+- id: misc-zorder-001
+  name: z-order curve mapping functions
+  status: candidate
+  confidence: observed-in-code
+  summary: Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing
+  entrypoints:
+  - kind: other
+    locator: sqlite3_zorder_init()
+    evidence:
+    - ext/misc/zorder.c:119
+  dependencies:
+  - loadext-api
+  open_questions: []

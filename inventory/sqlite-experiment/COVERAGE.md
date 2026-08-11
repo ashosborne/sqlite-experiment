@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:33:22Z
+- Generated: 2026-08-11T09:34:00Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:33:21Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:34:00Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 162 |
-| Behaviours known | 162 |
-| Seeds scanned | 84 |
-| Unscanned hints (residual) | 3 |
+| Surfaces total | 166 |
+| Behaviours known | 166 |
+| Seeds scanned | 88 |
+| Unscanned hints (residual) | 14 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 162 |
+| candidate | 166 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 162 |
+| candidate | 166 |
 
 ## Surfaces per slice
 
@@ -64,6 +64,7 @@
 | loadext-api | 2 |
 | malloc-subsystem | 2 |
 | misc-amatch | 1 |
+| misc-basexx | 1 |
 | misc-btreeinfo | 1 |
 | misc-closure | 1 |
 | misc-completion | 1 |
@@ -73,6 +74,8 @@
 | misc-prefixes | 1 |
 | misc-qpvtab | 1 |
 | misc-series | 1 |
+| misc-sha1 | 1 |
+| misc-shathree | 1 |
 | misc-stmt | 1 |
 | misc-templatevtab | 1 |
 | misc-unionvtab | 1 |
@@ -83,6 +86,7 @@
 | misc-vtshim | 1 |
 | misc-wholenumber | 1 |
 | misc-zipfile-sqlar | 1 |
+| misc-zorder | 1 |
 | mutex-subsystem | 1 |
 | name-resolution | 2 |
 | pager | 2 |
@@ -205,12 +209,27 @@
 - `misc-templatevtab`
 - `misc-vtablog`
 - `misc-vtshim`
+- `misc-basexx`
+- `misc-sha1`
+- `misc-shathree`
+- `misc-zorder`
 
 ## Unscanned hints (residual register)
 
-- ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 - ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
-- ext: misc-zorder — z-order curve functions (ext/misc/zorder.c)
+- ext: misc-decimal — arbitrary-precision decimal arithmetic (ext/misc/decimal.c)
+- ext: misc-ieee754 — IEEE754 float decomposition functions (ext/misc/ieee754.c)
+- ext: misc-percentile — percentile/median aggregate (ext/misc/percentile.c)
+- ext: misc-totype — tointeger/toreal strict conversions (ext/misc/totype.c)
+- ext: misc-uint — UINT collating sequence (ext/misc/uint.c)
+- ext: misc-regexp — regexp() pattern matching (ext/misc/regexp.c)
+- ext: misc-spellfix — spellfix1 fuzzy-search vtab + editdist (ext/misc/spellfix.c)
+- ext: misc-nextchar — next_char() function (ext/misc/nextchar.c)
+- ext: misc-rot13 — rot13() + collation (ext/misc/rot13.c)
+- ext: misc-uuid — uuid()/uuid_str/uuid_blob functions (ext/misc/uuid.c)
+- ext: misc-fossildelta — fossil delta functions + delta_parse vtab (ext/misc/fossildelta.c)
+- ext: misc-compress — compress()/uncompress() zlib functions (ext/misc/compress.c)
+- ext: misc-urifuncs — URI parsing SQL functions (ext/misc/urifuncs.c)
 
 ## Notes
 

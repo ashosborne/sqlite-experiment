@@ -1,0 +1,24 @@
+slice_id: misc-basexx
+seed: binary-to-text encoding functions (ext/misc/base64.c, base85.c, basexx.c)
+seed_entrypoints:
+- sqlite3_basexx_init()
+out_of_scope_hints:
+- other misc-func-packs members
+phase: A
+updated_at: '2026-08-11T09:33:59Z'
+features:
+- id: misc-basexx-001
+  name: base64 + base85 + combined basexx encoders (one optional pack)
+  status: candidate
+  confidence: observed-in-code
+  summary: "base64()/base85() blob<->text conversions; basexx.c registers both \u2014 kept as the one genuine pack"
+  entrypoints:
+  - kind: other
+    locator: sqlite3_basexx_init()
+    evidence:
+    - ext/misc/basexx.c:70
+    - ext/misc/base64.c:278
+    - ext/misc/base85.c:355
+  dependencies:
+  - loadext-api
+  open_questions: []
