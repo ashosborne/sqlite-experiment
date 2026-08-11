@@ -1,0 +1,9 @@
+slice_id: engine-setops
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-setops-001
+  name: Compound SELECT set-operation scripts
+  status: accepted
+  evidence: [src/select.c:2900]

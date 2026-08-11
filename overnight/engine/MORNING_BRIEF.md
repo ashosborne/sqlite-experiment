@@ -1,88 +1,77 @@
-# MORNING BRIEF — engine v9: joins + scalar subqueries (run 18)
+# MORNING BRIEF — engine v10: completion sweep (run 20)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–17 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v9-joins-subqueries, MAX_NEW_CASES 36 (used 24).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–19 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v10-completion-sweep, GOAL = maximize honest
+impl_in_modern=full. MAX_NEW_CASES 40 (used 37). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @9 BOUND — subquery + join law
+## 1. Pack @10 BOUND
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v8 → **v9 BOUND** (Ash Osborne,
-delegated). versions/1–9 retained; ADR 0007; schema-validated. New laws: **subquery law**
-(scalar/EXISTS/correlated, LIMIT inside, evaluated from real row sources), **join law**
-(nested-loop INNER/comma/LEFT over 2–3 real store tables; no planner claim), anti-cheat with
-runtime literals. `in_scope_cases` 174; `query_path_cases_v9` 25. completeness: **incomplete**.
+versions/10.yaml + ADR 0008, schema-validated. New **completion-sweep law**: the increment's
+success metric is honest `impl_in_modern: full` growth; goldens exist to unlock upgrades,
+never to inflate legacy_green. All prior laws kept; WAL still forbidden; no planner claim.
+v8 defer list shrank 18 → **13** (4 date/time + misc-func-packs reclaimed, goldens untouched).
 
-## 2. New cases — 24 frozen / 0 deferred
+## 2. Operator progress histogram — before → after
 
-All 24 passed the two-run determinism gate on the pinned C library first try, were
-delegated HUMAN_ACCEPTED, and **all 24 replay byte-identical through the Rust executor**
-(no case needed deferral).
-
-| Feature | Cases | Shapes |
+| State | run 19 | **run 20** |
 |---|---|---|
-| `engine-subquery-001` | C001–C005 | SELECT-list scalar `(SELECT max(b) FROM t2)`; WHERE scalar; LIMIT + LIMIT/OFFSET inside subquery; pragma_database_list twin; subquery-in-FROM + ORDER BY + LIMIT |
-| `engine-subquery-002` | C001–C005 | EXISTS true/false; correlated NOT EXISTS (empty-ish result); correlated scalar in WHERE with LIMIT; correlated SELECT-list scalar; fresh literal **900017** + empty-subquery→NULL |
-| `engine-join-001` | C001–C007 | JOIN…ON both-sides projection; INNER JOIN count; comma join + WHERE; AS aliases; no-match empty; non-equi ON (`q.a > p.a`); fresh-literal join **910033** |
-| `engine-join-002` | C001–C007 | three-table A⋈B⋈C; self-join `n p, n q`; join aggregates (count/min/max); join + **GROUP BY**; **LEFT JOIN** row shape (NULL-extended); `count(*)` vs `count(r.t)` over LEFT JOIN; single-table GROUP BY |
+| full (converted, parity UNVERIFIED) | 11 | **26** |
+| partial | 75 | **72** |
+| none | 108 | **103** |
+| behaviours known | 194 | 201 (+7 sweep slices) |
 
-## 3. v8 defers: reclaimed vs still deferred
+## 3. Every behaviour that moved
 
-- **Reclaimed: `pragma-surface-002-C001`** (scalar subquery + LIMIT over pragma_database_list)
-  — replays green through the executor against its **untouched** golden; removed from the
-  pack defer list. oneshot suite grew 50 → 51.
-- **Still deferred (18)**, reasons unchanged: 4 date/time pins, ANALYZE, VACUUM, dbstat,
-  csv/completion/wholenumber vtabs, zlib compress, fossil delta, next_char, eval(),
-  cross-schema trigger, 2 C-registry-count pins, decimal_mul formatting. None of these is
-  blocked on subquery/join shape.
+**none → full (4):** date-time-funcs-001 (julian-day engine), -002 (strftime), -003
+(modifier grammar; `localtime` deliberately errors — TZ), -004 (timediff). All four v8
+defers cleared by real execution of the frozen scripts.
 
-## 4. What the executor now implements (modern/src/eval.rs)
+**partial → full (4):** select-codegen-002 (INTERSECT+EXCEPT close the set-op family) ·
+name-resolution-001 (prepare-time "ambiguous column name" / "no such column" via eager
+schema-row probe) · ddl-schema-001 (views: create/drop/expand/write-reject; tables already
+real memory+durable) · misc-rot13-001 (rot13 collating sequence joins the function).
 
-- **Subqueries:** quote/paren-aware string extraction → `Ex::Subq` / `Ex::Exists` nodes;
-  scalar = first row/col (empty → NULL); EXISTS = non-empty; **correlated** outer-row
-  bindings threaded through items/WHERE/ON (inner columns shadow outer).
-- **Joins:** FROM parser normalizes INNER/LEFT [OUTER]/CROSS at top level, splits items
-  with optional `[AS]` aliases and `ON` expressions; **nested-loop** fold over store
-  snapshots; comma join = cartesian + WHERE; **LEFT JOIN** emits NULL-extended right
-  columns for unmatched left rows. Rows carry qualified keys (`e.name`) + bare fallback.
-- **GROUP BY:** real grouping (multi-key capable), aggregates per group, first-seen order
-  (pinned cases always ORDER BY).
-- **ORDER BY:** multi-key, ASC/DESC, output-name / qualified-name / ordinal resolution.
-- **LIMIT/OFFSET** at any select level (top level and inside subqueries).
-- INNER-only claim **plus** honestly-implemented LEFT JOIN; no RIGHT/FULL, no planner,
-  no index use.
+**new full (7):** engine-datetime/setops/constraints/views/triggers/funcs/pragma-001 —
+composed sweep slices whose accepted scope IS the 37 frozen cases, all executing for real.
 
-## 5. Anti-cheat results (anti_cheat_v8.rs, v9 section) — 8/8 green
+**none → partial (1):** misc-func-packs-001 (decimal_mul + REGEXP execute; ~16 pack
+functions still absent).
 
-- `anti_cheat_join_runtime` — runtime key {pid/time}: two tables, INNER JOIN → computed row. ✅
-- `anti_cheat_scalar_subquery_runtime` — `(SELECT max(v))`, `(SELECT v ORDER BY v LIMIT 1)`,
-  `(SELECT n+1)` with runtime n. ✅
-- `anti_cheat_script_table_still_empty` — SCRIPT_TABLE.len() == 0. ✅ (grep proof: 0 `("` pins)
-- prior v8 anti-cheat (expr/pragma/json/unknown-SQL) still green. ✅
+**partial, gap tightened (8):** dml-codegen-002 (+CHECK/NOT NULL/OR FAIL; ROLLBACK absent) ·
+triggers-001/-002 (full B/A × I/U/D matrix + WHEN + old/new; INSTEAD OF, RAISE, recursion
+absent) · foreign-keys-002 (+SET NULL/RESTRICT; SET DEFAULT/ON UPDATE absent) ·
+printf-format-001 (flags/width/precision + 15 conversions; %w/positional absent) ·
+pragma-surface-001 (27 of ~70) · builtin-scalar-agg-funcs-001 (~24 of ~60) ·
+misc-decimal-001 (+sub, mul trims trailing zeros; decimal(X)/pow2/collation absent).
 
-## 6. Test suite
+**Deliberately NOT flipped:** select-codegen-001/-003, where-optimizer-*, pager/btree/vfs/
+wal/fts/wasm/jni — untouched per charter.
 
-`cargo test` — **164/164 green**: spine 11, bespoke 28+5+20+3, kitchen 6 (memory), files 8 +
-interop 8 (C reads Rust files, integrity_check=ok — unchanged), oneshot 51 (incl. reclaimed
-pin), query_compare 24 (new), anti-cheat 8. All 155 prior golden files md5-identical; the
-only new files are the 24 RECORD additions. legacy_green 104; parity_green **0**.
+## 4. New cases: 37 frozen / 0 deferred
 
-## 7. Catalogue impact
+engine-datetime 8 · engine-setops 4 · engine-constraints 8 (5 error-scripts) ·
+engine-views 3 · engine-triggers 4 · engine-funcs 7 · engine-pragma 3. Two-run
+deterministic on the pinned C build, delegated HUMAN_ACCEPTED, and **all 37 replay
+byte-identical through the executor**. C taught us: `%c` converts its arg to text first
+(printf('%c',65) → '6'), decimal_mul trims trailing zeros ('1.25'×'4' → '5'),
+`PRAGMA busy_timeout=N` returns a row, rot13 collation compares rot13-images.
 
-Multi-table SQL now executes in Rust: the join/subquery shapes unlock realistic queries
-across the kitchen slices (select-codegen, where-optimizer surface shapes, name-resolution,
-expr) — approx 6–8 slices move from "single-table only" to "multi-table SQL runs". The
-where-optimizer / pager / btree / vfs cards stay amber: nested-loop is **not** a planner.
+## 5. Anti-cheat + suite
 
-## 8. Leftover (still not a full SQL engine)
+anti-cheat 10/10 (new: runtime day-of-month through strftime/date/unixepoch; runtime CHECK
+bound + INTERSECT; SCRIPT_TABLE still 0 — grep: no pins). `cargo test` **208/208**:
+oneshot 56 (51 + 5 reclaims), sweep 37, query 24, kitchen/files/interop unchanged green.
+All 179 prior goldens md5-identical; only new RECORD files added.
 
-cost-based planner + index selection · RIGHT/FULL OUTER · date/time engine · WAL/crash
-recovery · scalar subqueries in ORDER BY/GROUP BY positions · HAVING · correlated EXISTS
-depth beyond pinned shapes · remaining 18 v8 defers · overflow pages + on-disk UNIQUE
-autoindexes (v7 debt).
+## 6. Explicit honesty line
 
-completeness: **incomplete** — SQLite is NOT migrated.
+**SQLite is NOT migrated.** 26 of 201 behaviours are done in modern; every one is
+`parity: UNVERIFIED` (COMPARE has never run; parity_green 0; nothing `verified`).
 
-## 9. Next call
+## 7. Next call (from the new Remaining/Partial tops)
 
-(a) HAVING + subqueries in more positions + date/time engine (clears 4 defers), or
-(b) on-disk debt: overflow pages + UNIQUE autoindexes + file-path join twins, or
-(c) WAL law change. Pack v10 + goldens first, either way.
+Remaining leaders: fts5, wasm/jni, vfs/pager/btree/wal estate (out of scope until chosen),
+compile-options matrix, blob-io-api, analyze-stats. Partial closers within reach:
+(a) HAVING + DISTINCT aggregates (builtin-002, select partials), (b) on-disk debt
+(overflow pages + UNIQUE autoindexes → ddl-schema-002), (c) prepare/bind/column API
+widening (typed binds + column matrix). Pack v11 + goldens first, either way.

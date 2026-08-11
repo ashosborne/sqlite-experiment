@@ -1,0 +1,9 @@
+slice_id: engine-datetime
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-datetime-001
+  name: Real julian-day date/time engine scripts
+  status: accepted
+  evidence: [src/date.c:1]

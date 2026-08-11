@@ -1,0 +1,9 @@
+slice_id: engine-funcs
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-funcs-001
+  name: Scalar/printf/decimal/collation function scripts
+  status: accepted
+  evidence: [src/printf.c:1]

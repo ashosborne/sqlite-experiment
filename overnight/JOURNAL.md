@@ -350,3 +350,18 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - sqlite-experiment catch-up: 194 behaviours → 11 full (engine slices + exec loop + zorder;
   now converted + parity UNVERIFIED + pack@9), 75 partial (gap notes), 108 none.
   No goldens touched; parity_green 0; no verified; schema VALID.
+
+## Run 20 — 2026-08-11 — engine v10: completion sweep (pack v10)
+
+- Pack v9→v10 BOUND (+versions/10, ADR 0008): completion-sweep law; defers 18→13.
+- datetime.rs: real julian-day engine (computeJD/YMD/HMS, modifiers incl. month-overflow,
+  weekday, start-of, unixepoch; strftime; timediff). All 4 date/time v8 defers + misc-func-packs
+  reclaimed, goldens untouched.
+- eval/store: INTERSECT/EXCEPT; CHECK/NOT NULL/OR FAIL (rc19); FK SET NULL/RESTRICT; views
+  (create/drop/expand/write-reject); trigger matrix (B/A x I/U/D, old/new, WHEN, per-row);
+  printf flags/width/precision; scalar batch; rot13 collation; pragma batch (27);
+  eager name resolution (ambiguous/no-such-column at prepare time).
+- 37 new goldens (7 sweep slices), 2-run gate, delegated stamp, all replay via executor.
+- Inventory bump in-commit: full 11→26, partial 75→72 (8 tightened notes), none 108→103;
+  legacy_green 111; parity 0; schema VALID; COVERAGE regenerated.
+- cargo 208/208; anti-cheat 10/10; prior goldens md5-identical.

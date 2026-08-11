@@ -1,0 +1,9 @@
+slice_id: engine-pragma
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-pragma-001
+  name: Connection pragma get/set scripts
+  status: accepted
+  evidence: [src/pragma.c:1]

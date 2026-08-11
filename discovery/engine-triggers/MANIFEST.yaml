@@ -1,0 +1,9 @@
+slice_id: engine-triggers
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-triggers-001
+  name: Trigger matrix scripts
+  status: accepted
+  evidence: [src/trigger.c:1]

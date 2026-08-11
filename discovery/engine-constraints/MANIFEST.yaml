@@ -1,0 +1,9 @@
+slice_id: engine-constraints
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-constraints-001
+  name: Constraint + name-resolution error scripts
+  status: accepted
+  evidence: [src/insert.c:120]

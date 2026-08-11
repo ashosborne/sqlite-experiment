@@ -1,0 +1,9 @@
+slice_id: engine-views
+app_id: sqlite-experiment
+seed: composed completion-sweep slice (run 20)
+status: accepted
+features:
+- feature_id: engine-views-001
+  name: View lifecycle scripts
+  status: accepted
+  evidence: [src/build.c:2400]

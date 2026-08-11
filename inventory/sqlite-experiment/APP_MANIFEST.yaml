@@ -2084,6 +2084,72 @@ surfaces:
   - src/where.c:7040
   - src/select.c:5085
   - src/whereexpr.c:1580
+- surface_id: sur-engine-datetime
+  kind: other
+  locator: sqlite3_exec() engine-datetime scripts
+  repo_path: src/date.c
+  status: accepted
+  slice_id: engine-datetime
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/date.c:60
+  - src/date.c:1690
+- surface_id: sur-engine-setops
+  kind: other
+  locator: sqlite3_exec() engine-setops scripts
+  repo_path: src/select.c
+  status: accepted
+  slice_id: engine-setops
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/select.c:2900
+- surface_id: sur-engine-constraints
+  kind: other
+  locator: sqlite3_exec() engine-constraints scripts
+  repo_path: src/insert.c
+  status: accepted
+  slice_id: engine-constraints
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/insert.c:120
+  - src/fkey.c:60
+- surface_id: sur-engine-views
+  kind: other
+  locator: sqlite3_exec() engine-views scripts
+  repo_path: src/build.c
+  status: accepted
+  slice_id: engine-views
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/build.c:2400
+- surface_id: sur-engine-triggers
+  kind: other
+  locator: sqlite3_exec() engine-triggers scripts
+  repo_path: src/trigger.c
+  status: accepted
+  slice_id: engine-triggers
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/trigger.c:1
+- surface_id: sur-engine-funcs
+  kind: other
+  locator: sqlite3_exec() engine-funcs scripts
+  repo_path: src/printf.c
+  status: accepted
+  slice_id: engine-funcs
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/printf.c:1
+  - src/func.c:1
+- surface_id: sur-engine-pragma
+  kind: other
+  locator: sqlite3_exec() engine-pragma scripts
+  repo_path: src/pragma.c
+  status: accepted
+  slice_id: engine-pragma
+  notes: composed completion-sweep slice (run 20); seam-kind=api
+  discovery_evidence:
+  - src/pragma.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2260,8 +2326,7 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling
     per function. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: upper/lower/length/substr/coalesce/typeof/hex/abs/quote/printf real; most of the ~60 core
-    scalars absent'
+    (run-20 sweep) — gaps: ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)'
   traceability: tests/characterization/builtin-scalar-agg-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: builtin-scalar-agg-funcs-002
@@ -2372,68 +2437,83 @@ behaviours:
 - behaviour_id: date-time-funcs-001
   surface_id: sur-datefunc-datetimefunc
   name: Core date/time conversion functions
-  status: documented
+  status: converted
   slice_id: date-time-funcs
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-001.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred
-    (pack v8): julian-day calendar engine not implemented in modern'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): julian-day
+    engine real (date/datetime/time/julianday/unixepoch); v8 defer cleared'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
-  impl_in_modern: none
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: date-time-funcs-002
   surface_id: sur-strftimefunc
   name: strftime formatting
-  status: documented
+  status: converted
   slice_id: date-time-funcs
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-002.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; %-directive formatter over parsed DateTime. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): strftime engine not
-    implemented in modern'
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): strftime real (%Y%m%d%e%H%M%S%f%s%w%j%J%F%T%R);
+    week-number/%p directives absent but outside frozen scope'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
-  impl_in_modern: none
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: date-time-funcs-003
   surface_id: sur-computejd-modifiers
   name: Modifier grammar (localtime, +N units, weekday, start of ...)
-  status: documented
+  status: converted
   slice_id: date-time-funcs
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-003.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard):
-    deferred (pack v8): month-overflow/weekday modifiers not implemented in modern'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep):
+    modifier grammar real (±N units, month-overflow, weekday N, start of, unixepoch); localtime deliberately errors (TZ-nondeterministic)'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
-  impl_in_modern: none
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: date-time-funcs-004
   surface_id: sur-timedifffunc
   name: timediff interval arithmetic
-  status: documented
+  status: converted
   slice_id: date-time-funcs
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-004.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): timediff
-    formatting engine not implemented in modern'
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): timediff real (iterative year/month
+    reduction, ±YYYY-MM-DD HH:MM:SS.SSS)'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
-  impl_in_modern: none
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: ddl-schema-001
   surface_id: sur-sqlite3starttable
   name: Table/view create-drop lifecycle
-  status: documented
+  status: converted
   slice_id: ddl-schema
   discovery_card: discovery/ddl-schema/features/ddl-schema-001.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: CREATE/DROP TABLE real (memory + durable file); views absent'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep):
+    tables (memory+durable) AND views (create/drop/expand/write-reject) real; view durability unpinned'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: ddl-schema-002
   surface_id: sur-sqlite3createindex
   name: Index create-drop lifecycle
@@ -2482,8 +2562,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: OR IGNORE / OR REPLACE real; OR ROLLBACK/ABORT/FAIL and CHECK constraints absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps:
+    IGNORE/REPLACE/ABORT/FAIL + CHECK/NOT NULL/UNIQUE/FK real; OR ROLLBACK absent (no transactions), CHECK-on-UPDATE unpinned'
   traceability: tests/characterization/dml-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: error-status-api-001
@@ -2621,8 +2701,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; ON DELETE/UPDATE actions implemented as synthesized triggers. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: ON DELETE CASCADE
-    real; SET NULL/SET DEFAULT/RESTRICT and ON UPDATE actions absent'
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps: ON DELETE CASCADE
+    + SET NULL + RESTRICT real; SET DEFAULT and ON UPDATE actions absent'
   traceability: tests/characterization/foreign-keys/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: foreign-keys-003
@@ -3019,8 +3099,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: decimal_add/decimal_cmp/decimal_mul exact scaled-integer real; decimal_sub/collation/pow2 absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps:
+    decimal_add/sub/cmp/mul real (exact scaled i128, mul trims trailing zeros); decimal(X)/pow2/collation absent'
   traceability: tests/characterization/misc-decimal/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-fossildelta-001
@@ -3046,10 +3126,10 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
     spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
-    (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): decimal_mul formatting mismatch;
-    pack functions not implemented in modern'
+    (run-12 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps: decimal_mul + REGEXP of the pack execute for
+    real (v8 defer reclaimed); remaining ~16 pack functions absent'
   traceability: tests/characterization/misc-func-packs/TRACEABILITY.yaml
-  impl_in_modern: none
+  impl_in_modern: partial
 - behaviour_id: misc-fuzzer-001
   surface_id: sur-sqlite3-fuzzer-init
   name: fuzzer vtab (string mutation search)
@@ -3138,16 +3218,19 @@ behaviours:
 - behaviour_id: misc-rot13-001
   surface_id: sur-sqlite3-rot-init
   name: rot13() function + collation
-  status: documented
+  status: converted
   slice_id: misc-rot13
   discovery_card: discovery/misc-rot13/features/misc-rot13-001.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; rot13(X) scalar + rot13 collation (demo-grade obfuscation) | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: rot13() function
-    real; rot13 collating sequence absent'
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): rot13() function AND rot13
+    collating sequence real (both extension entry points)'
   traceability: tests/characterization/misc-rot13/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: misc-series-001
   surface_id: sur-sqlite3-series-init
   name: generate_series table-valued function
@@ -3433,16 +3516,20 @@ behaviours:
 - behaviour_id: name-resolution-001
   surface_id: sur-sqlite3resolveexprnames
   name: Column/table name lookup and ambiguity rules
-  status: documented
+  status: converted
   slice_id: name-resolution
   discovery_card: discovery/name-resolution/features/name-resolution-001.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Nested-scope lookup with ''ambiguous column''/''no such column'' errors; uses tree
-    walker (src/walker.c:64). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: qualified (t.col) + bare resolution real in store/eval; ambiguity errors absent'
+    walker (src/walker.c:64). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full
+    (run-20 sweep): qualified/bare lookup + prepare-time "ambiguous column name"/"no such column" errors real (eager schema-row
+    probe)'
   traceability: tests/characterization/name-resolution/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: name-resolution-002
   surface_id: sur-sqlite3resolveordergroupby
   name: ORDER BY / GROUP BY alias and ordinal resolution
@@ -3534,7 +3621,8 @@ behaviours:
   notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path);
     per-pragma flags control schema-load and result shape. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
     delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: 11 pragmas + integrity/quick_check ok-shape real; rest of the ~70-pragma dispatcher absent'
+    (run-20 sweep) — gaps: 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store);
+    rest of dispatcher absent'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: pragma-surface-002
@@ -3640,8 +3728,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: printf %d/%s/%q/%Q/%% real; width/precision/%x/%f/%g and format() breadth absent'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep)
+    — gaps: flags/width/precision + d,i,u,f,e,E,g,G,x,X,o,s,c,q,Q real; %w, positional args, # flag absent'
   traceability: tests/characterization/printf-format/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-002
@@ -3760,16 +3848,19 @@ behaviours:
 - behaviour_id: select-codegen-002
   surface_id: sur-multiselect
   name: Compound SELECT set operations
-  status: documented
+  status: converted
   slice_id: select-codegen
   discovery_card: discovery/select-codegen/features/select-codegen-002.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: UNION / UNION ALL with dedup real; INTERSECT/EXCEPT absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): UNION/UNION
+    ALL/INTERSECT/EXCEPT all real (left-assoc fold, distinct semantics); compound VALUES arm unpinned'
   traceability: tests/characterization/select-codegen/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
 - behaviour_id: select-codegen-003
   surface_id: sur-flattensubquery
   name: Subquery flattening rewrite
@@ -3908,8 +3999,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation. |
-    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: CREATE TRIGGER persisted (memory + durable); only AFTER INSERT triggers parse'
+    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep)
+    — gaps: BEFORE/AFTER x INSERT/UPDATE/DELETE + WHEN parse and persist; INSTEAD OF and DROP TRIGGER absent'
   traceability: tests/characterization/triggers/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: triggers-002
@@ -3922,7 +4013,8 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
     recursive-trigger gate. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: AFTER INSERT firing with new.col real; BEFORE/UPDATE/DELETE, old.*, WHEN clauses absent'
+    (run-20 sweep) — gaps: old.*/new.* bindings, WHEN filtering, per-row B-then-A firing real; RAISE(), recursive triggers,
+    UPDATE OF absent'
   traceability: tests/characterization/triggers/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: unlock-notify-api-001
@@ -4417,20 +4509,125 @@ behaviours:
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 9
-last_updated: '2026-08-11T20:39:46Z'
+- behaviour_id: engine-datetime-001
+  surface_id: sur-engine-datetime
+  name: Real julian-day date/time engine
+  status: converted
+  slice_id: engine-datetime
+  discovery_card: discovery/engine-datetime/features/engine-datetime-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-datetime/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-setops-001
+  surface_id: sur-engine-setops
+  name: Compound set operations INTERSECT/EXCEPT
+  status: converted
+  slice_id: engine-setops
+  discovery_card: discovery/engine-setops/features/engine-setops-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-setops/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-constraints-001
+  surface_id: sur-engine-constraints
+  name: CHECK/NOT NULL/FK-action/name errors
+  status: converted
+  slice_id: engine-constraints
+  discovery_card: discovery/engine-constraints/features/engine-constraints-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-constraints/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-views-001
+  surface_id: sur-engine-views
+  name: View lifecycle + expansion
+  status: converted
+  slice_id: engine-views
+  discovery_card: discovery/engine-views/features/engine-views-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-views/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-triggers-001
+  surface_id: sur-engine-triggers
+  name: Trigger matrix BEFORE/AFTER x I/U/D + WHEN
+  status: converted
+  slice_id: engine-triggers
+  discovery_card: discovery/engine-triggers/features/engine-triggers-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-triggers/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-funcs-001
+  surface_id: sur-engine-funcs
+  name: printf/decimal/rot13-collation/scalar batch
+  status: converted
+  slice_id: engine-funcs
+  discovery_card: discovery/engine-funcs/features/engine-funcs-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-funcs/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+- behaviour_id: engine-pragma-001
+  surface_id: sur-engine-pragma
+  name: Connection pragma get/set batch
+  status: converted
+  slice_id: engine-pragma
+  discovery_card: discovery/engine-pragma/features/engine-pragma-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 10
+  traceability: tests/characterization/engine-pragma/TRACEABILITY.yaml
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-20 delegated stamp)'
+last_updated: '2026-08-11T20:54:10Z'
 updated_by: sqlite-engine-v10-completion-sweep
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 189
+  surfaces_total: 196
   surfaces_by_status:
     candidate: 185
-    accepted: 4
-  behaviours_known: 194
+    accepted: 11
+  behaviours_known: 201
   behaviours_by_status:
-    documented: 183
-    converted: 11
+    documented: 175
+    converted: 26
   unscanned_hints: 3
-  legacy_green: 104
+  legacy_green: 111
   parity_green: 0
