@@ -1,0 +1,9 @@
+slice_id: engine-trig2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-trig2-001
+  name: Trigger surface completion
+  status: accepted
+  evidence: [src/trigger.c:1]

@@ -1,0 +1,9 @@
+slice_id: engine-upsert2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-upsert2-001
+  name: Upsert DO UPDATE WHERE
+  status: accepted
+  evidence: [src/upsert.c:1]

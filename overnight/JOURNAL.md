@@ -365,3 +365,15 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Inventory bump in-commit: full 11→26, partial 75→72 (8 tightened notes), none 108→103;
   legacy_green 111; parity 0; schema VALID; COVERAGE regenerated.
 - cargo 208/208; anti-cheat 10/10; prior goldens md5-identical.
+
+## Run 21 — 2026-08-12 — engine v11: thin-gap harvest (pack v11)
+
+- Pack v10→v11 BOUND (+versions/11, ADR 0009). 33 new goldens (7 harvest slices), 2-run gate,
+  delegated stamp, zero deferrals, all replay via executor.
+- Implemented for real: DISTINCT/FILTER/HAVING aggregates; ORDER BY COLLATE + NULLS placement;
+  sha1_query/sha3_query row-hash protocol; base85/is_base85; ieee754 blobs; decimal(X)/pow2/
+  collation; totype/uuid edges; printf %w/#; FK ON UPDATE + SET DEFAULT; INSTEAD OF triggers;
+  DROP TRIGGER; RAISE(ABORT) rc19; UPDATE OF; recursive_triggers; RENAME/DROP COLUMN; upsert WHERE.
+- Golden-caught bugs: '_' word-boundary in find_kw_top; kitchen SELECT dropping unparseable ORDER BY.
+- Scoreboard: full 26→45, partial 72→60 (4 tightened, none greenwashed), none 103; behaviours 208;
+  legacy_green 118; parity 0. cargo 243/243; anti-cheat 12/12; prior goldens md5-identical.

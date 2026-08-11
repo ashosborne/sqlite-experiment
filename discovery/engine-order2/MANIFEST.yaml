@@ -1,0 +1,9 @@
+slice_id: engine-order2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-order2-001
+  name: ORDER BY collation + NULLS placement
+  status: accepted
+  evidence: [src/select.c:1300]

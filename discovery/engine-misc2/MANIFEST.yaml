@@ -1,0 +1,9 @@
+slice_id: engine-misc2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-misc2-001
+  name: Thin extension completions
+  status: accepted
+  evidence: [ext/misc/sha1.c:287]

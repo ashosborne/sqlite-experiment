@@ -1,0 +1,9 @@
+slice_id: engine-fk2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-fk2-001
+  name: FK action matrix completion
+  status: accepted
+  evidence: [src/fkey.c:60]

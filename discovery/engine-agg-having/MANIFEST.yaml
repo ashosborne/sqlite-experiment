@@ -1,0 +1,9 @@
+slice_id: engine-agg-having
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-agg-having-001
+  name: DISTINCT/FILTER aggregates + HAVING
+  status: accepted
+  evidence: [src/select.c:6480]

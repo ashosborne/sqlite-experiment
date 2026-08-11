@@ -5,31 +5,43 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-11T20:54:11Z
+- Generated: 2026-08-11T21:14:44Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T20:54:10Z by `sqlite-engine-v10-completion-sweep`
+- Manifest last_updated: 2026-08-11T21:14:44Z by `sqlite-engine-v11-thin-gap-harvest`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 72 | Some modern execution; gaps in notes |
-| full (converted) | 26 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 60 | Some modern execution; gaps in notes |
+| full (converted) | 45 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
 
+- `builtin-scalar-agg-funcs-002` — Aggregate function family
 - `date-time-funcs-001` — Core date/time conversion functions
 - `date-time-funcs-002` — strftime formatting
 - `date-time-funcs-003` — Modifier grammar (localtime, +N units, weekday, start of ...)
 - `date-time-funcs-004` — timediff interval arithmetic
 - `ddl-schema-001` — Table/view create-drop lifecycle
+- `ddl-schema-003` — ALTER TABLE family (rename/add/rename-col/drop-col)
 - `exec-convenience-api-001` — sqlite3_exec callback loop
+- `foreign-keys-002` — Cascading referential actions
+- `misc-basexx-001` — base64 + base85 + combined basexx encoders (one optional pack)
+- `misc-ieee754-001` — IEEE754 float decomposition functions
 - `misc-rot13-001` — rot13() function + collation
+- `misc-sha1-001` — sha1() hash functions
+- `misc-shathree-001` — sha3() hash functions
+- `misc-totype-001` — strict conversion functions tointeger/toreal
+- `misc-uint-001` — UINT collating sequence
+- `misc-uuid-001` — uuid generation/conversion functions
 - `misc-zorder-001` — z-order curve mapping functions
 - `name-resolution-001` — Column/table name lookup and ambiguity rules
+- `name-resolution-002` — ORDER BY / GROUP BY alias and ordinal resolution
 - `select-codegen-002` — Compound SELECT set operations
+- `triggers-001` — Trigger DDL lifecycle
 - `engine-kitchen-001` — Kitchen-spine row round-trip
 - `engine-files-001` — Durable file round-trip
 - `engine-files-002` — Durable multi-page tables (size/pages)
@@ -46,6 +58,13 @@
 - `engine-triggers-001` — Trigger matrix BEFORE/AFTER x I/U/D + WHEN
 - `engine-funcs-001` — printf/decimal/rot13-collation/scalar batch
 - `engine-pragma-001` — Connection pragma get/set batch
+- `engine-agg-having-001` — DISTINCT/FILTER aggregates + HAVING
+- `engine-misc2-001` — Thin extension completions (sha_query/base85/ieee754-blob/decimal/uuid/printf)
+- `engine-order2-001` — ORDER BY collation + NULLS placement
+- `engine-fk2-001` — FK action matrix completion (ON UPDATE / SET DEFAULT)
+- `engine-trig2-001` — Trigger surface completion (INSTEAD OF/DROP/RAISE/OF/recursive)
+- `engine-ddl2-001` — ALTER RENAME COLUMN / DROP COLUMN
+- `engine-upsert2-001` — Upsert DO UPDATE ... WHERE
 
 ### Partial in modern
 
@@ -56,11 +75,9 @@
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
 - `backup-api-003` — write-between-steps restart pinned; no general page-level coordination
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
-- `builtin-scalar-agg-funcs-002` — count/sum/total/avg/min/max/group_concat real; DISTINCT aggregates and FILTER absent
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
 - `ddl-schema-002` — CREATE INDEX tracked, UNIQUE enforced in-session; no real index b-trees or on-disk UNIQUE autoindexes
-- `ddl-schema-003` — ALTER RENAME TO / ADD COLUMN DEFAULT real incl. durable; RENAME COLUMN and DROP COLUMN absent
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
 - `dml-codegen-002` — IGNORE/REPLACE/ABORT/FAIL + CHECK/NOT NULL/UNIQUE/FK real; OR ROLLBACK absent (no transactions), CHECK-on-UPDATE unpinned
 - `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
@@ -69,7 +86,6 @@
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
 - `foreign-keys-001` — immediate FK enforcement real (memory + durable); deferred FKs absent
-- `foreign-keys-002` — ON DELETE CASCADE + SET NULL + RESTRICT real; SET DEFAULT and ON UPDATE actions absent
 - `foreign-keys-003` — DROP-parent rc=19 bookkeeping real; drop-order edges beyond pins absent
 - `global-init-config-001` — initialize/shutdown state machine real; OS/VFS init side effects absent
 - `global-init-config-002` — pinned sqlite3_config ops real; most of the config op matrix absent
@@ -81,21 +97,13 @@
 - `loadext-api-001` — enable-gate + not-authorized path real; actual shared-library loading absent by design
 - `loadext-api-002` — auto-extension register/invoke on open real; cancel/reset entry points absent
 - `malloc-subsystem-001` — malloc64/free/msize real allocator; memory accounting (memory_used/highwater) absent
-- `misc-basexx-001` — base64 encode/decode real; base85 and combined basexx absent
-- `misc-decimal-001` — decimal_add/sub/cmp/mul real (exact scaled i128, mul trims trailing zeros); decimal(X)/pow2/collation absent
+- `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/collation real (exact scaled i128); decimal_exp and true arbitrary precision absent
 - `misc-func-packs-001` — decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent
-- `misc-ieee754-001` — ieee754/ieee754_mantissa/ieee754_exponent (+2-arg form) real; from_blob/to_blob absent
 - `misc-prefixes-001` — prefixes() real as FROM row source; vtab constraint pushdown absent
 - `misc-regexp-001` — regexp operator real for literal/dot/anchor patterns; full NFA regex engine absent
 - `misc-series-001` — generate_series(a,b[,step]) real as FROM row source; vtab constraint pushdown absent
-- `misc-sha1-001` — sha1(x) real digest; sha1_query absent
-- `misc-shathree-001` — sha3(x,bits) real Keccak; sha3_query absent
-- `misc-totype-001` — tointeger/toreal strict conversion real for pinned forms; blob/overflow edges unpinned
-- `misc-uint-001` — uint comparison real in expressions (COLLATE uint); registered collation for ORDER BY/indexes absent
 - `misc-urifuncs-001` — non-URI connection answers computed from real connection state; URI parameter parsing absent
-- `misc-uuid-001` — uuid() v4 via PRNG + uuid_str/uuid_blob round-trip real; RFC-variant edges unpinned
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
-- `name-resolution-002` — ORDER BY alias/ordinal + GROUP BY expressions real; COLLATE terms and NULLS FIRST/LAST absent
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent
 - `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
@@ -105,7 +113,7 @@
 - `prepare-statement-api-004` — column_int/text/type with pinned coercions real; full typed-access matrix absent
 - `prepare-statement-api-005` — reset/finalize + OMIT_AUTORESET=off behaviour real; auto-reprepare on schema change absent
 - `prepare-statement-api-006` — stmt_readonly/stmt_busy real; explain introspection absent
-- `printf-format-001` — flags/width/precision + d,i,u,f,e,E,g,G,x,X,o,s,c,q,Q real; %w, positional args, # flag absent
+- `printf-format-001` — flags/width/precision + 16 conversions incl. %w and # real; thousands-separator comma flag and %p absent
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent
 - `printf-format-003` — str_new/appendf/errcode/finish real; appendchar/reset and grow edges absent
 - `select-codegen-001` — joins/subqueries/FROM depth run real (nested loop); full select.c orchestration, flattening and planner absent
@@ -114,10 +122,9 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
-- `triggers-001` — BEFORE/AFTER x INSERT/UPDATE/DELETE + WHEN parse and persist; INSTEAD OF and DROP TRIGGER absent
-- `triggers-002` — old.*/new.* bindings, WHEN filtering, per-row B-then-A firing real; RAISE(), recursive triggers, UPDATE OF absent
+- `triggers-002` — old/new, WHEN, B/A ordering, RAISE(ABORT), UPDATE OF, recursive_triggers real; RAISE(IGNORE/FAIL/ROLLBACK) and INSTEAD OF UPDATE/DELETE firing absent
 - `upsert-001` — conflict-target to PK/UNIQUE column real; index-expression targets and target WHERE absent
-- `upsert-002` — DO NOTHING / DO UPDATE SET excluded.col real; UPDATE-set breadth and WHERE on DO UPDATE absent
+- `upsert-002` — DO NOTHING / DO UPDATE SET c=excluded.c + conditional WHERE real; multi-assignment SET breadth absent
 - `util-primitives-001` — PRNG (sqlite3_randomness) real; UTF codecs and hash primitives absent
 - `window-functions-001` — row_number + sum OVER real for pinned shapes; the built-in window family breadth absent
 - `window-functions-002` — ROWS BETWEEN 1 PRECEDING AND CURRENT ROW real; RANGE/GROUPS/EXCLUDE absent
@@ -232,26 +239,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 196 |
-| Behaviours known | 201 |
+| Surfaces total | 203 |
+| Behaviours known | 208 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 111 |
+| legacy_green flags | 118 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 11 |
+| accepted | 18 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 26 |
-| documented | 175 |
+| converted | 45 |
+| documented | 163 |
 
 ## Surfaces per slice
 
@@ -269,16 +276,23 @@
 | date-time-funcs | 4 |
 | ddl-schema | 3 |
 | dml-codegen | 2 |
+| engine-agg-having | 1 |
 | engine-constraints | 1 |
 | engine-datetime | 1 |
+| engine-ddl2 | 1 |
 | engine-files | 1 |
+| engine-fk2 | 1 |
 | engine-funcs | 1 |
 | engine-join | 1 |
 | engine-kitchen | 1 |
+| engine-misc2 | 1 |
+| engine-order2 | 1 |
 | engine-pragma | 1 |
 | engine-setops | 1 |
 | engine-subquery | 1 |
+| engine-trig2 | 1 |
 | engine-triggers | 1 |
+| engine-upsert2 | 1 |
 | engine-views | 1 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |

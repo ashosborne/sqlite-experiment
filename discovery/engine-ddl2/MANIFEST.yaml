@@ -1,0 +1,9 @@
+slice_id: engine-ddl2
+app_id: sqlite-experiment
+seed: composed thin-gap-harvest slice (run 21)
+status: accepted
+features:
+- feature_id: engine-ddl2-001
+  name: ALTER column operations
+  status: accepted
+  evidence: [src/alter.c:1]
