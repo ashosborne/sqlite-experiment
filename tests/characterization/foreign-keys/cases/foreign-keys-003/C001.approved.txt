@@ -1,0 +1,3 @@
+OBS foreign-keys-003-C001 exec.rc 19
+OBS foreign-keys-003-C001 cb.rows 0
+OBS foreign-keys-003-C001 errmsg.nonempty 1

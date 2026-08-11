@@ -1,0 +1,2 @@
+OBS loadext-api-001-C001 load.rc 1
+OBS loadext-api-001-C001 errmsg.not_authorized 1

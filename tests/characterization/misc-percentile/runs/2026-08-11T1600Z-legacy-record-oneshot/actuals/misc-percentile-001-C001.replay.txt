@@ -1,0 +1,2 @@
+OBS misc-percentile-001-C001 exec.rc 1
+OBS misc-percentile-001-C001 cb.rows 0

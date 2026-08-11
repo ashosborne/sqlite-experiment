@@ -1,9 +1,10 @@
 slice_id: error-status-api
 source_discovery: discovery/error-status-api/MANIFEST.yaml
 phase: B
-updated_at: '2026-08-11T13:00:56Z'
+updated_at: '2026-08-11T14:38:35Z'
 batch_card_ids:
 - error-status-api-001
+- error-status-api-002
 cases:
 - id: error-status-api-001-C001
   feature_id: error-status-api-001
@@ -46,6 +47,16 @@ cases:
   scrub: []
   deferred_reasons: []
   golden: tests/characterization/error-status-api/cases/error-status-api-001/C002.approved.txt
+- id: error-status-api-002-C001
+  feature_id: error-status-api-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/error-status-api-002/CASE-001.md
+  golden: tests/characterization/error-status-api/cases/error-status-api-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/error-status-api/features/error-status-api-002.md
 deferred:
 - feature_id: error-status-api-001
   reason: 'Operator DEFER: exact English message strings; UTF-16 twins (errmsg16); error_offset corpus; sqlite3_limit / status64 belong to error-status-api-002/003
@@ -55,6 +66,8 @@ golden_approval:
   operator: Ash Osborne
   date: '2026-08-11'
   tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
   stamped_case_ids:
   - error-status-api-001-C001
   - error-status-api-001-C002
+  - error-status-api-002-C001

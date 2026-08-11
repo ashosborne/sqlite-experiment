@@ -1,0 +1,25 @@
+slice_id: loadext-api
+source_discovery: discovery/loadext-api/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- loadext-api-001
+cases:
+- id: loadext-api-001-C001
+  feature_id: loadext-api-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/loadext-api-001/CASE-001.md
+  golden: tests/characterization/loadext-api/cases/loadext-api-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/loadext-api/features/loadext-api-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - loadext-api-001-C001
+updated_at: '2026-08-11T14:38:35Z'

@@ -1,0 +1,4 @@
+OBS parser-grammar-001-C001 row0.col0 k
+OBS parser-grammar-001-C001 row0.col1 1
+OBS parser-grammar-001-C001 exec.rc 0
+OBS parser-grammar-001-C001 cb.rows 1

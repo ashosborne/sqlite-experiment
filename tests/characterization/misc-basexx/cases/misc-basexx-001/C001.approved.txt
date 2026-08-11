@@ -1,0 +1,4 @@
+OBS misc-basexx-001-C001 row0.col0 Af8=
+OBS misc-basexx-001-C001 row0.col1 01FF
+OBS misc-basexx-001-C001 exec.rc 0
+OBS misc-basexx-001-C001 cb.rows 1

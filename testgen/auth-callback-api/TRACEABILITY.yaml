@@ -1,0 +1,25 @@
+slice_id: auth-callback-api
+source_discovery: discovery/auth-callback-api/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- auth-callback-api-001
+cases:
+- id: auth-callback-api-001-C001
+  feature_id: auth-callback-api-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/auth-callback-api-001/CASE-001.md
+  golden: tests/characterization/auth-callback-api/cases/auth-callback-api-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/auth-callback-api/features/auth-callback-api-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - auth-callback-api-001-C001
+updated_at: '2026-08-11T14:38:35Z'

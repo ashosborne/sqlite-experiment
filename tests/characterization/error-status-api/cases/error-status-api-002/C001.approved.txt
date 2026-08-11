@@ -1,0 +1,3 @@
+OBS error-status-api-002-C001 limit.query 32766
+OBS error-status-api-002-C001 limit.set999_returns_prior 32766
+OBS error-status-api-002-C001 limit.query_after 999

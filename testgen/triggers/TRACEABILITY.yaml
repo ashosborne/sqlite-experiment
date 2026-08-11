@@ -1,0 +1,37 @@
+slice_id: triggers
+source_discovery: discovery/triggers/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- triggers-001
+- triggers-002
+cases:
+- id: triggers-001-C001
+  feature_id: triggers-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/triggers-001/CASE-001.md
+  golden: tests/characterization/triggers/cases/triggers-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/triggers/features/triggers-001.md
+- id: triggers-002-C001
+  feature_id: triggers-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/triggers-002/CASE-001.md
+  golden: tests/characterization/triggers/cases/triggers-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/triggers/features/triggers-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - triggers-001-C001
+  - triggers-002-C001
+updated_at: '2026-08-11T14:38:35Z'

@@ -1,0 +1,25 @@
+slice_id: analyze-stats
+source_discovery: discovery/analyze-stats/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- analyze-stats-001
+cases:
+- id: analyze-stats-001-C001
+  feature_id: analyze-stats-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/analyze-stats-001/CASE-001.md
+  golden: tests/characterization/analyze-stats/cases/analyze-stats-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/analyze-stats/features/analyze-stats-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - analyze-stats-001-C001
+updated_at: '2026-08-11T14:38:35Z'

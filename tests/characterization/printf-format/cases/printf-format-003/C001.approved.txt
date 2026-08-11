@@ -1,0 +1,2 @@
+OBS printf-format-003-C001 errcode 0
+OBS printf-format-003-C001 text 3/ab

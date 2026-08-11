@@ -1,0 +1,1 @@
+OBS global-init-config-002-C001 config_after_init.rc 21

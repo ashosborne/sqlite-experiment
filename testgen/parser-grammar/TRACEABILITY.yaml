@@ -1,0 +1,37 @@
+slice_id: parser-grammar
+source_discovery: discovery/parser-grammar/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- parser-grammar-001
+- parser-grammar-002
+cases:
+- id: parser-grammar-001-C001
+  feature_id: parser-grammar-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/parser-grammar-001/CASE-001.md
+  golden: tests/characterization/parser-grammar/cases/parser-grammar-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/parser-grammar/features/parser-grammar-001.md
+- id: parser-grammar-002-C001
+  feature_id: parser-grammar-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/parser-grammar-002/CASE-001.md
+  golden: tests/characterization/parser-grammar/cases/parser-grammar-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/parser-grammar/features/parser-grammar-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - parser-grammar-001-C001
+  - parser-grammar-002-C001
+updated_at: '2026-08-11T14:38:35Z'

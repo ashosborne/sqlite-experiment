@@ -1,0 +1,5 @@
+OBS date-time-funcs-001-C001 row0.col0 2026-08-11
+OBS date-time-funcs-001-C001 row0.col1 2023-02-25 00:00:00
+OBS date-time-funcs-001-C001 row0.col2 978307200
+OBS date-time-funcs-001-C001 exec.rc 0
+OBS date-time-funcs-001-C001 cb.rows 1

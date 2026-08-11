@@ -3,9 +3,9 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T14:34:09Z
+- Generated: 2026-08-11T14:38:36Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T14:34:09Z by `sqlite-oneshot-50-slices`
+- Manifest last_updated: 2026-08-11T14:38:35Z by `sqlite-oneshot-50-slices`
 
 ## Counts
 
@@ -15,7 +15,7 @@
 | Behaviours known | 185 |
 | Seeds scanned | 107 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 7 |
+| legacy_green flags | 82 |
 | parity_green flags | 0 |
 
 ## Surfaces by status

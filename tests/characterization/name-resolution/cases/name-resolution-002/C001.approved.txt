@@ -1,0 +1,4 @@
+OBS name-resolution-002-C001 row0.col0 1
+OBS name-resolution-002-C001 row1.col0 3
+OBS name-resolution-002-C001 exec.rc 0
+OBS name-resolution-002-C001 cb.rows 2

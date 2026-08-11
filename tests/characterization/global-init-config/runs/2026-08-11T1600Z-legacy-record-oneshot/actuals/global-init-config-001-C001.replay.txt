@@ -1,0 +1,2 @@
+OBS global-init-config-001-C001 init1.rc 0
+OBS global-init-config-001-C001 init2.rc 0

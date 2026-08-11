@@ -1,0 +1,4 @@
+OBS analyze-stats-001-C001 row0.col0 1
+OBS analyze-stats-001-C001 row1.col0 2 1
+OBS analyze-stats-001-C001 exec.rc 0
+OBS analyze-stats-001-C001 cb.rows 2

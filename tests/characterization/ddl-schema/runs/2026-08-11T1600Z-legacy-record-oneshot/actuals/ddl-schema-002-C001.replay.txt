@@ -1,0 +1,3 @@
+OBS ddl-schema-002-C001 row0.col0 1
+OBS ddl-schema-002-C001 exec.rc 0
+OBS ddl-schema-002-C001 cb.rows 1

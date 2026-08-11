@@ -1,0 +1,2 @@
+OBS global-init-config-003-C001 fkey.default 0
+OBS global-init-config-003-C001 fkey.after_set 1

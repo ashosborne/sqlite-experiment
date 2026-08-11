@@ -1,0 +1,3 @@
+OBS attach-detach-002-C001 row0.col0 1
+OBS attach-detach-002-C001 exec.rc 0
+OBS attach-detach-002-C001 cb.rows 1

@@ -1,0 +1,5 @@
+OBS builtin-scalar-agg-funcs-003-C001 row0.col0 1
+OBS builtin-scalar-agg-funcs-003-C001 row0.col1 0
+OBS builtin-scalar-agg-funcs-003-C001 row0.col2 1
+OBS builtin-scalar-agg-funcs-003-C001 exec.rc 0
+OBS builtin-scalar-agg-funcs-003-C001 cb.rows 1

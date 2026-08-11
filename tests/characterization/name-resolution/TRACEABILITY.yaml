@@ -1,0 +1,25 @@
+slice_id: name-resolution
+mode: RECORD
+target: legacy
+cases:
+- case_id: name-resolution-001-C001
+  feature_id: name-resolution-001
+  status: REPLAY_GREEN
+  golden_path: cases/name-resolution-001/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+- case_id: name-resolution-002-C001
+  feature_id: name-resolution-002
+  status: REPLAY_GREEN
+  golden_path: cases/name-resolution-002/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - name-resolution-001-C001
+  - name-resolution-002-C001
+updated_at: '2026-08-11T14:38:35Z'
+run_id: 2026-08-11T1600Z-legacy-record-oneshot

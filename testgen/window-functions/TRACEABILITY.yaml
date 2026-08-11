@@ -1,0 +1,37 @@
+slice_id: window-functions
+source_discovery: discovery/window-functions/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- window-functions-001
+- window-functions-002
+cases:
+- id: window-functions-001-C001
+  feature_id: window-functions-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/window-functions-001/CASE-001.md
+  golden: tests/characterization/window-functions/cases/window-functions-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/window-functions/features/window-functions-001.md
+- id: window-functions-002-C001
+  feature_id: window-functions-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/window-functions-002/CASE-001.md
+  golden: tests/characterization/window-functions/cases/window-functions-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/window-functions/features/window-functions-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - window-functions-001-C001
+  - window-functions-002-C001
+updated_at: '2026-08-11T14:38:35Z'

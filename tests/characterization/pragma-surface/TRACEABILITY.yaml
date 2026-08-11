@@ -1,0 +1,25 @@
+slice_id: pragma-surface
+mode: RECORD
+target: legacy
+cases:
+- case_id: pragma-surface-001-C001
+  feature_id: pragma-surface-001
+  status: REPLAY_GREEN
+  golden_path: cases/pragma-surface-001/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+- case_id: pragma-surface-002-C001
+  feature_id: pragma-surface-002
+  status: REPLAY_GREEN
+  golden_path: cases/pragma-surface-002/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - pragma-surface-001-C001
+  - pragma-surface-002-C001
+updated_at: '2026-08-11T14:38:35Z'
+run_id: 2026-08-11T1600Z-legacy-record-oneshot

@@ -1,0 +1,2 @@
+OBS serialize-memdb-api-001-C001 ptr.nonnull 1
+OBS serialize-memdb-api-001-C001 size 4096

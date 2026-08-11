@@ -1,0 +1,4 @@
+OBS json-funcs-004-C001 row0.col0 3
+OBS json-funcs-004-C001 row0.col1 12
+OBS json-funcs-004-C001 exec.rc 0
+OBS json-funcs-004-C001 cb.rows 1

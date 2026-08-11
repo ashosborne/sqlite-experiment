@@ -1,0 +1,5 @@
+OBS misc-ieee754-001-C001 row0.col0 ieee754(5,-1)
+OBS misc-ieee754-001-C001 row0.col1 5
+OBS misc-ieee754-001-C001 row0.col2 -1
+OBS misc-ieee754-001-C001 exec.rc 0
+OBS misc-ieee754-001-C001 cb.rows 1

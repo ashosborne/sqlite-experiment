@@ -1,0 +1,4 @@
+OBS misc-uint-001-C001 row0.col0 1
+OBS misc-uint-001-C001 row0.col1 0
+OBS misc-uint-001-C001 exec.rc 0
+OBS misc-uint-001-C001 cb.rows 1

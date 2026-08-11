@@ -1,0 +1,37 @@
+slice_id: json-funcs
+mode: RECORD
+target: legacy
+cases:
+- case_id: json-funcs-001-C001
+  feature_id: json-funcs-001
+  status: REPLAY_GREEN
+  golden_path: cases/json-funcs-001/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+- case_id: json-funcs-002-C001
+  feature_id: json-funcs-002
+  status: REPLAY_GREEN
+  golden_path: cases/json-funcs-002/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+- case_id: json-funcs-003-C001
+  feature_id: json-funcs-003
+  status: REPLAY_GREEN
+  golden_path: cases/json-funcs-003/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+- case_id: json-funcs-004-C001
+  feature_id: json-funcs-004
+  status: REPLAY_GREEN
+  golden_path: cases/json-funcs-004/C001.approved.txt
+  run_id: 2026-08-11T1600Z-legacy-record-oneshot
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - json-funcs-001-C001
+  - json-funcs-002-C001
+  - json-funcs-003-C001
+  - json-funcs-004-C001
+updated_at: '2026-08-11T14:38:35Z'
+run_id: 2026-08-11T1600Z-legacy-record-oneshot

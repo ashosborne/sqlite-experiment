@@ -1,0 +1,5 @@
+OBS json-funcs-002-C001 row0.col0 {"a":1}
+OBS json-funcs-002-C001 row0.col1 {"a":1}
+OBS json-funcs-002-C001 row0.col2 {"a":1,"b":2}
+OBS json-funcs-002-C001 exec.rc 0
+OBS json-funcs-002-C001 cb.rows 1

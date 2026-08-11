@@ -1,0 +1,5 @@
+OBS dml-codegen-001-C001 row0.col0 12
+OBS dml-codegen-001-C001 row0.col1 1
+OBS dml-codegen-001-C001 row0.col2 4
+OBS dml-codegen-001-C001 exec.rc 0
+OBS dml-codegen-001-C001 cb.rows 1

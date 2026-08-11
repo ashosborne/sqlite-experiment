@@ -1,0 +1,4 @@
+OBS select-codegen-001-C001 row0.col0 1
+OBS select-codegen-001-C001 row1.col0 2
+OBS select-codegen-001-C001 exec.rc 0
+OBS select-codegen-001-C001 cb.rows 2

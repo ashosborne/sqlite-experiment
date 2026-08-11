@@ -1,0 +1,2 @@
+OBS malloc-subsystem-001-C001 malloc.nonnull 1
+OBS malloc-subsystem-001-C001 msize.ge64 1

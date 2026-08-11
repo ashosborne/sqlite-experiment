@@ -1,0 +1,25 @@
+slice_id: misc-totype
+source_discovery: discovery/misc-totype/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- misc-totype-001
+cases:
+- id: misc-totype-001-C001
+  feature_id: misc-totype-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/misc-totype-001/CASE-001.md
+  golden: tests/characterization/misc-totype/cases/misc-totype-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/misc-totype/features/misc-totype-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-11 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - misc-totype-001-C001
+updated_at: '2026-08-11T14:38:35Z'

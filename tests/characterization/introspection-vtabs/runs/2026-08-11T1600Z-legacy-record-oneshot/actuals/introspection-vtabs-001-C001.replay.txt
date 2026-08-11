@@ -1,0 +1,2 @@
+OBS introspection-vtabs-001-C001 exec.rc 1
+OBS introspection-vtabs-001-C001 cb.rows 0

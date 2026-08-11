@@ -1,0 +1,4 @@
+OBS ddl-schema-003-C001 row0.col0 9
+OBS ddl-schema-003-C001 row0.col1 5
+OBS ddl-schema-003-C001 exec.rc 0
+OBS ddl-schema-003-C001 cb.rows 1

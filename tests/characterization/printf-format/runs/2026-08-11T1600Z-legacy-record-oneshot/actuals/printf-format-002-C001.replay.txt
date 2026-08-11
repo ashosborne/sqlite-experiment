@@ -1,0 +1,1 @@
+OBS printf-format-002-C001 mprintf.text 5-NULL

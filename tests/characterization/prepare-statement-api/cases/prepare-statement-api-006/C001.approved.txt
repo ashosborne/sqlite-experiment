@@ -1,0 +1,3 @@
+OBS prepare-statement-api-006-C001 stmt_readonly 1
+OBS prepare-statement-api-006-C001 stmt_busy.before 0
+OBS prepare-statement-api-006-C001 stmt_busy.after_step 1
