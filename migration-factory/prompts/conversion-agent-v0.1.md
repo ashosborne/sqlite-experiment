@@ -142,6 +142,13 @@ A Conversion batch is done when:
 - [ ] PR checklist: **Verification not run** checked by default
 - [ ] No unresolved `ARCHITECTURE_GAP` / `SCOPE_VIOLATION` / pack-level gap
 - [ ] Conversion never claims parity / COMPARE green — only Verification may set `PARITY=GREEN|FAIL` against the same goldens (read-only)
+- [ ] **Inventory scoreboard bump (mandatory, same change set):**
+  - Classify each in-batch behaviour in `inventory/<APP_ID>/APP_MANIFEST.yaml`: `impl_in_modern = none | partial | full`
+  - Bump `documented` → `converted` **only** for `full`
+  - For `partial`: keep `status: documented`; set `impl_in_modern: partial`; `notes` = remaining gaps (plain English)
+  - Set `parity: UNVERIFIED` unless a waiver says `WAIVED`; **never** flip `parity_green` / `verified` here
+  - Regenerate `COVERAGE.md` via the generator (never hand-edit)
+  - Brief/batch summary must paste the **Done / Partial / Remaining** histogram
 
 **Not done:** "modern looks right" / claiming COMPARE green; goldens rewritten; architecture freelanced; features skipped silently.
 
@@ -210,7 +217,10 @@ no estate-wide rewrite; no "fix as-is" by changing pins.
 ## Done
 Each in-batch feature converted or explicitly BLOCKED; diffs in allow surface;
 pack citations on PRs; goldens untouched; legacy pins green or LEGACY_REPLAY=SKIPPED;
-PARITY=UNVERIFIED handoff written (Verification alone sets PARITY=GREEN|FAIL).
+PARITY=UNVERIFIED handoff written (Verification alone sets PARITY=GREEN|FAIL);
+APP_MANIFEST `impl_in_modern` classified per in-batch behaviour (`converted` only for
+`full`; `partial` stays `documented` + gaps in notes) and COVERAGE.md regenerated —
+brief pastes the Done / Partial / Remaining histogram.
 ```
 
 

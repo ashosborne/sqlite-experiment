@@ -47,6 +47,19 @@ Side exits: `deferred` | `rejected` | `unknown`
 | `converted` | Conversion PR landed under BOUND PACK | Conversion; set `parity: UNVERIFIED` or `WAIVED` |
 | `verified` | Verification COMPARE `PARITY=GREEN` | **Only** Verification; forbidden under waiver |
 
+### Behaviour `impl_in_modern` (operator "done vs remaining")
+`none` (default/absent) | `partial` | `full`
+
+One-line operator meaning: **done in modern / partial / not started.**
+
+| Value | Meaning |
+| --- | --- |
+| `full` | The behaviour's accepted/frozen scope runs in the modern implementation **for real** (no whole-script cheat sheet). Operator "done" for conversion — parity may still be `UNVERIFIED`. |
+| `partial` | Some real modern execution exists but material gaps remain — list the gaps in `notes`. Must **not** use `status: converted` (stay `documented`/`accepted`): this prevents greenwashing "converted" on a toy subset. |
+| `none` | No honest modern implementation yet — **even if `legacy_green`** (frozen C goldens are characterization, not migration). |
+
+Gates: `status: converted` **requires** `impl_in_modern: full` (+ `parity` set as today). `verified` still only after COMPARE `PARITY=GREEN` (unchanged) and implies `full`.
+
 ### Behaviour `parity`
 `null` | `UNVERIFIED` | `GREEN` | `FAIL` | `WAIVED`
 

@@ -338,3 +338,15 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - v8 defer pragma-surface-002-C001 RECLAIMED (golden untouched, replays via executor).
 - Anti-cheat: runtime-keyed join + runtime scalar subquery + SCRIPT_TABLE still 0.
 - cargo 164/164; 155 prior goldens md5-identical; parity_green 0; C003 BLOCKED.
+
+## Run 19 — 2026-08-11 — factory fix: operator progress scoreboard
+
+- Factory gap: no schema signal for "done in modern"; COVERAGE buried conversion progress.
+- Core factory: app-manifest schema +impl_in_modern (none|partial|full; converted⇒full;
+  partial⇒not converted + notes; verified⇒full); schema.md, Field Guide, Operator runbook,
+  conversion-agent + overnight-conductor prompts, conversion-pr + architecture-pack skills
+  all require the inventory bump in the same change set; gen_coverage SoT moved to
+  migration-factory/inventory/ (overnight wrapper), COVERAGE now leads with Operator progress.
+- sqlite-experiment catch-up: 194 behaviours → 11 full (engine slices + exec loop + zorder;
+  now converted + parity UNVERIFIED + pack@9), 75 partial (gap notes), 108 none.
+  No goldens touched; parity_green 0; no verified; schema VALID.

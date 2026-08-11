@@ -88,6 +88,7 @@ Emit `overnight/CONTEXT_GATE.md` listing files read + commit SHA / tree identity
 
 ### 1) Portfolio bootstrap
 Create `inventory/<APP_ID>/APP_MANIFEST.yaml` per `schemas/app-manifest.schema.md` if missing (incomplete; unscanned hints honest).
+If this run converts anything (`ALLOW_CONVERSION: true`), the conversion step MUST classify each converted behaviour `impl_in_modern = none|partial|full` in APP_MANIFEST (bump to `converted` only for `full`; `partial` stays `documented` with gaps in notes; `parity: UNVERIFIED`), then regenerate COVERAGE.md. Shipping modern code without the inventory bump is a process defect; the morning brief pastes the Done / Partial / Remaining histogram.
 Generate `inventory/<APP_ID>/COVERAGE.md` (never hand-edit later; regenerate when inventory changes).
 Commit message prefix: `overnight: inventory bootstrap`.
 

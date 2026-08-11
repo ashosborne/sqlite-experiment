@@ -288,6 +288,12 @@ Always emit a read-only plan artifact; human gate ≠ always block.
 3. **One PR per behaviour** (default; atomic cluster only if pack treats as one): cite `pack_id@version` + ticket; checklist from pack quality gates; **Verification not run** checked by default  
 4. Legacy REPLAY = best-effort; if harness unavailable set `LEGACY_REPLAY=SKIPPED` (do not hard-fail Conversion solely for that); do **not** run modern COMPARE  
 5. Hook review skills: migration-correctness, security-triage, optional pack-compliance  
+6. **Inventory bump (mandatory, same change set):** classify each in-batch behaviour
+   `impl_in_modern = none | partial | full` in `inventory/<APP_ID>/APP_MANIFEST.yaml`;
+   bump `documented` → `converted` only for `full` (set `parity: UNVERIFIED` unless a
+   waiver says `WAIVED`); for `partial`, keep `documented` and write remaining gaps in
+   `notes`; never flip `parity_green`/`verified` here; regenerate `COVERAGE.md`.
+   Shipping modern code without this bump is a **process defect**.  
 
 #### Failure notes
 - `BLOCKED` = status on feature batch summary, not a failure class
@@ -348,14 +354,29 @@ Prompt: `prompts/verification-agent-v0.1.md`
 **SoT:** `inventory/<APP_ID>/APP_MANIFEST.yaml` (schema: `schemas/app-manifest.schema.json`).  
 Slice `discovery/<slice>/MANIFEST.yaml` stays the deep bound truth. APP_MANIFEST is the **wide index** (surfaces + behaviours + pointers + rolled-up status). It does **not** duplicate TRACEABILITY case rows.
 
+**Generator SoT:** `migration-factory/inventory/gen_coverage.py` (per-app wrappers such as `overnight/bin/gen_coverage.py` must delegate to it — one generator, no forks).
+
 **Human glance surface:** generate `inventory/<APP_ID>/COVERAGE.md` from the APP_MANIFEST (histogram/counts, unscanned hints, weakest-case rollups).  
 **Never hand-edit COVERAGE.md** — regenerate after inventory updates. Operators and SMEs read COVERAGE; agents write APP_MANIFEST.
+
+**Operator glance path (done vs remaining):** open `COVERAGE.md` **first** and read the
+**Operator progress** section (Done / Partial / Remaining from behaviour `impl_in_modern`),
+not only seed/status histograms. That section — not `legacy_green` counts — answers
+"what is done in the modern implementation and what remains."
 
 **Anti-greenwash:**
 - No completion %. Counts only (e.g. verified / converted / documented / known behaviours / unscanned surfaces).
 - `legacy_green` only after Test execution RECORD → REPLAY_GREEN.
 - `parity_green` / behaviour `status: verified` only after Verification COMPARE `PARITY=GREEN`.
 - Under `WAIVED_PATHFINDER`: stop at `converted` + `parity: WAIVED`. Provisional modern tests never set green flags.
+- **`legacy_green` ≠ migrated.** Frozen C goldens (and modern tests that replay them) are
+  *characterization*, not conversion. The only "done in modern" signal is behaviour
+  `impl_in_modern: full` (→ `status: converted`, parity still `UNVERIFIED` until COMPARE).
+- **Hard rule:** every Conversion / engine-rewrite run that lands modern behaviour MUST
+  update `inventory/<APP_ID>/APP_MANIFEST.yaml` **in the same change set**
+  (`impl_in_modern` per touched behaviour; `status: converted` only when `full`;
+  `partial` stays `documented` with gaps in `notes`), then regenerate `COVERAGE.md`.
+  Shipping modern code without the inventory bump is a **process defect**.
 
 **Who writes:** Discovery adds surfaces/behaviours; Conversion/Verification **bump status + pointers** only; they do not invent inventory.  
 **App complete?** Human residual gate only (`complete_bound` / `bound_incomplete_ok`). Agents never declare the residual empty.

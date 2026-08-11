@@ -72,6 +72,7 @@ Convert Discovery feature(s) under BOUND Architecture PACK.
 - [ ] PARITY=UNVERIFIED stated (no parity claim)
 - [ ] CONTRACT_RISK section filled (or explicit none)
 - [ ] No net-new product features
+- [ ] Inventory bump in same change set: APP_MANIFEST `impl_in_modern` classified for each behaviour (`converted` only when `full`; `partial` stays `documented` + gaps in notes) + COVERAGE.md regenerated
 - [ ] Handoff ready for Verification agent (skill: verify-parity)
 ```
 

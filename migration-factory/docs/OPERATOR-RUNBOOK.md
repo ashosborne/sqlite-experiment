@@ -8,6 +8,8 @@ One-page map for humans running the factory. **Not** a Discovery tutorial — st
 
 **Portfolio inventory:** SoT is `inventory/<APP_ID>/APP_MANIFEST.yaml` (schema: `schemas/app-manifest.schema.json`). **Generate** `inventory/<APP_ID>/COVERAGE.md` from the manifest. Operators **read** it; **never hand-edit** `COVERAGE.md`. See Field Guide **Portfolio inventory** + `schemas/app-manifest.schema.md`.
 
+**Operator glance path (done vs remaining):** open `COVERAGE.md` **first** and read the top **Operator progress** section (Done / Partial / Remaining, from behaviour `impl_in_modern`) — not only seed counts. **Anti-pattern:** treating `legacy_green` or "tests replay goldens" as migrated; those are characterization flags. Every Conversion / engine-rewrite run that lands modern behaviour must bump `impl_in_modern` (+ `status: converted` when `full`) in the same change set and regenerate COVERAGE — shipping modern code without the inventory bump is a process defect.
+
 ---
 
 ## Where artefacts land
@@ -43,7 +45,7 @@ One-page map for humans running the factory. **Not** a Discovery tutorial — st
 | Conversion feature about to PR | `conversion-pr` | “Compose PR body for feature(s).” | PR description: pack@version, edit surface, risks |
 | Modern built; need parity proof | `verify-parity` | “Run Verification COMPARE for `SLICE_ID`.” | `PARITY.yaml` + evidence pack (not chat greening) |
 | **EXPERIMENTAL:** overnight estate candidate hunt | `prompts/estate-discovery-loop-v0.1.md` | "Run estate discovery under allowlist; Phase A only." | APP_MANIFEST + COVERAGE delta; MORNING_BRIEF; nothing bound |
-| Unsure what’s left across the app | _(read)_ `COVERAGE.md` | “Show coverage for `APP_ID`.” | Glance only — residual completeness is a **human** gate on APP_MANIFEST |
+| Unsure what’s left across the app | _(read)_ `COVERAGE.md` | “Show coverage for `APP_ID`.” | Read **Operator progress** (Done / Partial / Remaining via `impl_in_modern`) first; residual completeness is a **human** gate on APP_MANIFEST |
 | Want Jira cards from behaviour cards | _(future)_ `jira-cards-mcp` | — | See `skills/operator/jira-cards-mcp/FUTURE.md` — do not build MCP yet |
 
 ---

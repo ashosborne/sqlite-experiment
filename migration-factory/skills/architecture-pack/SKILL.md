@@ -61,7 +61,12 @@ architecture/<MIGRATION_ID>/
 4. Fill `forbidden` + `non_goals` aggressively — this is how freestyle dies.
 5. Set `status: DRAFT`, `version`, `pack_id`.
 6. Write `ADR/0001-...md` explaining choices in plain language (no coaching theatre).
-7. Stop for **human BIND**. **Never** set `status: BOUND` from this Skill path — only a human (or a dedicated human-driven bind checklist commit) flips DRAFT→BOUND with `bound_by` / `bound_at`. Agents may author DRAFT and validate only.
+7. Downstream done-check: Conversion may claim a feature **converted** only after the
+   inventory bump lands in the same change set — APP_MANIFEST behaviour
+   `impl_in_modern: full` (+ `status: converted`, `parity: UNVERIFIED`) and
+   `COVERAGE.md` regenerated. `partial` implementations stay `documented` with gaps
+   in notes. No inventory bump = process defect, not a conversion.
+8. Stop for **human BIND**. **Never** set `status: BOUND` from this Skill path — only a human (or a dedicated human-driven bind checklist commit) flips DRAFT→BOUND with `bound_by` / `bound_at`. Agents may author DRAFT and validate only.
 
 ## Validate pack
 
