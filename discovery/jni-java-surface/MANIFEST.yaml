@@ -6,11 +6,11 @@ out_of_scope_hints:
 - C bridge umbrella
 - Java build tooling
 phase: B
-updated_at: '2026-08-11T10:34:29Z'
+updated_at: '2026-08-11T11:37:55Z'
 features:
 - id: jni-java-surface-001
   name: capi 1:1 Java layer with callback interfaces
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.
   entrypoints:
@@ -22,11 +22,12 @@ features:
     - ext/jni/src/org/sqlite/jni/capi/BusyHandlerCallback.java
   dependencies:
   - jni-binding
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/jni-java-surface-001.md
 - id: jni-java-surface-002
   name: wrapper1 object-oriented Java layer
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: Sqlite/SqliteException OO wrapper with typed function classes.
   entrypoints:
@@ -37,11 +38,12 @@ features:
     - ext/jni/src/org/sqlite/jni/wrapper1/SqliteException.java
   dependencies:
   - jni-java-surface-001
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/jni-java-surface-002.md
 - id: jni-java-surface-003
   name: FTS5 Java extension bindings
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: Java projections of fts5_api / Fts5ExtensionApi for aux functions.
   entrypoints:
@@ -54,4 +56,5 @@ features:
   - fts5
   open_questions:
   - 'Same consumer question as run 1: does anything downstream use the Java binding?'
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/jni-java-surface-003.md

@@ -6,7 +6,7 @@ out_of_scope_hints:
 - gated feature behaviour
 - tool/-generated option lists
 phase: B
-updated_at: '2026-08-11T10:33:28Z'
+updated_at: '2026-08-11T11:37:55Z'
 features:
 - id: compile-options-omit-enable-001
   name: Compile-option diagnostics API (C + SQL)
@@ -28,7 +28,7 @@ features:
 - id: compile-options-omit-enable-002
   name: OMIT-gate census (surfaces removed per build)
   status: documented
-  confidence: observed-in-code
+  confidence: inferred
   summary: 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as
     default-present.
   entrypoints:

@@ -1,7 +1,9 @@
 # wasm-opfs-002 — OPFS SyncAccessHandle-pool VFS (sahpool)
 
-Slice: `wasm-opfs` · Status: `documented` · Confidence: `inferred` · Card written: 2026-08-11T10:34:29Z
+Slice: `wasm-opfs` · Status: `needs-SME` · Confidence: `inferred` · Card written: 2026-08-11T10:34:29Z
 As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
+
+> **NEEDS-SME**: needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen
 
 ## Summary
 

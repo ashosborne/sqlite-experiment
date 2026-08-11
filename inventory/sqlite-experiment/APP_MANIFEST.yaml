@@ -1,5 +1,5 @@
 # APP_MANIFEST — sqlite-experiment (portfolio inventory index)
-# Written by: estate-discovery-loop (Phase A) + sqlite-deepen-all (bind + Phase B). Humans residual-gate.
+# Written by: estate-discovery-loop (Phase A) + sqlite-deepen-all (bind + Phase B) + sqlite-testgen-spine (hygiene). Humans residual-gate.
 # Schema: migration-factory/schemas/app-manifest.schema.json (v1)
 schema_version: 1
 app_id: sqlite-experiment
@@ -2215,8 +2215,8 @@ behaviours:
   discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window,
-    ...) run 1 carded as default-present.
+  notes: confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...)
+    run 1 carded as default-present.; file-only evidence
 - behaviour_id: compile-options-omit-enable-003
   surface_id: sur-sqlite-enable-guards
   name: ENABLE-gate census (surfaces added per build)
@@ -2566,8 +2566,8 @@ behaviours:
   discovery_card: discovery/jni-binding/features/jni-binding-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread
-    rules.
+  notes: 'confidence=inferred; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules.;
+    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: jni-java-surface-001
   surface_id: sur-org-sqlite-jni-capi-capi
   name: capi 1:1 Java layer with callback interfaces
@@ -2576,7 +2576,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.
+  notes: 'confidence=inferred; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.; needs-SME:
+    inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: jni-java-surface-002
   surface_id: sur-org-sqlite-jni-wrapper1-sqlite
   name: wrapper1 object-oriented Java layer
@@ -2585,7 +2586,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Sqlite/SqliteException OO wrapper with typed function classes.
+  notes: 'confidence=inferred; Sqlite/SqliteException OO wrapper with typed function classes.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: jni-java-surface-003
   surface_id: sur-org-sqlite-jni-fts5
   name: FTS5 Java extension bindings
@@ -2594,7 +2596,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-003.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Java projections of fts5_api / Fts5ExtensionApi for aux functions.
+  notes: 'confidence=inferred; Java projections of fts5_api / Fts5ExtensionApi for aux functions.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
   name: JSON path extraction (json_extract, ->, ->>)
@@ -3533,7 +3536,8 @@ behaviours:
   discovery_card: discovery/vdbe-engine/features/vdbe-engine-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.'
+  notes: 'confidence=inferred; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.;
+    file-only evidence'
 - behaviour_id: vfs-kv-001
   surface_id: sur-sqlite3kvvfsinit
   name: kvvfs virtual filesystem
@@ -3671,8 +3675,9 @@ behaviours:
   discovery_card: discovery/wasm-binding/features/wasm-binding-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
-    fiddle UI noted as adapter, deprioritized.
+  notes: 'confidence=inferred; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
+    fiddle UI noted as adapter, deprioritized.; needs-SME: inferred-confidence card requires SME sign-off or waive-characterization
+    before Test gen'
 - behaviour_id: wasm-js-api-001
   surface_id: sur-ext-wasm-api-sqlite3-api-prologue-js
   name: Low-level JS capi projection + C glue
@@ -3681,7 +3686,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; sqlite3.capi namespace built by prologue/glue over exported C functions.
+  notes: 'confidence=inferred; sqlite3.capi namespace built by prologue/glue over exported C functions.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: wasm-js-api-002
   surface_id: sur-ext-wasm-api-sqlite3-api-oo1-c-pp-js
   name: oo1 object-oriented JS API (DB/Stmt)
@@ -3690,7 +3696,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; High-level DB/Stmt wrapper with exec() config object semantics.
+  notes: 'confidence=inferred; High-level DB/Stmt wrapper with exec() config object semantics.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: wasm-js-api-003
   surface_id: sur-ext-wasm-api-sqlite3-api-worker1-c-pp-js
   name: worker1 message protocol + promiser
@@ -3699,8 +3706,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-003.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards
-    at bind.
+  notes: 'confidence=inferred; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards at bind.;
+    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: wasm-opfs-001
   surface_id: sur-sqlite3-vfs-opfs-c-pp-js
   name: OPFS async-proxy VFS
@@ -3709,8 +3716,8 @@ behaviours:
   discovery_card: discovery/wasm-opfs/features/wasm-opfs-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS
-    handles.
+  notes: 'confidence=inferred; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS handles.;
+    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: wasm-opfs-002
   surface_id: sur-sqlite3-vfs-opfs-sahpool-c-pp-js
   name: OPFS SyncAccessHandle-pool VFS (sahpool)
@@ -3719,7 +3726,8 @@ behaviours:
   discovery_card: discovery/wasm-opfs/features/wasm-opfs-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.
+  notes: 'confidence=inferred; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.; needs-SME:
+    inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
   name: WHERE-loop generation boundary
@@ -3757,10 +3765,11 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:37:14Z'
-updated_by: sqlite-deepen-all
-notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
-  harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
+last_updated: '2026-08-11T11:37:55Z'
+updated_by: sqlite-testgen-spine
+notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
+  candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
+  METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
   surfaces_total: 185
   surfaces_by_status:

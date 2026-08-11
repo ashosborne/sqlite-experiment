@@ -1,7 +1,9 @@
 # jni-java-surface-002 — wrapper1 object-oriented Java layer
 
-Slice: `jni-java-surface` · Status: `documented` · Confidence: `inferred` · Card written: 2026-08-11T10:34:29Z
+Slice: `jni-java-surface` · Status: `needs-SME` · Confidence: `inferred` · Card written: 2026-08-11T10:34:29Z
 As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
+
+> **NEEDS-SME**: needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen
 
 ## Summary
 

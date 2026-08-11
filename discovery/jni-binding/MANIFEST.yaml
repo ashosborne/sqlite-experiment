@@ -6,11 +6,11 @@ out_of_scope_hints:
 - core C API behaviour
 - Java build tooling
 phase: B
-updated_at: '2026-08-11T10:32:22Z'
+updated_at: '2026-08-11T11:37:55Z'
 features:
 - id: jni-binding-001
   name: JNI adapter layer (C-to-Java bridge)
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules.
   entrypoints:
@@ -24,4 +24,5 @@ features:
   - prepare-statement-api
   open_questions:
   - Is the Java binding a consumed product surface downstream?
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/jni-binding-001.md

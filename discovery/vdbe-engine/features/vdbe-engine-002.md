@@ -1,6 +1,6 @@
 # vdbe-engine-002 — Mem-cell value semantics (affinity/encoding conversions)
 
-Slice: `vdbe-engine` · Status: `documented` · Confidence: `observed-in-code` · Card written: 2026-08-11T10:27:49Z
+Slice: `vdbe-engine` · Status: `documented` · Confidence: `inferred` · Card written: 2026-08-11T10:27:49Z
 As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
 
 ## Summary
@@ -33,6 +33,8 @@ Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materi
 - utf-util
 
 ## Assumptions / unknowns
+
+- Confidence downgraded to inferred (run 4 hygiene): file-only evidence, no symbol:line cite
 
 - Evidence is file-scope (src/vdbemem.c) with behaviour cross-checked from public API docs — confidence kept observed-in-code for the seam, matrix rows to be pinned by Test gen at SQL level
 - Characterize via SQL-level typeof()/CAST corpora rather than internals

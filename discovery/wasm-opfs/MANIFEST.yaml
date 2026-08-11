@@ -6,11 +6,11 @@ out_of_scope_hints:
 - kvvfs
 - JS API layers
 phase: B
-updated_at: '2026-08-11T10:34:29Z'
+updated_at: '2026-08-11T11:37:55Z'
 features:
 - id: wasm-opfs-001
   name: OPFS async-proxy VFS
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS handles.
   entrypoints:
@@ -22,11 +22,12 @@ features:
     - ext/wasm/api/opfs-common-shared.c-pp.js
   dependencies:
   - wasm-js-api
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/wasm-opfs-001.md
 - id: wasm-opfs-002
   name: OPFS SyncAccessHandle-pool VFS (sahpool)
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.
   entrypoints:
@@ -39,4 +40,5 @@ features:
   - wasm-opfs-001
   open_questions:
   - Which OPFS variant does downstream deploy? Concurrency semantics differ.
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/wasm-opfs-002.md

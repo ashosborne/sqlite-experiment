@@ -37,3 +37,9 @@ stay counted, not carded).
 ## Completeness
 
 `completeness: incomplete` — this pin scopes Phase B cards; it is not an estate-completeness claim.
+
+## Fingerprint status (run 4, 2026-08-11)
+
+**Fingerprint not captured** — no build exists in this workspace and the run-4 charter forbids
+spending the run compiling. Capture the compileoption dump when Test execution first builds the
+pinned configuration (`./configure && make sqlite3`).

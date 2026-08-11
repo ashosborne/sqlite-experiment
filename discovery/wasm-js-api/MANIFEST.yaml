@@ -6,11 +6,11 @@ out_of_scope_hints:
 - OPFS persistence
 - emscripten build tooling
 phase: B
-updated_at: '2026-08-11T10:34:29Z'
+updated_at: '2026-08-11T11:37:55Z'
 features:
 - id: wasm-js-api-001
   name: Low-level JS capi projection + C glue
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: sqlite3.capi namespace built by prologue/glue over exported C functions.
   entrypoints:
@@ -22,11 +22,12 @@ features:
     - ext/wasm/api/EXPORTED_FUNCTIONS.c-pp
   dependencies:
   - wasm-binding
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/wasm-js-api-001.md
 - id: wasm-js-api-002
   name: oo1 object-oriented JS API (DB/Stmt)
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: High-level DB/Stmt wrapper with exec() config object semantics.
   entrypoints:
@@ -36,11 +37,12 @@ features:
     - ext/wasm/api/sqlite3-api-oo1.c-pp.js
   dependencies:
   - wasm-js-api-001
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/wasm-js-api-002.md
 - id: wasm-js-api-003
   name: worker1 message protocol + promiser
-  status: documented
+  status: needs-SME
   confidence: inferred
   summary: "postMessage-based API for worker-thread use; promise wrapper. Async seam \u2014 split cards at bind."
   entrypoints:
@@ -50,5 +52,6 @@ features:
     - ext/wasm/api/sqlite3-api-worker1.c-pp.js
   dependencies:
   - wasm-js-api-002
-  open_questions: []
+  open_questions:
+  - 'needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   behaviour_doc: features/wasm-js-api-003.md

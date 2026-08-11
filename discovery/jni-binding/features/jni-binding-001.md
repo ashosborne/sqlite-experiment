@@ -1,7 +1,9 @@
 # jni-binding-001 — JNI adapter layer (C-to-Java bridge)
 
-Slice: `jni-binding` · Status: `documented` · Confidence: `inferred` · Card written: 2026-08-11T10:32:22Z
+Slice: `jni-binding` · Status: `needs-SME` · Confidence: `inferred` · Card written: 2026-08-11T10:32:22Z
 As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
+
+> **NEEDS-SME**: needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen
 
 ## Summary
 

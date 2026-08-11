@@ -1,6 +1,6 @@
 # compile-options-omit-enable-002 — OMIT-gate census (surfaces removed per build)
 
-Slice: `compile-options-omit-enable` · Status: `documented` · Confidence: `observed-in-code` · Card written: 2026-08-11T10:33:28Z
+Slice: `compile-options-omit-enable` · Status: `documented` · Confidence: `inferred` · Card written: 2026-08-11T10:33:28Z
 As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
 
 ## Summary
@@ -32,6 +32,8 @@ As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
 - (none found in code)
 
 ## Assumptions / unknowns
+
+- Confidence downgraded to inferred (run 4 hygiene): file-only evidence, no symbol:line cite
 
 - Per-flag surface diffs become cards only after a non-default baseline is actually proposed (BASELINE.md)
 
