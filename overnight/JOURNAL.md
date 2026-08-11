@@ -183,3 +183,18 @@ Running tally format: candidates = surfaces + behaviours in APP_MANIFEST (all ag
 - Final validation: APP_MANIFEST schema VALID; 60 slice manifests parse, 125 features all candidate with evidence+confidence; statuses = {candidate} only; no completion-% strings anywhere in factory artefacts.
 - git working tree touched only discovery/, inventory/, overnight/ throughout (checked before every commit). Product source untouched.
 - Final tally: 60 slices, 125 surfaces + 125 behaviours = 250 candidates (cap), 0 hints left in list, residuals recorded in METHOD_COVERAGE.
+
+---
+
+# RESUME RUN 2 — residual hunt (2026-08-10, resumed from 5f8992664)
+
+Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (this-run delta; run-1's 250 rows retained and excluded), STOP_WHEN_NO_NEW_SURFACES=3. See CONTEXT_GATE.md resume section.
+
+## Resume re-seed (once, before iteration 1)
+
+- stop.txt: absent.
+- Preserved run-1 brief as overnight/MORNING_BRIEF-2026-08-10.md.
+- Re-seeded APP_MANIFEST unscanned_hints with exactly the 11 charter residual seeds (METHOD_COVERAGE residuals 1/4/5/6 + global-init-config open question + three umbrella unbundles). Run-1's 60 scanned seeds NOT re-added.
+- Not re-seeded per charter: test/ + src/test*.c (still skipped-with-reason), runtime-only behaviour (stays a METHOD_COVERAGE note), tool//generated files, run-1 seeds.
+- Schema validation: PASS. COVERAGE regenerated (hints 0 → 11).
+- Delta tally: 0/120 new candidates this run (totals 250 baseline).

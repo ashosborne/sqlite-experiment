@@ -3,9 +3,9 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-10T18:13:21Z
+- Generated: 2026-08-11T09:24:58Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-10T18:13:21Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:24:58Z by `estate-discovery-loop`
 
 ## Counts
 
@@ -14,7 +14,7 @@
 | Surfaces total | 125 |
 | Behaviours known | 125 |
 | Seeds scanned | 60 |
-| Unscanned hints (residual) | 0 |
+| Unscanned hints (residual) | 11 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -160,7 +160,17 @@
 
 ## Unscanned hints (residual register)
 
-- (none)
+- src: compile-options-omit-enable — SQLITE_OMIT_*/SQLITE_ENABLE_* gated API visibility, default vs ifdef builds (src/sqliteInt.h, src/sqlite.h.in, src/ctime.c if present)
+- src: vfs-win — Windows VFS implementation (src/os_win.c)
+- src: vfs-kv — key-value VFS backend (src/os_kv.c)
+- src: vfs-unix-variants — VxWorks / proxy-locking / alternate locking-style paths in src/os_unix.c not deep-scanned in run 1
+- src: global-init-config — sqlite3_initialize/shutdown + sqlite3_config + sqlite3_db_config (src/main.c, src/global.c); left as open question in run 1
+- ext: wasm-js-api — JS/worker/promise API surface beyond run-1 wasm-binding umbrella (ext/wasm/api/*.js, ext/wasm/api/*.c-pp.js)
+- ext: wasm-opfs — OPFS VFS + sync-access-handle pool variants (ext/wasm/api/sqlite3-vfs-opfs*, sqlite3-opfs-*)
+- ext: jni-java-surface — Java class tree beyond run-1 jni-binding C-bridge umbrella (ext/jni/src/org/sqlite/jni)
+- ext: misc-vtab-unbundle — split run-1 misc-vtab-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
+- ext: misc-func-unbundle — split run-1 misc-func-packs umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
+- ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella row)
 
 ## Notes
 

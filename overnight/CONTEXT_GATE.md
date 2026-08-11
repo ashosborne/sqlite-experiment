@@ -63,3 +63,53 @@ None. No `discovery/`, `inventory/`, or `overnight/` existed at repo root before
 ## Mode confirmation
 
 Phase A candidates only. No bind, no Phase B deepen, no test generation, no RECORD, no PACK BIND, no Conversion, no completeness claims. Abort cleanly if `overnight/stop.txt` appears; MORNING_BRIEF still written.
+
+---
+
+# Resume run 2 — residual hunt (2026-08-10, same day)
+
+Resumed from branch `cursor/sqlite-estate-discovery-d22c` at `5f8992664` (end of run 1). Prior
+`inventory/`, `discovery/`, `overnight/` artefacts retained unchanged. Run-1 brief preserved as
+`overnight/MORNING_BRIEF-2026-08-10.md`.
+
+## Why this run exists
+
+Run 1 stopped on MAX_NEW_CANDIDATES 250/250 with the seed backlog exhausted — backlog exhaustion,
+not estate mapped. METHOD_COVERAGE residuals 1 (compile-time option matrix), 4 (platform variants),
+5 (ext/wasm JS breadth), 6 (ext/jni Java tree) are turned back into hints and walked.
+
+## Resume charter in force (wins over run-1 paste and loop example)
+
+```yaml
+OPERATOR: Ash Osborne
+APP_ID: sqlite-experiment
+RESUME_FROM: cursor/sqlite-estate-discovery-d22c
+MAX_ITERATIONS: 24
+MAX_NEW_SEEDS_PER_ITER: 4
+PHASE_B: false
+AUTO_BIND: false
+AUTO_ACCEPT: false
+ALLOW_CONVERSION: false
+STOP_WHEN_NO_NEW_SURFACES: 3
+INITIAL_SEEDS: [compile-options-omit-enable, vfs-win, vfs-kv, vfs-unix-variants,
+  global-init-config, wasm-js-api, wasm-opfs, jni-java-surface,
+  misc-vtab-unbundle, misc-func-unbundle, misc-vfs-unbundle]
+ALLOWLIST_PATHS: [src, ext]
+OUT_OF_SCOPE_HINTS: [art/, autoconf/, autosetup/, doc/, tool/, mptest/, test/, .fossil-settings/]
+MAX_FILES_TOUCHED: 8000
+MAX_RUNTIME_HINT_HOURS: 10
+MAX_NEW_CANDIDATES: 120   # THIS-RUN delta only; run-1's 250 rows do not count against it
+MAX_SLICES_PHASE_A: 0     # uncapped
+WRITE_SCOPE: factory-artefacts-only
+NO_COMMITS_TO_DEFAULT_BRANCH: true
+COMMIT_AS: estate-discovery-loop
+```
+
+## Resume rules acknowledged
+
+- Merge by surface_id / locator / behaviour_id; no duplicate cards; no status downgrades (all run-1 rows stay `candidate`).
+- No re-scan of run-1's 60 scanned_seeds absent a genuinely new entrypoint.
+- Do not re-seed: test/ or src/test*.c; runtime-only contention/memory-pressure (METHOD_COVERAGE note only); tool/ or generated files; run-1 seeds.
+- Umbrella leftovers (misc-*-packs, misc-vfs-shims) become thin NEW slices; old umbrella rows untouched.
+- Keep `estate_scan=partial` in APP_MANIFEST notes. Empty hints after this run still ≠ complete.
+- Candidates only; no bind/Phase B/test gen/conversion; abort on overnight/stop.txt (brief still written).
