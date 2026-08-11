@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_rot_init()
 out_of_scope_hints:
 - other misc-func-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:37:13Z'
 features:
 - id: misc-rot13-001
   name: rot13() function + collation
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: rot13(X) scalar + rot13 collation (demo-grade obfuscation)
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - loadext-api
   open_questions:
   - "Demo-only \u2014 recommend defer"
+  behaviour_doc: features/misc-rot13-001.md

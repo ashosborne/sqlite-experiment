@@ -2682,9 +2682,9 @@ behaviours:
 - behaviour_id: misc-appendvfs-001
   surface_id: sur-sqlite3-appendvfs-init
   name: appendvfs (db appended to host file)
-  status: accepted
+  status: documented
   slice_id: misc-appendvfs
-  discovery_card: null
+  discovery_card: discovery/misc-appendvfs/features/misc-appendvfs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Opens a db image appended to another file (e.g. self-contained executable) with marker
@@ -2711,9 +2711,9 @@ behaviours:
 - behaviour_id: misc-cksumvfs-001
   surface_id: sur-sqlite3-cksumvfs-init
   name: cksumvfs per-page checksums
-  status: accepted
+  status: documented
   slice_id: misc-cksumvfs
-  discovery_card: null
+  discovery_card: discovery/misc-cksumvfs/features/misc-cksumvfs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 8-byte per-page checksums in reserve bytes; verification on read — FILE-FORMAT IMPACT
@@ -2739,9 +2739,9 @@ behaviours:
 - behaviour_id: misc-compress-001
   surface_id: sur-sqlite3-compress-init
   name: compress()/uncompress() zlib functions
-  status: accepted
+  status: documented
   slice_id: misc-compress
-  discovery_card: null
+  discovery_card: discovery/misc-compress/features/misc-compress-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Deflate-based blob compression with size-prefixed format
@@ -2767,9 +2767,9 @@ behaviours:
 - behaviour_id: misc-fossildelta-001
   surface_id: sur-sqlite3-fossildelta-init
   name: fossil delta functions + delta_parse vtab
-  status: accepted
+  status: documented
   slice_id: misc-fossildelta
-  discovery_card: null
+  discovery_card: discovery/misc-fossildelta/features/misc-fossildelta-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them
@@ -2804,9 +2804,9 @@ behaviours:
 - behaviour_id: misc-nextchar-001
   surface_id: sur-sqlite3-nextchar-init
   name: next_char() incremental completion function
-  status: accepted
+  status: documented
   slice_id: misc-nextchar
-  discovery_card: null
+  discovery_card: discovery/misc-nextchar/features/misc-nextchar-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column
@@ -2849,9 +2849,9 @@ behaviours:
 - behaviour_id: misc-rot13-001
   surface_id: sur-sqlite3-rot-init
   name: rot13() function + collation
-  status: accepted
+  status: documented
   slice_id: misc-rot13
-  discovery_card: null
+  discovery_card: discovery/misc-rot13/features/misc-rot13-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; rot13(X) scalar + rot13 collation (demo-grade obfuscation)
@@ -2885,9 +2885,9 @@ behaviours:
 - behaviour_id: misc-spellfix-001
   surface_id: sur-sqlite3-spellfix-init
   name: spellfix1 fuzzy-search vtab + editdist functions
-  status: accepted
+  status: documented
   slice_id: misc-spellfix
-  discovery_card: null
+  discovery_card: discovery/misc-spellfix/features/misc-spellfix-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Fuzzy word search vtab with configurable edit-distance cost tables and phonetic hashing
@@ -2912,9 +2912,9 @@ behaviours:
 - behaviour_id: misc-tmstmpvfs-001
   surface_id: sur-sqlite3-tmstmpvfs-init
   name: timestamped-backup VFS
-  status: accepted
+  status: documented
   slice_id: misc-tmstmpvfs
-  discovery_card: null
+  discovery_card: discovery/misc-tmstmpvfs/features/misc-tmstmpvfs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Keeps timestamped copies of the database on write — simple point-in-time backups
@@ -2949,9 +2949,9 @@ behaviours:
 - behaviour_id: misc-urifuncs-001
   surface_id: sur-sqlite3-urifuncs-init
   name: URI-parameter SQL functions
-  status: accepted
+  status: documented
   slice_id: misc-urifuncs
-  discovery_card: null
+  discovery_card: discovery/misc-urifuncs/features/misc-urifuncs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; SQL access to URI open-parameters of the current database file
@@ -2968,9 +2968,9 @@ behaviours:
 - behaviour_id: misc-uuid-001
   surface_id: sur-sqlite3-uuid-init
   name: uuid generation/conversion functions
-  status: accepted
+  status: documented
   slice_id: misc-uuid
-  discovery_card: null
+  discovery_card: discovery/misc-uuid/features/misc-uuid-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; RFC-4122 v4 generation + text/blob conversions
@@ -2987,9 +2987,9 @@ behaviours:
 - behaviour_id: misc-vfslog-001
   surface_id: sur-sqlite3-register-vfslog
   name: vfslog binary operation logger
-  status: accepted
+  status: documented
   slice_id: misc-vfslog
-  discovery_card: null
+  discovery_card: discovery/misc-vfslog/features/misc-vfslog-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog
@@ -2997,18 +2997,18 @@ behaviours:
 - behaviour_id: misc-vfsstat-001
   surface_id: sur-sqlite3-vfsstat-init
   name: vfsstat I/O statistics shim + vtab
-  status: accepted
+  status: documented
   slice_id: misc-vfsstat
-  discovery_card: null
+  discovery_card: discovery/misc-vfsstat/features/misc-vfsstat-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Counts read/write/sync per file class; exposes vfsstat vtab for SQL queries
 - behaviour_id: misc-vfstrace-001
   surface_id: sur-vfstrace-register
   name: vfstrace call-tracing shim
-  status: accepted
+  status: documented
   slice_id: misc-vfstrace
-  discovery_card: null
+  discovery_card: discovery/misc-vfstrace/features/misc-vfstrace-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Wraps a VFS and prints every method call with args — debugging aid; registered via C
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:36:17Z'
+last_updated: '2026-08-11T10:37:14Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,7 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 172
-    accepted: 13
+    documented: 185
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

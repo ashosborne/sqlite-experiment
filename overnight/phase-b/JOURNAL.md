@@ -100,3 +100,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - misc-vtablog/vtshim/btreeinfo/zorder/basexx/sha1/shathree/decimal/ieee754/percentile/totype/uint/regexp → documented, observed-in-code.
 - Type asymmetry (sha1 hex TEXT vs sha3 BLOB) and strict-conversion contracts pinned; regexp non-PCRE dialect carded.
 - Upsert: PASS (documented=172). COVERAGE regenerated.
+
+## Batch 15 — thin misc cards C (13 cards) — CATALOGUE COMPLETE
+
+- misc-spellfix/nextchar/rot13/uuid/fossildelta/compress/urifuncs/appendvfs/cksumvfs/vfsstat/vfstrace/vfslog/tmstmpvfs → documented, observed-in-code.
+- All 185 bound behaviours now documented: 175 observed-in-code, 10 inferred (wasm JS ×5, jni ×4, wasm-binding umbrella ×1... see brief for exact split). 0 blocked, 0 needs-SME status rows — inferred-confidence cards carry their SME questions inline instead.
+- Upsert: PASS (documented=185, accepted=0). COVERAGE regenerated.

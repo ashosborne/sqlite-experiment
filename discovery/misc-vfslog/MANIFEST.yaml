@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_register_vfslog()
 out_of_scope_hints:
 - other misc-vfs-shims members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:37:13Z'
 features:
 - id: misc-vfslog-001
   name: vfslog binary operation logger
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog (SQLITE_EXTRA_INIT
     hook)
@@ -23,3 +23,4 @@ features:
   - vfs-os-abstraction
   - vtab-core
   open_questions: []
+  behaviour_doc: features/misc-vfslog-001.md

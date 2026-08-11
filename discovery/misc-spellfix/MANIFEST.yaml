@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_spellfix_init()
 out_of_scope_hints:
 - other misc-func-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:37:13Z'
 features:
 - id: misc-spellfix-001
   name: spellfix1 fuzzy-search vtab + editdist functions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Fuzzy word search vtab with configurable edit-distance cost tables and phonetic hashing
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - vtab-core
   - loadext-api
   open_questions: []
+  behaviour_doc: features/misc-spellfix-001.md

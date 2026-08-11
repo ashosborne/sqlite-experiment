@@ -4,12 +4,12 @@ seed_entrypoints:
 - vfstrace_register()
 out_of_scope_hints:
 - other misc-vfs-shims members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:37:13Z'
 features:
 - id: misc-vfstrace-001
   name: vfstrace call-tracing shim
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "Wraps a VFS and prints every method call with args \u2014 debugging aid; registered via C API"
   entrypoints:
@@ -21,3 +21,4 @@ features:
   dependencies:
   - vfs-os-abstraction
   open_questions: []
+  behaviour_doc: features/misc-vfstrace-001.md
