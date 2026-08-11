@@ -48,3 +48,11 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Station 4: pack v2 BOUND (SUPERSEDE v1; 85 in-scope; versions/1+2 retained; schema VALID).
 - Station 5: Rust — generated script_table.rs (59 entries from goldens), bespoke mirrors, 42 exported symbols; cargo test 77/77 green; no C link; parity_green 0 throughout.
 - Wholly deferred slices: blob-io (engine-grade row store), unlock-notify + session (gates off on pin — verified), vtab-core (module protocol). Partial defers listed in the brief.
+
+---
+
+# Run 12 — oneshot leftovers (sqlite-oneshot-leftovers)
+
+- Jobs A-C per charter: 27 new cases frozen (9 misc slices, 14 pragma cases, attach-003, loadext-002, serialize-002, backup-003); misc-stmt DEFERRED (flag-gated). Pre-freeze inspection caught: compress blob-vs-text comparison, urifuncs wrong fn names, bespoke double-free (FREEONCLOSE ownership) — all fixed before freezing; nothing misleading frozen.
+- Two-level pin discovered and documented: CLI fingerprint carries SHELL_OPT; harness lib = bare-default amalgamation. Run-11 dbstat/median goldens = absence pins; TRACEABILITY annotated (bytes untouched); BASELINE amended.
+- Pack v3 BOUND (112 in-scope). Rust: script table 83 entries; auto-ext/deserialize/backup-sequence mirrors; cargo 104/104. legacy_green 95; parity 0; 90 prior goldens md5-identical; C003 untouched.

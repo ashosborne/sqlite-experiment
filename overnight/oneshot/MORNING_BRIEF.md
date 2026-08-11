@@ -1,94 +1,58 @@
-# MORNING BRIEF — sqlite-experiment run 11: oneshot 50-slice batch (full autonomy)
+# MORNING BRIEF — sqlite-experiment run 12: oneshot leftovers (full autonomy)
 
-Run: 2026-08-11 · from `bd92ddbc4` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-oneshot-50-slices`
-Charter: FULL_AUTONOMY, delegated stamp, ≤3 cases/ID (used ≤1 mostly), ≤150 new cases (used 75), NO_ENGINE, NO_WASM.
+Run: 2026-08-11 · from `44406b4be` · committed as `sqlite-oneshot-leftovers` · same branch, no PR.
+(Run-11 brief preserved as `MORNING_BRIEF-2026-08-11-run11.md`.)
 
-## 1. The 50 slices
+## 1. Leftover table
 
-| # | Slice | Frozen this run | Deferred (reason) |
-| --- | --- | --- | --- |
-| 1 | connection-lifecycle-api | run-10 pair stamped (delegated) | URI/open16/flag-MISUSE (charter list) |
-| 2 | exec-convenience-api | run-10 trio stamped (delegated) | multi-statement scope (charter) |
-| 3 | error-status-api | 002-C001 (limit protocol) | 003 (status counters nondeterministic — unsafe to freeze) |
-| 4 | prepare-statement-api | 004-C001 (coercion), 006-C001 (introspection) | 002-C003 stays BLOCKED (UAF) |
-| 5 | auth-callback-api | 001-C001 (DENY→23) | 002 (column-IGNORE plumbing = engine-grade in Rust) |
-| 6 | backup-api | 001-C001, 002-C001 (empty pair: DONE/0/0) | 003 (needs concurrent-writer harness) |
-| 7 | blob-io-api | — | whole slice (row-store in Rust = engine-grade; NO_ENGINE) |
-| 8 | serialize-memdb-api | 001-C001 (empty serialize = 4096B) | 002 (named memdb needs URI — deferred class) |
-| 9 | unlock-notify-api | — | whole slice (ENABLE_UNLOCK_NOTIFY off on pin — verified 0) |
-| 10 | loadext-api | 001-C001 (disabled → 1/'not authorized') | 002 (registry callback marshalling) |
-| 11 | global-init-config | 001/002/003 (init twice, config-MISUSE 21, fkey toggle) | — |
-| 12 | pragma-surface | 001 (user_version get/set), 002 (database_list count) — 2 of ≤3 cap | ~70-pragma enumeration (charter forbids) |
-| 13 | attach-detach | 001 (attach→2), 002 (detach→1) | 003 (attached-file DDL fixture) |
-| 14 | malloc-subsystem | 001 (malloc/msize/free) | 002 (lookaside counters unstable) |
-| 15 | mutex-subsystem | 001 (alloc/enter/leave/free) | — |
-| 16 | printf-format | 001 (SQL %q), 002 (mprintf %Q NULL), 003 (str builder) | — |
-| 17 | util-primitives | 001 (randomness draws differ — derived bool) | — |
-| 18 | json-funcs | 001–004 (extract/->/->>; set/remove/patch; valid/type; json_each agg) | — |
-| 19 | date-time-funcs | 001–004 (conversions, strftime, modifiers, timediff — TZ-free inputs) | localtime (host-TZ dependent) |
-| 20 | builtin-scalar-agg-funcs | 001–003 (scalars; sum/total/count/group_concat; LIKE/GLOB/ESCAPE) | — |
-| 21 | ddl-schema | 001–003 (table/view lifecycle, unique index, ALTER chain) | — |
-| 22 | dml-codegen | 001 (changes/total_changes), 002 (OR REPLACE/IGNORE) | — |
-| 23 | expr-codegen | 001–003 (arith/CAST; IN-NULL 3VL; CASE/iif) | — |
-| 24 | select-codegen | 001–003 (subquery ORDER, UNION dedupe, flatten-equivalent) | — |
-| 25 | name-resolution | 001 (qualified/rowid), 002 (alias ORDER BY) | — |
-| 26 | tokenizer | 001 (hex/exp/blob/bracket), 002 (sqlite3_complete trio) | — |
-| 27 | parser-grammar | 001 (keyword fallback), 002 (syntax reject, wording_deferred) | — |
-| 28 | analyze-stats | 001 (stat1 row '2 1') | 002 (plan-level observable — EQP-fragile per SME note) |
-| 29 | foreign-keys | 001 (violation 19), 002 (CASCADE), 003 (DROP parent 19) | — |
-| 30 | triggers | 001 (DDL), 002 (AFTER INSERT fires) | — |
-| 31 | upsert | 001 (DO NOTHING), 002 (DO UPDATE excluded.*) | — |
-| 32 | vacuum | 001 (VACUUM rc) | 002 (VACUUM INTO file side-effect outside recognizer) |
-| 33 | window-functions | 001 (row_number), 002 (ROWS frame sum) | — |
-| 34 | introspection-vtabs | 001 (dbstat count>0 — gate ON on pin) | dbpage writes (defensive risk) |
-| 35 | vtab-core | — | whole slice (module protocol in Rust = engine-grade) |
-| 36 | session | — | whole slice (ENABLE_SESSION off on pin — verified 0) |
-| 37–50 | misc-uuid/regexp/series/csv/decimal/basexx/rot13/totype/uint/ieee754/percentile/completion/prefixes/wholenumber | all 14 frozen (static init w/ -DSQLITE_CORE — **no load_extension needed**, so the loadable-defer trigger never fired; uuid pinned as derived shape 36/'4') | — |
+| Item | Outcome |
+| --- | --- |
+| misc-compress | **frozen** (hex round-trip; zlib linked into legacy harness only) |
+| misc-fossildelta | **frozen** (delta_apply/create + output_size) |
+| misc-nextchar | **frozen** (indexed 'ca' → 'rt') |
+| misc-sha1 | **frozen** (sha1('abc') full digest) |
+| misc-shathree | **frozen** (sha3-256('abc') hex digest) |
+| misc-urifuncs | **frozen** (sqlite3_uri_parameter/boolean — first capture used wrong fn names, caught pre-freeze and fixed) |
+| misc-utilities | **frozen** (eval(); fileio deliberately NOT frozen — fs side effects) |
+| misc-zorder | **frozen** (zorder/unzorder ints) |
+| misc-func-packs | **frozen** (umbrella: decimal+regexp together — thin members already carded, no explosion) |
+| misc-stmt | **DEFERRED** — needs SQLITE_ENABLE_STMTVTAB; the harness pin is the bare-default amalgamation and compile-flag flips are forbidden |
+| pragma-surface (Job B) | **14 new cases** (application_id, schema_version, cache_size, recursive_triggers, defer_foreign_keys, query_only, temp_store, automatic_index, ignore_check_constraints, case_sensitive_like-via-LIKE, integrity/quick_check, table_info/fk_list/index_list counts, compile_options count, function/module/pragma_list counts) — all :memory:, no WAL/file pragmas, ~50 others still unenumerated |
+| attach-detach-003 | **frozen** (cross-db trigger DDL rejected — error-script, wording_deferred) |
+| loadext-api-002 | **frozen** (auto_extension registry: called-on-open / cancel rc=1 / not-called-after) |
+| serialize-memdb-api-002 | **frozen without URI** (deserialize the 4096B empty image → OK; re-serialize same size) |
+| backup-api-003 | **frozen single-threaded** (source write between steps: step1=OK/remaining 1/pagecount 2 → DONE; rc sequence only, no concurrent-writer circus) |
+| vacuum-002, analyze-002, error-status-003, malloc-002, auth-002 | still deferred (charter) |
+| blob-io, unlock-notify, session, vtab-core | not retried (charter) |
 
-**Totals: 46 of 50 slices frozen (75 new cases + the 5 stamped run-10 cases), 4 slices wholly deferred, 0 flaky (two-run determinism gate, zero failures).**
+27 new cases; two-run determinism gate 27/27, 0 flaky. One capture bug (double-free from FREEONCLOSE ownership) fixed in the harness before any freeze.
 
-## 2. Engine / wasm untouched
+## 2. Two-level pin finding (honest, important)
 
-vdbe/btree/pager/pcache/wal/where, all VFS slices, recover/rbu, wasm/jni/tcl/shell, compile-options,
-fts/rtree/icu/expert/intck/qrf, remaining misc packs: **not started** (charter out-of-scope list).
-`src/ ext/ test/` zero diffs (ext/misc *.c were *compiled* into the legacy harness, never edited).
+The BASELINE fingerprint was dumped from the **CLI**, which carries `SHELL_OPT` enables. The
+harnesses link the **bare-default amalgamation** — so run-11's `introspection-vtabs-001-C001` and
+`misc-percentile-001-C001` goldens actually pin **feature absence** (rc=1) on the harness lib.
+Golden bytes untouched; TRACEABILITY rows annotated; `overnight/BASELINE.md` amended with the
+two-level pin. API_ARMOR/OMIT_AUTORESET verified off on both levels — all rc pins stand.
 
-## 3. Pack
+## 3. Pack + goldens + C003
 
-`sqlite-experiment-c-to-rust@2` — **BOUND** (SUPERSEDE v1; bound_by Ash Osborne, delegated; schema-valid).
-`in_scope` = **85 HUMAN_ACCEPTED cases**. `versions/1.yaml` + `versions/2.yaml` retained. v2 frozen at end of this batch.
+Pack `sqlite-experiment-c-to-rust@3` **BOUND** (SUPERSEDE v2; versions/1+2+3 retained; schema-valid;
+**112 in-scope cases**). All 90 prior goldens verified **byte-identical**. C003 still BLOCKED.
 
-## 4. Branch / goldens / C003
+## 4. Tests + flags
 
-Same branch throughout, zero new branches, zero PRs. The prior 15 goldens (incl. the original ten)
-verified **byte-identical** (md5). C003 still BLOCKED — no probe, no step(NULL), harness and crate have
-no path that touches a finalized handle.
+`cargo test`: **104/104 green** (8 spine + 82 generated script compares + 11 run-11 bespoke + 3 run-12 bespoke).
+Exported symbols: 45 — all frozen-path, still no `sqlite3.c` link. `legacy_green` = **95**. `parity_green` = **0**.
 
-## 5. Flags
+## 5. completeness: incomplete
 
-`legacy_green` = **82** (7 prior + 75 newly stamped behaviours). `parity_green` = **0** everywhere —
-cargo test is a branch self-check, not Verification COMPARE.
+112 cases over 95 of 185 documented behaviours. Not a database. SQLite is not migrated.
 
-## 6. Rust
+## 6. What is left (as predicted: engine/wasm/vtab/gated only)
 
-`modern/` grew: generated `script_table.rs` (59 frozen scripts → pinned rows) + bespoke mirrors
-(limit, authorizer-DENY, backup-empty, serialize-empty=4096, malloc/msize, mutex, randomness,
-init/config-MISUSE, db_config-fkey, load_extension-disabled, stmt introspection, coercion, complete,
-mprintf/str at frozen arities — varargs caveat noted in lib docs). 42 exported `sqlite3_*` symbols, all frozen-path.
-**`cargo test`: 77/77 green** (8 original spine + 58 generated script compares + 11 bespoke).
-No `sqlite3.c` link; zero deps.
-
-## 7. completeness: incomplete
-
-85 cases over 82 of 185 documented behaviours; the engine, wasm, bindings, platform VFS, and 4
-deferred slices remain. SQLite is **not** migrated; the Rust crate is a pinned-contract recognizer,
-not a database. Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes).
-
-## 8. Honest leftover
-
-- Wholly deferred: blob-io-api, unlock-notify-api (gate off), vtab-core, session (gate off).
-- Partially deferred: error-status-003, auth-002, backup-003, serialize-002, loadext-002,
-  attach-003, malloc-002, analyze-002, vacuum-002, pragma (the other ~68 pragmas), dbpage writes.
-- All engine/wasm/binding/platform slices per charter.
-- Next operator calls: RECORD the deferred-but-freezable ones with better fixtures, or begin
-  Verification COMPARE design (parity is still entirely unverified).
+- Engine: vdbe, btree, pager, pcache, wal, where, vfs-*, recover, rbu
+- Wasm/bindings: wasm-*, jni-*, tcl, shell-cli
+- Gated/index engines: fts3/5, rtree, geopoly, icu, expert, intck, qrf, session, unlock-notify
+- Vtab-protocol slices: vtab-core, blob-io (row store), misc vtab/vfs packs, misc-stmt (flag-gated)
+- Census: compile-options; plus the standing partial defers (counters, EQP, file side-effects)

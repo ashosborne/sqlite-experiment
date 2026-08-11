@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 ROOT=Path('/workspace')
-CAT=json.loads((ROOT/'overnight/oneshot/catalog.json').read_text())
+import os
+CATS=os.environ.get('CATALOGS','overnight/oneshot/catalog.json').split(',')
+CAT=[x for p in CATS for x in json.loads((ROOT/p).read_text())]
 scripts=[c for c in CAT if c['kind'] in ('script','error-script')]
 # also fold in the run-10 stamped exec scripts so Rust exec serves them from the same table
 extra=[{"id":"exec-convenience-api-001-C001","slice":"exec-convenience-api","feature":"exec-convenience-api-001",
@@ -53,7 +55,7 @@ for c in scripts:
 fn {name}() {{
     compare_script("{c['slice']}", "{c['feature']}", "{cnum}", "{resc(c['sql'])}");
 }}''')
-(ROOT/'modern/tests/oneshot_compare.rs').write_text('''//! GENERATED run-11 compare test: drives the Rust exec against every frozen
+(ROOT/os.environ.get('TEST_FILE','modern/tests/oneshot_compare.rs')).write_text('''//! GENERATED run-11 compare test: drives the Rust exec against every frozen
 //! script golden (read-only) and asserts the identical OBS derivation.
 //! Not factory COMPARE — parity_green untouched.
 mod util;
