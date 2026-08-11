@@ -1,0 +1,13 @@
+slice_id: engine-join
+app_id: sqlite-experiment
+seed: composed query-shape slice (run 18) — two/three-table joins reach where.c loop codegen
+status: accepted
+features:
+- feature_id: engine-join-001
+  name: INNER JOIN / comma-join with ON or WHERE equi-join, aliases, non-equi, empty
+  status: accepted
+  evidence: [src/where.c:7040, src/select.c:5085, src/whereexpr.c:1580]
+- feature_id: engine-join-002
+  name: Three-table joins, self-join, join aggregates, GROUP BY, LEFT OUTER JOIN
+  status: accepted
+  evidence: [src/where.c:6420, src/select.c:8060]

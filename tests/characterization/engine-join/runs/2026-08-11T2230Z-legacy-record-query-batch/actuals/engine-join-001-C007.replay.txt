@@ -1,0 +1,4 @@
+OBS engine-join-001-C007 row0.col0 910033
+OBS engine-join-001-C007 row0.col1 hit
+OBS engine-join-001-C007 exec.rc 0
+OBS engine-join-001-C007 cb.rows 1

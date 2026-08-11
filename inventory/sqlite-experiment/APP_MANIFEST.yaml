@@ -2062,6 +2062,28 @@ surfaces:
   - src/pager.c:4789
   - src/os_unix.c:6519
   - src/btree.c:2562
+- surface_id: sur-engine-subquery
+  kind: other
+  locator: sqlite3_exec() scalar/EXISTS subquery scripts
+  repo_path: src/expr.c
+  status: accepted
+  slice_id: engine-subquery
+  notes: composed query-shape slice (run 18); seam-kind=api
+  discovery_evidence:
+  - src/expr.c:3506
+  - src/select.c:6875
+  - src/whereexpr.c:120
+- surface_id: sur-engine-join
+  kind: other
+  locator: sqlite3_exec() join scripts
+  repo_path: src/where.c
+  status: accepted
+  slice_id: engine-join
+  notes: composed query-shape slice (run 18); seam-kind=api
+  discovery_evidence:
+  - src/where.c:7040
+  - src/select.c:5085
+  - src/whereexpr.c:1580
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -4012,19 +4034,63 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file
-last_updated: '2026-08-11T17:14:20Z'
-updated_by: sqlite-engine-v7-schema-disk
+- behaviour_id: engine-subquery-001
+  surface_id: sur-engine-subquery
+  name: Scalar subqueries in SELECT list / WHERE incl. LIMIT-in-subquery
+  status: documented
+  slice_id: engine-subquery
+  discovery_card: discovery/engine-subquery/features/engine-subquery-001.md
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-18 delegated stamp)
+  traceability: tests/characterization/engine-subquery/TRACEABILITY.yaml
+- behaviour_id: engine-subquery-002
+  surface_id: sur-engine-subquery
+  name: EXISTS / NOT EXISTS and correlated subqueries
+  status: documented
+  slice_id: engine-subquery
+  discovery_card: discovery/engine-subquery/features/engine-subquery-002.md
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-18 delegated stamp)
+  traceability: tests/characterization/engine-subquery/TRACEABILITY.yaml
+- behaviour_id: engine-join-001
+  surface_id: sur-engine-join
+  name: INNER JOIN / comma-join equi + non-equi + aliases + empty
+  status: documented
+  slice_id: engine-join
+  discovery_card: discovery/engine-join/features/engine-join-001.md
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-18 delegated stamp)
+  traceability: tests/characterization/engine-join/TRACEABILITY.yaml
+- behaviour_id: engine-join-002
+  surface_id: sur-engine-join
+  name: Three-table / self-join / join aggregates / GROUP BY / LEFT JOIN
+  status: documented
+  slice_id: engine-join
+  discovery_card: discovery/engine-join/features/engine-join-002.md
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-18 delegated stamp)
+  traceability: tests/characterization/engine-join/TRACEABILITY.yaml
+last_updated: '2026-08-11T20:03:25Z'
+updated_by: sqlite-engine-v9-joins-subqueries
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 187
+  surfaces_total: 189
   surfaces_by_status:
     candidate: 185
-    accepted: 2
-  behaviours_known: 190
+    accepted: 4
+  behaviours_known: 194
   behaviours_by_status:
-    documented: 190
+    documented: 194
   unscanned_hints: 3
-  legacy_green: 100
+  legacy_green: 104
   parity_green: 0

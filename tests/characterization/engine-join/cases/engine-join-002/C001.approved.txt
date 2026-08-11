@@ -1,0 +1,6 @@
+OBS engine-join-002-C001 row0.col0 1
+OBS engine-join-002-C001 row0.col1 ten
+OBS engine-join-002-C001 row1.col0 2
+OBS engine-join-002-C001 row1.col1 twenty
+OBS engine-join-002-C001 exec.rc 0
+OBS engine-join-002-C001 cb.rows 2

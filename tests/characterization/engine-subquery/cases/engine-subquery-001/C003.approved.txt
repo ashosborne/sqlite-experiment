@@ -1,0 +1,4 @@
+OBS engine-subquery-001-C003 row0.col0 10
+OBS engine-subquery-001-C003 row0.col1 20
+OBS engine-subquery-001-C003 exec.rc 0
+OBS engine-subquery-001-C003 cb.rows 1

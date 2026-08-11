@@ -1,0 +1,13 @@
+slice_id: engine-subquery
+app_id: sqlite-experiment
+seed: composed query-shape slice (run 18) — scalar subqueries reach select.c subquery codegen
+status: accepted
+features:
+- feature_id: engine-subquery-001
+  name: Scalar subqueries in SELECT list / WHERE (incl. LIMIT/OFFSET inside)
+  status: accepted
+  evidence: [src/select.c:6875, src/expr.c:3595, src/whereexpr.c:120]
+- feature_id: engine-subquery-002
+  name: EXISTS / NOT EXISTS and correlated scalar subqueries
+  status: accepted
+  evidence: [src/expr.c:3506, src/select.c:7169]
