@@ -7,6 +7,8 @@ ROOT=Path('/workspace')
 import os
 CATS=os.environ.get('CATALOGS','overnight/oneshot/catalog.json').split(',')
 CAT=[x for p in CATS for x in json.loads((ROOT/p).read_text())]
+EXCL=set(os.environ.get('EXCLUDE_IDS','').split(','))
+CAT=[c for c in CAT if c['id'] not in EXCL]
 scripts=[c for c in CAT if c['kind'] in ('script','error-script')]
 # also fold in the run-10 stamped exec scripts so Rust exec serves them from the same table
 extra=[{"id":"exec-convenience-api-001-C001","slice":"exec-convenience-api","feature":"exec-convenience-api-001",

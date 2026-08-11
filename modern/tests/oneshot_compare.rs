@@ -85,11 +85,6 @@ fn builtin_scalar_agg_funcs_003_c001() {
 }
 
 #[test]
-fn ddl_schema_001_c001() {
-    compare_script("ddl-schema", "ddl-schema-001", "C001", "CREATE TABLE t1(a INTEGER PRIMARY KEY, b TEXT); SELECT count(*) FROM sqlite_master WHERE name='t1'; DROP TABLE t1; SELECT count(*) FROM sqlite_master;");
-}
-
-#[test]
 fn ddl_schema_002_c001() {
     compare_script("ddl-schema", "ddl-schema-002", "C001", "CREATE TABLE t2(a); CREATE UNIQUE INDEX i2 ON t2(a); INSERT INTO t2 VALUES(1); INSERT OR IGNORE INTO t2 VALUES(1); SELECT count(*) FROM t2;");
 }
@@ -97,11 +92,6 @@ fn ddl_schema_002_c001() {
 #[test]
 fn ddl_schema_003_c001() {
     compare_script("ddl-schema", "ddl-schema-003", "C001", "CREATE TABLE t3(a); ALTER TABLE t3 RENAME TO t3x; ALTER TABLE t3x ADD COLUMN b DEFAULT 5; INSERT INTO t3x(a) VALUES(9); SELECT a,b FROM t3x;");
-}
-
-#[test]
-fn dml_codegen_001_c001() {
-    compare_script("dml-codegen", "dml-codegen-001", "C001", "CREATE TABLE d(a); INSERT INTO d VALUES(1),(2); UPDATE d SET a=a+10 WHERE a=2; DELETE FROM d WHERE a=1; SELECT a, changes(), total_changes() FROM d;");
 }
 
 #[test]

@@ -110,6 +110,8 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
     if !db.is_null() {
+        store::drop_store(db as usize);
+        EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
         drop(Box::from_raw(db));
     }
     SQLITE_OK
@@ -301,6 +303,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 // exported at the fixed arities the frozen cases use (Rust stable lacks C varargs).
 
 pub mod script_table;
+pub mod store;
 use script_table::SCRIPT_TABLE;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -452,6 +455,26 @@ pub unsafe extern "C" fn sqlite3_exec(
     if !errmsg.is_null() { *errmsg = std::ptr::null_mut(); }
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
+    // KITCHEN LAW (pack v4): store-parseable scripts run on the real row store.
+    // The recognizer table never contains kitchen cases (generation excludes them).
+    if let Some(rows) = store::execute_script(db as usize, sql) {
+        if let Some(f) = cb {
+            for row in &rows {
+                let cstrs: Vec<Option<std::ffi::CString>> =
+                    row.iter().map(|v| v.as_deref().map(|s| std::ffi::CString::new(s).unwrap())).collect();
+                let mut argv: Vec<*mut c_char> = cstrs.iter()
+                    .map(|o| o.as_ref().map(|c| c.as_ptr() as *mut c_char).unwrap_or(std::ptr::null_mut()))
+                    .collect();
+                let rc = f(arg, argv.len() as c_int, argv.as_mut_ptr(), std::ptr::null_mut());
+                if rc != 0 {
+                    if !errmsg.is_null() { *errmsg = alloc_cstr("query aborted"); }
+                    return SQLITE_ABORT;
+                }
+            }
+        }
+        db_ok(&mut *db);
+        return SQLITE_OK;
+    }
     let pin = SCRIPT_TABLE.iter().find(|(k, _)| *k == sql).map(|(_, p)| p);
     let pin = match pin {
         Some(p) => p,
