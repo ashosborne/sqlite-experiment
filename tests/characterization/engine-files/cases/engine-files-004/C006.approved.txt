@@ -1,0 +1,7 @@
+OBS engine-files-004-C006 write.rc 0
+OBS engine-files-004-C006 reopen.rc 0
+OBS engine-files-004-C006 row0.col0 5
+OBS engine-files-004-C006 row0.col1 5
+OBS engine-files-004-C006 row0.col2 1
+OBS engine-files-004-C006 read.rc 0
+OBS engine-files-004-C006 cb.rows 1
