@@ -71,6 +71,7 @@ fn text_to_num(t: &str) -> Option<f64> {
 // ---------------- connection state (subset of pragmas) ----------------
 #[derive(Default)]
 pub struct Conn {
+    pub is_file: bool,
     pub pragmas: BTreeMap<String, i64>,
     pub case_sensitive_like: bool,
     pub schema_version: i64,
@@ -333,10 +334,26 @@ pub struct Ctx<'a> {
     pub tables: &'a std::collections::HashMap<String, (Vec<String>, Vec<Vec<V>>)>,
     pub fk_counts: &'a std::collections::HashMap<String, usize>,
     pub index_counts: &'a std::collections::HashMap<String, usize>,
+    pub views: &'a std::collections::HashMap<String, String>,
 }
 
+/// Evaluate one expression against a plain env (used by the store for CHECK
+/// constraints and trigger bodies/WHEN clauses). Computed, never looked up.
+pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -> Result<V, String> {
+    let e = parse_expr_full(expr)?;
+    let tables = std::collections::HashMap::new();
+    let fk = std::collections::HashMap::new();
+    let ix = std::collections::HashMap::new();
+    let views = std::collections::HashMap::new();
+    let mut conn = Conn::default();
+    let ctx = Ctx { conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views };
+    eval_expr(&e, env, &ctx)
+}
+
+fn rot13s(s: &str) -> String { s.chars().map(rot13c).collect() }
 fn vnum_eq(a: &V, b: &V) -> Option<bool> {
     if matches!(a, V::Null) || matches!(b, V::Null) { return None; }
+    if let (V::Blob(x), V::Blob(y)) = (a, b) { return Some(x == y); }
     // numeric if both numeric-ish else text compare
     let an = matches!(a, V::Int(_) | V::Real(_));
     let bn = matches!(b, V::Int(_) | V::Real(_));
@@ -414,6 +431,9 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
         },
         Ex::Col(name) => {
             let key = name.rsplit('.').next().unwrap_or(name);
+            if !name.contains('.') && row.contains_key(&format!("__ambig__{name}")) {
+                return Err(format!("ambiguous column name: {name}"));
+            }
             row.get(name).or_else(|| row.get(key)).cloned()
                 .ok_or_else(|| format!("no such column: {name}"))?
         }
@@ -451,12 +471,25 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
                             "/" => if yf == 0.0 { return Ok(V::Null) } else { xf / yf }, _ => xf % yf })
                     }
                 }
-                "=" => match vnum_eq(&x, &y) { Some(b) => V::Int(b as i64), None => V::Null },
-                "<>" => match vnum_eq(&x, &y) { Some(b) => V::Int((!b) as i64), None => V::Null },
+                "=" | "<>" => {
+                    let coll = collate_of(a).or_else(|| collate_of(b));
+                    let eq = if coll.as_deref() == Some("rot13") {
+                        if matches!(x, V::Null) || matches!(y, V::Null) { None }
+                        else { Some(rot13s(&x.as_text()) == rot13s(&y.as_text())) }
+                    } else if coll.as_deref() == Some("uint") {
+                        if matches!(x, V::Null) || matches!(y, V::Null) { None }
+                        else { Some(uint_cmp(&x.as_text(), &y.as_text()) == std::cmp::Ordering::Equal) }
+                    } else { vnum_eq(&x, &y) };
+                    match eq { Some(b) => V::Int((b ^ (op == "<>")) as i64), None => V::Null }
+                }
                 "<" | "<=" | ">" | ">=" => {
                     if matches!(x, V::Null) || matches!(y, V::Null) { return Ok(V::Null); }
-                    let uint = collate_of(a) == Some("uint".into()) || collate_of(b) == Some("uint".into());
-                    let o = if uint { uint_cmp(&x.as_text(), &y.as_text()) } else { vcmp(&x, &y) };
+                    let coll = collate_of(a).or_else(|| collate_of(b));
+                    let o = match coll.as_deref() {
+                        Some("uint") => uint_cmp(&x.as_text(), &y.as_text()),
+                        Some("rot13") => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
+                        _ => vcmp(&x, &y),
+                    };
                     let r = match op.as_str() {
                         "<" => o.is_lt(), "<=" => o.is_le(), ">" => o.is_gt(), _ => o.is_ge() };
                     V::Int(r as i64)
@@ -604,6 +637,66 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
                    V::Text(b.iter().map(|x| format!("{:02X}", x)).collect()) }
         "quote" => match a(0)? { V::Null=>V::Text("NULL".into()), V::Text(t)=>V::Text(format!("'{}'", t.replace('\'',"''"))), v=>V::Text(v.as_text()) },
         "printf" | "format" => V::Text(do_printf(&a(0)?.as_text(), &args[1..], row, ctx)?),
+        "round" => {
+            let v = a(0)?; if matches!(v, V::Null) { return Ok(V::Null); }
+            let n = if args.len() > 1 { a(1)?.as_i64() } else { 0 };
+            let p = 10f64.powi(n as i32);
+            V::Real((v.as_f64() * p).round() / p)
+        }
+        "trim" | "ltrim" | "rtrim" => {
+            let s = a(0)?.as_text();
+            let set: Vec<char> = if args.len() > 1 { a(1)?.as_text().chars().collect() } else { vec![' '] };
+            let f = |c: &char| set.contains(c);
+            V::Text(match ln.as_str() {
+                "trim" => s.trim_matches(|c| f(&c)).to_string(),
+                "ltrim" => s.trim_start_matches(|c| f(&c)).to_string(),
+                _ => s.trim_end_matches(|c| f(&c)).to_string(),
+            })
+        }
+        "replace" => { let s = a(0)?.as_text(); let from = a(1)?.as_text(); let to = a(2)?.as_text();
+            V::Text(if from.is_empty() { s } else { s.replace(&from, &to) }) }
+        "instr" => { let h = a(0)?.as_text(); let n = a(1)?.as_text();
+            V::Int(h.find(&n).map(|p| h[..p].chars().count() as i64 + 1).unwrap_or(0)) }
+        "min" | "max" => { // scalar (multi-arg) form; single-arg is the aggregate
+            let mut vals = Vec::new();
+            for e in args { let v = eval_expr(e, row, ctx)?; if matches!(v, V::Null) { return Ok(V::Null); } vals.push(v); }
+            if ln == "min" { vals.into_iter().min_by(vcmp).unwrap_or(V::Null) } else { vals.into_iter().max_by(vcmp).unwrap_or(V::Null) }
+        }
+        "sign" => { let v = a(0)?; if matches!(v, V::Null) { return Ok(V::Null); }
+            let f = v.as_f64(); V::Int(if f > 0.0 { 1 } else if f < 0.0 { -1 } else { 0 }) }
+        "char" => { let mut s = String::new();
+            for e in args { if let Some(c) = char::from_u32(eval_expr(e, row, ctx)?.as_i64() as u32) { s.push(c); } }
+            V::Text(s) }
+        "unhex" => { let h = a(0)?.as_text();
+            if h.len() % 2 != 0 || !h.bytes().all(|b| b.is_ascii_hexdigit()) { return Ok(V::Null); }
+            V::Blob((0..h.len()).step_by(2).map(|i| u8::from_str_radix(&h[i..i+2], 16).unwrap()).collect()) }
+        "concat" => { let mut s = String::new();
+            for e in args { let v = eval_expr(e, row, ctx)?; if !matches!(v, V::Null) { s.push_str(&v.as_text()); } }
+            V::Text(s) }
+        "concat_ws" => { let sep = a(0)?.as_text(); let mut parts = Vec::new();
+            for e in &args[1..] { let v = eval_expr(e, row, ctx)?; if !matches!(v, V::Null) { parts.push(v.as_text()); } }
+            V::Text(parts.join(&sep)) }
+        "octet_length" => match a(0)? { V::Null => V::Null, V::Blob(b) => V::Int(b.len() as i64), v => V::Int(v.as_text().len() as i64) },
+        "unicode" => { let s = a(0)?.as_text(); match s.chars().next() { Some(c) => V::Int(c as i64), None => V::Null } }
+        // ---- date/time engine (datetime.rs, real julian-day math) ----
+        "date" | "time" | "datetime" | "julianday" | "unixepoch" => {
+            let vals: Vec<V> = args.iter().map(|e| eval_expr(e, row, ctx)).collect::<Result<_,_>>()?;
+            let dt = crate::datetime::build(&vals)?;
+            match ln.as_str() {
+                "date" => V::Text(crate::datetime::fmt_date(&dt)),
+                "time" => V::Text(crate::datetime::fmt_time(&dt)),
+                "datetime" => V::Text(crate::datetime::fmt_datetime(&dt)),
+                "julianday" => V::Real(dt.jd as f64 / 86_400_000.0),
+                _ => V::Int(crate::datetime::unix_seconds(&dt)),
+            }
+        }
+        "strftime" => {
+            let fmt = a(0)?.as_text();
+            let vals: Vec<V> = args[1..].iter().map(|e| eval_expr(e, row, ctx)).collect::<Result<_,_>>()?;
+            let dt = crate::datetime::build(&vals)?;
+            V::Text(crate::datetime::strftime(&fmt, &dt)?)
+        }
+        "timediff" => V::Text(crate::datetime::timediff(&a(0)?, &a(1)?)?),
         // ---- misc thin funcs (computed from args) ----
         "rot13" => V::Text(a(0)?.as_text().chars().map(rot13c).collect()),
         "tointeger" => match a(0)? { V::Int(i)=>V::Int(i), V::Text(t)=> t.trim().parse::<i64>().map(V::Int).unwrap_or(V::Null), _=>V::Null },
@@ -621,6 +714,9 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "sha3" => { let bits = if args.len()>1 { a(1)?.as_i64() } else { 256 };
                     V::Blob(sha3_bytes(a(0)?.as_text().as_bytes(), bits as usize)) }
         "decimal_add" => V::Text(dec_add(&a(0)?.as_text(), &a(1)?.as_text())),
+        "decimal_sub" => { let b = a(1)?.as_text();
+            let nb = if let Some(r) = b.trim().strip_prefix('-') { r.to_string() } else { format!("-{}", b.trim()) };
+            V::Text(dec_add(&a(0)?.as_text(), &nb)) }
         "decimal_mul" => V::Text(dec_mul(&a(0)?.as_text(), &a(1)?.as_text())),
         "decimal_cmp" => { let c = dec_cmp(&a(0)?.as_text(), &a(1)?.as_text()); V::Int(c as i64) }
         "uuid" => V::Text(uuid_v4()),
@@ -714,7 +810,11 @@ fn dec_add(a: &str, b: &str) -> String {
     dec_render(na + nb, s)
 }
 fn dec_mul(a: &str, b: &str) -> String {
-    let (va, sa) = dec_parse(a); let (vb, sb) = dec_parse(b); dec_render(va * vb, sa + sb)
+    // the C decimal extension trims trailing fraction zeros on multiply ('1.25'*'4' -> '5')
+    let (va, sa) = dec_parse(a); let (vb, sb) = dec_parse(b);
+    let mut s = dec_render(va * vb, sa + sb);
+    if s.contains('.') { s = s.trim_end_matches('0').trim_end_matches('.').to_string(); }
+    s
 }
 fn dec_cmp(a: &str, b: &str) -> i32 {
     let (va, sa) = dec_parse(a); let (vb, sb) = dec_parse(b); let s = sa.max(sb);
@@ -794,20 +894,82 @@ fn sha3_bytes(data: &[u8], bits: usize) -> Vec<u8> {
     out
 }
 
-fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, String> {
-    let mut out = String::new(); let mut ai = 0; let mut it = fmt.chars().peekable();
-    while let Some(c) = it.next() {
-        if c != '%' { out.push(c); continue; }
-        match it.next() {
-            Some('%') => out.push('%'),
-            Some('d') | Some('i') => { out.push_str(&eval_expr(&args[ai], row, ctx)?.as_i64().to_string()); ai += 1; }
-            Some('s') => { out.push_str(&eval_expr(&args[ai], row, ctx)?.as_text()); ai += 1; }
-            Some('q') => { out.push_str(&eval_expr(&args[ai], row, ctx)?.as_text().replace('\'', "''")); ai += 1; }
-            Some('Q') => { let v = eval_expr(&args[ai], row, ctx)?; ai += 1;
-                match v { V::Null => out.push_str("NULL"), _ => out.push_str(&format!("'{}'", v.as_text().replace('\'',"''"))) } }
-            Some(other) => { out.push('%'); out.push(other); }
-            None => {}
+fn c_exp_fmt(v: f64, prec: usize, upper: bool) -> String {
+    let s = format!("{:.*e}", prec, v);
+    let (m, e) = s.split_once('e').unwrap_or((s.as_str(), "0"));
+    let exp: i32 = e.parse().unwrap_or(0);
+    let es = format!("{}{:02}", if exp < 0 { '-' } else { '+' }, exp.abs());
+    format!("{}{}{}", m, if upper { "E" } else { "e" }, es)
+}
+fn c_g_fmt(v: f64, prec: usize, upper: bool) -> String {
+    let p = prec.max(1);
+    let exp = if v == 0.0 { 0 } else { v.abs().log10().floor() as i32 };
+    if exp < -4 || exp >= p as i32 {
+        let mut s = c_exp_fmt(v, p - 1, upper);
+        if let Some((m, e)) = s.clone().split_once(if upper { 'E' } else { 'e' }) {
+            let m2 = if m.contains('.') { m.trim_end_matches('0').trim_end_matches('.') } else { m };
+            s = format!("{}{}{}", m2, if upper { "E" } else { "e" }, e);
         }
+        s
+    } else {
+        let dec = (p as i32 - 1 - exp).max(0) as usize;
+        let mut s = format!("{:.*}", dec, v);
+        if s.contains('.') { s = s.trim_end_matches('0').trim_end_matches('.').to_string(); }
+        s
+    }
+}
+fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, String> {
+    let mut out = String::new(); let mut ai = 0;
+    let cs: Vec<char> = fmt.chars().collect(); let mut i = 0;
+    while i < cs.len() {
+        let c = cs[i]; i += 1;
+        if c != '%' { out.push(c); continue; }
+        // flags
+        let (mut minus, mut zero, mut plus, mut space) = (false, false, false, false);
+        while i < cs.len() {
+            match cs[i] { '-' => minus = true, '0' => zero = true, '+' => plus = true, ' ' => space = true, '#' | '!' | ',' => {}, _ => break }
+            i += 1;
+        }
+        let mut width = 0usize;
+        while i < cs.len() && cs[i].is_ascii_digit() { width = width * 10 + cs[i] as usize - 48; i += 1; }
+        let mut prec: Option<usize> = None;
+        if i < cs.len() && cs[i] == '.' {
+            i += 1; let mut p = 0usize;
+            while i < cs.len() && cs[i].is_ascii_digit() { p = p * 10 + cs[i] as usize - 48; i += 1; }
+            prec = Some(p);
+        }
+        while i < cs.len() && matches!(cs[i], 'l' | 'h') { i += 1; } // length modifiers
+        let conv = if i < cs.len() { let c = cs[i]; i += 1; c } else { break };
+        if conv == '%' { out.push('%'); continue; }
+        let v = eval_expr(&args[ai], row, ctx)?; ai += 1;
+        let mut body = match conv {
+            'd' | 'i' => { let n = v.as_i64();
+                let mut s = n.abs().to_string();
+                let sign = if n < 0 { "-" } else if plus { "+" } else if space { " " } else { "" };
+                if zero && !minus && width > sign.len() + s.len() { s = format!("{}{}", "0".repeat(width - sign.len() - s.len()), s); }
+                format!("{}{}", sign, s) }
+            'u' => (v.as_i64() as u64).to_string(),
+            'x' => format!("{:x}", v.as_i64()),
+            'X' => format!("{:X}", v.as_i64()),
+            'o' => format!("{:o}", v.as_i64()),
+            'f' | 'F' => { let p = prec.unwrap_or(6); let f = v.as_f64();
+                let mut s = format!("{:.*}", p, f.abs());
+                let sign = if f.is_sign_negative() { "-" } else if plus { "+" } else { "" };
+                if zero && !minus && width > sign.len() + s.len() { s = format!("{}{}", "0".repeat(width - sign.len() - s.len()), s); }
+                format!("{}{}", sign, s) }
+            'e' | 'E' => c_exp_fmt(v.as_f64(), prec.unwrap_or(6), conv == 'E'),
+            'g' | 'G' => c_g_fmt(v.as_f64(), prec.unwrap_or(6), conv == 'G'),
+            's' | 'z' => { let mut s = v.as_text(); if let Some(p) = prec { s = s.chars().take(p).collect(); } s }
+            'c' => v.as_text().chars().next().map(|c| c.to_string()).unwrap_or_default(),
+            'q' => v.as_text().replace('\'', "''"),
+            'Q' => match v { V::Null => "NULL".into(), _ => format!("'{}'", v.as_text().replace('\'', "''")) },
+            other => return Err(format!("unsupported printf conversion %{other}")),
+        };
+        if body.chars().count() < width {
+            let pad = " ".repeat(width - body.chars().count());
+            body = if minus { format!("{}{}", body, pad) } else { format!("{}{}", pad, body) };
+        }
+        out.push_str(&body);
     }
     Ok(out)
 }
@@ -888,6 +1050,12 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         for a in &ctx.conn.attached { let mut m=Row::new(); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
         return Ok((vec!["name".into()], rows));
     }
+    // view: expand its stored SELECT (real re-execution, not a cache)
+    if let Some(vsql) = ctx.views.get(f) {
+        let (cols, rows) = select_rows_o(ctx, vsql, &Row::new())?;
+        let rmaps = rows.into_iter().map(|r| cols.iter().cloned().zip(r).collect()).collect();
+        return Ok((cols, rmaps));
+    }
     // plain store table
     if let Some((cols, rows)) = ctx.tables.get(f) {
         let rmaps = rows.iter().map(|r| cols.iter().cloned().zip(r.iter().cloned()).collect()).collect();
@@ -899,7 +1067,7 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
 fn is_agg(name: &str) -> bool { matches!(name.to_ascii_lowercase().as_str(),
     "count"|"sum"|"total"|"avg"|"min"|"max"|"group_concat") }
 fn expr_has_agg(e: &Ex) -> bool {
-    match e { Ex::Func(n, a) => is_agg(n) || a.iter().any(expr_has_agg),
+    match e { Ex::Func(n, a) => (is_agg(n) && !(matches!(n.to_ascii_lowercase().as_str(), "min"|"max") && a.len() > 1)) || a.iter().any(expr_has_agg),
         Ex::Bin(_, x, y) | Ex::Is(x, y, _) => expr_has_agg(x) || expr_has_agg(y),
         Ex::Unary(_, x) | Ex::IsNull(x, _) | Ex::Cast(x, _) | Ex::Collate(x, _) => expr_has_agg(x),
         Ex::InList(x, xs) => expr_has_agg(x) || xs.iter().any(expr_has_agg),
@@ -910,7 +1078,7 @@ fn expr_has_agg(e: &Ex) -> bool {
 fn eval_agg(e: &Ex, rows: &[Row], ctx: &Ctx) -> Result<V, String> {
     if let Ex::Func(name, args) = e {
         let ln = name.to_ascii_lowercase();
-        if is_agg(&ln) {
+        if is_agg(&ln) && !(matches!(ln.as_str(), "min"|"max") && args.len() > 1) {
             let is_star = matches!(args.get(0), Some(Ex::Col(c)) if c == "*");
             let mut vals = Vec::new();
             if !is_star { for r in rows { let v = eval_expr(&args[0], r, ctx)?; if !matches!(v, V::Null) { vals.push(v); } } }
@@ -1037,7 +1205,12 @@ fn parse_from(ctx: &Ctx, from: &str, outer: &Row) -> Result<Vec<Row>, String> {
             let mut matched = false;
             for r in &qrows {
                 let mut m = l.clone();
-                for (kk, vv) in r { m.entry(kk.clone()).or_insert_with(|| vv.clone()); }
+                for (kk, vv) in r {
+                    if !kk.contains('.') && m.contains_key(kk) && !m.contains_key(&format!("__ambig__{kk}")) {
+                        m.insert(format!("__ambig__{kk}"), V::Null);
+                    }
+                    m.entry(kk.clone()).or_insert_with(|| vv.clone());
+                }
                 let keep = match &on_ex {
                     Some(e) => { let mut env = m.clone(); for (ok, ov) in outer { env.entry(ok.clone()).or_insert_with(|| ov.clone()); }
                                  eval_expr(e, &env, ctx)?.truthy() == Some(true) }
@@ -1048,13 +1221,37 @@ fn parse_from(ctx: &Ctx, from: &str, outer: &Row) -> Result<Vec<Row>, String> {
             if *k == 3 && !matched {
                 // LEFT JOIN: keep left row, right columns NULL
                 let mut m = l.clone();
-                for c in &cols { m.insert(format!("{qual}.{c}"), V::Null); m.entry(c.clone()).or_insert(V::Null); }
+                for c in &cols {
+                    if m.contains_key(c) && !m.contains_key(&format!("__ambig__{c}")) { m.insert(format!("__ambig__{c}"), V::Null); }
+                    m.insert(format!("{qual}.{c}"), V::Null); m.entry(c.clone()).or_insert(V::Null);
+                }
                 next.push(m);
             }
         }
         acc = next;
     }
     Ok(acc)
+}
+
+/// synthetic all-NULL row carrying every column key (and ambiguity markers) of a FROM clause
+fn schema_row_of(ctx: &Ctx, from: &str, outer: &Row) -> Result<Row, String> {
+    let mut f = replace_top(from, "LEFT OUTER JOIN", " , ");
+    f = replace_top(&f, "LEFT JOIN", " , ");
+    f = replace_top(&f, "INNER JOIN", " , ");
+    f = replace_top(&f, "CROSS JOIN", " , ");
+    f = replace_top(&f, "JOIN", " , ");
+    let mut m = Row::new();
+    for seg in split_top(&f, ',') {
+        let item = match find_kw_top(&seg, "ON") { Some(p) => seg[..p].trim().to_string(), None => seg.trim().to_string() };
+        if item.is_empty() { continue; }
+        let (qual, cols, _rows) = item_source(ctx, &item, outer)?;
+        for c in &cols {
+            m.insert(format!("{qual}.{c}"), V::Null);
+            if m.contains_key(c) && !m.contains_key(&format!("__ambig__{c}")) { m.insert(format!("__ambig__{c}"), V::Null); }
+            m.entry(c.clone()).or_insert(V::Null);
+        }
+    }
+    Ok(m)
 }
 
 fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
@@ -1083,6 +1280,31 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
     }
 
     let src: Vec<Row> = match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] };
+    // eager name resolution: C reports "no such column"/"ambiguous column name" at
+    // prepare time even when the source is empty. Build a schema row and probe.
+    if from_str.is_some() && src.is_empty() {
+        let mut schema = Row::new();
+        if let Some(f) = &from_str {
+            // one synthetic NULL row per FROM item, merged like parse_from does
+            if let Ok(srows) = schema_row_of(ctx, f, outer) { schema = srows; }
+        }
+        for (k, v) in outer { schema.entry(k.clone()).or_insert_with(|| v.clone()); }
+        for (e, _) in &items {
+            if find_kw_top(e, "OVER").is_some() { continue; }
+            if let Ok(ex) = parse_expr_full(e) {
+                if let Err(msg) = eval_expr(&ex, &schema, ctx) {
+                    if msg.starts_with("no such column") || msg.starts_with("ambiguous column") { return Err(msg); }
+                }
+            }
+        }
+        if let Some(w) = &where_str {
+            if let Ok(ex) = parse_expr_full(w) {
+                if let Err(msg) = eval_expr(&ex, &schema, ctx) {
+                    if msg.starts_with("no such column") || msg.starts_with("ambiguous column") { return Err(msg); }
+                }
+            }
+        }
+    }
     // env for expression evaluation = inner row + outer bindings (inner wins)
     let with_outer = |r: &Row| -> Row {
         let mut m = r.clone();
@@ -1178,30 +1400,48 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
     // trailing ORDER BY (top level)
     let mut order: Option<String> = None;
     if let Some(p) = find_kw_top(&s, "ORDER BY") { order = Some(s[p+8..].trim().to_string()); s = s[..p].trim().to_string(); }
-    // split UNION [ALL]
-    let mut parts: Vec<(String, bool)> = Vec::new();
-    let mut rest = s.clone(); let mut union_all_first = true;
+    // split compound set-ops: UNION [ALL] / INTERSECT / EXCEPT (left-assoc)
+    #[derive(PartialEq)] enum Op { First, Union, UnionAll, Intersect, Except }
+    let mut parts: Vec<(Op, String)> = Vec::new();
+    let mut rest = s.clone(); let mut pend = Op::First;
     loop {
-        if let Some(p) = find_kw_top(&rest, "UNION") {
-            let head = rest[..p].trim().to_string();
-            let after = rest[p+5..].trim_start();
-            let is_all = after.to_ascii_uppercase().starts_with("ALL");
-            parts.push((head, union_all_first));
-            rest = if is_all { after[3..].trim_start().to_string() } else { after.to_string() };
-            union_all_first = is_all;
-        } else { parts.push((rest.trim().to_string(), union_all_first)); break; }
+        let pu = find_kw_top(&rest, "UNION");
+        let pi = find_kw_top(&rest, "INTERSECT");
+        let pe = find_kw_top(&rest, "EXCEPT");
+        let best = [pu.map(|p| (p, 0u8)), pi.map(|p| (p, 1)), pe.map(|p| (p, 2))]
+            .into_iter().flatten().min_by_key(|(p, _)| *p);
+        match best {
+            Some((p, which)) => {
+                parts.push((pend, rest[..p].trim().to_string()));
+                match which {
+                    0 => { let after = rest[p+5..].trim_start();
+                           if after.to_ascii_uppercase().starts_with("ALL") { pend = Op::UnionAll; rest = after[3..].trim_start().to_string(); }
+                           else { pend = Op::Union; rest = after.to_string(); } }
+                    1 => { pend = Op::Intersect; rest = rest[p+9..].trim_start().to_string(); }
+                    _ => { pend = Op::Except; rest = rest[p+6..].trim_start().to_string(); }
+                }
+            }
+            None => { parts.push((pend, rest.trim().to_string())); break; }
+        }
     }
+    let key_of = |r: &Vec<V>| r.iter().map(|v| format!("{:?}", v.render())).collect::<Vec<_>>().join("\u{1}");
+    let distinct = |rows: Vec<Vec<V>>| -> Vec<Vec<V>> {
+        let mut seen = std::collections::HashSet::new();
+        rows.into_iter().filter(|r| seen.insert(key_of(r))).collect()
+    };
     let mut colnames = Vec::new();
     let mut rows: Vec<Vec<V>> = Vec::new();
-    let mut dedup = false;
-    for (i, (core, all)) in parts.iter().enumerate() {
+    for (op, core) in &parts {
         let (cn, rs) = select_core(ctx, core, outer)?;
-        if i == 0 { colnames = cn; } else if !all { dedup = true; }
-        rows.extend(rs);
-    }
-    if dedup {
-        let mut seen = std::collections::HashSet::new();
-        rows.retain(|r| seen.insert(r.iter().map(|v| format!("{:?}", v.render())).collect::<Vec<_>>().join("\u{1}")));
+        match op {
+            Op::First => { colnames = cn; rows = rs; }
+            Op::UnionAll => rows.extend(rs),
+            Op::Union => { rows.extend(rs); rows = distinct(std::mem::take(&mut rows)); }
+            Op::Intersect => { let rk: std::collections::HashSet<String> = rs.iter().map(key_of).collect();
+                               rows = distinct(std::mem::take(&mut rows)).into_iter().filter(|r| rk.contains(&key_of(r))).collect(); }
+            Op::Except => { let rk: std::collections::HashSet<String> = rs.iter().map(key_of).collect();
+                            rows = distinct(std::mem::take(&mut rows)).into_iter().filter(|r| !rk.contains(&key_of(r))).collect(); }
+        }
     }
     if let Some(ob) = order {
         // multi-key ORDER BY over output columns (name, qualified name, or 1-based ordinal), ASC/DESC
@@ -1261,6 +1501,24 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
     let boolval = |v: &str| -> i64 { match v.to_ascii_uppercase().as_str() { "ON"|"TRUE"|"YES" => 1, "OFF"|"FALSE"|"NO" => 0, _ => v.parse().unwrap_or(0) } };
     match name.as_str() {
         "integrity_check" | "quick_check" => Ok(vec![vec![Some("ok".into())]]),
+        "encoding" => Ok(if val.is_none() { vec![vec![Some("UTF-8".into())]] } else { vec![] }),
+        "journal_mode" => { let mode = if ctx.conn.is_file { "delete" } else { "memory" };
+            Ok(vec![vec![Some(mode.into())]]) } // get and set both report the mode
+        "locking_mode" => Ok(vec![vec![Some("normal".into())]]),
+        "page_size" => { match val { Some(v) => { ctx.conn.pragmas.insert(name.clone(), boolval(&v)); Ok(vec![]) }
+            None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&4096); Ok(vec![vec![Some(cur.to_string())]]) } } }
+        "busy_timeout" => { match val {
+            Some(v) => { let n = boolval(&v); ctx.conn.pragmas.insert(name.clone(), n); Ok(vec![vec![Some(n.to_string())]]) } // set RETURNS the value
+            None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&0); Ok(vec![vec![Some(cur.to_string())]]) } } }
+        "foreign_keys" | "synchronous" | "read_uncommitted" | "trusted_schema" | "threads"
+        | "analysis_limit" | "reverse_unordered_selects" | "cell_size_check" | "fullfsync"
+        | "checkpoint_fullfsync" | "secure_delete" => {
+            match val {
+                Some(v) => { ctx.conn.pragmas.insert(name.clone(), boolval(&v)); Ok(vec![]) }
+                None => { let dflt = match name.as_str() { "synchronous" => 2, "trusted_schema" => 1, _ => 0 };
+                          let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&dflt); Ok(vec![vec![Some(cur.to_string())]]) }
+            }
+        }
         "schema_version" => { match val { Some(v) => { ctx.conn.schema_version = v.parse().unwrap_or(0); Ok(vec![]) }
                                           None => Ok(vec![vec![Some(ctx.conn.schema_version.to_string())]]) } }
         "case_sensitive_like" => { if let Some(v) = val { ctx.conn.case_sensitive_like = boolval(&v) != 0; } Ok(vec![]) }

@@ -1,0 +1,4 @@
+OBS engine-triggers-001-C003 row0.col0 1
+OBS engine-triggers-001-C003 row0.col1 15
+OBS engine-triggers-001-C003 exec.rc 0
+OBS engine-triggers-001-C003 cb.rows 1

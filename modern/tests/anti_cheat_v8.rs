@@ -105,3 +105,30 @@ fn anti_cheat_script_table_still_empty() {
     assert_eq!(sqlite3_rust_spine::script_table::SCRIPT_TABLE.len(), 0,
         "pack v9 law: SCRIPT_TABLE must stay at zero behavioural pins");
 }
+
+// ---- pack v10 anti-cheat: date/time + set-op/CHECK computed from runtime values ----
+
+#[test]
+fn anti_cheat_datetime_runtime() {
+    // runtime-chosen day-of-month: engine must compute, not match
+    let d = (runtime_int() % 27 + 1) as i64;
+    let (rc, rows) = exec_collect(&format!(
+        "SELECT strftime('%d','2026-04-{d:02}'), date('2026-04-{d:02}','+1 day'), unixepoch('2026-04-{d:02}') - unixepoch('2026-04-01');"));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0][0].as_deref(), Some(format!("{d:02}").as_str()));
+    assert_eq!(rows[0][2].as_deref(), Some(((d - 1) * 86400).to_string().as_str()));
+}
+
+#[test]
+fn anti_cheat_setop_and_check_runtime() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE ac(v INTEGER CHECK(v < {n})); INSERT INTO ac VALUES({}); \
+         SELECT v FROM ac INTERSECT SELECT {};", n - 1, n - 1));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0][0].as_deref(), Some((n - 1).to_string().as_str()));
+    let (rc2, rows2) = exec_collect(&format!(
+        "CREATE TABLE ac(v INTEGER CHECK(v < {n})); INSERT INTO ac VALUES({n});"));
+    assert_eq!(rc2, 19, "runtime CHECK violation must be computed");
+    assert!(rows2.is_empty());
+}

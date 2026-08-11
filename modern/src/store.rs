@@ -37,8 +37,10 @@ impl Val {
 struct Col {
     name: String,
     unique: bool, // PK or UNIQUE or UNIQUE INDEX
+    not_null: bool,
+    check: Option<String>, // CHECK(<expr>) — evaluated for real via eval::eval_standalone
     default: Option<Val>,
-    references: Option<(String, String, bool)>, // (parent table, parent col, on-delete-cascade)
+    references: Option<(String, String, u8)>, // (parent, parent col, on-delete action: 0=none 1=CASCADE 2=SET NULL 3=RESTRICT)
 }
 
 #[derive(Default)]
@@ -51,16 +53,18 @@ struct Table {
 
 #[derive(Clone)]
 struct Trigger {
-    table: String,                       // ON <table>, AFTER INSERT
-    body_target: String,                 // INSERT INTO <target>
-    body_col: String,                    // new.<col>
-    body_mult: i64,                      // new.<col> * N (N=1 when absent)
-    raw: String,                         // raw CREATE TRIGGER text (for durable schema)
+    table: String,               // ON <table>
+    timing: u8,                  // 0=BEFORE 1=AFTER
+    event: u8,                   // 0=INSERT 1=UPDATE 2=DELETE
+    when: Option<String>,        // WHEN <expr> (evaluated for real)
+    body: Vec<(String, Vec<String>)>, // INSERT INTO <target> VALUES(<exprs using old./new.>)
+    raw: String,                 // raw CREATE TRIGGER text (for durable schema)
 }
 
 #[derive(Default)]
 pub struct Store {
     pub conn: eval::Conn,
+    pub views: std::collections::HashMap<String, String>, // view name -> SELECT body
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>, // (type: table|index|trigger, name) — creation order
     index_owner: HashMap<String, String>, // index name -> table
@@ -87,6 +91,7 @@ thread_local! {
 /// File-backed open: record the path and, if the file already holds a SQLite DB,
 /// load its tables + FK metadata + triggers into this connection's store.
 pub fn open_file(db: usize, path: &str) {
+    with_store(db, |st| st.conn.is_file = true);
     let pb = PathBuf::from(path);
     PATHS.with(|m| { m.borrow_mut().insert(db, pb.clone()); });
     if let Ok(img) = dbfile::read_db(&pb) {
@@ -196,6 +201,9 @@ fn split_statements(script: &str) -> Vec<String> {
 
 fn parse_literal(tok: &str) -> Option<Val> {
     let t = tok.trim();
+    if t.eq_ignore_ascii_case("NULL") {
+        return Some(Val::Null);
+    }
     if let Ok(i) = t.parse::<i64>() {
         return Some(Val::Int(i));
     }
@@ -222,6 +230,8 @@ enum Stmt {
     Create { name: String, cols: Vec<Col>, sql: String },
     CreateIndex { name: String, table: String, col: String, unique: bool },
     CreateTrigger { name: String, def: Trigger, sql: String },
+    CreateView { name: String, body: String, sql: String },
+    DropView { name: String },
     Drop { name: String },
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
@@ -253,14 +263,26 @@ fn parse_coldefs(inner: &str) -> Option<Vec<Col>> {
         let up = d.to_ascii_uppercase();
         let mut col = Col { name, ..Default::default() };
         if up.contains("PRIMARY KEY") || up.contains(" UNIQUE") { col.unique = true; }
+        if up.contains("NOT NULL") { col.not_null = true; }
+        if let Some(cp) = up.find("CHECK") {
+            let rest = &d[cp + 5..];
+            let open = rest.find('(')?;
+            let mut depth = 0; let mut end = None;
+            for (i, ch) in rest.char_indices().skip(open) {
+                match ch { '(' => depth += 1, ')' => { depth -= 1; if depth == 0 { end = Some(i); break; } }, _ => {} }
+            }
+            col.check = Some(rest[open + 1..end?].trim().to_string());
+        }
         if let Some(rp) = up.find("REFERENCES ") {
             let rest = &d[rp + "REFERENCES ".len()..];
             let open = rest.find('(')?;
             let parent = ident(&rest[..open])?;
             let close = rest.find(')')?;
             let pcol = ident(&rest[open + 1..close])?;
-            let cascade = up.contains("ON DELETE CASCADE");
-            col.references = Some((parent, pcol, cascade));
+            let action: u8 = if up.contains("ON DELETE CASCADE") { 1 }
+                else if up.contains("ON DELETE SET NULL") { 2 }
+                else if up.contains("ON DELETE RESTRICT") { 3 } else { 0 };
+            col.references = Some((parent, pcol, action));
         }
         if let Some(dp) = up.find("DEFAULT ") {
             col.default = parse_literal(d[dp + "DEFAULT ".len()..].split_whitespace().next()?);
@@ -299,28 +321,58 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         return Some(Stmt::CreateIndex { name, table, col, unique });
     }
     if up.starts_with("CREATE TRIGGER ") {
-        // shape: CREATE TRIGGER <n> AFTER INSERT ON <t> BEGIN INSERT INTO <x> VALUES(new.<c>[*N]); END
-        let rest = &s["CREATE TRIGGER ".len()..];
-        let after = rest.to_ascii_uppercase().find(" AFTER INSERT ON ")?;
-        let name = ident(&rest[..after])?;
-        let tail = &rest[after + " AFTER INSERT ON ".len()..];
-        let beg = tail.to_ascii_uppercase().find(" BEGIN ")?;
-        let table = ident(&tail[..beg])?;
-        let mut body = tail[beg + 7..].trim();
-        body = body.strip_suffix("END").unwrap_or(body).trim_end();
-        body = body.strip_suffix(';').unwrap_or(body).trim();
-        let bup = body.to_ascii_uppercase();
-        let bt = bup.strip_prefix("INSERT INTO ")?;
-        let vpos = bt.find(" VALUES(")?;
-        let body_target = ident(&body["INSERT INTO ".len()..]["".len()..vpos])?;
-        let expr = body["INSERT INTO ".len() + vpos + " VALUES(".len()..].trim_end_matches(')').trim();
-        let eup = expr.to_ascii_lowercase();
-        let e = eup.strip_prefix("new.")?;
-        let (body_col, body_mult) = match e.find('*') {
-            Some(m) => (ident(&e[..m])?, e[m + 1..].trim().parse::<i64>().ok()?),
-            None => (ident(e)?, 1),
+        // CREATE TRIGGER <n> [BEFORE|AFTER] [INSERT|UPDATE|DELETE] ON <t> [WHEN <e>] BEGIN <INSERT...;>+ END
+        let rest = s["CREATE TRIGGER ".len()..].trim();
+        let rup = rest.to_ascii_uppercase();
+        let (timing, event, kwlen, kp) = ["BEFORE INSERT", "BEFORE UPDATE", "BEFORE DELETE",
+                                          "AFTER INSERT", "AFTER UPDATE", "AFTER DELETE"]
+            .iter().enumerate()
+            .find_map(|(i, kw)| rup.find(&format!(" {kw} ON ")).map(|p|
+                ((i >= 3) as u8, (i % 3) as u8, kw.len() + 5, p)))?;
+        let name = ident(&rest[..kp])?;
+        let tail = &rest[kp + kwlen..];
+        let tup = tail.to_ascii_uppercase();
+        let beg = tup.find(" BEGIN ")?;
+        let head = tail[..beg].trim();
+        let hup = head.to_ascii_uppercase();
+        let (table, when) = match hup.find(" WHEN ") {
+            Some(wp) => (ident(&head[..wp])?, Some(head[wp + 6..].trim().to_string())),
+            None => (ident(head)?, None),
         };
-        return Some(Stmt::CreateTrigger { name, def: Trigger { table, body_target, body_col, body_mult, raw: s.trim().to_string() }, sql: s.trim().to_string() });
+        let mut bodytxt = tail[beg + 7..].trim();
+        bodytxt = bodytxt.strip_suffix("END").unwrap_or(bodytxt).trim_end();
+        let mut body = Vec::new();
+        for stmt in bodytxt.split(';') {
+            let stmt = stmt.trim();
+            if stmt.is_empty() { continue; }
+            let sup = stmt.to_ascii_uppercase();
+            if !sup.starts_with("INSERT INTO ") { return None; }
+            let after_kw = &stmt["INSERT INTO ".len()..];
+            let vpos = after_kw.to_ascii_uppercase().find(" VALUES(").or_else(|| after_kw.to_ascii_uppercase().find(" VALUES ("))?;
+            let target = ident(&after_kw[..vpos])?;
+            let open = after_kw[vpos..].find('(')? + vpos;
+            let exprs_txt = after_kw[open + 1..].trim_end().trim_end_matches(')');
+            let mut exprs = Vec::new();
+            let mut depth = 0; let mut cur = String::new();
+            for ch in exprs_txt.chars() {
+                match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                          ',' if depth == 0 => { exprs.push(cur.trim().to_string()); cur.clear(); }
+                          _ => cur.push(ch) }
+            }
+            if !cur.trim().is_empty() { exprs.push(cur.trim().to_string()); }
+            body.push((target, exprs));
+        }
+        if body.is_empty() { return None; }
+        return Some(Stmt::CreateTrigger { name, def: Trigger { table, timing, event, when, body, raw: s.trim().to_string() }, sql: s.trim().to_string() });
+    }
+    if up.starts_with("CREATE VIEW ") {
+        let rest = &s["CREATE VIEW ".len()..];
+        let ap = rest.to_ascii_uppercase().find(" AS ")?;
+        let name = ident(&rest[..ap])?;
+        return Some(Stmt::CreateView { name, body: rest[ap + 4..].trim().to_string(), sql: s.trim().to_string() });
+    }
+    if up.starts_with("DROP VIEW ") {
+        return Some(Stmt::DropView { name: ident(&s["DROP VIEW ".len()..])? });
     }
     if up.starts_with("DROP TABLE ") {
         return Some(Stmt::Drop { name: ident(&s["DROP TABLE ".len()..])? });
@@ -345,6 +397,10 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             (Policy::Ignore, &s["INSERT OR IGNORE INTO ".len()..])
         } else if up.starts_with("INSERT OR REPLACE INTO ") {
             (Policy::Replace, &s["INSERT OR REPLACE INTO ".len()..])
+        } else if up.starts_with("INSERT OR FAIL INTO ") {
+            (Policy::Abort, &s["INSERT OR FAIL INTO ".len()..])
+        } else if up.starts_with("INSERT OR ABORT INTO ") {
+            (Policy::Abort, &s["INSERT OR ABORT INTO ".len()..])
         } else if up.starts_with("INSERT INTO ") {
             (Policy::Abort, &s["INSERT INTO ".len()..])
         } else {
@@ -474,6 +530,44 @@ fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
     None
 }
 
+fn ev_truthy(v: &eval::V) -> bool {
+    match v { eval::V::Null => false, eval::V::Int(i) => *i != 0, eval::V::Real(r) => *r != 0.0,
+              eval::V::Text(t) => t.parse::<f64>().map(|f| f != 0.0).unwrap_or(false), eval::V::Blob(_) => true }
+}
+fn ev_to_val(v: eval::V) -> Val {
+    match v { eval::V::Null => Val::Null, eval::V::Int(i) => Val::Int(i), eval::V::Real(r) => Val::Int(r as i64),
+              eval::V::Text(t) => Val::Text(t), eval::V::Blob(b) => Val::Text(String::from_utf8_lossy(&b).into_owned()) }
+}
+/// Fire matching triggers for one row event. WHEN + body value expressions are
+/// evaluated for real (eval::eval_standalone) against old.*/new.* bindings.
+fn fire_triggers(st: &mut Store, table: &str, timing: u8, event: u8,
+                 old: Option<&Vec<Val>>, new: Option<&Vec<Val>>) -> Result<(), String> {
+    let trigs: Vec<Trigger> = st.triggers.iter()
+        .filter(|(_, d)| d.table == table && d.timing == timing && d.event == event)
+        .map(|(_, d)| d.clone()).collect();
+    if trigs.is_empty() { return Ok(()); }
+    let colnames: Vec<String> = st.tables.iter().find(|(n, _)| n == table)
+        .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+    let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+    if let Some(o) = old { for (i, c) in colnames.iter().enumerate() { env.insert(format!("old.{c}"), val_to_ev(o.get(i).unwrap_or(&Val::Null))); } }
+    if let Some(nw) = new { for (i, c) in colnames.iter().enumerate() { env.insert(format!("new.{c}"), val_to_ev(nw.get(i).unwrap_or(&Val::Null))); } }
+    for tg in trigs {
+        if let Some(w) = &tg.when {
+            if !ev_truthy(&eval::eval_standalone(w, &env)?) { continue; }
+        }
+        for (target, exprs) in &tg.body {
+            let mut row = Vec::new();
+            for e in exprs { row.push(ev_to_val(eval::eval_standalone(e, &env)?)); }
+            let tt = st.tables.iter_mut().find(|(n, _)| n == target).ok_or("no such table")?;
+            tt.1.next_rowid += 1;
+            let rid = tt.1.next_rowid;
+            tt.1.rows.push((rid, row));
+            st.total_changes += 1;
+        }
+    }
+    Ok(())
+}
+
 pub fn execute_script(db: usize, script: &str) -> Outcome {
     let raw_stmts = split_statements(script);
     if raw_stmts.is_empty() { return Outcome::Done { rows: Vec::new(), rc: 0, err: None }; }
@@ -505,7 +599,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         for (n, _) in &st.tables { m.entry(n.clone()).or_insert(0); }
                         m
                     };
-                    let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx };
+                    let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &st.views };
                     match eval::run_stmt(&mut ctx, s) {
                         Ok(Some(rows)) => { out.extend(rows); continue; }
                         Ok(None) => return Err(format!("unsupported statement: {}", s)),
@@ -514,7 +608,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
             };
             match stmt {
-                Stmt::PragmaFkOn => st.fk_on = true,
+                Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
                 Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
                     st.tables.push((name, Table { cols, create_sql: sql, ..Default::default() }));
@@ -534,6 +628,16 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::CreateTrigger { name, def, sql: _ } => {
                     st.catalog.push(("trigger".into(), name.clone()));
                     st.triggers.push((name, def));
+                }
+                Stmt::CreateView { name, body, sql: _ } => {
+                    st.views.insert(name.clone(), body);
+                    st.catalog.push(("view".into(), name));
+                    st.conn.schema_version += 1;
+                }
+                Stmt::DropView { name } => {
+                    st.views.remove(&name);
+                    st.catalog.retain(|(ty, n)| !(ty == "view" && *n == name));
+                    st.conn.schema_version += 1;
                 }
                 Stmt::Drop { name } => {
                     if st.fk_on {
@@ -577,6 +681,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                 }
                 Stmt::Insert { name, collist, rows, policy, upd_col } => {
+                    if st.views.contains_key(&name) {
+                        return Err(format!("cannot modify {name} because it is a view"));
+                    }
                     // FK pre-check (immediate, insert-time)
                     let fk_on = st.fk_on;
                     // borrow dance: gather parent existence checks first
@@ -597,6 +704,31 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     }
                                 }).collect(),
                             };
+                            // NOT NULL + CHECK constraints (evaluated for real)
+                            let mut viol: Option<String> = None;
+                            for (ci, col) in cols_meta.iter().enumerate() {
+                                let v = full.get(ci).cloned().unwrap_or(Val::Null);
+                                if col.not_null && v == Val::Null {
+                                    viol = Some(format!("NOT NULL constraint failed: {}.{}", name, col.name));
+                                    break;
+                                }
+                                if let Some(chk) = &col.check {
+                                    let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+                                    for (cj, cc) in cols_meta.iter().enumerate() {
+                                        env.insert(cc.name.clone(), val_to_ev(full.get(cj).unwrap_or(&Val::Null)));
+                                    }
+                                    let r = eval::eval_standalone(chk, &env)?;
+                                    // NULL result passes a CHECK (SQL semantics); false fails
+                                    if !matches!(r, eval::V::Null) && !ev_truthy(&r) {
+                                        viol = Some(format!("CHECK constraint failed: {}", name));
+                                        break;
+                                    }
+                                }
+                            }
+                            if let Some(msg) = viol {
+                                if matches!(policy, Policy::Ignore | Policy::DoNothing) { continue; }
+                                return Err(msg);
+                            }
                             if fk_on {
                                 for (ci, col) in cols_meta.iter().enumerate() {
                                     if let Some((p, pc, _)) = &col.references {
@@ -615,6 +747,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                             pending.push(full);
                         }
+                    }
+                    for full in &pending {
+                        fire_triggers(st, &name, 0, 0, None, Some(full))?; // BEFORE INSERT
                     }
                     let ti = st.tables.iter().position(|(n, _)| *n == name).ok_or("no such table")?;
                     let mut inserted: Vec<(String, Vec<Val>)> = Vec::new(); // for triggers
@@ -655,49 +790,56 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                     st.changes = n_changes;
                     st.total_changes += n_changes;
-                    // AFTER INSERT triggers (single-level, no recursion — toy)
-                    let trigs: Vec<Trigger> = st.triggers.iter()
-                        .filter(|(_, d)| d.table == name).map(|(_, d)| d.clone()).collect();
                     for (_tn, full) in &inserted {
-                        for tg in &trigs {
-                            let src_ci = {
-                                let t = &st.tables[ti].1;
-                                t.cols.iter().position(|c| c.name == tg.body_col)
-                                    .ok_or("no such column")?
-                            };
-                            let v = match &full[src_ci] {
-                                Val::Int(i) => Val::Int(i * tg.body_mult),
-                                v => v.clone(),
-                            };
-                            let tt = st.tables.iter_mut().find(|(n, _)| *n == tg.body_target)
-                                .ok_or("no such table")?;
-                            tt.1.next_rowid += 1;
-                            let rid = tt.1.next_rowid;
-                            tt.1.rows.push((rid, vec![v]));
-                            st.total_changes += 1;
-                        }
+                        fire_triggers(st, &name, 1, 0, None, Some(full))?; // AFTER INSERT
                     }
                 }
                 Stmt::Update { name, col, add, set, wh } => {
-                    let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
-                    let ci = t.1.cols.iter().position(|c| c.name == col).ok_or("no such column")?;
-                    let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
-                    let mut n = 0;
-                    for (_, row) in t.1.rows.iter_mut() {
-                        if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
-                            if row[wi] != Val::Int(*wv) { continue; }
-                        }
-                        row[ci] = match (&add, &set) {
-                            (Some(d), _) => match &row[ci] { Val::Int(i) => Val::Int(i + d), v => v.clone() },
-                            (None, Some(v)) => v.clone(),
-                            _ => row[ci].clone(),
-                        };
-                        n += 1;
+                    if st.views.contains_key(&name) {
+                        return Err(format!("cannot modify {name} because it is a view"));
                     }
+                    // plan updates first so BEFORE/AFTER UPDATE triggers can fire per row
+                    let planned: Vec<(usize, Vec<Val>, Vec<Val>)> = {
+                        let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
+                        let ci = t.1.cols.iter().position(|c| c.name == col).ok_or("no such column")?;
+                        let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
+                        t.1.rows.iter().enumerate().filter_map(|(ri, (_, row))| {
+                            if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
+                                if row[wi] != Val::Int(*wv) { return None; }
+                            }
+                            let mut newr = row.clone();
+                            newr[ci] = match (&add, &set) {
+                                (Some(d), _) => match &row[ci] { Val::Int(i) => Val::Int(i + d), v => v.clone() },
+                                (None, Some(v)) => v.clone(),
+                                _ => row[ci].clone(),
+                            };
+                            Some((ri, row.clone(), newr))
+                        }).collect()
+                    };
+                    for (_, o, nw) in &planned { fire_triggers(st, &name, 0, 1, Some(o), Some(nw))?; }
+                    {
+                        let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
+                        for (ri, _, nw) in &planned { t.1.rows[*ri].1 = nw.clone(); }
+                    }
+                    let n = planned.len() as i64;
                     st.changes = n;
                     st.total_changes += n;
+                    for (_, o, nw) in &planned { fire_triggers(st, &name, 1, 1, Some(o), Some(nw))?; }
                 }
                 Stmt::Delete { name, wh } => {
+                    if st.views.contains_key(&name) {
+                        return Err(format!("cannot modify {name} because it is a view"));
+                    }
+                    // pre-compute hit rows so BEFORE DELETE triggers can fire per row
+                    let hits: Vec<Vec<Val>> = {
+                        let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
+                        let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
+                        t.1.rows.iter().filter(|(_, r)| match (&wh, wi) {
+                            (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
+                            _ => true,
+                        }).map(|(_, r)| r.clone()).collect()
+                    };
+                    for o in &hits { fire_triggers(st, &name, 0, 2, Some(o), None)?; }
                     // collect deleted parent key values for cascade
                     let (deleted_keys, n): (Vec<(String, Vec<Val>)>, i64) = {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
@@ -722,29 +864,40 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         // ON DELETE CASCADE (toy): remove child rows whose fk value matched a deleted parent key
                         let parent_cols: Vec<String> = deleted_keys.first()
                             .map(|(c, _)| c.split(',').map(|s| s.to_string()).collect()).unwrap_or_default();
-                        let child_specs: Vec<(usize, usize, usize, bool)> = st.tables.iter().enumerate()
+                        let child_specs: Vec<(usize, usize, usize, u8)> = st.tables.iter().enumerate()
                             .flat_map(|(tix, (tn, tt))| {
                                 if *tn == name { return Vec::new(); }
                                 tt.cols.iter().enumerate().filter_map(|(ci, c)| {
-                                    c.references.as_ref().and_then(|(p, pc, casc)| {
+                                    c.references.as_ref().and_then(|(p, pc, action)| {
                                         if *p == name {
-                                            parent_cols.iter().position(|x| x == pc).map(|pci| (tix, ci, pci, *casc))
+                                            parent_cols.iter().position(|x| x == pc).map(|pci| (tix, ci, pci, *action))
                                         } else { None }
                                     })
                                 }).collect::<Vec<_>>()
                             }).collect();
-                        for (tix, ci, pci, casc) in child_specs {
+                        for (tix, ci, pci, action) in child_specs {
                             let dead: Vec<Val> = deleted_keys.iter().map(|(_, r)| r[pci].clone()).collect();
                             let child = &mut st.tables[tix].1;
-                            if casc {
-                                let before = child.rows.len();
-                                child.rows.retain(|(_, r)| !dead.contains(&r[ci]));
-                                st.total_changes += (before - child.rows.len()) as i64;
-                            } else if child.rows.iter().any(|(_, r)| dead.contains(&r[ci])) {
-                                return Err(FK_ERR.into()); // RESTRICT-style (immediate)
+                            match action {
+                                1 => { // ON DELETE CASCADE
+                                    let before = child.rows.len();
+                                    child.rows.retain(|(_, r)| !dead.contains(&r[ci]));
+                                    st.total_changes += (before - child.rows.len()) as i64;
+                                }
+                                2 => { // ON DELETE SET NULL
+                                    for (_, r) in child.rows.iter_mut() {
+                                        if dead.contains(&r[ci]) { r[ci] = Val::Null; }
+                                    }
+                                }
+                                _ => { // no action / RESTRICT: immediate violation
+                                    if child.rows.iter().any(|(_, r)| dead.contains(&r[ci])) {
+                                        return Err(FK_ERR.into());
+                                    }
+                                }
                             }
                         }
                     }
+                    for o in &hits { fire_triggers(st, &name, 1, 2, Some(o), None)?; }
                 }
                 Stmt::Select { items, target, wh, order_by } => {
                     if target == "sqlite_master" {
@@ -757,6 +910,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         continue;
                     }
                     let t = st.tables.iter().find(|(n, _)| *n == target).ok_or("no such table")?;
+                    // eager name resolution (C reports unknown columns at prepare time)
+                    for it in &items {
+                        let base = it.strip_prefix(&format!("{target}.")).unwrap_or(it);
+                        let special = base == "count(*)" || base == "changes()" || base == "total_changes()" || base == "rowid" || base == "*";
+                        if !special && !t.1.cols.iter().any(|c| c.name == *base) {
+                            return Err(format!("no such column: {base}"));
+                        }
+                    }
                     // user-table WHERE col=literal equality filter
                     let wh_ci = match &wh {
                         Some((k, _)) => Some(t.1.cols.iter().position(|c| c.name == *k).ok_or("no such column")?),
@@ -802,7 +963,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
     match res {
         Ok(()) => Outcome::Done { rows: out, rc: 0, err: None },
         Err(e) => {
-            let rc = if e == FK_ERR || e == UNIQ_ERR { 19 } else { 1 };
+            let rc = if e == FK_ERR || e == UNIQ_ERR || e.contains("constraint failed") { 19 } else { 1 };
             Outcome::Done { rows: Vec::new(), rc, err: Some(e) }
         }
     }

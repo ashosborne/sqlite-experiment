@@ -48,6 +48,26 @@ fn json_funcs_004_C001() {
 }
 
 #[test]
+fn date_time_funcs_001_C001() {
+    compare_script("date-time-funcs", "date-time-funcs-001", "C001", "SELECT date('2026-08-11'), datetime(2460000.5), unixepoch('2001-01-01');");
+}
+
+#[test]
+fn date_time_funcs_002_C001() {
+    compare_script("date-time-funcs", "date-time-funcs-002", "C001", "SELECT strftime('%Y|%m|%d|%j','2026-08-11');");
+}
+
+#[test]
+fn date_time_funcs_003_C001() {
+    compare_script("date-time-funcs", "date-time-funcs-003", "C001", "SELECT datetime('2026-01-31','+1 month'), date('2026-08-11','weekday 0');");
+}
+
+#[test]
+fn date_time_funcs_004_C001() {
+    compare_script("date-time-funcs", "date-time-funcs-004", "C001", "SELECT timediff('2026-08-11','2025-08-10');");
+}
+
+#[test]
 fn builtin_scalar_agg_funcs_001_C001() {
     compare_script("builtin-scalar-agg-funcs", "builtin-scalar-agg-funcs-001", "C001", "SELECT upper('abc'), length('hello'), substr('abcdef',-3,2), coalesce(NULL,7), typeof(2.0);");
 }
@@ -195,6 +215,11 @@ fn misc_urifuncs_001_C001() {
 #[test]
 fn misc_zorder_001_C001() {
     compare_script("misc-zorder", "misc-zorder-001", "C001", "SELECT zorder(3,5), unzorder(zorder(3,5),2,0), unzorder(zorder(3,5),2,1);");
+}
+
+#[test]
+fn misc_func_packs_001_C001() {
+    compare_script("misc-func-packs", "misc-func-packs-001", "C001", "SELECT decimal_mul('1.5','2'), 'pack' REGEXP 'p.ck';");
 }
 
 #[test]

@@ -1,0 +1,4 @@
+OBS engine-datetime-001-C008 row0.col0 +0000-00-00 01:14:30.000
+OBS engine-datetime-001-C008 row0.col1 -0001-00-01 00:00:00.000
+OBS engine-datetime-001-C008 exec.rc 0
+OBS engine-datetime-001-C008 cb.rows 1

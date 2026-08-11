@@ -1,0 +1,267 @@
+[
+{
+"id": "engine-datetime-001-C001",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT time('2026-08-11 04:05:06'), julianday('2000-01-01 12:00:00');"
+},
+{
+"id": "engine-datetime-001-C002",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT date('2026-08-11','start of month'), date('2026-08-11','start of year'), datetime('2026-08-11 04:05:06','start of day');"
+},
+{
+"id": "engine-datetime-001-C003",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT date('2026-08-11','-40 days'), datetime('2026-08-11 04:05:06','+2 hours','+30 minutes','+15 seconds');"
+},
+{
+"id": "engine-datetime-001-C004",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT strftime('%H:%M:%S','2026-08-11 04:05:06'), strftime('%s','2001-01-01'), strftime('%w','2026-08-11');"
+},
+{
+"id": "engine-datetime-001-C005",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT datetime(978307200,'unixepoch'), unixepoch('2026-08-11 00:00:00');"
+},
+{
+"id": "engine-datetime-001-C006",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT date('2026-08-16','weekday 0'), date('2026-08-11','weekday 2');"
+},
+{
+"id": "engine-datetime-001-C007",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT datetime('2024-02-29','+1 year'), date('2026-03-31','-1 month');"
+},
+{
+"id": "engine-datetime-001-C008",
+"slice": "engine-datetime",
+"feature": "engine-datetime-001",
+"kind": "script",
+"sql": "SELECT timediff('2026-08-11 10:30:00','2026-08-11 09:15:30'), timediff('2025-08-10','2026-08-11');"
+},
+{
+"id": "engine-setops-001-C001",
+"slice": "engine-setops",
+"feature": "engine-setops-001",
+"kind": "script",
+"sql": "CREATE TABLE s1(a); INSERT INTO s1 VALUES(1),(2),(3); CREATE TABLE s2(a); INSERT INTO s2 VALUES(2),(3),(4); SELECT a FROM s1 INTERSECT SELECT a FROM s2 ORDER BY a;"
+},
+{
+"id": "engine-setops-001-C002",
+"slice": "engine-setops",
+"feature": "engine-setops-001",
+"kind": "script",
+"sql": "CREATE TABLE s1(a); INSERT INTO s1 VALUES(1),(2),(3); CREATE TABLE s2(a); INSERT INTO s2 VALUES(2),(3),(4); SELECT a FROM s1 EXCEPT SELECT a FROM s2 ORDER BY a;"
+},
+{
+"id": "engine-setops-001-C003",
+"slice": "engine-setops",
+"feature": "engine-setops-001",
+"kind": "script",
+"sql": "SELECT x FROM (SELECT 1 AS x UNION ALL SELECT 1 UNION ALL SELECT 2) INTERSECT SELECT 1;"
+},
+{
+"id": "engine-setops-001-C004",
+"slice": "engine-setops",
+"feature": "engine-setops-001",
+"kind": "script",
+"sql": "CREATE TABLE s3(a); INSERT INTO s3 VALUES(5); SELECT a FROM s3 EXCEPT SELECT 5;"
+},
+{
+"id": "engine-constraints-001-C001",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "CREATE TABLE c(a CHECK(a>0)); INSERT INTO c VALUES(-1);"
+},
+{
+"id": "engine-constraints-001-C002",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "script",
+"sql": "CREATE TABLE c(a CHECK(a>0)); INSERT INTO c VALUES(5); INSERT OR IGNORE INTO c VALUES(-1); SELECT count(*) FROM c;"
+},
+{
+"id": "engine-constraints-001-C003",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "CREATE TABLE nn(a NOT NULL); INSERT INTO nn VALUES(NULL);"
+},
+{
+"id": "engine-constraints-001-C004",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "CREATE TABLE cf(a CHECK(a<10)); INSERT INTO cf VALUES(1); INSERT OR FAIL INTO cf VALUES(2),(20),(3); SELECT count(*) FROM cf;"
+},
+{
+"id": "engine-constraints-001-C005",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "CREATE TABLE n1(a); CREATE TABLE n2(a); SELECT a FROM n1, n2;"
+},
+{
+"id": "engine-constraints-001-C006",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "CREATE TABLE t1(a); SELECT nosuch FROM t1;"
+},
+{
+"id": "engine-constraints-001-C007",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "script",
+"sql": "PRAGMA foreign_keys=ON; CREATE TABLE p(id INTEGER PRIMARY KEY); CREATE TABLE ch(pid REFERENCES p(id) ON DELETE SET NULL); INSERT INTO p VALUES(1); INSERT INTO ch VALUES(1); DELETE FROM p WHERE id=1; SELECT count(*), count(pid) FROM ch;"
+},
+{
+"id": "engine-constraints-001-C008",
+"slice": "engine-constraints",
+"feature": "engine-constraints-001",
+"kind": "error-script",
+"sql": "PRAGMA foreign_keys=ON; CREATE TABLE p2(id INTEGER PRIMARY KEY); CREATE TABLE c2(pid REFERENCES p2(id) ON DELETE RESTRICT); INSERT INTO p2 VALUES(1); INSERT INTO c2 VALUES(1); DELETE FROM p2 WHERE id=1;"
+},
+{
+"id": "engine-views-001-C001",
+"slice": "engine-views",
+"feature": "engine-views-001",
+"kind": "script",
+"sql": "CREATE TABLE vt(a INTEGER, b TEXT); INSERT INTO vt VALUES(1,'x'),(2,'y'); CREATE VIEW v AS SELECT a, b FROM vt WHERE a > 1; SELECT a, b FROM v;"
+},
+{
+"id": "engine-views-001-C002",
+"slice": "engine-views",
+"feature": "engine-views-001",
+"kind": "script",
+"sql": "CREATE TABLE vt(a INTEGER); INSERT INTO vt VALUES(3); CREATE VIEW v AS SELECT a*2 AS d FROM vt; SELECT d FROM v; SELECT count(*) FROM sqlite_master WHERE type='view'; DROP VIEW v; SELECT count(*) FROM sqlite_master WHERE type='view';"
+},
+{
+"id": "engine-views-001-C003",
+"slice": "engine-views",
+"feature": "engine-views-001",
+"kind": "error-script",
+"sql": "CREATE TABLE vt(a INTEGER); CREATE VIEW v AS SELECT a FROM vt; INSERT INTO v VALUES(1);"
+},
+{
+"id": "engine-triggers-001-C001",
+"slice": "engine-triggers",
+"feature": "engine-triggers-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TABLE lg(v INTEGER); CREATE TRIGGER td AFTER DELETE ON t BEGIN INSERT INTO lg VALUES(old.a); END; INSERT INTO t VALUES(7),(8); DELETE FROM t WHERE a=7; SELECT v FROM lg;"
+},
+{
+"id": "engine-triggers-001-C002",
+"slice": "engine-triggers",
+"feature": "engine-triggers-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TABLE lg(o INTEGER, n INTEGER); CREATE TRIGGER tu AFTER UPDATE ON t BEGIN INSERT INTO lg VALUES(old.a, new.a); END; INSERT INTO t VALUES(5); UPDATE t SET a=9 WHERE a=5; SELECT o, n FROM lg;"
+},
+{
+"id": "engine-triggers-001-C003",
+"slice": "engine-triggers",
+"feature": "engine-triggers-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TABLE lg(v INTEGER); CREATE TRIGGER tw AFTER INSERT ON t WHEN new.a > 10 BEGIN INSERT INTO lg VALUES(new.a); END; INSERT INTO t VALUES(5),(15); SELECT count(*), max(v) FROM lg;"
+},
+{
+"id": "engine-triggers-001-C004",
+"slice": "engine-triggers",
+"feature": "engine-triggers-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); CREATE TABLE lg(v TEXT); CREATE TRIGGER tb BEFORE INSERT ON t BEGIN INSERT INTO lg VALUES('B'); END; CREATE TRIGGER ta AFTER INSERT ON t BEGIN INSERT INTO lg VALUES('A'); END; INSERT INTO t VALUES(1); SELECT v FROM lg;"
+},
+{
+"id": "engine-funcs-001-C001",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT printf('%5d|%-4d|%05.1f|%x|%X', 42, 7, 3.14159, 255, 255), printf('%.3s|%c|%o', 'hello', 65, 8);"
+},
+{
+"id": "engine-funcs-001-C002",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT printf('%e|%g|%+d', 12345.678, 0.0001, 5), format('%08.3f', 2.5);"
+},
+{
+"id": "engine-funcs-001-C003",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT decimal_sub('5.25','1.1'), decimal_mul('1.25','4'), decimal_add('0.1','0.2');",
+"init": [
+"decimal"
+]
+},
+{
+"id": "engine-funcs-001-C004",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT 'Uryyb' = 'Hello' COLLATE rot13, 'abc' < 'abd' COLLATE rot13, rot13('Gung');",
+"init": [
+"rot13"
+]
+},
+{
+"id": "engine-funcs-001-C005",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT round(2.5), round(2.567,2), trim('  x  '), replace('aXbXc','X','-'), instr('hello','ll');"
+},
+{
+"id": "engine-funcs-001-C006",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT min(3,1,2), max(3,1,2), sign(-5), sign(0), char(65,66,67), unhex('4142') = X'4142';"
+},
+{
+"id": "engine-funcs-001-C007",
+"slice": "engine-funcs",
+"feature": "engine-funcs-001",
+"kind": "script",
+"sql": "SELECT concat('a','b','c'), concat_ws('-','x','y'), octet_length('abc'), unicode('A'), ltrim('xxay','x'), rtrim('yaxx','x');"
+},
+{
+"id": "engine-pragma-001-C001",
+"slice": "engine-pragma",
+"feature": "engine-pragma-001",
+"kind": "script",
+"sql": "PRAGMA foreign_keys; PRAGMA foreign_keys=ON; PRAGMA foreign_keys; PRAGMA busy_timeout; PRAGMA busy_timeout=250; PRAGMA busy_timeout;"
+},
+{
+"id": "engine-pragma-001-C002",
+"slice": "engine-pragma",
+"feature": "engine-pragma-001",
+"kind": "script",
+"sql": "PRAGMA encoding; PRAGMA page_size; PRAGMA journal_mode; PRAGMA synchronous; PRAGMA locking_mode; PRAGMA read_uncommitted;"
+},
+{
+"id": "engine-pragma-001-C003",
+"slice": "engine-pragma",
+"feature": "engine-pragma-001",
+"kind": "script",
+"sql": "PRAGMA trusted_schema; PRAGMA trusted_schema=0; PRAGMA trusted_schema; PRAGMA threads; PRAGMA analysis_limit; PRAGMA reverse_unordered_selects=1; PRAGMA reverse_unordered_selects;"
+}
+]

@@ -1,0 +1,3 @@
+OBS engine-constraints-001-C003 exec.rc 19
+OBS engine-constraints-001-C003 cb.rows 0
+OBS engine-constraints-001-C003 errmsg.nonempty 1

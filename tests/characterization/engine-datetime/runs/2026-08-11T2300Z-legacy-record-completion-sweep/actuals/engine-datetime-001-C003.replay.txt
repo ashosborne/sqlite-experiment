@@ -1,0 +1,4 @@
+OBS engine-datetime-001-C003 row0.col0 2026-07-02
+OBS engine-datetime-001-C003 row0.col1 2026-08-11 06:35:21
+OBS engine-datetime-001-C003 exec.rc 0
+OBS engine-datetime-001-C003 cb.rows 1

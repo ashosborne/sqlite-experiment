@@ -1,0 +1,3 @@
+OBS engine-setops-001-C003 row0.col0 1
+OBS engine-setops-001-C003 exec.rc 0
+OBS engine-setops-001-C003 cb.rows 1

@@ -312,6 +312,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 // ABI note (pack v2 known risk): sqlite3_config/db_config/mprintf/str_appendf are
 // exported at the fixed arities the frozen cases use (Rust stable lacks C varargs).
 
+pub mod datetime;
 pub mod dbfile;
 pub mod eval;
 pub mod json;
