@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - auto_vacuum
 - backup API
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:26:32Z'
 features:
 - id: vacuum-001
   name: VACUUM full rebuild
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes.
   entrypoints:
@@ -23,9 +23,10 @@ features:
   - pager
   - btree
   open_questions: []
+  behaviour_doc: features/vacuum-001.md
 - id: vacuum-002
   name: VACUUM INTO target file
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Rebuild into named URI target; source unchanged.
   entrypoints:
@@ -38,3 +39,4 @@ features:
   dependencies:
   - vacuum-001
   open_questions: []
+  behaviour_doc: features/vacuum-002.md

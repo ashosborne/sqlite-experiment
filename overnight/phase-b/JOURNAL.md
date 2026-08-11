@@ -38,3 +38,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - pragma-surface(2), window-functions(2), upsert(2), triggers(2), foreign-keys(3), ddl-schema(3) → documented, observed-in-code.
 - Pragma census stays one card (charter); trigger/FK cascade behaviour carded with the run-1 async-chain flags preserved.
 - Upsert: PASS (documented=58). COVERAGE regenerated.
+
+## Batch 5 — maintenance + compiler front-end (13 cards)
+
+- analyze-stats(2), vacuum(2), tokenizer(2), parser-grammar(2), name-resolution(2), expr-codegen(3) → documented, observed-in-code.
+- Dialect gates carded explicitly (DQS fallback, keyword fallback, legacy_alter interactions); IN-with-NULL parity trap pinned on expr-codegen-002.
+- Upsert: PASS (documented=71). COVERAGE regenerated.

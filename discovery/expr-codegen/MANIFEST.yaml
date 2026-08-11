@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - SELECT orchestration
 - VDBE opcodes
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:26:32Z'
 features:
 - id: expr-codegen-001
   name: Value expression code generation
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Expr tree to VDBE ops with affinity/collation propagation and constant factoring.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   dependencies:
   - vdbe-engine
   open_questions: []
+  behaviour_doc: features/expr-codegen-001.md
 - id: expr-codegen-002
   name: Boolean jump codegen (3-valued logic)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow.
   entrypoints:
@@ -37,9 +38,10 @@ features:
   dependencies:
   - expr-codegen-001
   open_questions: []
+  behaviour_doc: features/expr-codegen-002.md
 - id: expr-codegen-003
   name: Expression equivalence testing
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Structural comparison used for indexed-expression matching and factoring.
   entrypoints:
@@ -50,3 +52,4 @@ features:
   dependencies:
   - where-optimizer
   open_questions: []
+  behaviour_doc: features/expr-codegen-003.md

@@ -2039,18 +2039,18 @@ behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
   name: ANALYZE writes sqlite_stat1 (and stat4 when enabled)
-  status: accepted
+  status: documented
   slice_id: analyze-stats
-  discovery_card: null
+  discovery_card: discovery/analyze-stats/features/analyze-stats-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4.
 - behaviour_id: analyze-stats-002
   surface_id: sur-sqlite3analysisload
   name: Statistics load into query planner
-  status: accepted
+  status: documented
   slice_id: analyze-stats
-  discovery_card: null
+  discovery_card: discovery/analyze-stats/features/analyze-stats-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; AnalysisLoad parses stat rows into Index cost fields at schema load.
@@ -2406,27 +2406,27 @@ behaviours:
 - behaviour_id: expr-codegen-001
   surface_id: sur-sqlite3exprcodetarget
   name: Value expression code generation
-  status: accepted
+  status: documented
   slice_id: expr-codegen
-  discovery_card: null
+  discovery_card: discovery/expr-codegen/features/expr-codegen-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Expr tree to VDBE ops with affinity/collation propagation and constant factoring.
 - behaviour_id: expr-codegen-002
   surface_id: sur-sqlite3expriftrue
   name: Boolean jump codegen (3-valued logic)
-  status: accepted
+  status: documented
   slice_id: expr-codegen
-  discovery_card: null
+  discovery_card: discovery/expr-codegen/features/expr-codegen-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow.
 - behaviour_id: expr-codegen-003
   surface_id: sur-sqlite3exprcompare
   name: Expression equivalence testing
-  status: accepted
+  status: documented
   slice_id: expr-codegen
-  discovery_card: null
+  discovery_card: discovery/expr-codegen/features/expr-codegen-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Structural comparison used for indexed-expression matching and factoring.
@@ -3082,9 +3082,9 @@ behaviours:
 - behaviour_id: name-resolution-001
   surface_id: sur-sqlite3resolveexprnames
   name: Column/table name lookup and ambiguity rules
-  status: accepted
+  status: documented
   slice_id: name-resolution
-  discovery_card: null
+  discovery_card: discovery/name-resolution/features/name-resolution-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Nested-scope lookup with 'ambiguous column'/'no such column' errors; uses tree walker
@@ -3092,9 +3092,9 @@ behaviours:
 - behaviour_id: name-resolution-002
   surface_id: sur-sqlite3resolveordergroupby
   name: ORDER BY / GROUP BY alias and ordinal resolution
-  status: accepted
+  status: documented
   slice_id: name-resolution
-  discovery_card: null
+  discovery_card: discovery/name-resolution/features/name-resolution-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Result-alias and 1-based ordinal handling with compat quirks.
@@ -3119,18 +3119,18 @@ behaviours:
 - behaviour_id: parser-grammar-001
   surface_id: sur-src-parse-y-cmd-productions
   name: Statement grammar productions
-  status: accepted
+  status: documented
   slice_id: parser-grammar
-  discovery_card: null
+  discovery_card: discovery/parser-grammar/features/parser-grammar-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 417 productions define the accepted SQL dialect; actions call into build/select/etc.
 - behaviour_id: parser-grammar-002
   surface_id: sur-src-parse-y-fallback
   name: Keyword fallback (keywords-as-identifiers)
-  status: accepted
+  status: documented
   slice_id: parser-grammar
-  discovery_card: null
+  discovery_card: discovery/parser-grammar/features/parser-grammar-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility.
@@ -3426,18 +3426,18 @@ behaviours:
 - behaviour_id: tokenizer-001
   surface_id: sur-sqlite3runparser
   name: Tokenizer and parser driver loop
-  status: accepted
+  status: documented
   slice_id: tokenizer
-  discovery_card: null
+  discovery_card: discovery/tokenizer/features/tokenizer-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Character-class token scanner feeding Lemon parser; error token handling.
 - behaviour_id: tokenizer-002
   surface_id: sur-sqlite3-complete
   name: sqlite3_complete statement detection
-  status: accepted
+  status: documented
   slice_id: tokenizer
-  discovery_card: null
+  discovery_card: discovery/tokenizer/features/tokenizer-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Public API state machine deciding whether SQL text ends in a complete statement (trigger-aware).
@@ -3501,18 +3501,18 @@ behaviours:
 - behaviour_id: vacuum-001
   surface_id: sur-sqlite3runvacuum
   name: VACUUM full rebuild
-  status: accepted
+  status: documented
   slice_id: vacuum
-  discovery_card: null
+  discovery_card: discovery/vacuum/features/vacuum-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes.
 - behaviour_id: vacuum-002
   surface_id: sur-sqlite3vacuum-into
   name: VACUUM INTO target file
-  status: accepted
+  status: documented
   slice_id: vacuum
-  discovery_card: null
+  discovery_card: discovery/vacuum/features/vacuum-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Rebuild into named URI target; source unchanged.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:25:20Z'
+last_updated: '2026-08-11T10:26:33Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    accepted: 127
-    documented: 58
+    documented: 71
+    accepted: 114
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

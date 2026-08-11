@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - tokenizer
 - generated parse.c
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:26:32Z'
 features:
 - id: parser-grammar-001
   name: Statement grammar productions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 417 productions define the accepted SQL dialect; actions call into build/select/etc.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   dependencies:
   - tokenizer
   open_questions: []
+  behaviour_doc: features/parser-grammar-001.md
 - id: parser-grammar-002
   name: Keyword fallback (keywords-as-identifiers)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "%fallback lets many keywords double as identifiers \u2014 silent dialect compatibility."
   entrypoints:
@@ -37,3 +38,4 @@ features:
   dependencies: []
   open_questions:
   - Which fallback keywords does downstream SQL rely on?
+  behaviour_doc: features/parser-grammar-002.md

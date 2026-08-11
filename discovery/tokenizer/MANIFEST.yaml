@@ -5,12 +5,12 @@ seed_entrypoints:
 - sqlite3_complete()
 out_of_scope_hints:
 - grammar reductions
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:26:32Z'
 features:
 - id: tokenizer-001
   name: Tokenizer and parser driver loop
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Character-class token scanner feeding Lemon parser; error token handling.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   dependencies:
   - parser-grammar
   open_questions: []
+  behaviour_doc: features/tokenizer-001.md
 - id: tokenizer-002
   name: sqlite3_complete statement detection
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Public API state machine deciding whether SQL text ends in a complete statement (trigger-aware).
   entrypoints:
@@ -34,3 +35,4 @@ features:
     - src/complete.c:340
   dependencies: []
   open_questions: []
+  behaviour_doc: features/tokenizer-002.md
