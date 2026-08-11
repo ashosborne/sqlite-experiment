@@ -2304,27 +2304,27 @@ behaviours:
 - behaviour_id: ddl-schema-001
   surface_id: sur-sqlite3starttable
   name: Table/view create-drop lifecycle
-  status: accepted
+  status: documented
   slice_id: ddl-schema
-  discovery_card: null
+  discovery_card: discovery/ddl-schema/features/ddl-schema-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping.
 - behaviour_id: ddl-schema-002
   surface_id: sur-sqlite3createindex
   name: Index create-drop lifecycle
-  status: accepted
+  status: documented
   slice_id: ddl-schema
-  discovery_card: null
+  discovery_card: discovery/ddl-schema/features/ddl-schema-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation.
 - behaviour_id: ddl-schema-003
   surface_id: sur-sqlite3alterrenametable
   name: ALTER TABLE family (rename/add/rename-col/drop-col)
-  status: accepted
+  status: documented
   slice_id: ddl-schema
-  discovery_card: null
+  discovery_card: discovery/ddl-schema/features/ddl-schema-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Schema rewriting with cross-object reference fixup (views/triggers referencing renamed
@@ -2433,27 +2433,27 @@ behaviours:
 - behaviour_id: foreign-keys-001
   surface_id: sur-sqlite3fkcheck
   name: Immediate vs deferred FK checking
-  status: accepted
+  status: documented
   slice_id: foreign-keys
-  discovery_card: null
+  discovery_card: discovery/foreign-keys/features/foreign-keys-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Per-statement vs per-transaction constraint counters; foreign_keys pragma gate.
 - behaviour_id: foreign-keys-002
   surface_id: sur-fkactiontrigger
   name: Cascading referential actions
-  status: accepted
+  status: documented
   slice_id: foreign-keys
-  discovery_card: null
+  discovery_card: discovery/foreign-keys/features/foreign-keys-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; ON DELETE/UPDATE actions implemented as synthesized triggers.
 - behaviour_id: foreign-keys-003
   surface_id: sur-sqlite3fkdroptable
   name: FK bookkeeping on DROP TABLE
-  status: accepted
+  status: documented
   slice_id: foreign-keys
-  discovery_card: null
+  discovery_card: discovery/foreign-keys/features/foreign-keys-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; DROP TABLE triggers FK violation scans / deferred handling.
@@ -3155,9 +3155,9 @@ behaviours:
 - behaviour_id: pragma-surface-001
   surface_id: sur-sqlite3pragma
   name: PRAGMA dispatcher (~70 pragmas)
-  status: accepted
+  status: documented
   slice_id: pragma-surface
-  discovery_card: null
+  discovery_card: discovery/pragma-surface/features/pragma-surface-001.md
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path);
@@ -3165,9 +3165,9 @@ behaviours:
 - behaviour_id: pragma-surface-002
   surface_id: sur-pragmavtabmodule
   name: pragma_* eponymous virtual tables
-  status: accepted
+  status: documented
   slice_id: pragma-surface
-  discovery_card: null
+  discovery_card: discovery/pragma-surface/features/pragma-surface-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Result-returning pragmas exposed as pragma_<name>() table-valued functions.
@@ -3444,18 +3444,18 @@ behaviours:
 - behaviour_id: triggers-001
   surface_id: sur-sqlite3begintrigger
   name: Trigger DDL lifecycle
-  status: accepted
+  status: documented
   slice_id: triggers
-  discovery_card: null
+  discovery_card: discovery/triggers/features/triggers-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation.
 - behaviour_id: triggers-002
   surface_id: sur-sqlite3coderowtrigger
   name: Row-trigger firing semantics
-  status: accepted
+  status: documented
   slice_id: triggers
-  discovery_card: null
+  discovery_card: discovery/triggers/features/triggers-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
@@ -3473,18 +3473,18 @@ behaviours:
 - behaviour_id: upsert-001
   surface_id: sur-sqlite3upsertanalyzetarget
   name: Conflict-target resolution to unique index
-  status: accepted
+  status: documented
   slice_id: upsert
-  discovery_card: null
+  discovery_card: discovery/upsert/features/upsert-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match.
 - behaviour_id: upsert-002
   surface_id: sur-sqlite3upsertdoupdate
   name: DO UPDATE / DO NOTHING execution
-  status: accepted
+  status: documented
   slice_id: upsert
-  discovery_card: null
+  discovery_card: discovery/upsert/features/upsert-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Generates UPDATE against conflicting row; excluded.* pseudo-table bindings.
@@ -3742,22 +3742,22 @@ behaviours:
 - behaviour_id: window-functions-001
   surface_id: sur-sqlite3windowfunctions
   name: Built-in window function family
-  status: accepted
+  status: documented
   slice_id: window-functions
-  discovery_card: null
+  discovery_card: discovery/window-functions/features/window-functions-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 11 built-in window functions registered in sqlite3WindowFunctions.
 - behaviour_id: window-functions-002
   surface_id: sur-sqlite3windowcodestep
   name: Frame specification execution (ROWS/RANGE/GROUPS + EXCLUDE)
-  status: accepted
+  status: documented
   slice_id: window-functions
-  discovery_card: null
+  discovery_card: discovery/window-functions/features/window-functions-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:23:52Z'
+last_updated: '2026-08-11T10:25:20Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    accepted: 141
-    documented: 44
+    accepted: 127
+    documented: 58
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

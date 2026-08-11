@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - triggers
 - ANALYZE
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:25:20Z'
 features:
 - id: ddl-schema-001
   name: Table/view create-drop lifecycle
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping.
   entrypoints:
@@ -25,9 +25,10 @@ features:
   dependencies:
   - btree
   open_questions: []
+  behaviour_doc: features/ddl-schema-001.md
 - id: ddl-schema-002
   name: Index create-drop lifecycle
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation.
   entrypoints:
@@ -40,9 +41,10 @@ features:
   - btree
   - where-optimizer
   open_questions: []
+  behaviour_doc: features/ddl-schema-002.md
 - id: ddl-schema-003
   name: ALTER TABLE family (rename/add/rename-col/drop-col)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Schema rewriting with cross-object reference fixup (views/triggers referencing renamed entities).
   entrypoints:
@@ -57,3 +59,4 @@ features:
   - ddl-schema-001
   open_questions:
   - legacy_alter_table pragma compatibility mode relevant?
+  behaviour_doc: features/ddl-schema-003.md

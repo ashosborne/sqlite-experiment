@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3Pragma()
 out_of_scope_hints:
 - individual subsystem behaviour configured by pragmas
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:25:20Z'
 features:
 - id: pragma-surface-001
   name: PRAGMA dispatcher (~70 pragmas)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 'Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path); per-pragma flags control schema-load
     and result shape.'
@@ -22,9 +22,10 @@ features:
   dependencies: []
   open_questions:
   - Pragma inventory needs sub-clustering at bind (journal/cache/schema/debug families)
+  behaviour_doc: features/pragma-surface-001.md
 - id: pragma-surface-002
   name: pragma_* eponymous virtual tables
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Result-returning pragmas exposed as pragma_<name>() table-valued functions.
   entrypoints:
@@ -37,3 +38,4 @@ features:
   dependencies:
   - vtab-core
   open_questions: []
+  behaviour_doc: features/pragma-surface-002.md

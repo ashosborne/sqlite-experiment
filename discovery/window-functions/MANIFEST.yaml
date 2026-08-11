@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - plain aggregates
 - SELECT compilation
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:25:20Z'
 features:
 - id: window-functions-001
   name: Built-in window function family
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 11 built-in window functions registered in sqlite3WindowFunctions.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   dependencies:
   - select-codegen
   open_questions: []
+  behaviour_doc: features/window-functions-001.md
 - id: window-functions-002
   name: Frame specification execution (ROWS/RANGE/GROUPS + EXCLUDE)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Frame boundary codegen and per-row step/inverse calls.
   entrypoints:
@@ -37,3 +38,4 @@ features:
   - vdbe-engine
   open_questions:
   - "Aggregate-as-window (sum OVER ...) shares inverse funcs \u2014 bind decision on where those cards live"
+  behaviour_doc: features/window-functions-002.md

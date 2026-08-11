@@ -32,3 +32,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - builtin-scalar-agg-funcs(3), date-time-funcs(4), json-funcs(4), printf-format(3) → documented, observed-in-code.
 - Registry/family cards stay clustered per charter (no per-function explosion); parity traps carried into cards (ASCII-only LIKE folding, sum overflow, %q/%Q, localtime TZ pinning, JSON5-in/canonical-out).
 - Upsert: PASS (documented=44). COVERAGE regenerated.
+
+## Batch 4 — SQL-language surfaces (14 cards)
+
+- pragma-surface(2), window-functions(2), upsert(2), triggers(2), foreign-keys(3), ddl-schema(3) → documented, observed-in-code.
+- Pragma census stays one card (charter); trigger/FK cascade behaviour carded with the run-1 async-chain flags preserved.
+- Upsert: PASS (documented=58). COVERAGE regenerated.

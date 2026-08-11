@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3FkCheck()
 out_of_scope_hints:
 - trigger machinery generally
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:25:20Z'
 features:
 - id: foreign-keys-001
   name: Immediate vs deferred FK checking
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Per-statement vs per-transaction constraint counters; foreign_keys pragma gate.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   - dml-codegen
   open_questions:
   - "foreign_keys pragma default off \u2014 is it enabled downstream?"
+  behaviour_doc: features/foreign-keys-001.md
 - id: foreign-keys-002
   name: Cascading referential actions
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: ON DELETE/UPDATE actions implemented as synthesized triggers.
   entrypoints:
@@ -36,9 +37,10 @@ features:
   dependencies:
   - triggers
   open_questions: []
+  behaviour_doc: features/foreign-keys-002.md
 - id: foreign-keys-003
   name: FK bookkeeping on DROP TABLE
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: DROP TABLE triggers FK violation scans / deferred handling.
   entrypoints:
@@ -49,3 +51,4 @@ features:
   dependencies:
   - ddl-schema
   open_questions: []
+  behaviour_doc: features/foreign-keys-003.md

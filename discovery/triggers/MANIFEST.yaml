@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - FK action triggers
 - general DDL
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:25:20Z'
 features:
 - id: triggers-001
   name: Trigger DDL lifecycle
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   dependencies:
   - ddl-schema
   open_questions: []
+  behaviour_doc: features/triggers-001.md
 - id: triggers-002
   name: Row-trigger firing semantics
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause; recursive-trigger gate.
   entrypoints:
@@ -42,3 +43,4 @@ features:
   - dml-codegen
   open_questions:
   - recursive_triggers pragma default in target build?
+  behaviour_doc: features/triggers-002.md
