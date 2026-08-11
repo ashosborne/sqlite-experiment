@@ -10,3 +10,7 @@ no test/, no TCL, no testfixture, no sqllogictest).
 - [x] Harness stub present (NOT compiled this run); C003 armor caveat documented for RECORD
 - [x] DEFERRED.md explicit (incl. all other prepare-statement IDs)
 - [ ] Test execution RECORD (next stage, human-triggered)
+
+## Run 6 additions
+- 6 new TO_BE_RECORDED cases for features 001/003/005 (scenarios/ + TRACEABILITY rows appended; 002 rows + goldens untouched).
+- New harness: harness/prepare_bind_reset_harness.c — compile-checked against the pinned run-5 amalgamation (NOT executed; execution = Test execution RECORD). Never touches a handle after finalize.

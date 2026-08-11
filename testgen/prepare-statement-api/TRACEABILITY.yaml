@@ -1,9 +1,12 @@
 slice_id: prepare-statement-api
 source_discovery: discovery/prepare-statement-api/MANIFEST.yaml
 phase: B
-updated_at: '2026-08-11T12:30:20Z'
+updated_at: '2026-08-11T12:33:34Z'
 batch_card_ids:
+- prepare-statement-api-001
 - prepare-statement-api-002
+- prepare-statement-api-003
+- prepare-statement-api-005
 cases:
 - id: prepare-statement-api-002-C001
   feature_id: prepare-statement-api-002
@@ -63,10 +66,131 @@ cases:
   deferred_reasons:
   - "BLOCKED (unsafe capture \u2014 use-after-free): stepping a finalized handle is UAF even with SQLITE_ENABLE_API_ARMOR (armor checks NULL,\
     \ not freed memory). Operator charter run 5: do not RECORD; harness call removed. Possible future replacement: sqlite3_step(NULL)."
+- id: prepare-statement-api-001-C001
+  feature_id: prepare-statement-api-001
+  title: "prepare_v2 of valid single statement \u2014 rc, stmt non-NULL, pzTail consumed"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/prepare.c:955
+  - src/prepare.c:700
+  - src/prepare.c:854
+  - discovery/prepare-statement-api/features/prepare-statement-api-001.md
+  boundary: 'C API: sqlite3_prepare_v2("SELECT 1") with pzTail'
+  spec_path: scenarios/prepare-statement-api-001/CASE-001.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - prepare.rc
+  - stmt.nonnull
+  - pzTail.consumed
+  scrub: []
+  deferred_reasons: []
+- id: prepare-statement-api-001-C002
+  feature_id: prepare-statement-api-001
+  title: "whitespace/comment-only SQL \u2014 rc, NULL-or-not stmt, pzTail"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/prepare.c:955
+  - src/prepare.c:700
+  - discovery/prepare-statement-api/features/prepare-statement-api-001.md
+  boundary: 'C API: sqlite3_prepare_v2("  -- just a comment\n  ")'
+  spec_path: scenarios/prepare-statement-api-001/CASE-002.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - prepare.rc
+  - stmt.isnull
+  - pzTail.rest
+  scrub: []
+  deferred_reasons: []
+- id: prepare-statement-api-003-C001
+  feature_id: prepare-statement-api-003
+  title: "bind_int then step to ROW \u2014 bind.rc, step.rc, column value"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/vdbeapi.c:1892
+  - src/vdbeapi.c:1816
+  - discovery/prepare-statement-api/features/prepare-statement-api-003.md
+  boundary: 'C API: SELECT ? / sqlite3_bind_int(1,7) / sqlite3_step'
+  spec_path: scenarios/prepare-statement-api-003/CASE-001.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - bind.rc
+  - step.rc
+  - column_int.value
+  scrub: []
+  deferred_reasons: []
+- id: prepare-statement-api-003-C002
+  feature_id: prepare-statement-api-003
+  title: "bind index out of range \u2014 SQLITE_RANGE shape"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/vdbeapi.c:1816
+  - discovery/prepare-statement-api/features/prepare-statement-api-003.md (Validation section)
+  boundary: 'C API: sqlite3_bind_int(stmt, 2, 7) on a 1-parameter statement'
+  spec_path: scenarios/prepare-statement-api-003/CASE-002.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - bind_oor.rc
+  scrub: []
+  deferred_reasons: []
+- id: prepare-statement-api-005-C001
+  feature_id: prepare-statement-api-005
+  title: "reset preserves bindings \u2014 reset.rc, post-reset step, bound value"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/vdbeapi.c:134
+  - discovery/prepare-statement-api/features/prepare-statement-api-005.md
+  boundary: 'C API: bind/step-to-DONE/reset/step without re-bind'
+  spec_path: scenarios/prepare-statement-api-005/CASE-001.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - reset.rc
+  - post_reset_step.rc
+  - column_after_reset.value
+  scrub: []
+  deferred_reasons: []
+- id: prepare-statement-api-005-C002
+  feature_id: prepare-statement-api-005
+  title: "finalize a live statement \u2014 finalize.rc ONLY (handle never touched after)"
+  status: specified
+  kind: characterization
+  evidence_gate: observed-in-code
+  discovery_evidence:
+  - src/vdbeapi.c:105
+  - discovery/prepare-statement-api/features/prepare-statement-api-005.md
+  boundary: 'C API: sqlite3_finalize on a live mid-row statement'
+  spec_path: scenarios/prepare-statement-api-005/CASE-002.md
+  harness_path: harness/prepare_bind_reset_harness.c
+  assert_mode: TO_BE_RECORDED
+  observables:
+  - finalize.rc
+  scrub: []
+  deferred_reasons: []
 deferred:
 - feature_id: prepare-statement-api-002
   reason: 'Operator DEFER: auto-reprepare/SQLITE_SCHEMA retry matrix; BUSY-on-COMMIT (not independently verified); UTF-16 variants; all other
     prepare-statement-api IDs'
+- feature_id: prepare-statement-api-001
+  reason: 'Operator DEFER: UTF-16 twins; v1-vs-v2 SCHEMA-at-step; v3 prepFlags; schema-lock busy; zombie/closed-db MISUSE; nByte exact-length
+    matrix'
+- feature_id: prepare-statement-api-003
+  reason: 'Operator DEFER: bind-while-busy MISUSE; TOOBIG; STATIC/TRANSIENT destructors; clear_bindings-vs-reset; zeroblob/bind_value'
+- feature_id: prepare-statement-api-005
+  reason: 'Operator DEFER: auto-reprepare/SQLITE_SCHEMA retry; finalize during open transaction; sqlite3_stmt_status counters'
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne

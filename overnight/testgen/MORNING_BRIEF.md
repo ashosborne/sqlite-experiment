@@ -1,53 +1,65 @@
-# MORNING BRIEF — sqlite-experiment run 4: hygiene + Test gen (spine batch)
+# MORNING BRIEF — sqlite-experiment run 6: golden stamp + card truth + next spine batch
 
-Run: 2026-08-11 · resumed from `b737aefe0` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-testgen-spine`
-Stage: **Test generation only** (specs + stubs). Matrix gate = the operator paste itself.
+Run: 2026-08-11 · from `b989b9dd` on `cursor/sqlite-estate-discovery-d22c` · committed as `sqlite-stamp-and-next-spine`
+(Run-4 brief preserved as `overnight/testgen/MORNING_BRIEF-2026-08-11-run4.md`.)
 
-## 1. Hygiene results (Job 1)
+## 1. Stamp (Job 1a)
 
-| Fix | Count |
+- **HUMAN_ACCEPTED** (Ash Osborne, 2026-08-11 Europe/London) written to all four TRACEABILITY files
+  (testgen ×2, tests/characterization ×2) for: error-status-api-001-C001/C002, prepare-statement-api-002-C001/C002 — all stay REPLAY_GREEN.
+- Goldens verified **byte-identical** before/after (md5 diff clean). No renames.
+- **C003 still BLOCKED** (UAF; golden_path null). No `sqlite3_step(NULL)` under this ID — that would be a new C004, out of this run.
+
+## 2. C001 wording class (Job 1b)
+
+- `errmsg.text` tagged **wording_deferred / shape-only** for any future COMPARE; recorded line kept in the golden.
+- Contract observables: the integers — `prepare.rc=1`, `errcode.value=1`, `extended_errcode.value=1`.
+- C002's `out of memory` (sqlite3ErrStr / SQLITE_NOMEM) left as a **contract string** (Terry).
+
+## 3. Card patches (Job 1c) — quoted
+
+- error-status-api-001, Validation:
+  - was: `Calling on NULL db → 'out of memory'/MISUSE-safe static answers (guarded)`
+  - now: `Calling on NULL db returns errcode=7 (SQLITE_NOMEM) and errmsg 'out of memory' (static guarded answers via sqlite3ErrStr). This is not MISUSE.`
+- prepare-statement-api-002, Behaviour:
+  - was: `DONE means the statement completed and must be reset before re-stepping`
+  - now: `... In this pinned build (OMIT_AUTORESET=off) a further sqlite3_step after DONE auto-resets and returns SQLITE_ROW (100) — recorded as golden C002. The "must call sqlite3_reset before re-stepping" rule is the manual/OMIT_AUTORESET=on contract only.`
+- prepare-statement-api-002, Validation:
+  - was: `Stepping a finalized statement → SQLITE_MISUSE`
+  - now: `Stepping a finalized statement: NOT observed and not safely observable — it is use-after-free even with SQLITE_ENABLE_API_ARMOR ... Case C003 is permanently BLOCKED; no MISUSE claim is made from observation.`
+- Discovery notes appended to both cards citing run `2026-08-11T1205Z-legacy-record` + the BASELINE fingerprint.
+- legacy_green: exactly the two stamped IDs (now legitimate); parity_green false everywhere; prepare-statement-api-002 notes: **not conversion-ready while C003 is BLOCKED (stamp ≠ PACK ≠ Convert)**. COVERAGE regenerated. No other card flipped; no PACK authored.
+
+## 4. New cases written (Job 2) — TO_BE_RECORDED, matrix approved by this paste
+
+| Case ID | Spec |
 | --- | --- |
-| Behaviour notes rewritten to `confidence=inferred` in APP_MANIFEST | 12 (10 wasm/jni + 2 file-only) |
-| Slice features → `needs-SME` (cards banner'd, reason in open_questions) | 10 (wasm-js-api ×3, wasm-opfs ×2, jni-java-surface ×3, jni-binding, wasm-binding) |
-| File-only cards downgraded to `confidence=inferred` (status stays documented) | 2 (compile-options-omit-enable-002, vdbe-engine-002) |
-| Observed-in-code cards touched beyond the two above | 0 (173 untouched) |
-| APP_MANIFEST top-level notes | Fixed: "Phase B cards: behaviours documented; surfaces still candidate; completeness incomplete" (stale Phase-A sentence removed; `estate_scan=partial` kept; no invented keys) |
-| COVERAGE.md | Regenerated from APP_MANIFEST; schema VALID |
-| BASELINE fingerprint | **Not captured** — no build exists in this workspace and the charter forbids compiling; "fingerprint not captured" line appended to `overnight/BASELINE.md`. Test execution captures it at first build. |
+| prepare-statement-api-001-C001 (prepare valid stmt: rc, stmt non-NULL, pzTail consumed) | testgen/prepare-statement-api/scenarios/prepare-statement-api-001/CASE-001.md |
+| prepare-statement-api-001-C002 (whitespace/comment-only SQL) | .../prepare-statement-api-001/CASE-002.md |
+| prepare-statement-api-003-C001 (bind_int → ROW → column) | .../prepare-statement-api-003/CASE-001.md |
+| prepare-statement-api-003-C002 (bind index out of range) | .../prepare-statement-api-003/CASE-002.md |
+| prepare-statement-api-005-C001 (reset preserves bindings) | .../prepare-statement-api-005/CASE-001.md |
+| prepare-statement-api-005-C002 (finalize live stmt — finalize.rc only; handle never touched after) | .../prepare-statement-api-005/CASE-002.md |
 
-## 2. Cases written (Job 2) — assert mode TO_BE_RECORDED, no green claims
+Harness: `testgen/prepare-statement-api/harness/prepare_bind_reset_harness.c` — public C API only,
+**compile-checked** against the pinned run-5 amalgamation, **not executed** (execution = RECORD, forbidden this run).
+It never steps/reads a finalized handle. TRACEABILITY rows appended; the 002 rows and goldens untouched.
 
-| Case ID | Spec | Harness |
-| --- | --- | --- |
-| error-status-api-001-C001 (errmsg+errcode after failed prepare of invalid SQL) | testgen/error-status-api/scenarios/error-status-api-001/CASE-001.md | testgen/error-status-api/harness/error_status_harness.c |
-| error-status-api-001-C002 (errcode/errmsg on NULL db — guarded static answers) | .../CASE-002.md | same harness |
-| prepare-statement-api-002-C001 (single-row SELECT: step→ROW, step→DONE) | testgen/prepare-statement-api/scenarios/prepare-statement-api-002/CASE-001.md | testgen/prepare-statement-api/harness/step_state_machine_harness.c |
-| prepare-statement-api-002-C002 (step after DONE without reset) | .../CASE-002.md | same harness |
-| prepare-statement-api-002-C003 (step a finalized statement) | .../CASE-003.md | same harness |
+## 5. Deferred / blocked
 
-TRACEABILITY.yaml in both packs (schema v0.1); scenario MANIFESTs record the paste as the matrix gate.
-**No other feature IDs specified.** The 10 needs-SME rows stay locked out of Test gen pending SME/waiver.
+- Operator DEFERs recorded per feature in DEFERRED.md (UTF-16 twins, prepFlags, busy/TOOBIG/destructors, clear_bindings-vs-reset, reprepare matrix, finalize-in-txn, stmt_status).
+- Still blocked: prepare-statement-api-002-C003 (UAF). No new blocks this run.
 
-## 3. Deferred / blocked
+## 6. What this run did NOT do
 
-- **Deferred (operator-directed, in each pack's DEFERRED.md):** exact error-message wording as contract; UTF-16 twins; error_offset corpus; limit/status64 (other IDs); auto-reprepare/SQLITE_SCHEMA matrix; BUSY-on-COMMIT; prepare-statement-api-001/003–006.
-- **Conditional block recorded for RECORD:** prepare-statement-api-002-C003 (step-after-finalize) is only safely capturable on a build with `SQLITE_ENABLE_API_ARMOR`; on an unarmored baseline Test execution should mark it `BLOCKED (unsafe capture on unarmored build)` rather than freeze UB. Documented in the case spec + harness comment.
-- **Harness compile status:** stubs NOT compiled this run — `sqlite3.h` is a generated file absent from the source tree and the charter forbids building. Cases are `specified` (stubs complete); no fake green run.
+No RECORD of the new cases (no new `*.approved.*`), no COMPARE, no Conversion, no PACK, no Discovery
+seeding, no other CARD_IDS, no product-source edits. Frozen goldens byte-identical.
 
-## 4. What this run did NOT do (explicit)
+## 7. completeness: incomplete
 
-Did **not** RECORD or freeze goldens, did **not** run Test execution, did **not** convert, PACK, or
-seed Discovery. Did **not** touch `src/`, `ext/`, `test/`. Writes confined to `discovery/**`
-(hygiene only), `inventory/**`, `overnight/**`, `testgen/**`.
+Estate residuals unchanged (3 hints, 10 needs-SME cards, METHOD_COVERAGE holes).
 
-## 5. completeness: incomplete
+## 8. Closing ask
 
-Estate residuals unchanged (3 unscanned hints; METHOD_COVERAGE holes; 10 needs-SME cards; per-flag
-compile-option diffs pending baseline fingerprint).
-
-## 6. Closing ask
-
-**Run Test execution RECORD on these 5 cases?** It needs: (a) the pinned baseline build
-(`./configure && make sqlite3.c` per BASELINE.md) which also captures the missing compileoption
-fingerprint, (b) MODE=RECORD, TARGET=legacy on the two harness drivers, (c) the C003 armor check
-before capture. Say the word and the stage handoff is ready.
+**Run Test execution RECORD on the six new TO_BE_RECORDED cases?** The pinned build recipe and
+fingerprint are already in BASELINE.md; the new harness is compile-checked and capture-ready.
