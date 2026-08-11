@@ -19,3 +19,14 @@ Charter: MODE=RECORD, TARGET=legacy, 4 CASE_IDS, C003 blocked by operator (UAF).
 - Build: run-5 build reused; fingerprint re-verified live (3.54.0 / armor 0 / autoreset 0); zero src/ext diffs since run-5 base; BASELINE dump NOT rewritten. Harness compiled fresh.
 - RECORD: six cases captured (scrub: none); goldens frozen; immediate replay byte-matched all six → REPLAY_GREEN. Stamped four verified byte-identical (md5). C003 not touched.
 - Traceability: testgen six → REPLAY_GREEN (assert_mode RECORDED); tests/characterization six rows appended with run id; pending_golden_approval=PENDING_HUMAN recorded beside the run-6 stamp (which covers only the 002 pair). legacy_green unchanged (exactly 2). No PACK, no COMPARE, no Conversion.
+
+---
+
+# Run 8 — stamp six + tidy (sqlite-stamp-six)
+
+- stop.txt: absent. Jobs in charter order:
+- Job 1: golden_approval extended to 8 stamped_case_ids in both prepare-statement TRACEABILITY files (run-6 002 stamp preserved via history note); pending_golden_approval cleared with note; C003 verified BLOCKED/golden_path null.
+- Job 2: actuals collision fixed by splitting logs/record_raw.txt into six full-id files (no harness re-run); colliders deleted; results.json actual_path corrected ×6; byte-check each actual == its golden.
+- Job 3: prep-002 card Summary + observables line de-MISUSE'd (pin wording); APP_MANIFEST note same tidy, conversion-block note kept; COVERAGE regenerated.
+- Job 4: legacy_green → exactly 5 (error-status-001 + prep 001/002/003/005); parity_green all false; counts updated; schema VALID.
+- All 10 goldens md5-verified byte-identical. No RECORD/COMPARE/PACK/Conversion. Run-7 brief preserved as MORNING_BRIEF-2026-08-11-run7.md.

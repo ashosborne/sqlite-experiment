@@ -5,7 +5,7 @@ As-is behaviour card (Discovery v0.2 Phase B). Not a redesign, not a user story.
 
 ## Summary
 
-sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
+sqlite3_step drives the VDBE; return codes as implemented on this pin: ROW/DONE (autoreset after DONE); BUSY only where evidenced. Finalized-handle is UAF / not observed — MISUSE is not a recorded contract.
 
 ## Entrypoints (citations)
 
@@ -13,7 +13,7 @@ sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract.
 
 ## Inputs / outputs / observables
 
-- Return codes SQLITE_ROW/SQLITE_DONE/SQLITE_BUSY/SQLITE_MISUSE/error codes; legacy (v1) statements report generic SQLITE_ERROR until reset
+- Return codes as implemented on this pin: SQLITE_ROW/SQLITE_DONE (autoreset after DONE); SQLITE_BUSY only where evidenced; legacy (v1) statements report generic SQLITE_ERROR until reset. Finalized-handle behaviour is UAF / not observed (C003 BLOCKED)
 
 ## Behaviour (as implemented)
 

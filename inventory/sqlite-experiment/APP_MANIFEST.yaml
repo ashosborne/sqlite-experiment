@@ -1,5 +1,5 @@
 # APP_MANIFEST — sqlite-experiment (portfolio inventory index)
-# Written by: estate-discovery-loop + sqlite-deepen-all + sqlite-testgen-spine + sqlite-testexec-record + sqlite-stamp-and-next-spine. Humans residual-gate.
+# Written by: estate-discovery-loop + sqlite-deepen-all + sqlite-testgen-spine + sqlite-testexec-record(+six) + sqlite-stamp-six. Humans residual-gate.
 # Schema: migration-factory/schemas/app-manifest.schema.json (v1)
 schema_version: 1
 app_id: sqlite-experiment
@@ -3182,10 +3182,11 @@ behaviours:
   status: documented
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock
-    retry).
+    retry). | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp)
+  traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
 - behaviour_id: prepare-statement-api-002
   surface_id: sur-sqlite3-step
   name: Step execution state machine
@@ -3194,9 +3195,9 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-002.md
   legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; sqlite3_step drives the VDBE; SQLITE_ROW/DONE/BUSY/MISUSE contract. | legacy RECORD
-    REPLAY_GREEN 2026-08-11 (goldens HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | not conversion-ready while C003 BLOCKED (stamp
-    != PACK != Convert)
+  notes: confidence=observed-in-code; sqlite3_step drives the VDBE; ROW/DONE as implemented on this pin (autoreset after DONE);
+    BUSY only where evidenced; finalized-handle UAF/not observed. | legacy RECORD REPLAY_GREEN 2026-08-11 (goldens HUMAN_ACCEPTED
+    2026-08-11 Ash Osborne) | not conversion-ready while C003 BLOCKED (stamp != PACK != Convert)
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
 - behaviour_id: prepare-statement-api-003
   surface_id: sur-sqlite3-bind-text
@@ -3204,9 +3205,11 @@ behaviours:
   status: documented
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-003.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings.
+  notes: confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings. | legacy RECORD
+    REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp)
+  traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
 - behaviour_id: prepare-statement-api-004
   surface_id: sur-sqlite3-column-text
   name: Column result access (typed, with coercions)
@@ -3222,9 +3225,11 @@ behaviours:
   status: documented
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-005.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
   notes: confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
+    | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp)
+  traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
 - behaviour_id: prepare-statement-api-006
   surface_id: sur-sqlite3-stmt-readonly
   name: Statement introspection (readonly/busy/explain)
@@ -3770,8 +3775,8 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T12:31:10Z'
-updated_by: sqlite-stamp-and-next-spine
+last_updated: '2026-08-11T13:26:04Z'
+updated_by: sqlite-stamp-six
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -3783,5 +3788,5 @@ counts:
   behaviours_by_status:
     documented: 185
   unscanned_hints: 3
-  legacy_green: 2
+  legacy_green: 5
   parity_green: 0

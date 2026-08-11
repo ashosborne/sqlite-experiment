@@ -1,0 +1,4 @@
+OBS 003-C001 prepare.rc 0
+OBS 003-C001 bind.rc 0
+OBS 003-C001 step.rc 100
+OBS 003-C001 column_int.value 7
