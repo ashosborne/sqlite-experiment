@@ -2673,9 +2673,9 @@ behaviours:
 - behaviour_id: misc-amatch-001
   surface_id: sur-sqlite3-amatch-init
   name: approximate-match vtab
-  status: accepted
+  status: documented
   slice_id: misc-amatch
-  discovery_card: null
+  discovery_card: discovery/misc-amatch/features/misc-amatch-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Edit-distance based approximate matching with user-supplied cost rules
@@ -2721,18 +2721,18 @@ behaviours:
 - behaviour_id: misc-closure-001
   surface_id: sur-sqlite3-closure-init
   name: transitive_closure vtab
-  status: accepted
+  status: documented
   slice_id: misc-closure
-  discovery_card: null
+  discovery_card: discovery/misc-closure/features/misc-closure-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Transitive closure over parent-pointer tables with idcolumn/parentcolumn args
 - behaviour_id: misc-completion-001
   surface_id: sur-sqlite3-completion-init
   name: completion vtab (shell tab-completion)
-  status: accepted
+  status: documented
   slice_id: misc-completion
-  discovery_card: null
+  discovery_card: discovery/misc-completion/features/misc-completion-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell
@@ -2748,9 +2748,9 @@ behaviours:
 - behaviour_id: misc-csv-001
   surface_id: sur-sqlite3-csv-init
   name: CSV file virtual table
-  status: accepted
+  status: documented
   slice_id: misc-csv
-  discovery_card: null
+  discovery_card: discovery/misc-csv/features/misc-csv-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Reads external CSV files as tables (filename= or data= args); filesystem access from
@@ -2786,9 +2786,9 @@ behaviours:
 - behaviour_id: misc-fuzzer-001
   surface_id: sur-sqlite3-fuzzer-init
   name: fuzzer vtab (string mutation search)
-  status: accepted
+  status: documented
   slice_id: misc-fuzzer
-  discovery_card: null
+  discovery_card: discovery/misc-fuzzer/features/misc-fuzzer-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Generates cost-ranked string mutations from a rules table (typo-correction searches)
@@ -2822,18 +2822,18 @@ behaviours:
 - behaviour_id: misc-prefixes-001
   surface_id: sur-sqlite3-prefixes-init
   name: prefixes table-valued function
-  status: accepted
+  status: documented
   slice_id: misc-prefixes
-  discovery_card: null
+  discovery_card: discovery/misc-prefixes/features/misc-prefixes-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Emits all prefixes of a string as rows
 - behaviour_id: misc-qpvtab-001
   surface_id: sur-sqlite3-qpvtab-init
   name: query-plan introspection vtab
-  status: accepted
+  status: documented
   slice_id: misc-qpvtab
-  discovery_card: null
+  discovery_card: discovery/misc-qpvtab/features/misc-qpvtab-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtab echoing xBestIndex constraints/orderby — debugging aid for vtab authors
@@ -2858,9 +2858,9 @@ behaviours:
 - behaviour_id: misc-series-001
   surface_id: sur-sqlite3-series-init
   name: generate_series table-valued function
-  status: accepted
+  status: documented
   slice_id: misc-series
-  discovery_card: null
+  discovery_card: discovery/misc-series/features/misc-series-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns
@@ -2894,18 +2894,18 @@ behaviours:
 - behaviour_id: misc-stmt-001
   surface_id: sur-sqlite3-stmt-init
   name: sqlite_stmt introspection vtab
-  status: accepted
+  status: documented
   slice_id: misc-stmt
-  discovery_card: null
+  discovery_card: discovery/misc-stmt/features/misc-stmt-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Rows describe currently-prepared statements (sql, busy, counters)
 - behaviour_id: misc-templatevtab-001
   surface_id: sur-sqlite3-templatevtab-init
   name: template vtab skeleton
-  status: accepted
+  status: documented
   slice_id: misc-templatevtab
-  discovery_card: null
+  discovery_card: discovery/misc-templatevtab/features/misc-templatevtab-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Reference implementation for writing new vtabs; not a data-path surface
@@ -2939,9 +2939,9 @@ behaviours:
 - behaviour_id: misc-unionvtab-001
   surface_id: sur-sqlite3-unionvtab-init
   name: unionvtab + swarmvtab (same source file)
-  status: accepted
+  status: documented
   slice_id: misc-unionvtab
-  discovery_card: null
+  discovery_card: discovery/misc-unionvtab/features/misc-unionvtab-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Presents many identically-shaped tables (optionally lazily-attached dbs — swarmvtab)
@@ -3044,18 +3044,18 @@ behaviours:
 - behaviour_id: misc-wholenumber-001
   surface_id: sur-sqlite3-wholenumber-init
   name: wholenumber vtab
-  status: accepted
+  status: documented
   slice_id: misc-wholenumber
-  discovery_card: null
+  discovery_card: discovery/misc-wholenumber/features/misc-wholenumber-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series)
 - behaviour_id: misc-zipfile-sqlar-001
   surface_id: sur-sqlite3-zipfile-init
   name: zipfile vtab + sqlar functions (one optional pack)
-  status: accepted
+  status: documented
   slice_id: misc-zipfile-sqlar
-  discovery_card: null
+  discovery_card: discovery/misc-zipfile-sqlar/features/misc-zipfile-sqlar-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Read/write zip archives as tables; sqlar_compress/uncompress build the SQLite-archive
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:34:30Z'
+last_updated: '2026-08-11T10:35:25Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 146
-    accepted: 39
+    documented: 159
+    accepted: 26
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

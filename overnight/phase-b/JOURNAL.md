@@ -89,3 +89,8 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - global-init-config(3) → documented, observed-in-code (db_config toggle inventory carded — the highest-value SME follow-up).
 - wasm-js-api(3), wasm-opfs(2), jni-java-surface(3) → documented with confidence **inferred** (JS/Java layers evidenced at file/class level, not traced/executed — honest labelling per charter).
 - Upsert: PASS (documented=146). COVERAGE regenerated.
+
+## Batch 13 — thin misc vtab cards A (13 cards)
+
+- misc-series/csv/zipfile-sqlar/unionvtab/qpvtab/completion/closure/amatch/fuzzer/prefixes/wholenumber/stmt/templatevtab → documented, observed-in-code.
+- Upsert: PASS (documented=159). COVERAGE regenerated.

@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_series_init()
 out_of_scope_hints:
 - other misc-vtab-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:35:25Z'
 features:
 - id: misc-series-001
   name: generate_series table-valued function
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Eponymous vtab producing integer sequences with start/stop/step hidden columns
   entrypoints:
@@ -22,3 +22,4 @@ features:
   - loadext-api
   open_questions:
   - "Often assumed built-in (shell embeds it) \u2014 confirm downstream build"
+  behaviour_doc: features/misc-series-001.md

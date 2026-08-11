@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_unionvtab_init()
 out_of_scope_hints:
 - other misc-vtab-packs members
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:35:25Z'
 features:
 - id: misc-unionvtab-001
   name: unionvtab + swarmvtab (same source file)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: "Presents many identically-shaped tables (optionally lazily-attached dbs \u2014 swarmvtab) as one table"
   entrypoints:
@@ -21,3 +21,4 @@ features:
   - vtab-core
   - attach-detach
   open_questions: []
+  behaviour_doc: features/misc-unionvtab-001.md
