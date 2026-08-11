@@ -103,6 +103,14 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
     let db = Box::new(Sqlite3 { errcode: SQLITE_OK, extended: SQLITE_OK, errmsg: None });
     *pp_db = Box::into_raw(db);
     run_auto_extensions(*pp_db); // run-12: pinned auto-extension invocation on open
+    // run-15: file-backed open loads an on-disk SQLite DB into the in-memory store
+    if !_filename.is_null() {
+        if let Ok(name) = CStr::from_ptr(_filename).to_str() {
+            if !name.is_empty() && name != ":memory:" {
+                store::open_file(*pp_db as usize, name);
+            }
+        }
+    }
     SQLITE_OK
 }
 
@@ -110,6 +118,7 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
     if !db.is_null() {
+        store::save_file(db as usize); // run-15: persist file-backed connections before teardown
         store::drop_store(db as usize);
         EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
         drop(Box::from_raw(db));
@@ -302,6 +311,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 // ABI note (pack v2 known risk): sqlite3_config/db_config/mprintf/str_appendf are
 // exported at the fixed arities the frozen cases use (Rust stable lacks C varargs).
 
+pub mod dbfile;
 pub mod script_table;
 pub mod store;
 use script_table::SCRIPT_TABLE;

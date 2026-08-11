@@ -11,8 +11,10 @@
 //! not SQLite's btree, not a planner, not durable, not concurrent. Values come
 //! from statement text; the pack forbids script-string lookup for kitchen SQL.
 
+use crate::dbfile::{self, TableImage};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Val {
@@ -71,6 +73,48 @@ pub enum Outcome {
 
 thread_local! {
     static STORES: RefCell<HashMap<usize, Store>> = RefCell::new(HashMap::new());
+    static PATHS: RefCell<HashMap<usize, PathBuf>> = RefCell::new(HashMap::new());
+}
+
+/// File-backed open: record the path and, if the file already holds a SQLite DB,
+/// load its tables into this connection's in-memory store (v5 engine reused).
+pub fn open_file(db: usize, path: &str) {
+    let pb = PathBuf::from(path);
+    PATHS.with(|m| { m.borrow_mut().insert(db, pb.clone()); });
+    if let Ok(imgs) = dbfile::read_db(&pb) {
+        if !imgs.is_empty() {
+            with_store(db, |st| {
+                for img in imgs {
+                    let mut t = Table::default();
+                    t.cols = img.cols.iter().map(|n| Col { name: n.clone(), ..Default::default() }).collect();
+                    let mut maxr = 0i64;
+                    for (rid, vals) in img.rows {
+                        if rid > maxr { maxr = rid; }
+                        t.rows.push((rid, vals));
+                    }
+                    t.next_rowid = maxr;
+                    st.catalog.push(("table".into(), img.name.clone()));
+                    st.tables.push((img.name, t));
+                }
+            });
+        }
+    }
+}
+
+/// Persist a file-backed connection's tables to the on-disk SQLite file.
+pub fn save_file(db: usize) {
+    let path = PATHS.with(|m| m.borrow().get(&db).cloned());
+    if let Some(pb) = path {
+        with_store(db, |st| {
+            let imgs: Vec<TableImage> = st.tables.iter().map(|(n, t)| TableImage {
+                name: n.clone(),
+                cols: t.cols.iter().map(|c| c.name.clone()).collect(),
+                rows: t.rows.clone(),
+            }).collect();
+            let _ = dbfile::write_db(&pb, &imgs);
+        });
+    }
+    PATHS.with(|m| { m.borrow_mut().remove(&db); });
 }
 
 pub fn drop_store(db: usize) {
