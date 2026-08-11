@@ -21,6 +21,7 @@ use std::path::PathBuf;
 pub enum Val {
     Int(i64),
     Text(String),
+    Blob(Vec<u8>),
     Null,
 }
 impl Val {
@@ -28,6 +29,7 @@ impl Val {
         match self {
             Val::Int(i) => Some(i.to_string()),
             Val::Text(t) => Some(t.clone()),
+            Val::Blob(b) => Some(String::from_utf8_lossy(b).into_owned()),
             Val::Null => None,
         }
     }
@@ -46,6 +48,7 @@ struct Col {
 #[derive(Default)]
 struct Table {
     cols: Vec<Col>,
+    uniq_sets: Vec<Vec<String>>, // table-constraint UNIQUE(a,b,...) column lists
     rows: Vec<(i64, Vec<Val>)>, // (rowid, values)
     next_rowid: i64,
     create_sql: String, // raw CREATE TABLE text (for durable schema)
@@ -69,6 +72,7 @@ pub struct Store {
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>, // (type: table|index|trigger, name) — creation order
     index_owner: HashMap<String, String>, // index name -> table
+    indexes: Vec<(String, String, String, bool, String)>, // (name, table, col, unique, raw sql)
     triggers: Vec<(String, Trigger)>,     // (trigger name, def)
     fk_on: bool,
     changes: i64,
@@ -81,7 +85,8 @@ pub enum Outcome {
 }
 
 fn val_to_ev(v: &Val) -> eval::V {
-    match v { Val::Null => eval::V::Null, Val::Int(i) => eval::V::Int(*i), Val::Text(t) => eval::V::Text(t.clone()) }
+    match v { Val::Null => eval::V::Null, Val::Int(i) => eval::V::Int(*i),
+              Val::Text(t) => eval::V::Text(t.clone()), Val::Blob(b) => eval::V::Blob(b.clone()) }
 }
 
 thread_local! {
@@ -107,12 +112,28 @@ pub fn open_file(db: usize, path: &str) {
                 let cols = if cols.is_empty() {
                     ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
                 } else { cols };
-                let mut tab = Table { cols, create_sql: ti.sql.clone(), ..Default::default() };
+                let mut tab = Table { cols, uniq_sets: parse_uniq_sets(&ti.sql), create_sql: ti.sql.clone(), ..Default::default() };
                 let mut maxr = 0i64;
                 for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
                 tab.next_rowid = maxr;
                 st.catalog.push(("table".into(), ti.name.clone()));
                 st.tables.push((ti.name, tab));
+            }
+            for ix in img.indexes {
+                st.catalog.push(("index".into(), ix.name.clone()));
+                st.index_owner.insert(ix.name.clone(), ix.tbl.clone());
+                if let Some(isql) = ix.sql {
+                    // explicit index: rebuild the in-session definition (incl. UNIQUE flag)
+                    if let Some(Stmt::CreateIndex { name, table, col, unique, sql }) = parse_stmt(&isql) {
+                        st.indexes.push((name, table.clone(), col.clone(), unique, sql));
+                        if unique {
+                            if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
+                                if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) { c.unique = true; }
+                            }
+                        }
+                    }
+                }
+                // autoindexes need no in-session rebuild: UNIQUE stays in the table sql
             }
             for tg in img.triggers {
                 if let Some(Stmt::CreateTrigger { name, def, .. }) = parse_stmt(&tg.sql) {
@@ -129,9 +150,9 @@ pub fn drop_store(db: usize) {
 }
 
 /// Persist a file-backed connection to a real (C-readable) SQLite database file.
-/// Durability limit (pack v7): column-UNIQUE constraints are stripped from the
-/// persisted table sql (rows are already de-duplicated in-session; no on-disk
-/// autoindex is built). IPK/FK/REFERENCES and triggers ARE persisted.
+/// v12: UNIQUE is KEPT in the persisted sql and backed by real on-disk index
+/// b-trees (column autoindexes, multi-column UNIQUE sets, explicit indexes), so
+/// C enforces uniqueness against Rust-written files after reopen.
 pub fn save_file(db: usize) {
     let path = PATHS.with(|m| m.borrow().get(&db).cloned());
     if let Some(pb) = path {
@@ -140,31 +161,65 @@ pub fn save_file(db: usize) {
                 let sql = if t.create_sql.is_empty() {
                     format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
                 } else {
-                    sanitize_sql(&t.create_sql)
+                    t.create_sql.clone()
                 };
                 TableImage { name: n.clone(), sql, rows: t.rows.clone() }
             }).collect();
             let triggers: Vec<TriggerImage> = st.triggers.iter()
                 .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
                 .collect();
-            let _ = dbfile::write_db(&pb, &DbImage { tables, triggers });
+            // ---- index b-tree images ----
+            let mut indexes: Vec<dbfile::IndexImage> = Vec::new();
+            for (n, t) in &st.tables {
+                let ipk = dbfile::ipk_index(&t.create_sql);
+                let rowid_of = |rid: i64, vals: &Vec<Val>| -> i64 {
+                    match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid }
+                };
+                let mut auto_n = 1;
+                // column-level UNIQUE / non-IPK PRIMARY KEY autoindexes (declaration order)
+                let declared = {
+                    let (o, c) = (t.create_sql.find('('), t.create_sql.rfind(')'));
+                    match (o, c) { (Some(o), Some(c)) if c > o => parse_coldefs(&t.create_sql[o+1..c]).unwrap_or_default(), _ => Vec::new() }
+                };
+                for (ci, dc) in declared.iter().enumerate() {
+                    if !dc.unique { continue; }
+                    if ipk == Some(ci) { continue; } // rowid alias: no autoindex
+                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter()
+                        .map(|(rid, vals)| (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid_of(*rid, vals))).collect();
+                    indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
+                        tbl: n.clone(), sql: None, entries });
+                    auto_n += 1;
+                }
+                // multi-column UNIQUE(a,b,...) table constraints
+                for set in parse_uniq_sets(&t.create_sql) {
+                    let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
+                    if cis.len() != set.len() { continue; }
+                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
+                        (cis.iter().map(|&ci| vals.get(ci).cloned().unwrap_or(Val::Null)).collect(), rowid_of(*rid, vals))
+                    }).collect();
+                    indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
+                        tbl: n.clone(), sql: None, entries });
+                    auto_n += 1;
+                }
+            }
+            // explicit CREATE [UNIQUE] INDEX
+            for (iname, itable, icol, _uniq, isql) in &st.indexes {
+                if let Some((_, t)) = st.tables.iter().find(|(n, _)| n == itable) {
+                    let ipk = dbfile::ipk_index(&t.create_sql);
+                    if let Some(ci) = t.cols.iter().position(|c| c.name == *icol) {
+                        let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
+                            let rowid = match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => *rid }, None => *rid };
+                            (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid)
+                        }).collect();
+                        indexes.push(dbfile::IndexImage { name: iname.clone(), tbl: itable.clone(),
+                            sql: Some(isql.clone()), entries });
+                    }
+                }
+            }
+            let _ = dbfile::write_db(&pb, &DbImage { tables, triggers, indexes });
         });
     }
     PATHS.with(|m| { m.borrow_mut().remove(&db); });
-}
-
-/// Strip on-disk-unsupported constraints (standalone UNIQUE) from persisted table
-/// sql; keep INTEGER PRIMARY KEY (rowid alias, no autoindex) and REFERENCES (FK).
-fn sanitize_sql(sql: &str) -> String {
-    let mut out = sql.to_string();
-    // remove case-insensitive standalone " UNIQUE" tokens
-    loop {
-        let up = out.to_ascii_uppercase();
-        if let Some(p) = up.find(" UNIQUE") {
-            out.replace_range(p..p + " UNIQUE".len(), "");
-        } else { break; }
-    }
-    out
 }
 
 fn with_store<R>(db: usize, f: impl FnOnce(&mut Store) -> R) -> R {
@@ -205,6 +260,14 @@ fn parse_literal(tok: &str) -> Option<Val> {
     if t.eq_ignore_ascii_case("NULL") {
         return Some(Val::Null);
     }
+    if (t.starts_with("X'") || t.starts_with("x'")) && t.ends_with('\'') {
+        let hx = &t[2..t.len()-1];
+        if hx.len() % 2 == 0 && hx.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Some(Val::Blob((0..hx.len()).step_by(2)
+                .map(|i| u8::from_str_radix(&hx[i..i+2], 16).unwrap()).collect()));
+        }
+        return None;
+    }
     if let Ok(i) = t.parse::<i64>() {
         return Some(Val::Int(i));
     }
@@ -229,7 +292,8 @@ enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate }
 enum Stmt {
     PragmaFkOn,
     Create { name: String, cols: Vec<Col>, sql: String },
-    CreateIndex { name: String, table: String, col: String, unique: bool },
+    CreateIndex { name: String, table: String, col: String, unique: bool, sql: String },
+    DropIndex { name: String },
     CreateTrigger { name: String, def: Trigger, sql: String },
     CreateView { name: String, body: String, sql: String },
     DropView { name: String },
@@ -264,6 +328,11 @@ fn parse_coldefs(inner: &str) -> Option<Vec<Col>> {
     let mut cols = Vec::new();
     for d in defs {
         let d = d.trim();
+        let first = d.split_whitespace().next()?.to_ascii_uppercase();
+        let first = first.split('(').next().unwrap_or(&first).to_string();
+        if matches!(first.as_str(), "UNIQUE" | "PRIMARY" | "CHECK" | "FOREIGN" | "CONSTRAINT") {
+            continue; // table-level constraint, handled by parse_uniq_sets
+        }
         let name = ident(d.split_whitespace().next()?)?;
         let up = d.to_ascii_uppercase();
         let mut col = Col { name, ..Default::default() };
@@ -326,7 +395,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let open = tail.find('(')?;
         let table = ident(&tail[..open])?;
         let col = ident(&tail[open + 1..tail.find(')')?])?;
-        return Some(Stmt::CreateIndex { name, table, col, unique });
+        return Some(Stmt::CreateIndex { name, table, col, unique, sql: s.trim().to_string() });
     }
     if up.starts_with("CREATE TRIGGER ") {
         // CREATE TRIGGER <n> [BEFORE|AFTER] [INSERT|UPDATE|DELETE] ON <t> [WHEN <e>] BEGIN <INSERT...;>+ END
@@ -406,6 +475,9 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     }
     if up.starts_with("DROP TRIGGER ") {
         return Some(Stmt::DropTrigger { name: ident(&s["DROP TRIGGER ".len()..])? });
+    }
+    if up.starts_with("DROP INDEX ") {
+        return Some(Stmt::DropIndex { name: ident(&s["DROP INDEX ".len()..])? });
     }
     if up.starts_with("DROP TABLE ") {
         return Some(Stmt::Drop { name: ident(&s["DROP TABLE ".len()..])? });
@@ -567,13 +639,47 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
 const FK_ERR: &str = "FOREIGN KEY constraint failed";
 const UNIQ_ERR: &str = "UNIQUE constraint failed";
 
+/// table-constraint UNIQUE(a,b,...) column sets from a CREATE TABLE statement
+fn parse_uniq_sets(sql: &str) -> Vec<Vec<String>> {
+    let mut out = Vec::new();
+    let (open, close) = match (sql.find('('), sql.rfind(')')) { (Some(o), Some(c)) if c > o => (o, c), _ => return out };
+    let inner = &sql[open + 1..close];
+    let mut depth = 0; let mut cur = String::new(); let mut defs = Vec::new();
+    for ch in inner.chars() {
+        match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                   ',' if depth == 0 => { defs.push(cur.clone()); cur.clear(); } _ => cur.push(ch) }
+    }
+    if !cur.trim().is_empty() { defs.push(cur); }
+    for d in defs {
+        let d = d.trim();
+        let up = d.to_ascii_uppercase();
+        if up.starts_with("UNIQUE") && d.contains('(') {
+            let o = d.find('(').unwrap();
+            let c = match d.rfind(')') { Some(c) => c, None => continue };
+            let cols: Vec<String> = d[o+1..c].split(',').filter_map(|x| ident(x)).collect();
+            if !cols.is_empty() { out.push(cols); }
+        }
+    }
+    out
+}
+
 fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
     for (ci, col) in t.cols.iter().enumerate() {
         if !col.unique { continue; }
         if let Some(v) = vals.get(ci) {
+            if *v == Val::Null { continue; } // SQL UNIQUE: NULLs are all distinct
             if let Some(pos) = t.rows.iter().position(|(_, r)| r.get(ci) == Some(v)) {
                 return Some(pos);
             }
+        }
+    }
+    // multi-column UNIQUE(a,b,...) table constraints
+    for set in &t.uniq_sets {
+        let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
+        if cis.len() != set.len() { continue; }
+        if cis.iter().any(|&ci| matches!(vals.get(ci), Some(Val::Null) | None)) { continue; }
+        if let Some(pos) = t.rows.iter().position(|(_, r)| cis.iter().all(|&ci| r.get(ci) == vals.get(ci))) {
+            return Some(pos);
         }
     }
     None
@@ -597,7 +703,7 @@ fn ev_truthy(v: &eval::V) -> bool {
 }
 fn ev_to_val(v: eval::V) -> Val {
     match v { eval::V::Null => Val::Null, eval::V::Int(i) => Val::Int(i), eval::V::Real(r) => Val::Int(r as i64),
-              eval::V::Text(t) => Val::Text(t), eval::V::Blob(b) => Val::Text(String::from_utf8_lossy(&b).into_owned()) }
+              eval::V::Text(t) => Val::Text(t), eval::V::Blob(b) => Val::Blob(b) }
 }
 /// Fire matching triggers for one row event. WHEN + body value expressions are
 /// evaluated for real (eval::eval_standalone) against old.*/new.* bindings.
@@ -694,12 +800,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
                 Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
-                    st.tables.push((name, Table { cols, create_sql: sql, ..Default::default() }));
+                    let uniq_sets = parse_uniq_sets(&sql);
+                    st.tables.push((name, Table { cols, uniq_sets, create_sql: sql, ..Default::default() }));
                     st.conn.schema_version += 1;
                 }
-                Stmt::CreateIndex { name, table, col, unique } => {
+                Stmt::CreateIndex { name, table, col, unique, sql } => {
                     st.catalog.push(("index".into(), name.clone()));
-                    st.index_owner.insert(name, table.clone());
+                    st.index_owner.insert(name.clone(), table.clone());
+                    st.indexes.push((name, table.clone(), col.clone(), unique, sql));
                     if unique {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == table)
                             .ok_or("no such table")?;
@@ -707,6 +815,26 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             c.unique = true;
                         }
                     }
+                }
+                Stmt::DropIndex { name } => {
+                    let dropped = st.indexes.iter().find(|(n, ..)| *n == name).cloned();
+                    st.indexes.retain(|(n, ..)| *n != name);
+                    st.index_owner.remove(&name);
+                    st.catalog.retain(|(ty, n)| !(ty == "index" && *n == name));
+                    if let Some((_, table, col, true, _)) = dropped {
+                        // recompute: col stays unique only if the table SQL or another index says so
+                        let still = st.indexes.iter().any(|(_, t2, c2, u2, _)| *t2 == table && *c2 == col && *u2);
+                        if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
+                            let decl = t.1.create_sql.to_ascii_uppercase();
+                            if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) {
+                                let decl_unique = decl.contains(&format!("{} ", c.name.to_ascii_uppercase()))
+                                    && parse_coldefs(&t.1.create_sql[t.1.create_sql.find('(').map(|o| o+1).unwrap_or(0)..t.1.create_sql.rfind(')').unwrap_or(t.1.create_sql.len())])
+                                        .and_then(|cs| cs.iter().find(|cc| cc.name == c.name).map(|cc| cc.unique)).unwrap_or(false);
+                                c.unique = still || decl_unique;
+                            }
+                        }
+                    }
+                    st.conn.schema_version += 1;
                 }
                 Stmt::CreateTrigger { name, def, sql: _ } => {
                     st.catalog.push(("trigger".into(), name.clone()));

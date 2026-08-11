@@ -1,4 +1,4 @@
-//! SQLite database file format writer/reader — v7 (pack sqlite-experiment-c-to-rust@7).
+//! SQLite database file format writer/reader — v12 (pack sqlite-experiment-c-to-rust@12).
 //!
 //! HONESTY GATE: files this module writes must be openable + queryable by the
 //! pinned C amalgamation (fileformat2.html). Real format only — no private dump.
@@ -11,13 +11,17 @@
 //!  - durable schema rows for tables (with their real CREATE sql: REFERENCES / FK
 //!    kept) and triggers (type='trigger', rootpage 0, sql text).
 //!
-//! Deliberate v7 limits (documented, deferred honestly — NOT cheated):
-//!  - overflow pages (TEXT/blob larger than a leaf) are NOT emitted; rows must fit
-//!    within a 4096 leaf,
-//!  - explicit UNIQUE indexes / non-IPK column-UNIQUE autoindexes are NOT built as
-//!    on-disk index b-trees; such constraints are stripped from the persisted table
-//!    sql (rows are already de-duplicated in-session), so post-reopen UNIQUE
-//!    enforcement by C is out of scope this version.
+//! v12 pays the v7 disk debt:
+//!  - real overflow page chains for payloads exceeding one leaf cell (write + read,
+//!    SQLite local/spill formula, 4-byte next pointers, integrity_check-clean),
+//!  - real index b-trees (leaf 0x0a) for UNIQUE column autoindexes, multi-column
+//!    UNIQUE table constraints, and explicit UNIQUE/plain CREATE INDEX — persisted
+//!    in sqlite_schema exactly as C expects (autoindexes with NULL sql), so UNIQUE
+//!    survives reopen and C enforces duplicates against Rust-written files,
+//!  - BLOB values (serial type 12+2n).
+//! Remaining honest limits: single-leaf index b-trees (pinned index content is
+//! small), no expression/partial indexes, indexes not used for lookups (scan +
+//! constraint checks), no WAL, no freelist (files are fully rewritten on save).
 
 use crate::store::Val;
 use std::path::Path;
@@ -35,10 +39,17 @@ pub struct TriggerImage {
     pub tbl: String,
     pub sql: String,
 }
+pub struct IndexImage {
+    pub name: String,
+    pub tbl: String,
+    pub sql: Option<String>,                 // None for sqlite_autoindex_* rows
+    pub entries: Vec<(Vec<Val>, i64)>,       // (key column values, rowid)
+}
 #[derive(Default)]
 pub struct DbImage {
     pub tables: Vec<TableImage>,
     pub triggers: Vec<TriggerImage>,
+    pub indexes: Vec<IndexImage>,
 }
 
 // ---------------- varint / serial types ----------------
@@ -72,6 +83,7 @@ fn encode_record(vals: &[Val]) -> Vec<u8> {
             Val::Null => put_varint(&mut st, 0),
             Val::Int(i) => { let (t, b) = int_serial(*i); put_varint(&mut st, t); body.extend_from_slice(&b); }
             Val::Text(t) => { let b = t.as_bytes(); put_varint(&mut st, 13 + 2 * b.len() as u64); body.extend_from_slice(b); }
+            Val::Blob(b) => { put_varint(&mut st, 12 + 2 * b.len() as u64); body.extend_from_slice(b); }
         }
     }
     let mut header = Vec::new();
@@ -101,7 +113,7 @@ fn decode_record(payload: &[u8]) -> Vec<Val> {
             5 => { let mut x=0i64; for k in 0..6 { x=(x<<8)|payload[body+k] as i64; } if x & 0x8000_0000_0000!=0 { x-=0x1_0000_0000_0000; } out.push(Val::Int(x)); body += 6; }
             6 => { let mut a=[0u8;8]; a.copy_from_slice(&payload[body..body+8]); out.push(Val::Int(i64::from_be_bytes(a))); body += 8; }
             n if n >= 13 && n % 2 == 1 => { let l=((n-13)/2) as usize; out.push(Val::Text(String::from_utf8_lossy(&payload[body..body+l]).into_owned())); body += l; }
-            n if n >= 12 => { let l=((n-12)/2) as usize; out.push(Val::Text(String::from_utf8_lossy(&payload[body..body+l]).into_owned())); body += l; }
+            n if n >= 12 => { let l=((n-12)/2) as usize; out.push(Val::Blob(payload[body..body+l].to_vec())); body += l; }
             _ => out.push(Val::Null),
         }
     }
@@ -149,13 +161,89 @@ fn cols_of(sql: &str) -> Vec<String> {
 }
 
 // ---------------- cell + page builders ----------------
-fn table_cell(rowid: i64, vals: &[Val]) -> Vec<u8> {
+const USABLE: usize = PAGE;                       // no reserved bytes
+const MAX_LOCAL_LEAF: usize = USABLE - 35;        // table leaf spill threshold (4061)
+const MIN_LOCAL: usize = (USABLE - 12) * 32 / 255 - 23; // 489
+const OV_CAP: usize = USABLE - 4;                 // overflow data per page
+
+/// local (in-cell) byte count for a table-leaf payload (fileformat2.html)
+fn local_of(payload: usize) -> usize {
+    if payload <= MAX_LOCAL_LEAF { return payload; }
+    let surplus = MIN_LOCAL + (payload - MIN_LOCAL) % OV_CAP;
+    if surplus <= MAX_LOCAL_LEAF { surplus } else { MIN_LOCAL }
+}
+
+/// build a table-leaf cell; payloads exceeding one leaf get a real overflow chain
+/// (pages appended to `datapages`; page numbers are 2 + index).
+fn table_cell(rowid: i64, vals: &[Val], datapages: &mut Vec<[u8; PAGE]>) -> Vec<u8> {
     let rec = encode_record(vals);
     let mut c = Vec::new();
     put_varint(&mut c, rec.len() as u64);
     put_varint(&mut c, rowid as u64);
-    c.extend_from_slice(&rec);
+    let local = local_of(rec.len());
+    c.extend_from_slice(&rec[..local]);
+    if local < rec.len() {
+        // allocate the overflow chain now; chain pointers filled as we go
+        let mut off = local;
+        let mut chunks: Vec<&[u8]> = Vec::new();
+        while off < rec.len() {
+            let end = (off + OV_CAP).min(rec.len());
+            chunks.push(&rec[off..end]);
+            off = end;
+        }
+        let first = (2 + datapages.len()) as u32;
+        for (i, chunk) in chunks.iter().enumerate() {
+            let mut page = [0u8; PAGE];
+            let next = if i + 1 < chunks.len() { (2 + datapages.len() + 1) as u32 } else { 0 };
+            page[0..4].copy_from_slice(&next.to_be_bytes());
+            page[4..4 + chunk.len()].copy_from_slice(chunk);
+            datapages.push(page);
+        }
+        c.extend_from_slice(&first.to_be_bytes());
+    }
     c
+}
+
+/// sort key across SQLite storage classes (NULL < INT < TEXT < BLOB; binary collation)
+fn val_ord(a: &Val, b: &Val) -> std::cmp::Ordering {
+    use std::cmp::Ordering::*;
+    let rank = |v: &Val| match v { Val::Null => 0, Val::Int(_) => 1, Val::Text(_) => 2, Val::Blob(_) => 3 };
+    match rank(a).cmp(&rank(b)) {
+        Equal => match (a, b) {
+            (Val::Int(x), Val::Int(y)) => x.cmp(y),
+            (Val::Text(x), Val::Text(y)) => x.as_bytes().cmp(y.as_bytes()),
+            (Val::Blob(x), Val::Blob(y)) => x.cmp(y),
+            _ => Equal,
+        },
+        o => o,
+    }
+}
+
+/// index-leaf page (0x0a): cells = varint(payload) + record(key cols + rowid)
+fn index_leaf_page(entries: &[(Vec<Val>, i64)]) -> [u8; PAGE] {
+    let mut cells: Vec<Vec<u8>> = Vec::new();
+    for (key, rowid) in entries {
+        let mut vals = key.clone();
+        vals.push(Val::Int(*rowid));
+        let rec = encode_record(&vals);
+        assert!(rec.len() <= (USABLE - 12) * 64 / 255 - 23,
+                "v12 limit: index payload must fit one leaf cell (no index overflow)");
+        let mut c = Vec::new();
+        put_varint(&mut c, rec.len() as u64);
+        c.extend_from_slice(&rec);
+        cells.push(c);
+    }
+    let mut page = [0u8; PAGE];
+    let mut content = PAGE;
+    let mut ptrs = Vec::new();
+    for cell in &cells { content -= cell.len(); page[content..content+cell.len()].copy_from_slice(cell); ptrs.push(content as u16); }
+    page[0] = 0x0a;
+    page[3..5].copy_from_slice(&(cells.len() as u16).to_be_bytes());
+    let cs: u16 = if cells.is_empty() { PAGE as u16 } else { content as u16 };
+    page[5..7].copy_from_slice(&cs.to_be_bytes());
+    let mut p = 8;
+    for ptr in ptrs { page[p..p+2].copy_from_slice(&ptr.to_be_bytes()); p += 2; }
+    page
 }
 fn leaf_page(cells: &[Vec<u8>], header_off: usize) -> [u8; PAGE] {
     let mut page = [0u8; PAGE];
@@ -230,8 +318,8 @@ pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
                 }
                 None => (*rid, vals.clone()),
             };
-            (rowid, table_cell(rowid, &recvals))
-        }).collect();
+            (rowid, (rowid, recvals))
+        }).collect::<Vec<(i64, (i64, Vec<Val>))>>().into_iter().map(|(rid, (rowid, rv))| (rid, table_cell(rowid, &rv, &mut datapages))).collect();
         cellvec.sort_by_key(|(rid, _)| *rid);
 
         let leaves = chunk_leaves(cellvec);
@@ -261,13 +349,30 @@ pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
         }
         let rec = vec![Val::Text("table".into()), Val::Text(t.name.clone()),
                        Val::Text(t.name.clone()), Val::Int(rootpage), Val::Text(t.sql.clone())];
-        schema_cells.push(table_cell(schema_rowid, &rec));
+        schema_cells.push(table_cell(schema_rowid, &rec, &mut datapages));
+        schema_rowid += 1;
+    }
+    for ix in &img.indexes {
+        let mut entries = ix.entries.clone();
+        entries.sort_by(|(ka, ra), (kb, rb)| {
+            for i in 0..ka.len().min(kb.len()) {
+                let o = val_ord(&ka[i], &kb[i]);
+                if o != std::cmp::Ordering::Equal { return o; }
+            }
+            ra.cmp(rb)
+        });
+        let rootpage = 2 + datapages.len() as i64;
+        datapages.push(index_leaf_page(&entries));
+        let sqlval = match &ix.sql { Some(s) => Val::Text(s.clone()), None => Val::Null };
+        let rec = vec![Val::Text("index".into()), Val::Text(ix.name.clone()),
+                       Val::Text(ix.tbl.clone()), Val::Int(rootpage), sqlval];
+        schema_cells.push(table_cell(schema_rowid, &rec, &mut datapages));
         schema_rowid += 1;
     }
     for tg in &img.triggers {
         let rec = vec![Val::Text("trigger".into()), Val::Text(tg.name.clone()),
                        Val::Text(tg.tbl.clone()), Val::Int(0), Val::Text(tg.sql.clone())];
-        schema_cells.push(table_cell(schema_rowid, &rec));
+        schema_cells.push(table_cell(schema_rowid, &rec, &mut datapages));
         schema_rowid += 1;
     }
 
@@ -307,7 +412,23 @@ fn read_table_pages(buf: &[u8], page_size: usize, root: usize, ipk: Option<usize
                 let mut pos = off;
                 let paylen = get_varint(page, &mut pos) as usize;
                 let rowid = get_varint(page, &mut pos) as i64;
-                let mut vals = decode_record(&page[pos..pos + paylen]);
+                let local = local_of(paylen);
+                let payload: Vec<u8> = if local == paylen {
+                    page[pos..pos + paylen].to_vec()
+                } else {
+                    // reassemble the overflow chain
+                    let mut data = page[pos..pos + local].to_vec();
+                    let mut next = u32::from_be_bytes([page[pos+local], page[pos+local+1],
+                                                       page[pos+local+2], page[pos+local+3]]) as usize;
+                    while next != 0 && data.len() < paylen && next * page_size <= buf.len() {
+                        let op = &buf[(next - 1) * page_size..next * page_size];
+                        let take = (paylen - data.len()).min(page_size - 4);
+                        data.extend_from_slice(&op[4..4 + take]);
+                        next = u32::from_be_bytes([op[0], op[1], op[2], op[3]]) as usize;
+                    }
+                    data
+                };
+                let mut vals = decode_record(&payload);
                 if let Some(i) = ipk { if i < vals.len() { vals[i] = Val::Int(rowid); } }
                 out.push((rowid, vals));
             }
@@ -349,6 +470,9 @@ pub fn read_db(path: &Path) -> std::io::Result<DbImage> {
             img.tables.push(TableImage { name, sql, rows });
         } else if ty == "trigger" {
             img.triggers.push(TriggerImage { name, tbl, sql });
+        } else if ty == "index" {
+            let sqlopt = if matches!(&rec[4], Val::Null) { None } else { Some(sql) };
+            img.indexes.push(IndexImage { name, tbl, sql: sqlopt, entries: Vec::new() });
         }
     }
     Ok(img)
