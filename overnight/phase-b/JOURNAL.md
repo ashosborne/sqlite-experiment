@@ -77,3 +77,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - misc-vfs-shims / misc-func-packs / misc-vtab-packs umbrella cards delegate to their thin run-2 cards; misc-vfs-shims card explicitly EXCLUDES the 3 unscanned members (mmapwarm/memtrace/pcachetrace stay hints — no cards invented).
 - misc-utilities stays a census card (never unbundled); fileio/eval security powers flagged.
 - Upsert: PASS (documented=125). COVERAGE regenerated.
+
+## Batch 11 — run-2 core: compile options + platform VFS (10 cards)
+
+- compile-options-omit-enable(3) — 002/003 stay census cards per charter (no 128-flag explosion); 001 is the baseline oracle.
+- vfs-win(2), vfs-kv(2), vfs-unix-variants(3 — lock-style matrix stays census) → documented, observed-in-code.
+- Upsert: PASS (documented=135). COVERAGE regenerated.

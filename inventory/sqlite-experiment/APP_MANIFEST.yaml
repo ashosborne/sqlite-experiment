@@ -2200,9 +2200,9 @@ behaviours:
 - behaviour_id: compile-options-omit-enable-001
   surface_id: sur-sqlite3-compileoption-used
   name: Compile-option diagnostics API (C + SQL)
-  status: accepted
+  status: documented
   slice_id: compile-options-omit-enable
-  discovery_card: null
+  discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; compileoption_used/get in C and SQL report the active build matrix; itself gated by
@@ -2210,9 +2210,9 @@ behaviours:
 - behaviour_id: compile-options-omit-enable-002
   surface_id: sur-sqlite-omit-guards
   name: OMIT-gate census (surfaces removed per build)
-  status: accepted
+  status: documented
   slice_id: compile-options-omit-enable
-  discovery_card: null
+  discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window,
@@ -2220,9 +2220,9 @@ behaviours:
 - behaviour_id: compile-options-omit-enable-003
   surface_id: sur-sqlite-enable-guards
   name: ENABLE-gate census (surfaces added per build)
-  status: accepted
+  status: documented
   slice_id: compile-options-omit-enable
-  discovery_card: null
+  discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE,
@@ -3537,9 +3537,9 @@ behaviours:
 - behaviour_id: vfs-kv-001
   surface_id: sur-sqlite3kvvfsinit
   name: kvvfs virtual filesystem
-  status: accepted
+  status: documented
   slice_id: vfs-kv
-  discovery_card: null
+  discovery_card: discovery/vfs-kv/features/vfs-kv-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage
@@ -3547,9 +3547,9 @@ behaviours:
 - behaviour_id: vfs-kv-002
   surface_id: sur-sqlite3-kvvfs-methods
   name: Pluggable K/V storage method table
-  status: accepted
+  status: documented
   slice_id: vfs-kv
-  discovery_card: null
+  discovery_card: discovery/vfs-kv/features/vfs-kv-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_kvvfs_methods xRead/xWrite/xDelete callbacks replaceable at runtime.
@@ -3583,9 +3583,9 @@ behaviours:
 - behaviour_id: vfs-unix-variants-001
   surface_id: sur-sqlite-enable-locking-style-paths
   name: Locking-style selection matrix
-  status: accepted
+  status: documented
   slice_id: vfs-unix-variants
-  discovery_card: null
+  discovery_card: discovery/vfs-unix-variants/features/vfs-unix-variants-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Compile+runtime selection among 8 locking strategies; auto-detection per filesystem
@@ -3593,27 +3593,27 @@ behaviours:
 - behaviour_id: vfs-unix-variants-002
   surface_id: sur-proxyiomethods
   name: Proxy locking (conch file protocol)
-  status: accepted
+  status: documented
   slice_id: vfs-unix-variants
-  discovery_card: null
+  discovery_card: discovery/vfs-unix-variants/features/vfs-unix-variants-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; proxyIoMethods route locks through a conch file; macOS-specific concurrency semantics.
 - behaviour_id: vfs-unix-variants-003
   surface_id: sur-os-vxworks-sections
   name: VxWorks variant paths
-  status: accepted
+  status: documented
   slice_id: vfs-unix-variants
-  discovery_card: null
+  discovery_card: discovery/vfs-unix-variants/features/vfs-unix-variants-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; OS_VXWORKS sections switch to named semaphores and RTOS path handling.
 - behaviour_id: vfs-win-001
   surface_id: sur-winopen
   name: Win32 VFS registration and file open
-  status: accepted
+  status: documented
   slice_id: vfs-win
-  discovery_card: null
+  discovery_card: discovery/vfs-win/features/vfs-win-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines
@@ -3621,9 +3621,9 @@ behaviours:
 - behaviour_id: vfs-win-002
   surface_id: sur-winshmmap
   name: Windows shared-memory and mmap paths (WAL)
-  status: accepted
+  status: documented
   slice_id: vfs-win
-  discovery_card: null
+  discovery_card: discovery/vfs-win/features/vfs-win-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; winShmMap implements wal-index shm on win32; winFetch mmap read path.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:32:23Z'
+last_updated: '2026-08-11T10:33:29Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 125
-    accepted: 60
+    documented: 135
+    accepted: 50
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

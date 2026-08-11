@@ -5,12 +5,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - gated feature behaviour
 - tool/-generated option lists
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:33:28Z'
 features:
 - id: compile-options-omit-enable-001
   name: Compile-option diagnostics API (C + SQL)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: compileoption_used/get in C and SQL report the active build matrix; itself gated by SQLITE_OMIT_COMPILEOPTION_DIAGS.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   dependencies: []
   open_questions:
   - Which exact option set is the migration baseline? Pin via this API before characterization.
+  behaviour_doc: features/compile-options-omit-enable-001.md
 - id: compile-options-omit-enable-002
   name: OMIT-gate census (surfaces removed per build)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as
     default-present.
@@ -37,9 +38,10 @@ features:
     - src/sqliteInt.h
   dependencies: []
   open_questions: []
+  behaviour_doc: features/compile-options-omit-enable-002.md
 - id: compile-options-omit-enable-003
   name: ENABLE-gate census (surfaces added per build)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE, ...).
   entrypoints:
@@ -50,3 +52,4 @@ features:
     - src/os_unix.c:66
   dependencies: []
   open_questions: []
+  behaviour_doc: features/compile-options-omit-enable-003.md

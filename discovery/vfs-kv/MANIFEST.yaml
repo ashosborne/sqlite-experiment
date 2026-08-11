@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3KvvfsInit()
 out_of_scope_hints:
 - wasm JS glue
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:33:28Z'
 features:
 - id: vfs-kv-001
   name: kvvfs virtual filesystem
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage primary consumer.
   entrypoints:
@@ -21,9 +21,10 @@ features:
     - src/os_kv.c:893
   dependencies: []
   open_questions: []
+  behaviour_doc: features/vfs-kv-001.md
 - id: vfs-kv-002
   name: Pluggable K/V storage method table
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: sqlite3_kvvfs_methods xRead/xWrite/xDelete callbacks replaceable at runtime.
   entrypoints:
@@ -36,3 +37,4 @@ features:
   - vfs-kv-001
   open_questions:
   - Non-wasm consumers exist?
+  behaviour_doc: features/vfs-kv-002.md

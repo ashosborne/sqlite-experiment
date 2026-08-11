@@ -5,12 +5,12 @@ seed_entrypoints:
 - SQLITE_ENABLE_LOCKING_STYLE
 out_of_scope_hints:
 - default posix path
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:33:28Z'
 features:
 - id: vfs-unix-variants-001
   name: Locking-style selection matrix
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Compile+runtime selection among 8 locking strategies; auto-detection per filesystem when LOCKING_STYLE enabled.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   - compile-options-omit-enable
   open_questions:
   - Any NFS/AFP deployment downstream?
+  behaviour_doc: features/vfs-unix-variants-001.md
 - id: vfs-unix-variants-002
   name: Proxy locking (conch file protocol)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: proxyIoMethods route locks through a conch file; macOS-specific concurrency semantics.
   entrypoints:
@@ -39,9 +40,10 @@ features:
   dependencies:
   - vfs-unix-variants-001
   open_questions: []
+  behaviour_doc: features/vfs-unix-variants-002.md
 - id: vfs-unix-variants-003
   name: VxWorks variant paths
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: OS_VXWORKS sections switch to named semaphores and RTOS path handling.
   entrypoints:
@@ -52,3 +54,4 @@ features:
   dependencies: []
   open_questions:
   - Embedded RTOS in scope at all?
+  behaviour_doc: features/vfs-unix-variants-003.md
