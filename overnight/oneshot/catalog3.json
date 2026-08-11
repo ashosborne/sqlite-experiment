@@ -1,0 +1,12 @@
+[
+{"id":"engine-kitchen-001-C001","slice":"engine-kitchen","feature":"engine-kitchen-001","kind":"script",
+ "sql":"CREATE TABLE k(a INTEGER); INSERT INTO k VALUES(7); SELECT a FROM k;"},
+{"id":"engine-kitchen-001-C002","slice":"engine-kitchen","feature":"engine-kitchen-001","kind":"script",
+ "sql":"CREATE TABLE k(a INTEGER, b TEXT); INSERT INTO k VALUES(1,'x'); INSERT INTO k VALUES(2,'y'); SELECT a,b FROM k ORDER BY a;"},
+{"id":"engine-kitchen-001-C003","slice":"engine-kitchen","feature":"engine-kitchen-001","kind":"script",
+ "sql":"CREATE TABLE k(a INTEGER); INSERT INTO k VALUES(10); UPDATE k SET a=11; SELECT a FROM k;"},
+{"id":"engine-kitchen-001-C004","slice":"engine-kitchen","feature":"engine-kitchen-001","kind":"script",
+ "sql":"CREATE TABLE k(a INTEGER); INSERT INTO k VALUES(1),(2); DELETE FROM k WHERE a=1; SELECT a FROM k;"},
+{"id":"engine-kitchen-001-C005","slice":"engine-kitchen","feature":"engine-kitchen-001","kind":"script",
+ "sql":"CREATE TABLE k(a INTEGER); INSERT INTO k VALUES(424242); SELECT a FROM k;"}
+]

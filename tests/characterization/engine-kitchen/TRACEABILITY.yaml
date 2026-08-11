@@ -1,0 +1,43 @@
+slice_id: engine-kitchen
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-kitchen-001-C001
+  feature_id: engine-kitchen-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-kitchen-001/C001.approved.txt
+  run_id: 2026-08-11T1800Z-legacy-record-kitchen
+- case_id: engine-kitchen-001-C002
+  feature_id: engine-kitchen-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-kitchen-001/C002.approved.txt
+  run_id: 2026-08-11T1800Z-legacy-record-kitchen
+- case_id: engine-kitchen-001-C003
+  feature_id: engine-kitchen-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-kitchen-001/C003.approved.txt
+  run_id: 2026-08-11T1800Z-legacy-record-kitchen
+- case_id: engine-kitchen-001-C004
+  feature_id: engine-kitchen-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-kitchen-001/C004.approved.txt
+  run_id: 2026-08-11T1800Z-legacy-record-kitchen
+- case_id: engine-kitchen-001-C005
+  feature_id: engine-kitchen-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-kitchen-001/C005.approved.txt
+  run_id: 2026-08-11T1800Z-legacy-record-kitchen
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-13 delegated stamp (engine-v1 kitchen charter)
+  stamped_case_ids:
+  - engine-kitchen-001-C001
+  - engine-kitchen-001-C002
+  - engine-kitchen-001-C003
+  - engine-kitchen-001-C004
+  - engine-kitchen-001-C005
+updated_at: '2026-08-11T15:30:36Z'
+run_id: 2026-08-11T1800Z-legacy-record-kitchen

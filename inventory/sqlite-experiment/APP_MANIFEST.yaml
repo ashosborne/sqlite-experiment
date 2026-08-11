@@ -114,6 +114,7 @@ scanned_seeds:
 - misc-tmstmpvfs
 - misc-vfslog
 - misc-vfstrace
+- engine-kitchen (composed kitchen spine, run 13 — not an estate hint)
 unscanned_hints:
 - 'ext: misc-mmapwarm — mmap cache pre-warming helper (ext/misc/mmapwarm.c)'
 - 'ext: misc-memtrace — malloc tracing hooks (ext/misc/memtrace.c)'
@@ -2035,6 +2036,19 @@ surfaces:
   discovery_evidence:
   - src/window.c:610
   - src/window.c:147
+- surface_id: sur-engine-kitchen
+  kind: other
+  locator: sqlite3_exec() kitchen scripts
+  repo_path: src/build.c
+  status: accepted
+  slice_id: engine-kitchen
+  notes: composed kitchen spine (run 13); seam-kind=api
+  discovery_evidence:
+  - src/build.c:1225
+  - src/insert.c:900
+  - src/update.c:285
+  - src/delete.c:288
+  - src/select.c:7642
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -3931,18 +3945,30 @@ behaviours:
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls. | legacy RECORD REPLAY_GREEN
     + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
   traceability: tests/characterization/window-functions/TRACEABILITY.yaml
-last_updated: '2026-08-11T15:00:20Z'
-updated_by: sqlite-oneshot-leftovers
+- behaviour_id: engine-kitchen-001
+  surface_id: sur-engine-kitchen
+  name: Kitchen-spine row round-trip
+  status: documented
+  slice_id: engine-kitchen
+  discovery_card: discovery/engine-kitchen/features/engine-kitchen-001.md
+  legacy_green: true
+  parity_green: false
+  notes: confidence=observed-in-code; composed slice for pack v4 store law (run 13) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-13 delegated stamp)
+  traceability: tests/characterization/engine-kitchen/TRACEABILITY.yaml
+last_updated: '2026-08-11T15:30:36Z'
+updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 185
+  surfaces_total: 186
   surfaces_by_status:
     candidate: 185
-  behaviours_known: 185
+    accepted: 1
+  behaviours_known: 186
   behaviours_by_status:
-    documented: 185
+    documented: 186
   unscanned_hints: 3
-  legacy_green: 95
+  legacy_green: 96
   parity_green: 0

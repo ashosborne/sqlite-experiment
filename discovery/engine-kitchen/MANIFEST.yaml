@@ -1,0 +1,19 @@
+slice_id: engine-kitchen
+seed: "kitchen spine: CREATE/INSERT/UPDATE/DELETE/SELECT round-trip on user tables (composed slice, run 13)"
+seed_entrypoints: ["sqlite3_exec() over user-table DML/DDL"]
+out_of_scope_hints: ["joins", "indexes", "views", "FK", "WAL", "files"]
+phase: B
+updated_at: 2026-08-11T15:29:34Z
+features:
+  - id: engine-kitchen-001
+    name: Kitchen-spine row round-trip (create/insert/update/delete/select)
+    status: documented
+    confidence: observed-in-code
+    summary: "Basic user-table row lifecycle through sqlite3_exec on the pinned C library; the five frozen scripts define the licensed shapes."
+    entrypoints:
+      - kind: api
+        locator: "sqlite3_exec() kitchen scripts"
+        evidence: ["src/build.c:1225", "src/insert.c:900", "src/update.c:285", "src/delete.c:288", "src/select.c:7642"]
+    behaviour_doc: features/engine-kitchen-001.md
+    dependencies: ["ddl-schema", "dml-codegen", "select-codegen"]
+    open_questions: []
