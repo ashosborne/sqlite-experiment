@@ -5,13 +5,13 @@ seed_entrypoints:
 out_of_scope_hints:
 - C bridge umbrella
 - Java build tooling
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:34:29Z'
 features:
 - id: jni-java-surface-001
   name: capi 1:1 Java layer with callback interfaces
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.
   entrypoints:
   - kind: other
@@ -23,10 +23,11 @@ features:
   dependencies:
   - jni-binding
   open_questions: []
+  behaviour_doc: features/jni-java-surface-001.md
 - id: jni-java-surface-002
   name: wrapper1 object-oriented Java layer
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: Sqlite/SqliteException OO wrapper with typed function classes.
   entrypoints:
   - kind: other
@@ -37,10 +38,11 @@ features:
   dependencies:
   - jni-java-surface-001
   open_questions: []
+  behaviour_doc: features/jni-java-surface-002.md
 - id: jni-java-surface-003
   name: FTS5 Java extension bindings
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: Java projections of fts5_api / Fts5ExtensionApi for aux functions.
   entrypoints:
   - kind: other
@@ -52,3 +54,4 @@ features:
   - fts5
   open_questions:
   - 'Same consumer question as run 1: does anything downstream use the Java binding?'
+  behaviour_doc: features/jni-java-surface-003.md

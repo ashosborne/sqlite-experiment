@@ -5,13 +5,13 @@ seed_entrypoints:
 out_of_scope_hints:
 - OPFS persistence
 - emscripten build tooling
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:34:29Z'
 features:
 - id: wasm-js-api-001
   name: Low-level JS capi projection + C glue
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: sqlite3.capi namespace built by prologue/glue over exported C functions.
   entrypoints:
   - kind: other
@@ -23,10 +23,11 @@ features:
   dependencies:
   - wasm-binding
   open_questions: []
+  behaviour_doc: features/wasm-js-api-001.md
 - id: wasm-js-api-002
   name: oo1 object-oriented JS API (DB/Stmt)
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: High-level DB/Stmt wrapper with exec() config object semantics.
   entrypoints:
   - kind: other
@@ -36,10 +37,11 @@ features:
   dependencies:
   - wasm-js-api-001
   open_questions: []
+  behaviour_doc: features/wasm-js-api-002.md
 - id: wasm-js-api-003
   name: worker1 message protocol + promiser
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: "postMessage-based API for worker-thread use; promise wrapper. Async seam \u2014 split cards at bind."
   entrypoints:
   - kind: other
@@ -49,3 +51,4 @@ features:
   dependencies:
   - wasm-js-api-002
   open_questions: []
+  behaviour_doc: features/wasm-js-api-003.md

@@ -5,13 +5,13 @@ seed_entrypoints:
 out_of_scope_hints:
 - kvvfs
 - JS API layers
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:34:29Z'
 features:
 - id: wasm-opfs-001
   name: OPFS async-proxy VFS
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS handles.
   entrypoints:
   - kind: other
@@ -23,10 +23,11 @@ features:
   dependencies:
   - wasm-js-api
   open_questions: []
+  behaviour_doc: features/wasm-opfs-001.md
 - id: wasm-opfs-002
   name: OPFS SyncAccessHandle-pool VFS (sahpool)
-  status: accepted
-  confidence: observed-in-code
+  status: documented
+  confidence: inferred
   summary: Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.
   entrypoints:
   - kind: other
@@ -38,3 +39,4 @@ features:
   - wasm-opfs-001
   open_questions:
   - Which OPFS variant does downstream deploy? Concurrency semantics differ.
+  behaviour_doc: features/wasm-opfs-002.md

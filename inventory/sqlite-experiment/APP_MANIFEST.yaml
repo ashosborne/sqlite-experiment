@@ -2506,27 +2506,27 @@ behaviours:
 - behaviour_id: global-init-config-001
   surface_id: sur-sqlite3-initialize
   name: Library init/shutdown lifecycle
-  status: accepted
+  status: documented
   slice_id: global-init-config
-  discovery_card: null
+  discovery_card: discovery/global-init-config/features/global-init-config-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open paths.
 - behaviour_id: global-init-config-002
   surface_id: sur-sqlite3-config
   name: Global configuration op matrix
-  status: accepted
+  status: documented
   slice_id: global-init-config
-  discovery_card: null
+  discovery_card: discovery/global-init-config/features/global-init-config-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config.
 - behaviour_id: global-init-config-003
   surface_id: sur-sqlite3-db-config
   name: Per-connection configuration (db_config)
-  status: accepted
+  status: documented
   slice_id: global-init-config
-  discovery_card: null
+  discovery_card: discovery/global-init-config/features/global-init-config-003.md
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb
@@ -2571,27 +2571,27 @@ behaviours:
 - behaviour_id: jni-java-surface-001
   surface_id: sur-org-sqlite-jni-capi-capi
   name: capi 1:1 Java layer with callback interfaces
-  status: accepted
+  status: documented
   slice_id: jni-java-surface
-  discovery_card: null
+  discovery_card: discovery/jni-java-surface/features/jni-java-surface-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.
 - behaviour_id: jni-java-surface-002
   surface_id: sur-org-sqlite-jni-wrapper1-sqlite
   name: wrapper1 object-oriented Java layer
-  status: accepted
+  status: documented
   slice_id: jni-java-surface
-  discovery_card: null
+  discovery_card: discovery/jni-java-surface/features/jni-java-surface-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Sqlite/SqliteException OO wrapper with typed function classes.
 - behaviour_id: jni-java-surface-003
   surface_id: sur-org-sqlite-jni-fts5
   name: FTS5 Java extension bindings
-  status: accepted
+  status: documented
   slice_id: jni-java-surface
-  discovery_card: null
+  discovery_card: discovery/jni-java-surface/features/jni-java-surface-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Java projections of fts5_api / Fts5ExtensionApi for aux functions.
@@ -3676,27 +3676,27 @@ behaviours:
 - behaviour_id: wasm-js-api-001
   surface_id: sur-ext-wasm-api-sqlite3-api-prologue-js
   name: Low-level JS capi projection + C glue
-  status: accepted
+  status: documented
   slice_id: wasm-js-api
-  discovery_card: null
+  discovery_card: discovery/wasm-js-api/features/wasm-js-api-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; sqlite3.capi namespace built by prologue/glue over exported C functions.
 - behaviour_id: wasm-js-api-002
   surface_id: sur-ext-wasm-api-sqlite3-api-oo1-c-pp-js
   name: oo1 object-oriented JS API (DB/Stmt)
-  status: accepted
+  status: documented
   slice_id: wasm-js-api
-  discovery_card: null
+  discovery_card: discovery/wasm-js-api/features/wasm-js-api-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; High-level DB/Stmt wrapper with exec() config object semantics.
 - behaviour_id: wasm-js-api-003
   surface_id: sur-ext-wasm-api-sqlite3-api-worker1-c-pp-js
   name: worker1 message protocol + promiser
-  status: accepted
+  status: documented
   slice_id: wasm-js-api
-  discovery_card: null
+  discovery_card: discovery/wasm-js-api/features/wasm-js-api-003.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards
@@ -3704,9 +3704,9 @@ behaviours:
 - behaviour_id: wasm-opfs-001
   surface_id: sur-sqlite3-vfs-opfs-c-pp-js
   name: OPFS async-proxy VFS
-  status: accepted
+  status: documented
   slice_id: wasm-opfs
-  discovery_card: null
+  discovery_card: discovery/wasm-opfs/features/wasm-opfs-001.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS
@@ -3714,9 +3714,9 @@ behaviours:
 - behaviour_id: wasm-opfs-002
   surface_id: sur-sqlite3-vfs-opfs-sahpool-c-pp-js
   name: OPFS SyncAccessHandle-pool VFS (sahpool)
-  status: accepted
+  status: documented
   slice_id: wasm-opfs
-  discovery_card: null
+  discovery_card: discovery/wasm-opfs/features/wasm-opfs-002.md
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.
@@ -3757,7 +3757,7 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T10:33:29Z'
+last_updated: '2026-08-11T10:34:30Z'
 updated_by: sqlite-deepen-all
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
@@ -3767,8 +3767,8 @@ counts:
     candidate: 185
   behaviours_known: 185
   behaviours_by_status:
-    documented: 135
-    accepted: 50
+    documented: 146
+    accepted: 39
   unscanned_hints: 3
   legacy_green: 0
   parity_green: 0

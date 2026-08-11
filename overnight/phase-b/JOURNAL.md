@@ -83,3 +83,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - compile-options-omit-enable(3) — 002/003 stay census cards per charter (no 128-flag explosion); 001 is the baseline oracle.
 - vfs-win(2), vfs-kv(2), vfs-unix-variants(3 — lock-style matrix stays census) → documented, observed-in-code.
 - Upsert: PASS (documented=135). COVERAGE regenerated.
+
+## Batch 12 — run-2 core: init/config + wasm/jni layers (11 cards)
+
+- global-init-config(3) → documented, observed-in-code (db_config toggle inventory carded — the highest-value SME follow-up).
+- wasm-js-api(3), wasm-opfs(2), jni-java-surface(3) → documented with confidence **inferred** (JS/Java layers evidenced at file/class level, not traced/executed — honest labelling per charter).
+- Upsert: PASS (documented=146). COVERAGE regenerated.
