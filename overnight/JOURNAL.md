@@ -258,3 +258,9 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - misc-basexx, misc-sha1 (retire-vs-keep flag), misc-shathree walked.
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 82/120 (41+41). Totals 332. Slices this run: 28 (total 88). Zero-new-streak: 0.
+
+## Resume iteration 8 — seeds: misc-decimal, misc-ieee754, misc-percentile, misc-totype
+
+- stop.txt: absent. Thin func unbundle continues.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 90/120 (45+45). Totals 340. Slices this run: 32 (total 92). Zero-new-streak: 0.

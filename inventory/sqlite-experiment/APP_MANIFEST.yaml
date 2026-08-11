@@ -95,13 +95,13 @@ scanned_seeds:
 - misc-sha1
 - misc-shathree
 - misc-zorder
+- misc-decimal
+- misc-ieee754
+- misc-percentile
+- misc-totype
 unscanned_hints:
 - 'ext: misc-vfs-unbundle — split run-1 misc-vfs-shims umbrella into thin named seams (new SLICE_IDs; do not thrash umbrella
   row)'
-- 'ext: misc-decimal — arbitrary-precision decimal arithmetic (ext/misc/decimal.c)'
-- 'ext: misc-ieee754 — IEEE754 float decomposition functions (ext/misc/ieee754.c)'
-- 'ext: misc-percentile — percentile/median aggregate (ext/misc/percentile.c)'
-- 'ext: misc-totype — tointeger/toreal strict conversions (ext/misc/totype.c)'
 - 'ext: misc-uint — UINT collating sequence (ext/misc/uint.c)'
 - 'ext: misc-regexp — regexp() pattern matching (ext/misc/regexp.c)'
 - 'ext: misc-spellfix — spellfix1 fuzzy-search vtab + editdist (ext/misc/spellfix.c)'
@@ -899,6 +899,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/csv.c:964
+- surface_id: sur-sqlite3-decimal-init
+  kind: other
+  locator: sqlite3_decimal_init()
+  repo_path: ext/misc/decimal.c
+  status: candidate
+  slice_id: misc-decimal
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/decimal.c:922
 - surface_id: sur-ext-misc-function-packs
   kind: other
   locator: ext/misc function packs
@@ -920,6 +929,24 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/fuzzer.c:1184
+- surface_id: sur-sqlite3-ieee-init
+  kind: other
+  locator: sqlite3_ieee_init()
+  repo_path: ext/misc/ieee754.c
+  status: candidate
+  slice_id: misc-ieee754
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/ieee754.c:329
+- surface_id: sur-sqlite3-percentile-init
+  kind: other
+  locator: sqlite3_percentile_init()
+  repo_path: ext/misc/percentile.c
+  status: candidate
+  slice_id: misc-percentile
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/percentile.c:480
 - surface_id: sur-sqlite3-prefixes-init
   kind: other
   locator: sqlite3_prefixes_init()
@@ -983,6 +1010,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/templatevtab.c:260
+- surface_id: sur-sqlite3-totype-init
+  kind: other
+  locator: sqlite3_totype_init()
+  repo_path: ext/misc/totype.c
+  status: candidate
+  slice_id: misc-totype
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/totype.c:511
 - surface_id: sur-sqlite3-unionvtab-init
   kind: other
   locator: sqlite3_unionvtab_init()
@@ -2546,6 +2582,15 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; Reads external CSV files as tables (filename= or data= args); filesystem access from
     SQL — security-relevant
+- behaviour_id: misc-decimal-001
+  surface_id: sur-sqlite3-decimal-init
+  name: arbitrary-precision decimal arithmetic
+  status: candidate
+  slice_id: misc-decimal
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence
 - behaviour_id: misc-func-packs-001
   surface_id: sur-ext-misc-function-packs
   name: Loadable SQL-function extension pack (~18)
@@ -2565,6 +2610,24 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Generates cost-ranked string mutations from a rules table (typo-correction searches)
+- behaviour_id: misc-ieee754-001
+  surface_id: sur-sqlite3-ieee-init
+  name: IEEE754 float decomposition functions
+  status: candidate
+  slice_id: misc-ieee754
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Exact float<->(mantissa,exponent) mapping functions
+- behaviour_id: misc-percentile-001
+  surface_id: sur-sqlite3-percentile-init
+  name: percentile / median aggregates
+  status: candidate
+  slice_id: misc-percentile
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Order-statistics aggregates incl. percentile_cont/percentile_disc variants
 - behaviour_id: misc-prefixes-001
   surface_id: sur-sqlite3-prefixes-init
   name: prefixes table-valued function
@@ -2628,6 +2691,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Reference implementation for writing new vtabs; not a data-path surface
+- behaviour_id: misc-totype-001
+  surface_id: sur-sqlite3-totype-init
+  name: strict conversion functions tointeger/toreal
+  status: candidate
+  slice_id: misc-totype
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; NULL-on-failure strict conversions (unlike CAST's clamping)
 - behaviour_id: misc-unionvtab-001
   surface_id: sur-sqlite3-unionvtab-init
   name: unionvtab + swarmvtab (same source file)
@@ -3402,17 +3474,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:34:00Z'
+last_updated: '2026-08-11T09:34:21Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 166
+  surfaces_total: 170
   surfaces_by_status:
-    candidate: 166
-  behaviours_known: 166
+    candidate: 170
+  behaviours_known: 170
   behaviours_by_status:
-    candidate: 166
-  unscanned_hints: 14
+    candidate: 170
+  unscanned_hints: 10
   legacy_green: 0
   parity_green: 0
