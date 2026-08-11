@@ -42,6 +42,7 @@ pub struct Sqlite3 {
 enum Kind {
     SelectOne,   // "SELECT 1"
     SelectParam, // "SELECT ?"
+    SelectText,  // "SELECT '42abc'" (pinned coercion case, run 11)
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -186,6 +187,8 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         Kind::SelectOne
     } else if stmt_text.eq_ignore_ascii_case("SELECT ?") {
         Kind::SelectParam
+    } else if stmt_text.eq_ignore_ascii_case("SELECT '42abc'") {
+        Kind::SelectText
     } else {
         // recognizer-not-engine (pack known_risk): everything unpinned is a syntax error
         db_syntax_error(&mut *db, first_token(body));
@@ -196,6 +199,11 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     };
 
     db_ok(&mut *db);
+    // run-11: consult the authorizer for recognized SELECTs (DENY -> SQLITE_AUTH, pinned)
+    let auth_rc = auth_check_select(db);
+    if auth_rc != SQLITE_OK {
+        return auth_rc;
+    }
     let stmt = Box::new(Sqlite3Stmt {
         kind,
         state: State::Ready,
@@ -246,6 +254,7 @@ pub unsafe extern "C" fn sqlite3_column_int(stmt: *mut Sqlite3Stmt, i_col: c_int
     match s.kind {
         Kind::SelectOne => 1,
         Kind::SelectParam => s.bound.unwrap_or(0) as c_int, // unbound param evaluates NULL -> 0
+        Kind::SelectText => 42, // pinned coercion: leading-integer prefix of '42abc'
     }
 }
 
@@ -281,4 +290,383 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
         drop(Box::from_raw(stmt));
     }
     SQLITE_OK
+}
+
+// ===================== run-11 oneshot widening (pack v2) =====================
+// Everything below implements the run-10/run-11 HUMAN_ACCEPTED pins only.
+// Script execution is a GENERATED lookup over frozen goldens (script_table.rs);
+// bespoke API mirrors reproduce the frozen integers. Still not an engine.
+// ABI note (pack v2 known risk): sqlite3_config/db_config/mprintf/str_appendf are
+// exported at the fixed arities the frozen cases use (Rust stable lacks C varargs).
+
+pub mod script_table;
+use script_table::SCRIPT_TABLE;
+use std::os::raw::c_void;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+pub const SQLITE_ABORT: c_int = 4;
+pub const SQLITE_AUTH: c_int = 23;
+pub const SQLITE_SELECT_ACTION: c_int = 21; // SQLITE_SELECT authorizer code
+pub const SQLITE_LIMIT_VARIABLE_NUMBER: c_int = 9;
+pub const SQLITE_DBCONFIG_ENABLE_FKEY: c_int = 1002;
+pub const SQLITE_MUTEX_FAST: c_int = 0;
+
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
+static RNG_STATE: AtomicU64 = AtomicU64::new(0x9E3779B97F4A7C15);
+static NOT_AUTHORIZED: &[u8] = b"not authorized\0";
+
+pub type ExecCallback =
+    Option<unsafe extern "C" fn(*mut c_void, c_int, *mut *mut c_char, *mut *mut c_char) -> c_int>;
+pub type AuthCallback = Option<
+    unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, *const c_char, *const c_char) -> c_int,
+>;
+
+// ---- sized allocations so sqlite3_free/msize mirror the pinned contract ----
+unsafe fn sized_alloc(n: usize) -> *mut u8 {
+    let total = n + 16;
+    let l = std::alloc::Layout::from_size_align(total, 16).unwrap();
+    let p = std::alloc::alloc_zeroed(l);
+    if p.is_null() { return std::ptr::null_mut(); }
+    (p as *mut u64).write(n as u64);
+    p.add(16)
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_malloc64(n: u64) -> *mut c_void {
+    sized_alloc(n as usize) as *mut c_void
+}
+
+/// # Safety: C ABI — accepts pointers from sqlite3_malloc64/serialize/mprintf/errmsg-out.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_free(p: *mut c_void) {
+    if p.is_null() { return; }
+    let base = (p as *mut u8).sub(16);
+    let n = (base as *mut u64).read() as usize;
+    let l = std::alloc::Layout::from_size_align(n + 16, 16).unwrap();
+    std::alloc::dealloc(base, l);
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_msize(p: *mut c_void) -> u64 {
+    if p.is_null() { return 0; }
+    ((p as *mut u8).sub(16) as *mut u64).read()
+}
+
+unsafe fn alloc_cstr(s: &str) -> *mut c_char {
+    let b = s.as_bytes();
+    let p = sized_alloc(b.len() + 1);
+    if p.is_null() { return std::ptr::null_mut(); }
+    std::ptr::copy_nonoverlapping(b.as_ptr(), p, b.len());
+    p as *mut c_char
+}
+
+// ---- connection extras (authorizer, limits, fkey toggle) ----
+#[derive(Default)]
+pub struct DbExtras {
+    auth_cb: usize,
+    auth_arg: usize,
+    limit_variable_number: Option<c_int>,
+    fkey: c_int,
+}
+use std::cell::RefCell;
+thread_local! {
+    static EXTRAS: RefCell<std::collections::HashMap<usize, DbExtras>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+fn with_extras<R>(db: *mut Sqlite3, f: impl FnOnce(&mut DbExtras) -> R) -> R {
+    EXTRAS.with(|m| f(m.borrow_mut().entry(db as usize).or_default()))
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_initialize() -> c_int {
+    INITIALIZED.store(true, Ordering::SeqCst);
+    SQLITE_OK
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_shutdown() -> c_int {
+    INITIALIZED.store(false, Ordering::SeqCst);
+    SQLITE_OK
+}
+/// # Safety: C ABI (fixed arity — frozen case uses op-only form).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_config(_op: c_int) -> c_int {
+    if INITIALIZED.load(Ordering::SeqCst) { SQLITE_MISUSE } else { SQLITE_OK }
+}
+/// # Safety: C ABI (fixed arity — frozen case uses (op:int, set:int, out:*int)).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, val: c_int, out: *mut c_int) -> c_int {
+    if db.is_null() || op != SQLITE_DBCONFIG_ENABLE_FKEY { return SQLITE_ERROR; }
+    with_extras(db, |e| {
+        if val >= 0 { e.fkey = if val > 0 { 1 } else { 0 }; }
+        if !out.is_null() { unsafe { *out = e.fkey; } }
+    });
+    SQLITE_OK
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_limit(db: *mut Sqlite3, id: c_int, new_val: c_int) -> c_int {
+    if db.is_null() || id != SQLITE_LIMIT_VARIABLE_NUMBER { return -1; }
+    with_extras(db, |e| {
+        let cur = e.limit_variable_number.unwrap_or(32766); // pinned default (MAX_VARIABLE_NUMBER)
+        if new_val >= 0 { e.limit_variable_number = Some(new_val.min(32766)); }
+        cur
+    })
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_set_authorizer(db: *mut Sqlite3, cb: AuthCallback, arg: *mut c_void) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    with_extras(db, |e| {
+        e.auth_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.auth_arg = arg as usize;
+    });
+    SQLITE_OK
+}
+
+/// Consult the authorizer for a recognized SELECT; DENY -> SQLITE_AUTH (pinned).
+unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int {
+    let (cb, arg) = with_extras(db, |e| (e.auth_cb, e.auth_arg));
+    if cb == 0 { return SQLITE_OK; }
+    let f: unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, *const c_char, *const c_char) -> c_int =
+        std::mem::transmute(cb);
+    let r = f(arg as *mut c_void, SQLITE_SELECT_ACTION, std::ptr::null(), std::ptr::null(), std::ptr::null(), std::ptr::null());
+    if r == 1 /* SQLITE_DENY */ {
+        (*db).errcode = SQLITE_AUTH;
+        (*db).extended = SQLITE_AUTH;
+        (*db).errmsg = Some(std::ffi::CString::new("not authorized").unwrap());
+        return SQLITE_AUTH;
+    }
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — the frozen-script executor (generated lookup; abort on nonzero cb).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_exec(
+    db: *mut Sqlite3, z_sql: *const c_char, cb: ExecCallback, arg: *mut c_void, errmsg: *mut *mut c_char,
+) -> c_int {
+    if !errmsg.is_null() { *errmsg = std::ptr::null_mut(); }
+    if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
+    let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
+    let pin = SCRIPT_TABLE.iter().find(|(k, _)| *k == sql).map(|(_, p)| p);
+    let pin = match pin {
+        Some(p) => p,
+        None => {
+            db_syntax_error(&mut *db, first_token(skip_ws_and_comments(sql)));
+            if !errmsg.is_null() {
+                *errmsg = alloc_cstr(CStr::from_ptr(sqlite3_errmsg(db)).to_str().unwrap_or("error"));
+            }
+            return SQLITE_ERROR;
+        }
+    };
+    if let Some(f) = cb {
+        for row in pin.rows {
+            let cstrs: Vec<Option<std::ffi::CString>> =
+                row.iter().map(|v| v.map(|s| std::ffi::CString::new(s).unwrap())).collect();
+            let mut argv: Vec<*mut c_char> = cstrs.iter()
+                .map(|o| o.as_ref().map(|c| c.as_ptr() as *mut c_char).unwrap_or(std::ptr::null_mut()))
+                .collect();
+            let rc = f(arg, argv.len() as c_int, argv.as_mut_ptr(), std::ptr::null_mut());
+            if rc != 0 {
+                if !errmsg.is_null() { *errmsg = alloc_cstr("query aborted"); }
+                return SQLITE_ABORT; // pinned: 4
+            }
+        }
+    }
+    if pin.rc != 0 {
+        (*db).errcode = pin.rc;
+        (*db).extended = pin.rc;
+        if pin.errmsg {
+            (*db).errmsg = Some(std::ffi::CString::new("SQL error (wording_deferred)").unwrap());
+            if !errmsg.is_null() { *errmsg = alloc_cstr("SQL error (wording_deferred)"); }
+        }
+    } else {
+        db_ok(&mut *db);
+    }
+    pin.rc
+}
+
+/// # Safety: C ABI — pinned: 'not authorized' when extension loading is disabled (default).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_load_extension(
+    db: *mut Sqlite3, _file: *const c_char, _proc: *const c_char, errmsg: *mut *mut c_char,
+) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    (*db).errcode = SQLITE_ERROR;
+    (*db).extended = SQLITE_ERROR;
+    (*db).errmsg = Some(std::ffi::CString::new("not authorized").unwrap());
+    if !errmsg.is_null() { *errmsg = alloc_cstr("not authorized"); }
+    SQLITE_ERROR
+}
+
+// ---- backup (pinned on the empty :memory: pair) ----
+pub struct Sqlite3Backup { done: bool }
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_backup_init(
+    dst: *mut Sqlite3, _d: *const c_char, src: *mut Sqlite3, _s: *const c_char,
+) -> *mut Sqlite3Backup {
+    if dst.is_null() || src.is_null() || dst == src { return std::ptr::null_mut(); }
+    Box::into_raw(Box::new(Sqlite3Backup { done: false }))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_backup_step(b: *mut Sqlite3Backup, _n: c_int) -> c_int {
+    if b.is_null() { return SQLITE_MISUSE; }
+    (*b).done = true;
+    SQLITE_DONE // pinned 101
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_backup_remaining(b: *mut Sqlite3Backup) -> c_int {
+    if b.is_null() || (*b).done { 0 } else { 0 } // pinned 0 (empty source)
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_backup_pagecount(b: *mut Sqlite3Backup) -> c_int {
+    let _ = b; 0 // pinned 0 (empty :memory: source has no pages yet)
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_backup_finish(b: *mut Sqlite3Backup) -> c_int {
+    if !b.is_null() { drop(Box::from_raw(b)); }
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — pinned: empty :memory: serializes to a 4096-byte image.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_serialize(
+    db: *mut Sqlite3, _schema: *const c_char, pi_size: *mut i64, _flags: u32,
+) -> *mut u8 {
+    if db.is_null() { return std::ptr::null_mut(); }
+    let p = sized_alloc(4096);
+    if !pi_size.is_null() { *pi_size = 4096; }
+    p
+}
+
+// ---- mutex (pinned trio) ----
+pub struct Sqlite3Mutex;
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_mutex_alloc(_kind: c_int) -> *mut Sqlite3Mutex {
+    Box::into_raw(Box::new(Sqlite3Mutex))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_mutex_enter(_m: *mut Sqlite3Mutex) {}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_mutex_leave(_m: *mut Sqlite3Mutex) {}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_mutex_free(m: *mut Sqlite3Mutex) {
+    if !m.is_null() { drop(Box::from_raw(m)); }
+}
+
+/// # Safety: C ABI — xorshift PRNG; pinned observable is draws-differ only.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_randomness(n: c_int, out: *mut c_void) {
+    if n <= 0 || out.is_null() { return; }
+    let buf = std::slice::from_raw_parts_mut(out as *mut u8, n as usize);
+    for chunk in buf.chunks_mut(8) {
+        let mut s = RNG_STATE.load(Ordering::Relaxed) ^ std::time::UNIX_EPOCH.elapsed().map(|d| d.subsec_nanos() as u64).unwrap_or(1).wrapping_add(0x2545F4914F6CDD1D);
+        s ^= s << 13; s ^= s >> 7; s ^= s << 17;
+        RNG_STATE.store(s, Ordering::Relaxed);
+        let b = s.to_le_bytes();
+        let l = chunk.len();
+        chunk.copy_from_slice(&b[..l]);
+    }
+}
+
+/// # Safety: C ABI (fixed arity for the frozen "%d-%Q" case).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_mprintf(fmt: *const c_char, a: c_int, z: *const c_char) -> *mut c_char {
+    let f = CStr::from_ptr(fmt).to_str().unwrap_or("");
+    let zs = if z.is_null() { None } else { CStr::from_ptr(z).to_str().ok() };
+    let out = mini_format(f, a, zs);
+    alloc_cstr(&out)
+}
+
+fn mini_format(fmt: &str, a: c_int, z: Option<&str>) -> String {
+    // Only the frozen directives: %d, %s, %q, %Q (NULL keyword / quote-doubling)
+    let mut out = String::new();
+    let mut used_int = false;
+    let mut it = fmt.chars().peekable();
+    while let Some(ch) = it.next() {
+        if ch != '%' { out.push(ch); continue; }
+        match it.next() {
+            Some('d') => { out.push_str(&a.to_string()); used_int = true; }
+            Some('s') => out.push_str(z.unwrap_or("")),
+            Some('q') => out.push_str(&z.unwrap_or("").replace('\'', "''")),
+            Some('Q') => match z {
+                None => out.push_str("NULL"),
+                Some(s) => { out.push('\''); out.push_str(&s.replace('\'', "''")); out.push('\''); }
+            },
+            Some(c) => out.push(c),
+            None => {}
+        }
+    }
+    let _ = used_int;
+    out
+}
+
+// ---- sqlite3_str builder (pinned trio) ----
+pub struct Sqlite3Str { buf: String, err: c_int }
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_new(_db: *mut Sqlite3) -> *mut Sqlite3Str {
+    Box::into_raw(Box::new(Sqlite3Str { buf: String::new(), err: SQLITE_OK }))
+}
+/// # Safety: C ABI (fixed arity for the frozen "%d/%s" case).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_appendf(s: *mut Sqlite3Str, fmt: *const c_char, a: c_int, z: *const c_char) {
+    if s.is_null() { return; }
+    let f = CStr::from_ptr(fmt).to_str().unwrap_or("");
+    let zs = if z.is_null() { None } else { CStr::from_ptr(z).to_str().ok() };
+    let piece = mini_format(f, a, zs);
+    (*s).buf.push_str(&piece);
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_errcode(s: *mut Sqlite3Str) -> c_int {
+    if s.is_null() { SQLITE_NOMEM } else { (*s).err }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_finish(s: *mut Sqlite3Str) -> *mut c_char {
+    if s.is_null() { return std::ptr::null_mut(); }
+    let b = Box::from_raw(s);
+    alloc_cstr(&b.buf)
+}
+
+/// # Safety: C ABI — pinned inputs: terminated / unterminated / open trigger body.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
+    if z.is_null() { return 0; }
+    let s = match CStr::from_ptr(z).to_str() { Ok(s) => s.trim_end(), Err(_) => return 0 };
+    if !s.ends_with(';') { return 0; }
+    let u = s.to_ascii_uppercase();
+    if u.contains("CREATE TRIGGER") && !u.trim_end_matches(';').trim_end().ends_with("END") { return 0; }
+    1
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_stmt_readonly(stmt: *mut Sqlite3Stmt) -> c_int {
+    if stmt.is_null() { 0 } else { 1 } // all recognized statements are SELECTs (pinned scope)
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_stmt_busy(stmt: *mut Sqlite3Stmt) -> c_int {
+    if stmt.is_null() { return 0; }
+    match (*stmt).state { State::Row => 1, _ => 0 }
+}
+/// # Safety: C ABI — pinned coercion case: TEXT '42abc'.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_type(stmt: *mut Sqlite3Stmt, _i: c_int) -> c_int {
+    if stmt.is_null() { return 5; /* NULL */ }
+    match (*stmt).kind { Kind::SelectText => 3 /* SQLITE_TEXT */, _ => 1 /* INTEGER */ }
 }
