@@ -106,3 +106,8 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - misc-spellfix/nextchar/rot13/uuid/fossildelta/compress/urifuncs/appendvfs/cksumvfs/vfsstat/vfstrace/vfslog/tmstmpvfs → documented, observed-in-code.
 - All 185 bound behaviours now documented: 175 observed-in-code, 10 inferred (wasm JS ×5, jni ×4, wasm-binding umbrella ×1... see brief for exact split). 0 blocked, 0 needs-SME status rows — inferred-confidence cards carry their SME questions inline instead.
 - Upsert: PASS (documented=185, accepted=0). COVERAGE regenerated.
+
+## End of run 3 — validation + brief
+
+- Final validation: APP_MANIFEST schema VALID; 107 slice manifests all phase B; 185/185 features documented with behaviour_doc, existing card files, ≥1 real src/ext cite each; confidence split 175 observed-in-code / 10 inferred; behaviours histogram {documented: 185}; completeness incomplete; 3 hints untouched; no %-claims (grep clean — earlier GREENWASH echo was a pipe-status artefact, re-verified empty); zero product-source diffs vs base db48b1a8.
+- overnight/phase-b/MORNING_BRIEF.md written (banner PHASE B — FULL CATALOGUE DEEPEN; closing ask names the suggested first Test-gen batch; inferred cards gated behind SME/waiver).
