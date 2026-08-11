@@ -288,3 +288,17 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Upsert + schema validation: PASS. COVERAGE regenerated.
 - Delta this run: 114/120 (57+57). Totals 364. Slices this run: 44 (total 104). Zero-new-streak: 0.
 - Budget note: 6 rows remain → next batch capped at 3 seeds; remaining vfs hints will stay in the residual register when the cap trips (honest cap stop, per charter).
+
+## Resume iteration 12 — seeds: misc-vfstrace, misc-vfslog, misc-tmstmpvfs (3-seed batch, budget-capped)
+
+- stop.txt: absent. Batch limited to 3 seeds — only 6 rows of the 120-delta budget remained.
+- vfstrace (vfstrace_register at vfstrace.c:1138), vfslog (sqlite3_register_vfslog at vfslog.c:755 — evidence pinned after verification), tmstmpvfs walked.
+- Upsert + schema validation: PASS. COVERAGE regenerated.
+- Delta this run: 120/120 (60 surfaces + 60 behaviours). Totals 370. Slices this run: 47 (total 107). Zero-new-streak: 0.
+
+## STOP — run-level stop condition reached (resume run 2)
+
+- **MAX_NEW_CANDIDATES delta cap (120) reached** at resume iteration 12 (of MAX_ITERATIONS 24). Loop halts per charter.
+- Residual register (honest, per charter — empty hints would still ≠ complete): 3 thin vfs-shim hints remain unscanned: misc-mmapwarm, misc-memtrace, misc-pcachetrace (all ext/misc trace/warm helpers).
+- Run-1 rows untouched throughout: 250 baseline rows still candidate; umbrella rows (misc-vtab-packs, misc-func-packs, misc-vfs-shims, wasm-binding, jni-binding, vfs-os-abstraction) not modified — refined by 47 new thin/residual slices instead.
+- Proceeding to end-of-run artefacts: METHOD_COVERAGE resume section + new MORNING_BRIEF.

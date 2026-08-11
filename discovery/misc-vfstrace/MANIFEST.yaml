@@ -1,0 +1,23 @@
+slice_id: misc-vfstrace
+seed: VFS call tracer (ext/misc/vfstrace.c)
+seed_entrypoints:
+- vfstrace_register()
+out_of_scope_hints:
+- other misc-vfs-shims members
+phase: A
+updated_at: '2026-08-11T09:36:55Z'
+features:
+- id: misc-vfstrace-001
+  name: vfstrace call-tracing shim
+  status: candidate
+  confidence: observed-in-code
+  summary: "Wraps a VFS and prints every method call with args \u2014 debugging aid; registered via C API"
+  entrypoints:
+  - kind: other
+    locator: vfstrace_register()
+    evidence:
+    - ext/misc/vfstrace.c:1138
+    - ext/misc/vfstrace.c:21
+  dependencies:
+  - vfs-os-abstraction
+  open_questions: []

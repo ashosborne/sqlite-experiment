@@ -3,18 +3,18 @@
 > **GENERATED from `APP_MANIFEST.yaml` — never hand-edit.**
 > Counts only. No completion percentages. Inventory progress, not migration progress.
 
-- Generated: 2026-08-11T09:35:52Z
+- Generated: 2026-08-11T09:36:56Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T09:35:51Z by `estate-discovery-loop`
+- Manifest last_updated: 2026-08-11T09:36:56Z by `estate-discovery-loop`
 
 ## Counts
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 182 |
-| Behaviours known | 182 |
-| Seeds scanned | 104 |
-| Unscanned hints (residual) | 6 |
+| Surfaces total | 185 |
+| Behaviours known | 185 |
+| Seeds scanned | 107 |
+| Unscanned hints (residual) | 3 |
 | legacy_green flags | 0 |
 | parity_green flags | 0 |
 
@@ -22,13 +22,13 @@
 
 | Status | Count |
 | --- | --- |
-| candidate | 182 |
+| candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| candidate | 182 |
+| candidate | 185 |
 
 ## Surfaces per slice
 
@@ -89,6 +89,7 @@
 | misc-spellfix | 1 |
 | misc-stmt | 1 |
 | misc-templatevtab | 1 |
+| misc-tmstmpvfs | 1 |
 | misc-totype | 1 |
 | misc-uint | 1 |
 | misc-unionvtab | 1 |
@@ -96,7 +97,9 @@
 | misc-utilities | 1 |
 | misc-uuid | 1 |
 | misc-vfs-shims | 1 |
+| misc-vfslog | 1 |
 | misc-vfsstat | 1 |
+| misc-vfstrace | 1 |
 | misc-vtab-packs | 1 |
 | misc-vtablog | 1 |
 | misc-vtshim | 1 |
@@ -245,12 +248,12 @@
 - `misc-cksumvfs`
 - `misc-urifuncs`
 - `misc-vfsstat`
+- `misc-tmstmpvfs`
+- `misc-vfslog`
+- `misc-vfstrace`
 
 ## Unscanned hints (residual register)
 
-- ext: misc-vfstrace — VFS call tracing wrapper (ext/misc/vfstrace.c)
-- ext: misc-vfslog — VFS operation logging to file (ext/misc/vfslog.c)
-- ext: misc-tmstmpvfs — timestamped-backup VFS (ext/misc/tmstmpvfs.c)
 - ext: misc-mmapwarm — mmap cache pre-warming helper (ext/misc/mmapwarm.c)
 - ext: misc-memtrace — malloc tracing hooks (ext/misc/memtrace.c)
 - ext: misc-pcachetrace — page-cache tracing hooks (ext/misc/pcachetrace.c)

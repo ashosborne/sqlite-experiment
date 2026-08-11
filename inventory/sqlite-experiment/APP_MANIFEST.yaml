@@ -111,10 +111,10 @@ scanned_seeds:
 - misc-cksumvfs
 - misc-urifuncs
 - misc-vfsstat
+- misc-tmstmpvfs
+- misc-vfslog
+- misc-vfstrace
 unscanned_hints:
-- 'ext: misc-vfstrace — VFS call tracing wrapper (ext/misc/vfstrace.c)'
-- 'ext: misc-vfslog — VFS operation logging to file (ext/misc/vfslog.c)'
-- 'ext: misc-tmstmpvfs — timestamped-backup VFS (ext/misc/tmstmpvfs.c)'
 - 'ext: misc-mmapwarm — mmap cache pre-warming helper (ext/misc/mmapwarm.c)'
 - 'ext: misc-memtrace — malloc tracing hooks (ext/misc/memtrace.c)'
 - 'ext: misc-pcachetrace — page-cache tracing hooks (ext/misc/pcachetrace.c)'
@@ -1089,6 +1089,15 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/templatevtab.c:260
+- surface_id: sur-sqlite3-tmstmpvfs-init
+  kind: other
+  locator: sqlite3_tmstmpvfs_init()
+  repo_path: ext/misc/tmstmpvfs.c
+  status: candidate
+  slice_id: misc-tmstmpvfs
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/tmstmpvfs.c:1029
 - surface_id: sur-sqlite3-totype-init
   kind: other
   locator: sqlite3_totype_init()
@@ -1158,6 +1167,16 @@ surfaces:
   - ext/misc/cksumvfs.c:833
   - ext/misc/vfsstat.c:806
   - ext/misc/tmstmpvfs.c:1029
+- surface_id: sur-sqlite3-register-vfslog
+  kind: other
+  locator: sqlite3_register_vfslog()
+  repo_path: ext/misc/vfslog.c
+  status: candidate
+  slice_id: misc-vfslog
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/vfslog.c:755
+  - ext/misc/vfslog.c:40
 - surface_id: sur-sqlite3-vfsstat-init
   kind: other
   locator: sqlite3_vfsstat_init()
@@ -1167,6 +1186,16 @@ surfaces:
   notes: seam-kind=other; Phase A candidate (unbound)
   discovery_evidence:
   - ext/misc/vfsstat.c:806
+- surface_id: sur-vfstrace-register
+  kind: other
+  locator: vfstrace_register()
+  repo_path: ext/misc/vfstrace.c
+  status: candidate
+  slice_id: misc-vfstrace
+  notes: seam-kind=other; Phase A candidate (unbound)
+  discovery_evidence:
+  - ext/misc/vfstrace.c:1138
+  - ext/misc/vfstrace.c:21
 - surface_id: sur-ext-misc-vtab-packs
   kind: other
   locator: ext/misc vtab packs
@@ -2880,6 +2909,15 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Reference implementation for writing new vtabs; not a data-path surface
+- behaviour_id: misc-tmstmpvfs-001
+  surface_id: sur-sqlite3-tmstmpvfs-init
+  name: timestamped-backup VFS
+  status: candidate
+  slice_id: misc-tmstmpvfs
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Keeps timestamped copies of the database on write — simple point-in-time backups
 - behaviour_id: misc-totype-001
   surface_id: sur-sqlite3-totype-init
   name: strict conversion functions tointeger/toreal
@@ -2946,6 +2984,16 @@ behaviours:
   parity_green: false
   notes: confidence=observed-in-code; appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace
     — wrappers over a lower VFS.
+- behaviour_id: misc-vfslog-001
+  surface_id: sur-sqlite3-register-vfslog
+  name: vfslog binary operation logger
+  status: candidate
+  slice_id: misc-vfslog
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog
+    (SQLITE_EXTRA_INIT hook)
 - behaviour_id: misc-vfsstat-001
   surface_id: sur-sqlite3-vfsstat-init
   name: vfsstat I/O statistics shim + vtab
@@ -2955,6 +3003,16 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Counts read/write/sync per file class; exposes vfsstat vtab for SQL queries
+- behaviour_id: misc-vfstrace-001
+  surface_id: sur-vfstrace-register
+  name: vfstrace call-tracing shim
+  status: candidate
+  slice_id: misc-vfstrace
+  discovery_card: null
+  legacy_green: false
+  parity_green: false
+  notes: confidence=observed-in-code; Wraps a VFS and prints every method call with args — debugging aid; registered via C
+    API
 - behaviour_id: misc-vtab-packs-001
   surface_id: sur-ext-misc-vtab-packs
   name: Loadable virtual-table extension pack (~18)
@@ -3699,17 +3757,17 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls.
-last_updated: '2026-08-11T09:35:51Z'
+last_updated: '2026-08-11T09:36:56Z'
 updated_by: estate-discovery-loop
 notes: Phase A radar only; candidates unbound. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c
   harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).
 counts:
-  surfaces_total: 182
+  surfaces_total: 185
   surfaces_by_status:
-    candidate: 182
-  behaviours_known: 182
+    candidate: 185
+  behaviours_known: 185
   behaviours_by_status:
-    candidate: 182
-  unscanned_hints: 6
+    candidate: 185
+  unscanned_hints: 3
   legacy_green: 0
   parity_green: 0
