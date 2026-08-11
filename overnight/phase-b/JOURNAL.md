@@ -63,3 +63,9 @@ Resumed from 0f1fa004 on cursor/sqlite-estate-discovery-d22c.
 - vtab-core(2), introspection-vtabs(1), shell-cli(2), tcl-binding(1), fts5(3), fts3(1) → documented, observed-in-code.
 - Compile-gated trio card notes none of the three gates are in the default baseline; shell dot-command surface stays dispatcher-pinned per cluster-at-bind note.
 - Upsert: PASS (documented=105). COVERAGE regenerated.
+
+## Batch 9 — extension subsystems (12 cards)
+
+- rtree(2), geopoly(1), session(3), rbu(2), recover(2), intck(1), expert(1) → documented, observed-in-code.
+- Session gate (ENABLE_SESSION+PREUPDATE_HOOK) documented vs baseline; float32 R-tree rounding and changeset-format contracts pinned.
+- Upsert: PASS (documented=117). COVERAGE regenerated.

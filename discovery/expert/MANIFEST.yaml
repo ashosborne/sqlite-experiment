@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3_expert_new()
 out_of_scope_hints:
 - expert CLI main
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:31:19Z'
 features:
 - id: expert-001
   name: Index recommendation lifecycle
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Collect SQL workload, analyze against hypothetical indexes, report candidates + EQP.
   entrypoints:
@@ -23,3 +23,4 @@ features:
   dependencies:
   - where-optimizer
   open_questions: []
+  behaviour_doc: features/expert-001.md

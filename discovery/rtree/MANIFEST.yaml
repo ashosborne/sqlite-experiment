@@ -4,12 +4,12 @@ seed_entrypoints:
 - sqlite3RtreeInit()
 out_of_scope_hints:
 - geopoly
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:31:19Z'
 features:
 - id: rtree-001
   name: R-tree virtual table module
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: rtree/rtree_i32 modules, 1-5 dimensions, node storage in shadow tables.
   entrypoints:
@@ -22,9 +22,10 @@ features:
   dependencies:
   - vtab-core
   open_questions: []
+  behaviour_doc: features/rtree-001.md
 - id: rtree-002
   name: Custom geometry/query callback API (MATCH)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: geometry_callback (legacy) and query_callback (scored traversal) create MATCH-usable SQL functions.
   entrypoints:
@@ -37,3 +38,4 @@ features:
   dependencies:
   - rtree-001
   open_questions: []
+  behaviour_doc: features/rtree-002.md

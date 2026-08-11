@@ -6,12 +6,12 @@ seed_entrypoints:
 out_of_scope_hints:
 - changeset CLI tools
 - fuzz harness
-phase: A
-updated_at: '2026-08-11T10:19:28Z'
+phase: B
+updated_at: '2026-08-11T10:31:19Z'
 features:
 - id: session-001
   name: Session lifecycle and change recording
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Create/attach/generate-changeset over tracked tables; indirect-change flags.
   entrypoints:
@@ -24,9 +24,10 @@ features:
   dependencies:
   - connection-lifecycle-api
   open_questions: []
+  behaviour_doc: features/session-001.md
 - id: session-002
   name: Changeset apply with conflict resolution
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Apply with per-conflict callback returning OMIT/REPLACE/ABORT; foreign-key ordering rules.
   entrypoints:
@@ -37,9 +38,10 @@ features:
   dependencies:
   - session-001
   open_questions: []
+  behaviour_doc: features/session-002.md
 - id: session-003
   name: Changeset algebra (iterate / invert / concat)
-  status: accepted
+  status: documented
   confidence: observed-in-code
   summary: Iterator API over binary changeset format; invert and concat composition; patchset subset.
   entrypoints:
@@ -53,3 +55,4 @@ features:
   - session-001
   open_questions:
   - Binary changeset format stability is the migration contract
+  behaviour_doc: features/session-003.md
