@@ -118,6 +118,9 @@ pub struct Store {
     fk_on: bool,
     changes: i64,
     total_changes: i64,
+    file_ver_seen: u64,   // run-36: FILE_VERSIONS value this store last loaded/saved
+    clean_changes: i64,   // run-36: total_changes at last load/save (no local writes since)
+    commit_flush_pending: bool, // run-36: COMMIT ran (marker moved in an earlier exec)
 }
 
 pub enum Outcome {
@@ -157,6 +160,100 @@ pub fn open_file(db: usize, path: &str) {
     }
 }
 
+thread_local! {
+    // run-36: in-process file write locks (path -> owning connection). C's file
+    // locking is cross-process; this models the pinned single-process regime only.
+    static FILE_LOCKS: RefCell<HashMap<String, usize>> = RefCell::new(HashMap::new());
+    // run-36: bumped whenever a connection flushes committed state to a path, so
+    // sibling connections on the same file reload before their next statement
+    static FILE_VERSIONS: RefCell<HashMap<String, u64>> = RefCell::new(HashMap::new());
+}
+
+fn bump_file_version(db: usize, path: &std::path::Path) {
+    let key = path.display().to_string();
+    let v = FILE_VERSIONS.with(|m| {
+        let mut mm = m.borrow_mut();
+        let e = mm.entry(key).or_insert(0);
+        *e += 1;
+        *e
+    });
+    with_store(db, |st| {
+        st.file_ver_seen = v;
+        st.clean_changes = st.total_changes;
+    });
+}
+
+/// reload the store from the file when a sibling connection committed and this
+/// connection has no local writes or open transaction (pinned busy scope)
+pub fn maybe_refresh_from_file(db: usize) {
+    let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return };
+    let key = path.display().to_string();
+    let cur = FILE_VERSIONS.with(|m| m.borrow().get(&key).copied().unwrap_or(0));
+    let stale = with_store(db, |st| {
+        st.conn.is_file && st.txn.is_none()
+            && st.file_ver_seen != cur && st.total_changes == st.clean_changes
+    });
+    if !stale { return; }
+    let mut buf = std::fs::read(&path).unwrap_or_default();
+    if let Some(overlay) = dbfile::read_wal_overlay(&wal_sidecar(&path, "-wal")) {
+        dbfile::apply_wal_overlay(&mut buf, &overlay);
+    }
+    with_store(db, |st| {
+        st.tables.clear();
+        st.catalog.clear();
+        st.views.clear();
+        st.triggers.clear();
+        st.indexes.clear();
+        st.index_owner.clear();
+        st.index_cache.clear();
+        st.mutation_counter += 1;
+    });
+    if !buf.is_empty() {
+        load_image(db, dbfile::read_db_bytes(&buf));
+    }
+    with_store(db, |st| {
+        st.file_ver_seen = cur;
+        st.clean_changes = st.total_changes;
+    });
+}
+
+/// acquire (or verify) the write lock for this connection's file, consulting the
+/// busy handler / timeout between retries; Err("database is locked") like C.
+fn acquire_file_lock(db: usize, hold: bool) -> Result<(), String> {
+    let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return Ok(()) };
+    let key = path.display().to_string();
+    let mut count = 0i32;
+    let mut slept = 0i32;
+    loop {
+        let owner = FILE_LOCKS.with(|m| m.borrow().get(&key).copied());
+        match owner {
+            None => {
+                if hold { FILE_LOCKS.with(|m| { m.borrow_mut().insert(key.clone(), db); }); }
+                return Ok(());
+            }
+            Some(o) if o == db => return Ok(()),
+            Some(_) => {
+                if !crate::busy_should_retry(db, count, &mut slept) {
+                    return Err("database is locked".into());
+                }
+                count += 1;
+            }
+        }
+    }
+}
+
+/// release this connection's file write lock (commit/rollback/close)
+pub fn release_file_lock(db: usize) {
+    let path = PATHS.with(|m| m.borrow().get(&db).cloned());
+    if let Some(p) = path {
+        let key = p.display().to_string();
+        FILE_LOCKS.with(|m| {
+            let mut mm = m.borrow_mut();
+            if mm.get(&key) == Some(&db) { mm.remove(&key); }
+        });
+    }
+}
+
 fn wal_sidecar(pb: &std::path::Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{}", pb.display(), suffix))
 }
@@ -182,13 +279,15 @@ pub fn wal_marker(db: usize) -> (i64, i64) {
 /// flush committed state to -wal, service pending checkpoints, handle wal->delete.
 pub fn wal_sync(db: usize, before: (i64, i64)) {
     let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return };
-    let (journal, in_txn_now, pending, marker) = with_store(db, |st| {
-        (st.conn.journal.clone(), st.txn.is_some(), st.conn.pending_ckpt.take(), (st.total_changes, st.conn.schema_version))
+    let (journal, in_txn_now, pending, marker, committed) = with_store(db, |st| {
+        let c = st.commit_flush_pending;
+        st.commit_flush_pending = false;
+        (st.conn.journal.clone(), st.txn.is_some(), st.conn.pending_ckpt.take(), (st.total_changes, st.conn.schema_version), c)
     });
     let walp = wal_sidecar(&path, "-wal");
     let shmp = wal_sidecar(&path, "-shm");
     if journal == "wal" {
-        if marker != before && !in_txn_now {
+        if (marker != before || committed) && !in_txn_now {
             // commit visibility: full committed image as one WAL transaction
             let img = build_image(db);
             let mut dbbuf = dbfile::write_db_bytes(&img);
@@ -201,6 +300,7 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
             }
             let _ = dbfile::write_wal(&walp, &dbbuf);
             if !shmp.exists() { let _ = std::fs::write(&shmp, []); }
+            bump_file_version(db, &path);
         }
         if let Some(mode) = pending {
             // PASSIVE/FULL/RESTART backfill committed frames into the main db;
@@ -219,6 +319,15 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
         let _ = std::fs::write(&path, dbbuf);
         let _ = std::fs::remove_file(&walp);
         let _ = std::fs::remove_file(&shmp);
+        bump_file_version(db, &path);
+    } else if (marker != before || committed) && !in_txn_now {
+        // run-36: delete-mode commits persist immediately (C durability point),
+        // making committed state visible to sibling connections on the same file
+        let img = build_image(db);
+        let mut dbbuf = dbfile::write_db_bytes(&img);
+        dbfile::set_journal_versions(&mut dbbuf, false);
+        let _ = std::fs::write(&path, dbbuf);
+        bump_file_version(db, &path);
     }
 }
 
@@ -546,7 +655,7 @@ enum Stmt {
     Create { name: String, cols: Vec<Col>, sql: String },
     CreateIndex { name: String, table: String, exprs: Vec<String>, unique: bool, where_c: Option<String>, sql: String },
     DropIndex { name: String },
-    Begin,
+    Begin { immediate: bool },
     Commit,
     Rollback,
     Savepoint { name: String },
@@ -562,6 +671,7 @@ enum Stmt {
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
     Vacuum { into: Option<String> },
+    // Begin.immediate: BEGIN IMMEDIATE/EXCLUSIVE takes the file write lock now (run-36)
     // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
              target: Option<(Vec<String>, Option<String>)>, // ON CONFLICT (<expr-list>) [WHERE <pred>]
@@ -650,7 +760,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let rest = up.trim_start_matches("BEGIN").trim();
         if rest.is_empty() || matches!(rest, "TRANSACTION" | "DEFERRED" | "IMMEDIATE" | "EXCLUSIVE")
             || rest.starts_with("DEFERRED") || rest.starts_with("IMMEDIATE") || rest.starts_with("EXCLUSIVE") {
-            return Some(Stmt::Begin);
+            return Some(Stmt::Begin { immediate: rest.starts_with("IMMEDIATE") || rest.starts_with("EXCLUSIVE") });
         }
         return None;
     }
@@ -1610,6 +1720,7 @@ pub fn stmt_missing_table(db: usize, sql: &str) -> Option<String> {
 }
 
 pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<eval::V>>), String> {
+    maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let s = sql.trim().trim_end_matches(';').trim();
     let up = s.to_ascii_uppercase();
     let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA");
@@ -1654,6 +1765,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
 }
 
 pub fn execute_script(db: usize, script: &str) -> Outcome {
+    maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let raw_stmts = split_statements(script);
     if raw_stmts.is_empty() { return Outcome::Done { rows: Vec::new(), rc: 0, err: None }; }
     let mut out: Vec<Vec<Option<String>>> = Vec::new();
@@ -1698,6 +1810,22 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
             };
+            // run-36: write statements respect the in-process file lock and fire
+            // commit hooks when they auto-commit
+            let write_kind = matches!(&stmt,
+                Stmt::Insert { .. } | Stmt::Update { .. } | Stmt::Delete { .. }
+                | Stmt::Create { .. } | Stmt::CreateIndex { .. } | Stmt::DropIndex { .. }
+                | Stmt::CreateTrigger { .. } | Stmt::CreateView { .. } | Stmt::DropView { .. }
+                | Stmt::DropTrigger { .. } | Stmt::RenameColumn { .. } | Stmt::DropColumn { .. }
+                | Stmt::Drop { .. } | Stmt::RenameTable { .. } | Stmt::AddColumn { .. });
+            if write_kind {
+                // holding a txn: acquire and keep; autocommit: just verify nobody else holds it
+                acquire_file_lock(db, st.txn.is_some())?;
+            }
+            // autocommit abort support: only snapshot when a commit hook is registered
+            let hook_snap = if write_kind && st.txn.is_none() && crate::commit_hook_present(db) {
+                Some(take_snap(st))
+            } else { None };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
                 Stmt::Vacuum { into } => {
@@ -1751,10 +1879,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         }
                     }
                 }
-                Stmt::Begin => {
+                Stmt::Begin { immediate } => {
                     if st.txn.is_some() {
                         return Err("cannot start a transaction within a transaction".into());
                     }
+                    if immediate { acquire_file_lock(db, true)?; } // run-36: RESERVED now
                     let snap = take_snap(st);
                     st.txn = Some(Txn { snap, implicit: false, savepoints: Vec::new() });
                 }
@@ -1767,14 +1896,25 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     if st.fk_on && fk_violation_exists(st) {
                         return Err(FK_ERR.into());
                     }
+                    // run-36: a non-zero commit hook turns COMMIT into a rollback (pinned)
+                    if let Some(hrc) = crate::consult_commit_hook(db) {
+                        if hrc != 0 {
+                            txn_rollback(st);
+                            release_file_lock(db);
+                            return Err("constraint failed".into());
+                        }
+                    }
                     st.txn = None;
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0); // resets at txn end (pinned)
+                    st.commit_flush_pending = true; // run-36: flush at the post-exec sync
+                    release_file_lock(db);
                 }
                 Stmt::Rollback => {
                     if !txn_rollback(st) {
                         return Err("cannot rollback - no transaction is active".into());
                     }
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0);
+                    release_file_lock(db);
                 }
                 Stmt::Savepoint { name } => {
                     let snap = take_snap(st);
@@ -2116,6 +2256,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         let rid = t.next_rowid;
                                         t.rows.push((rid, full.clone()));
                                         n_changes += 1;
+                                        let hrow = match dbfile::ipk_index(&t.create_sql) {
+                                            Some(i) => match full.get(i) { Some(Val::Int(v)) => *v, _ => rid },
+                                            None => rid,
+                                        };
+                                        crate::fire_update_hook(db, 18, &name, hrow); // REPLACE inserts
                                         inserted.push((name.clone(), full));
                                     }
                                     Policy::DoUpdate => {
@@ -2141,6 +2286,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     let rid = t.next_rowid;
                                     t.rows.push((rid, full.clone()));
                                     n_changes += 1;
+                                    // run-36: update_hook(SQLITE_INSERT) with the IPK-aliased rowid
+                                    let hrow = match dbfile::ipk_index(&t.create_sql) {
+                                        Some(i) => match full.get(i) { Some(Val::Int(v)) => *v, _ => rid },
+                                        None => rid,
+                                    };
+                                    crate::fire_update_hook(db, 18, &name, hrow);
                                     inserted.push((name.clone(), full));
                                 }
                             }
@@ -2220,7 +2371,13 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 0, 1, Some(o), Some(nw), Some(&col), 0)?; }
                     {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
-                        for (ri, _, nw) in &planned { t.1.rows[*ri].1 = nw.clone(); }
+                        let ipk_upd = dbfile::ipk_index(&t.1.create_sql);
+                        for (ri, _, nw) in &planned {
+                            t.1.rows[*ri].1 = nw.clone();
+                            let rid = t.1.rows[*ri].0;
+                            let hrow = match ipk_upd { Some(i) => match nw.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid };
+                            crate::fire_update_hook(db, 23, &name, hrow); // run-36 SQLITE_UPDATE
+                        }
                     }
                     let n = planned.len() as i64;
                     st.changes = n;
@@ -2325,12 +2482,17 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let mut deleted: Vec<Vec<Val>> = Vec::new();
                         let cols_c = t.1.cols.clone();
                         let mut keep: Vec<(i64, Vec<Val>)> = Vec::new();
+                        let ipk_del = dbfile::ipk_index(&t.1.create_sql);
                         for (rid, r) in std::mem::take(&mut t.1.rows) {
                             let hit = match (&wh, wi) {
                                 (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
                                 _ => expr_hit(&cols_c, &r, rid)?,
                             };
-                            if hit { deleted.push(r); } else { keep.push((rid, r)); }
+                            if hit {
+                                let hrow = match ipk_del { Some(i) => match r.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid };
+                                crate::fire_update_hook(db, 9, &name, hrow); // run-36 SQLITE_DELETE
+                                deleted.push(r);
+                            } else { keep.push((rid, r)); }
                         }
                         t.1.rows = keep;
                         let cols: Vec<String> = t.1.cols.iter().map(|c| c.name.clone()).collect();
@@ -2486,6 +2648,18 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
             }
+            // run-36: an auto-committing write consults the commit hook; a non-zero
+            // return undoes the statement (C aborts the implicit txn's commit)
+            if let Some(snap) = hook_snap {
+                if st.txn.is_none() {
+                    if let Some(hrc) = crate::consult_commit_hook(db) {
+                        if hrc != 0 {
+                            restore_snap(st, snap);
+                            return Err("constraint failed".into());
+                        }
+                    }
+                }
+            }
         }
         Ok(())
     });
@@ -2499,6 +2673,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 else if let Some(m) = e.strip_prefix("__RAISE__") { (19, m.to_string()) }
                 else if e == FK_ERR || e == UNIQ_ERR || e.contains("constraint failed") { (19, e) }
                 else if e.starts_with("unable to open database") { (14, e) } // run-34 VACUUM INTO path
+                else if e == "database is locked" { (5, e) } // run-36 busy path
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }
         }

@@ -222,15 +222,66 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
 /// # Safety: C ABI — `db` from sqlite3_open or NULL.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
-    if !db.is_null() {
-        store::save_file(db as usize); // run-15: persist file-backed connections before teardown
-        store::drop_store(db as usize);
-        udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
-        coll_close(db as usize); // run-30: run pending xDestroy for registered collations
-        EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
-        drop(Box::from_raw(db));
+    if db.is_null() { return SQLITE_OK; } // pinned NULL no-op
+    if live_handles(db as usize) > 0 {
+        // pinned: won't close while statements (or blob handles) are alive
+        (*db).errcode = 5;
+        (*db).extended = 5;
+        (*db).errmsg = Some(CString::new(
+            "unable to close due to unfinalized statements or unfinished backups").unwrap());
+        return 5; // SQLITE_BUSY
     }
+    conn_teardown(db);
     SQLITE_OK
+}
+
+/// # Safety: C ABI — returns OK and defers teardown while handles remain (zombie).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_close_v2(db: *mut Sqlite3) -> c_int {
+    if db.is_null() { return SQLITE_OK; } // pinned NULL no-op
+    if live_handles(db as usize) > 0 {
+        ZOMBIES.with(|z| { z.borrow_mut().insert(db as usize); });
+        return SQLITE_OK;
+    }
+    conn_teardown(db);
+    SQLITE_OK
+}
+
+/// full teardown, shared by close / close_v2-zombie completion (run-36)
+pub(crate) unsafe fn conn_teardown(db: *mut Sqlite3) {
+    fire_trace(db as usize, 8 /* SQLITE_TRACE_CLOSE */, db as *mut c_void, std::ptr::null_mut());
+    store::save_file(db as usize); // run-15: persist file-backed connections before teardown
+    store::release_file_lock(db as usize); // run-36: drop any held write lock
+    store::drop_store(db as usize);
+    udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
+    coll_close(db as usize); // run-30: run pending xDestroy for registered collations
+    ZOMBIES.with(|z| { z.borrow_mut().remove(&(db as usize)); });
+    STMTS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
+    EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
+    drop(Box::from_raw(db));
+}
+
+thread_local! {
+    // run-36: live statement / blob-handle tracking (close refuses while alive)
+    static STMTS: RefCell<std::collections::HashMap<usize, std::collections::HashSet<usize>>> =
+        RefCell::new(std::collections::HashMap::new());
+    static BLOBS: RefCell<std::collections::HashMap<usize, usize>> =
+        RefCell::new(std::collections::HashMap::new());
+    static ZOMBIES: RefCell<std::collections::HashSet<usize>> =
+        RefCell::new(std::collections::HashSet::new());
+}
+fn live_handles(dbid: usize) -> usize {
+    STMTS.with(|m| m.borrow().get(&dbid).map(|s| s.len()).unwrap_or(0))
+        + BLOBS.with(|m| m.borrow().get(&dbid).copied().unwrap_or(0))
+}
+fn stmt_register(dbid: usize, stmt: usize) {
+    STMTS.with(|m| { m.borrow_mut().entry(dbid).or_default().insert(stmt); });
+}
+unsafe fn handle_released(dbid: usize) {
+    // a zombie connection tears down when its last handle goes away (pinned)
+    if live_handles(dbid) == 0 && ZOMBIES.with(|z| z.borrow().contains(&dbid)) {
+        conn_teardown(dbid as *mut Sqlite3);
+    }
 }
 
 /// # Safety: C ABI — NULL db is the pinned guarded path (returns SQLITE_NOMEM).
@@ -399,6 +450,7 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         text_cache: Vec::new(),
     });
     *pp_stmt = Box::into_raw(stmt);
+    stmt_register(dbid, *pp_stmt as usize); // run-36: live-handle tracking for close
     if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
     SQLITE_OK
 }
@@ -487,7 +539,7 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
         return SQLITE_MISUSE;
     }
     let s = &mut *stmt;
-    match s.state {
+    let rc = match s.state {
         State::Ready => stmt_execute(s),
         State::Row => {
             s.cur += 1;
@@ -500,7 +552,11 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
             s.cur = 0;
             stmt_execute(s)
         }
+    };
+    if rc == SQLITE_ROW {
+        fire_trace((*stmt).db, 4 /* SQLITE_TRACE_ROW */, stmt as *mut c_void, std::ptr::null_mut());
     }
+    rc
 }
 
 /// execute via the shared store/eval engine (bind substitution -> typed rows)
@@ -860,7 +916,10 @@ pub unsafe extern "C" fn sqlite3_reset(stmt: *mut Sqlite3Stmt) -> c_int {
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
     if !stmt.is_null() {
+        let dbid = (*stmt).db;
+        STMTS.with(|m| { if let Some(s) = m.borrow_mut().get_mut(&dbid) { s.remove(&(stmt as usize)); } });
         drop(Box::from_raw(stmt));
+        handle_released(dbid);
     }
     SQLITE_OK
 }
@@ -970,6 +1029,16 @@ pub struct DbExtras {
     auth_arg: usize,
     limits: std::collections::HashMap<c_int, c_int>, // run-33: full sqlite3_limit id matrix
     fkey: c_int,
+    busy_cb: usize,          // run-36: busy handler (mutually exclusive with timeout)
+    busy_arg: usize,
+    busy_timeout_ms: c_int,
+    commit_cb: usize,        // run-36: commit hook
+    commit_arg: usize,
+    update_cb: usize,        // run-36: update hook
+    update_arg: usize,
+    trace_cb: usize,         // run-36: trace_v2
+    trace_mask: u32,
+    trace_ctx: usize,
 }
 
 // (default, compile-time max) per limit id — pinned from the C baseline defaults
@@ -1068,6 +1137,128 @@ pub(crate) fn extended_for(rc: c_int, msg: &str) -> c_int {
     else { 19 }
 }
 
+// ---------------- run-36: busy handler / timeout ----------------
+type BusyCb = unsafe extern "C" fn(*mut c_void, c_int) -> c_int;
+
+/// # Safety: C ABI — installing a handler clears any busy timeout (and vice versa).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_busy_handler(db: *mut Sqlite3, cb: Option<BusyCb>, arg: *mut c_void) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    with_extras(db, |e| {
+        e.busy_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.busy_arg = arg as usize;
+        e.busy_timeout_ms = 0;
+    });
+    SQLITE_OK
+}
+/// # Safety: C ABI — ms<=0 clears both timeout and handler.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_busy_timeout(db: *mut Sqlite3, ms: c_int) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    with_extras(db, |e| {
+        e.busy_cb = 0;
+        e.busy_arg = 0;
+        e.busy_timeout_ms = if ms > 0 { ms } else { 0 };
+    });
+    SQLITE_OK
+}
+/// busy-loop consult used by the store's file write lock: true = retry
+pub(crate) fn busy_should_retry(dbid: usize, count: i32, slept_ms: &mut i32) -> bool {
+    let (cb, arg, timeout) = EXTRAS.with(|m| {
+        let mut mm = m.borrow_mut();
+        let e = mm.entry(dbid).or_default();
+        (e.busy_cb, e.busy_arg, e.busy_timeout_ms)
+    });
+    if cb != 0 {
+        let f: BusyCb = unsafe { std::mem::transmute(cb) };
+        return unsafe { f(arg as *mut c_void, count) } != 0;
+    }
+    if timeout > 0 && *slept_ms < timeout {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        *slept_ms += 1;
+        return true;
+    }
+    false
+}
+
+// ---------------- run-36: commit / update hooks + trace_v2 ----------------
+type CommitCb = unsafe extern "C" fn(*mut c_void) -> c_int;
+type UpdateCb = unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, i64);
+type TraceCb = unsafe extern "C" fn(u32, *mut c_void, *mut c_void, *mut c_void) -> c_int;
+
+/// # Safety: C ABI — returns the previous hook's user argument (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_commit_hook(db: *mut Sqlite3, cb: Option<CommitCb>, arg: *mut c_void) -> *mut c_void {
+    if db.is_null() { return std::ptr::null_mut(); }
+    with_extras(db, |e| {
+        let old = e.commit_arg;
+        e.commit_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.commit_arg = arg as usize;
+        old as *mut c_void
+    })
+}
+/// # Safety: C ABI — returns the previous hook's user argument (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_update_hook(db: *mut Sqlite3, cb: Option<UpdateCb>, arg: *mut c_void) -> *mut c_void {
+    if db.is_null() { return std::ptr::null_mut(); }
+    with_extras(db, |e| {
+        let old = e.update_arg;
+        e.update_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.update_arg = arg as usize;
+        old as *mut c_void
+    })
+}
+/// # Safety: C ABI — mask 0 (or NULL callback) unsets tracing (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_trace_v2(db: *mut Sqlite3, mask: u32, cb: Option<TraceCb>, ctx: *mut c_void) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    with_extras(db, |e| {
+        e.trace_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.trace_mask = if cb.is_some() { mask } else { 0 };
+        e.trace_ctx = ctx as usize;
+    });
+    SQLITE_OK
+}
+/// is a commit hook registered? (store snapshots only when needed)
+pub(crate) fn commit_hook_present(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().commit_cb != 0)
+}
+/// commit-hook consult (None = no hook; Some(rc) = callback result)
+pub(crate) fn consult_commit_hook(dbid: usize) -> Option<i32> {
+    let (cb, arg) = EXTRAS.with(|m| {
+        let mut mm = m.borrow_mut();
+        let e = mm.entry(dbid).or_default();
+        (e.commit_cb, e.commit_arg)
+    });
+    if cb == 0 { return None; }
+    let f: CommitCb = unsafe { std::mem::transmute(cb) };
+    Some(unsafe { f(arg as *mut c_void) })
+}
+/// fire the update hook for one changed row
+pub(crate) fn fire_update_hook(dbid: usize, op: i32, table: &str, rowid: i64) {
+    let (cb, arg) = EXTRAS.with(|m| {
+        let mut mm = m.borrow_mut();
+        let e = mm.entry(dbid).or_default();
+        (e.update_cb, e.update_arg)
+    });
+    if cb == 0 { return; }
+    let f: UpdateCb = unsafe { std::mem::transmute(cb) };
+    let dbn = CString::new("main").unwrap();
+    let tn = CString::new(table).unwrap_or_default();
+    unsafe { f(arg as *mut c_void, op, dbn.as_ptr(), tn.as_ptr(), rowid) };
+}
+/// fire a trace event when the connection's mask includes it
+pub(crate) fn fire_trace(dbid: usize, event: u32, p: *mut c_void, x: *mut c_void) {
+    let (cb, mask, ctx) = EXTRAS.with(|m| {
+        let mut mm = m.borrow_mut();
+        let e = mm.entry(dbid).or_default();
+        (e.trace_cb, e.trace_mask, e.trace_ctx)
+    });
+    if cb == 0 || mask & event == 0 { return; }
+    let f: TraceCb = unsafe { std::mem::transmute(cb) };
+    unsafe { f(event, ctx as *mut c_void, p, x) };
+}
+
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_set_authorizer(db: *mut Sqlite3, cb: AuthCallback, arg: *mut c_void) -> c_int {
@@ -1127,9 +1318,16 @@ pub unsafe extern "C" fn sqlite3_exec(
             }
         }
     }
+    {
+        // run-36: SQLITE_TRACE_STMT sees the statement text (per exec call for the
+        // pinned single-statement scripts; per-prepared-statement is a residual)
+        let ctext = CString::new(sql).unwrap_or_default();
+        fire_trace(db as usize, 1 /* STMT */, std::ptr::null_mut(), ctext.as_ptr() as *mut c_void);
+    }
     let wal_m0 = store::wal_marker(db as usize); // v22: WAL sidecar sync after the call
     let exec_result = store::execute_script(db as usize, sql);
     store::wal_sync(db as usize, wal_m0);
+    fire_trace(db as usize, 2 /* PROFILE */, std::ptr::null_mut(), std::ptr::null_mut()); // run-36 (count pins)
     match exec_result {
         store::Outcome::NotKitchen => {} // pack v8: no cheat-sheet fallback; treat as unknown below
         store::Outcome::Done { rows, rc, err } => {
@@ -1613,6 +1811,7 @@ pub unsafe extern "C" fn sqlite3_blob_open(
                 marker: store::wal_marker(db as usize), expired: false,
             });
             *pp_blob = Box::into_raw(b);
+            BLOBS.with(|m| { *m.borrow_mut().entry(db as usize).or_default() += 1; }); // run-36
             db_ok(&mut *db);
             SQLITE_OK
         }
@@ -1623,7 +1822,12 @@ pub unsafe extern "C" fn sqlite3_blob_open(
 /// # Safety: C ABI — close is unconditional; returns OK for the pinned scope.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_blob_close(b: *mut Sqlite3Blob) -> c_int {
-    if !b.is_null() { drop(Box::from_raw(b)); }
+    if !b.is_null() {
+        let dbid = (*b).db as usize;
+        drop(Box::from_raw(b));
+        BLOBS.with(|m| { if let Some(n) = m.borrow_mut().get_mut(&dbid) { *n = n.saturating_sub(1); } });
+        handle_released(dbid);
+    }
     SQLITE_OK
 }
 
