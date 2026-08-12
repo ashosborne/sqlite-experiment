@@ -528,3 +528,26 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   new full; upsert-002 untouched full. Scoreboard full 88→92 / partial 48 / none 103
   (243 known). cargo 488/488.
 
+## Run 32 — 2026-08-12 — engine v22: first WAL slice (pack v22, ALLOW_WAL lifted)
+
+- Pack v21→v22 BOUND (+versions/22, ADR 0020): WAL-FORMAT / JOURNAL-MODE / CHECKPOINT-MIN
+  laws supersede the historic blanket WAL ban. Single-process scope documented.
+- dbfile.rs: real WAL format — header magic 0x377f0682 (LE-word cksums), v3007000,
+  fixed salts; frame headers with cumulative checksums; write_wal (full committed image
+  as one txn), read_wal_overlay (checksum-validated recovery scan), apply_wal_overlay,
+  set_journal_versions.
+- store.rs: Conn.journal + pending_ckpt; open_file honours header versions=2 + recovers
+  -wal; save_file wal branch = C clean close (checkpoint + delete sidecars); wal_sync
+  post-exec hook (commit flush / pending checkpoint / wal->delete switch); wal_frame_count.
+- eval.rs: journal_mode get/set (wal/delete files, memory :memory:); wal_checkpoint
+  pragma family returns counts row, defers file work to wal_sync.
+- lib.rs: wal_sync hooks in exec + both step paths; prepared statements now surface
+  pragma rows + column names (C parity for PRAGMA journal_mode=WAL via prepare/step).
+- 16 goldens (engine-wal-001 x10, engine-wal-002 x6; harness /tmp/wal_harness.c).
+  Mandatory: rust_write_c_read_wal (C recovers wal-only data, integrity ok),
+  anti_cheat_wal_checkpoint_passive (wal-blind backfill proof), runtime reopen.
+  461 prior goldens md5-identical.
+- Flips (under-claimed): wal-001 none→partial, wal-002 none→partial (residuals precise);
+  engine-wal-001/002 new composed full. Scoreboard full 92→94 / partial 50 / none 101
+  (245 known). cargo 508/508.
+

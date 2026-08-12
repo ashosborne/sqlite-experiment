@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T12:03:38Z
+- Generated: 2026-08-12T12:30:02Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T20:30:00Z by `sqlite-engine-v21-upsert-expr-targets`
+- Manifest last_updated: 2026-08-12T22:30:00Z by `sqlite-engine-v22-wal`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 103 | Not started in modern |
-| partial | 48 | Some modern execution; gaps in notes |
-| full (converted) | 92 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 101 | Not started in modern |
+| partial | 50 | Some modern execution; gaps in notes |
+| full (converted) | 94 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -112,6 +112,8 @@
 - `engine-upsert-expr-001` — expression UNIQUE conflict targets
 - `engine-upsert-expr-002` — prior conflict-target surface regression pins
 - `engine-upsert-expr-003` — partial UNIQUE index targets
+- `engine-wal-001` — WAL mode + sidecars + durability + C interop (composed pins)
+- `engine-wal-002` — checkpoint pragmas, single-connection regime (composed pins)
 
 ### Partial in modern
 
@@ -150,7 +152,7 @@
 - `misc-urifuncs-001` — non-URI connection answers computed from real connection state; URI parameter parsing absent
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
-- `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent
+- `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded).
 - `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent
@@ -161,6 +163,8 @@
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+- `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
+- `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 - `window-functions-001` — rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
 
@@ -259,8 +263,6 @@
 - `vfs-win-002` — vfs-win — legacy_green no
 - `vtab-core-001` — vtab-core — legacy_green no
 - `vtab-core-002` — vtab-core — legacy_green no
-- `wal-001` — wal — legacy_green no
-- `wal-002` — wal — legacy_green no
 - `wasm-binding-001` — wasm-binding — legacy_green no
 - `wasm-js-api-001` — wasm-js-api — legacy_green no
 - `wasm-js-api-002` — wasm-js-api — legacy_green no
@@ -274,25 +276,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 226 |
-| Behaviours known | 243 |
+| Surfaces total | 227 |
+| Behaviours known | 245 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 153 |
+| legacy_green flags | 155 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 41 |
+| accepted | 42 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 92 |
+| converted | 94 |
 | documented | 151 |
 
 ## Surfaces per slice
@@ -351,6 +353,7 @@
 | engine-utf16 | 1 |
 | engine-value | 1 |
 | engine-views | 1 |
+| engine-wal | 1 |
 | engine-window2 | 1 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |

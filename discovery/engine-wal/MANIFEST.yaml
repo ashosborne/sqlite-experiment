@@ -1,0 +1,14 @@
+slice_id: engine-wal
+app_id: sqlite-experiment
+created_by: sqlite-engine-v22-wal
+created_at: 2026-08-12T22:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed first-WAL slice (run 32): journal_mode wal/delete on file connections,
+  real WAL file format with C interop, clean-close checkpoint semantics, and the
+  four checkpoint pragmas in the single-connection regime. Deliberately bounded;
+  multi-process WAL is explicitly out (pack v22 / ADR 0020).
+features:
+  - engine-wal-001
+  - engine-wal-002
