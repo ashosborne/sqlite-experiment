@@ -39,24 +39,122 @@ pub struct Sqlite3 {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum Kind {
-    SelectOne,   // "SELECT 1"
-    SelectParam, // "SELECT ?"
-    SelectText,  // "SELECT '42abc'" (pinned coercion case, run 11)
-}
-
-#[derive(Clone, Copy, PartialEq)]
 enum State {
     Ready,
     Row,
     Done,
 }
 
+/// pack v13: a REAL prepared statement. SQL executes through the same store/eval
+/// engine as sqlite3_exec (bind substitution -> typed rows). No pin table, no
+/// per-golden state machine, no bytecode VDBE claim (results materialize on the
+/// first step; nested-loop eval underneath).
 pub struct Sqlite3Stmt {
-    kind: Kind,
+    db: usize,
+    sql: String,                          // this statement's text
+    params: Vec<eval::V>,                 // 1-based slots (index i -> params[i-1])
+    param_names: Vec<Option<String>>,     // ":k" / "?2" spellings; None for bare ?
+    colnames: Vec<CString>,               // known at prepare for SELECT (dry run)
+    rows: Option<Vec<Vec<eval::V>>>,      // materialized on first step
+    cur: usize,
     state: State,
-    bound: Option<i64>, // preserved across reset (pinned)
-    param_count: usize,
+    readonly: bool,
+    text_cache: Vec<Option<CString>>,     // per-column column_text pointers (current row)
+}
+
+impl Sqlite3Stmt {
+    fn current(&self) -> Option<&Vec<eval::V>> {
+        if self.state != State::Row { return None; }
+        self.rows.as_ref().and_then(|r| r.get(self.cur))
+    }
+}
+
+/// scan placeholders (?, ?N, :name) outside string literals.
+/// returns (count, names by 1-based slot).
+fn scan_params(sql: &str) -> (usize, Vec<Option<String>>) {
+    let cs: Vec<char> = sql.chars().collect();
+    let mut names: Vec<Option<String>> = Vec::new();
+    let mut maxn = 0usize;
+    let mut inq = false;
+    let mut i = 0;
+    let mut set = |n: usize, name: Option<String>, names: &mut Vec<Option<String>>| {
+        if names.len() < n { names.resize(n, None); }
+        if name.is_some() { names[n - 1] = name; }
+    };
+    while i < cs.len() {
+        let c = cs[i];
+        if c == '\'' { inq = !inq; i += 1; continue; }
+        if inq { i += 1; continue; }
+        if c == '?' {
+            let mut j = i + 1;
+            let mut num = String::new();
+            while j < cs.len() && cs[j].is_ascii_digit() { num.push(cs[j]); j += 1; }
+            let n = if num.is_empty() { maxn + 1 } else { num.parse::<usize>().unwrap_or(maxn + 1) };
+            let name = if num.is_empty() { None } else { Some(format!("?{num}")) };
+            if n > maxn { maxn = n; }
+            set(n, name, &mut names);
+            i = j;
+            continue;
+        }
+        if c == ':' && i + 1 < cs.len() && (cs[i+1].is_alphanumeric() || cs[i+1] == '_') {
+            let mut j = i + 1;
+            let mut nm = String::from(":");
+            while j < cs.len() && (cs[j].is_alphanumeric() || cs[j] == '_') { nm.push(cs[j]); j += 1; }
+            let n = maxn + 1;
+            maxn = n;
+            set(n, Some(nm), &mut names);
+            i = j;
+            continue;
+        }
+        i += 1;
+    }
+    if names.len() < maxn { names.resize(maxn, None); }
+    (maxn, names)
+}
+
+fn sql_literal(v: &eval::V) -> String {
+    match v {
+        eval::V::Null => "NULL".into(),
+        eval::V::Int(i) => i.to_string(),
+        eval::V::Real(_) => v.render().unwrap_or_else(|| "NULL".into()),
+        eval::V::Text(s) => format!("'{}'", s.replace('\'', "''")),
+        eval::V::Blob(b) => format!("X'{}'", b.iter().map(|x| format!("{:02X}", x)).collect::<String>()),
+    }
+}
+
+/// substitute bound parameters into the SQL text (values become part of the
+/// statement — the engine then executes it; binds provably affect results).
+fn bind_sql(sql: &str, params: &[eval::V]) -> String {
+    let cs: Vec<char> = sql.chars().collect();
+    let mut out = String::new();
+    let mut inq = false;
+    let mut auto = 0usize;
+    let mut i = 0;
+    while i < cs.len() {
+        let c = cs[i];
+        if c == '\'' { inq = !inq; out.push(c); i += 1; continue; }
+        if inq { out.push(c); i += 1; continue; }
+        if c == '?' {
+            let mut j = i + 1;
+            let mut num = String::new();
+            while j < cs.len() && cs[j].is_ascii_digit() { num.push(cs[j]); j += 1; }
+            let n = if num.is_empty() { auto += 1; auto } else { let v = num.parse::<usize>().unwrap_or(1); auto = v.max(auto); v };
+            out.push_str(&sql_literal(params.get(n - 1).unwrap_or(&eval::V::Null)));
+            i = j;
+            continue;
+        }
+        if c == ':' && i + 1 < cs.len() && (cs[i+1].is_alphanumeric() || cs[i+1] == '_') {
+            let mut j = i + 1;
+            while j < cs.len() && (cs[j].is_alphanumeric() || cs[j] == '_') { j += 1; }
+            auto += 1;
+            out.push_str(&sql_literal(params.get(auto - 1).unwrap_or(&eval::V::Null)));
+            i = j;
+            continue;
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
 }
 
 fn db_ok(db: &mut Sqlite3) {
@@ -182,50 +280,79 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
             return SQLITE_ERROR;
         }
     };
-    let end_ptr = z_sql.add(sql.len()); // the terminating NUL / end of input
-
-    let body = skip_ws_and_comments(sql);
-    if body.is_empty() {
-        // pinned: whitespace/comment-only SQL -> OK + NULL stmt, tail consumed
-        db_ok(&mut *db);
-        if !pz_tail.is_null() {
-            *pz_tail = end_ptr;
+    // slice off the FIRST statement (top-level ';' outside string literals)
+    let mut split = sql.len();
+    {
+        let bytes = sql.as_bytes();
+        let mut inq = false;
+        for (i, &b) in bytes.iter().enumerate() {
+            match b { b'\'' => inq = !inq, b';' if !inq => { split = i + 1; break; } _ => {} }
         }
+    }
+    let (this_sql, _rest) = sql.split_at(split);
+    let tail_ptr = z_sql.add(split.min(sql.len()));
+    let end_ptr = z_sql.add(sql.len());
+
+    let body = skip_ws_and_comments(this_sql);
+    if body.is_empty() {
+        db_ok(&mut *db);
+        if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
         return SQLITE_OK;
     }
+    let stmt_text = body.trim_end().trim_end_matches(';').trim_end().to_string();
+    let up = stmt_text.to_ascii_uppercase();
+    let readonly = up.starts_with("SELECT") || up.starts_with("PRAGMA") || up.starts_with("EXPLAIN");
 
-    let stmt_text = body.trim_end().trim_end_matches(';').trim_end();
-    let kind = if stmt_text.eq_ignore_ascii_case("SELECT 1") {
-        Kind::SelectOne
-    } else if stmt_text.eq_ignore_ascii_case("SELECT ?") {
-        Kind::SelectParam
-    } else if stmt_text.eq_ignore_ascii_case("SELECT '42abc'") {
-        Kind::SelectText
-    } else {
-        // recognizer-not-engine (pack known_risk): everything unpinned is a syntax error
-        db_syntax_error(&mut *db, first_token(body));
-        if !pz_tail.is_null() {
-            *pz_tail = z_sql; // unconsumed on error (not a pinned observable)
+    let (param_count, param_names) = scan_params(&stmt_text);
+    let dbid = db as usize;
+
+    // prepare-time resolution (C compiles here): dry-run SELECTs with NULL params
+    // (side-effect free); validate DML/DDL targets; classify unknown SQL as syntax.
+    let mut colnames: Vec<CString> = Vec::new();
+    if up.starts_with("SELECT") {
+        let probe = bind_sql(&stmt_text, &vec![eval::V::Null; param_count]);
+        match store::stmt_query_typed(dbid, &probe) {
+            Ok((names, _rows)) => {
+                colnames = names.into_iter().map(|n| CString::new(n).unwrap_or_default()).collect();
+            }
+            Err(e) => {
+                (*db).errcode = SQLITE_ERROR;
+                (*db).extended = SQLITE_ERROR;
+                (*db).errmsg = Some(CString::new(e).unwrap_or_default());
+                if !pz_tail.is_null() { *pz_tail = z_sql; }
+                return SQLITE_ERROR;
+            }
         }
+        // run-11 pin: authorizer consulted for SELECT at prepare time (DENY -> SQLITE_AUTH)
+        let auth_rc = auth_check_select(db);
+        if auth_rc != SQLITE_OK { return auth_rc; }
+    } else if !store::stmt_prepare_check(dbid, &stmt_text) {
+        db_syntax_error(&mut *db, first_token(body));
+        if !pz_tail.is_null() { *pz_tail = z_sql; }
         return SQLITE_ERROR;
-    };
+    } else if let Some(missing) = store::stmt_missing_table(dbid, &stmt_text) {
+        (*db).errcode = SQLITE_ERROR;
+        (*db).extended = SQLITE_ERROR;
+        (*db).errmsg = Some(CString::new(format!("no such table: {missing}")).unwrap());
+        if !pz_tail.is_null() { *pz_tail = z_sql; }
+        return SQLITE_ERROR;
+    }
 
     db_ok(&mut *db);
-    // run-11: consult the authorizer for recognized SELECTs (DENY -> SQLITE_AUTH, pinned)
-    let auth_rc = auth_check_select(db);
-    if auth_rc != SQLITE_OK {
-        return auth_rc;
-    }
     let stmt = Box::new(Sqlite3Stmt {
-        kind,
+        db: dbid,
+        sql: stmt_text,
+        params: vec![eval::V::Null; param_count],
+        param_names,
+        colnames,
+        rows: None,
+        cur: 0,
         state: State::Ready,
-        bound: None,
-        param_count: if kind == Kind::SelectParam { 1 } else { 0 },
+        readonly,
+        text_cache: Vec::new(),
     });
     *pp_stmt = Box::into_raw(stmt);
-    if !pz_tail.is_null() {
-        *pz_tail = end_ptr; // single pinned statements consume the whole input
-    }
+    if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
     SQLITE_OK
 }
 
@@ -237,60 +364,240 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
     }
     let s = &mut *stmt;
     match s.state {
-        State::Ready => {
-            s.state = State::Row;
-            SQLITE_ROW
-        }
+        State::Ready => stmt_execute(s),
         State::Row => {
-            s.state = State::Done;
-            SQLITE_DONE
+            s.cur += 1;
+            let n = s.rows.as_ref().map(|r| r.len()).unwrap_or(0);
+            if s.cur < n { s.text_cache.clear(); SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE }
         }
         State::Done => {
-            // pinned autoreset (OMIT_AUTORESET=off): step after DONE re-runs -> ROW
-            s.state = State::Row;
-            SQLITE_ROW
+            // OMIT_AUTORESET=off: step after DONE resets and re-executes (pinned)
+            s.rows = None;
+            s.cur = 0;
+            stmt_execute(s)
         }
+    }
+}
+
+/// execute via the shared store/eval engine (bind substitution -> typed rows)
+unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
+    s.text_cache.clear();
+    let bound = bind_sql(&s.sql, &s.params);
+    if s.readonly {
+        match store::stmt_query_typed(s.db, &bound) {
+            Ok((_names, rows)) => {
+                let has = !rows.is_empty();
+                s.rows = Some(rows);
+                s.cur = 0;
+                if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE }
+            }
+            Err(_e) => { s.state = State::Done; SQLITE_ERROR }
+        }
+    } else {
+        match store::execute_script(s.db, &bound) {
+            store::Outcome::Done { rc: 0, .. } => { s.state = State::Done; SQLITE_DONE }
+            store::Outcome::Done { rc, err, rows: _ } => {
+                let dbp = s.db as *mut Sqlite3;
+                if !dbp.is_null() {
+                    (*dbp).errcode = rc;
+                    (*dbp).extended = rc;
+                    (*dbp).errmsg = err.and_then(|m| CString::new(m).ok());
+                }
+                s.state = State::Done;
+                rc
+            }
+            store::Outcome::NotKitchen => { s.state = State::Done; SQLITE_ERROR }
+        }
+    }
+}
+
+fn col_val<'a>(s: &'a Sqlite3Stmt, i: c_int) -> Option<&'a eval::V> {
+    if i < 0 { return None; }
+    s.current().and_then(|r| r.get(i as usize))
+}
+fn v_to_i64(v: &eval::V) -> i64 {
+    match v {
+        eval::V::Int(i) => *i,
+        eval::V::Real(r) => *r as i64, // C truncates toward zero
+        eval::V::Text(t) => {
+            // integer prefix (sqlite3Atoi64 semantics for the pinned shapes)
+            let t = t.trim_start();
+            let neg = t.starts_with('-');
+            let digits: String = t.trim_start_matches(['+', '-']).chars().take_while(|c| c.is_ascii_digit()).collect();
+            let n: i64 = digits.parse().unwrap_or(0);
+            if neg { -n } else { n }
+        }
+        _ => 0,
+    }
+}
+fn v_to_f64(v: &eval::V) -> f64 {
+    match v {
+        eval::V::Int(i) => *i as f64,
+        eval::V::Real(r) => *r,
+        eval::V::Text(t) => eval::text_to_num(t).unwrap_or(0.0),
+        _ => 0.0,
     }
 }
 
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_column_int(stmt: *mut Sqlite3Stmt, i_col: c_int) -> c_int {
-    if stmt.is_null() || i_col != 0 {
-        return 0;
-    }
-    let s = &*stmt;
-    if s.state != State::Row {
-        return 0;
-    }
-    match s.kind {
-        Kind::SelectOne => 1,
-        Kind::SelectParam => s.bound.unwrap_or(0) as c_int, // unbound param evaluates NULL -> 0
-        Kind::SelectText => 42, // pinned coercion: leading-integer prefix of '42abc'
+    if stmt.is_null() { return 0; }
+    col_val(&*stmt, i_col).map(v_to_i64).unwrap_or(0) as c_int
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_int64(stmt: *mut Sqlite3Stmt, i_col: c_int) -> i64 {
+    if stmt.is_null() { return 0; }
+    col_val(&*stmt, i_col).map(v_to_i64).unwrap_or(0)
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_double(stmt: *mut Sqlite3Stmt, i_col: c_int) -> f64 {
+    if stmt.is_null() { return 0.0; }
+    col_val(&*stmt, i_col).map(v_to_f64).unwrap_or(0.0)
+}
+
+/// # Safety: C ABI — pointer valid until the next step/reset/finalize.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_text(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const u8 {
+    if stmt.is_null() { return ptr::null(); }
+    let s = &mut *stmt;
+    let v = match col_val(s, i_col) { Some(v) => v.clone(), None => return ptr::null() };
+    if matches!(v, eval::V::Null) { return ptr::null(); }
+    let txt = v.render().unwrap_or_default();
+    let idx = i_col as usize;
+    if s.text_cache.len() <= idx { s.text_cache.resize(idx + 1, None); }
+    s.text_cache[idx] = Some(CString::new(txt).unwrap_or_default());
+    s.text_cache[idx].as_ref().unwrap().as_ptr() as *const u8
+}
+
+/// # Safety: C ABI — pointer valid until the next step/reset/finalize.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_blob(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_void {
+    sqlite3_column_text(stmt, i_col) as *const c_void
+}
+
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_bytes(stmt: *mut Sqlite3Stmt, i_col: c_int) -> c_int {
+    if stmt.is_null() { return 0; }
+    match col_val(&*stmt, i_col) {
+        Some(eval::V::Blob(b)) => b.len() as c_int,
+        Some(eval::V::Null) | None => 0,
+        Some(v) => v.render().map(|s| s.len()).unwrap_or(0) as c_int,
     }
 }
 
 /// # Safety: C ABI.
 #[no_mangle]
-pub unsafe extern "C" fn sqlite3_bind_int(stmt: *mut Sqlite3Stmt, idx: c_int, value: c_int) -> c_int {
-    if stmt.is_null() {
-        return SQLITE_MISUSE;
+pub unsafe extern "C" fn sqlite3_column_count(stmt: *mut Sqlite3Stmt) -> c_int {
+    if stmt.is_null() { return 0; }
+    (*stmt).colnames.len() as c_int
+}
+
+/// # Safety: C ABI — pointer valid while the statement lives.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_name(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_char {
+    if stmt.is_null() || i_col < 0 { return ptr::null(); }
+    match (*stmt).colnames.get(i_col as usize) {
+        Some(c) => c.as_ptr(),
+        None => ptr::null(),
     }
+}
+
+unsafe fn bind_slot(stmt: *mut Sqlite3Stmt, idx: c_int, v: eval::V) -> c_int {
+    if stmt.is_null() { return SQLITE_MISUSE; }
     let s = &mut *stmt;
-    if idx < 1 || (idx as usize) > s.param_count {
-        return SQLITE_RANGE; // pinned: 25
-    }
-    s.bound = Some(value as i64);
+    if idx < 1 || (idx as usize) > s.params.len() { return SQLITE_RANGE; } // pinned: 25
+    s.params[idx as usize - 1] = v;
     SQLITE_OK
 }
 
-/// # Safety: C ABI — bindings preserved (pinned).
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_int(stmt: *mut Sqlite3Stmt, idx: c_int, value: c_int) -> c_int {
+    bind_slot(stmt, idx, eval::V::Int(value as i64))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_int64(stmt: *mut Sqlite3Stmt, idx: c_int, value: i64) -> c_int {
+    bind_slot(stmt, idx, eval::V::Int(value))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_double(stmt: *mut Sqlite3Stmt, idx: c_int, value: f64) -> c_int {
+    bind_slot(stmt, idx, eval::V::Real(value))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_null(stmt: *mut Sqlite3Stmt, idx: c_int) -> c_int {
+    bind_slot(stmt, idx, eval::V::Null)
+}
+/// # Safety: C ABI — the value is COPIED (TRANSIENT-safe regardless of destructor).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_text(stmt: *mut Sqlite3Stmt, idx: c_int, z: *const c_char,
+                                           n: c_int, _destructor: *mut c_void) -> c_int {
+    if z.is_null() { return bind_slot(stmt, idx, eval::V::Null); }
+    let bytes = if n < 0 { CStr::from_ptr(z).to_bytes().to_vec() }
+                else { std::slice::from_raw_parts(z as *const u8, n as usize).to_vec() };
+    bind_slot(stmt, idx, eval::V::Text(String::from_utf8_lossy(&bytes).into_owned()))
+}
+/// # Safety: C ABI — the value is COPIED (TRANSIENT-safe regardless of destructor).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_blob(stmt: *mut Sqlite3Stmt, idx: c_int, z: *const c_void,
+                                           n: c_int, _destructor: *mut c_void) -> c_int {
+    if z.is_null() { return bind_slot(stmt, idx, eval::V::Null); }
+    let bytes = std::slice::from_raw_parts(z as *const u8, n.max(0) as usize).to_vec();
+    bind_slot(stmt, idx, eval::V::Blob(bytes))
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_parameter_count(stmt: *mut Sqlite3Stmt) -> c_int {
+    if stmt.is_null() { return 0; }
+    (*stmt).params.len() as c_int
+}
+/// # Safety: C ABI — pointer valid while the statement lives.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_parameter_name(stmt: *mut Sqlite3Stmt, idx: c_int) -> *const c_char {
+    if stmt.is_null() || idx < 1 { return ptr::null(); }
+    let s = &mut *stmt;
+    match s.param_names.get(idx as usize - 1) {
+        Some(Some(n)) => {
+            // cache the CString in text_cache slot space? keep a static-per-stmt store:
+            let cs = CString::new(n.clone()).unwrap_or_default();
+            let p = cs.as_ptr();
+            PARAM_NAME_KEEP.with(|k| k.borrow_mut().push(cs));
+            p
+        }
+        _ => ptr::null(),
+    }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_parameter_index(stmt: *mut Sqlite3Stmt, name: *const c_char) -> c_int {
+    if stmt.is_null() || name.is_null() { return 0; }
+    let want = match CStr::from_ptr(name).to_str() { Ok(s) => s, Err(_) => return 0 };
+    (*stmt).param_names.iter().position(|n| n.as_deref() == Some(want)).map(|i| i as c_int + 1).unwrap_or(0)
+}
+
+thread_local! {
+    static PARAM_NAME_KEEP: std::cell::RefCell<Vec<CString>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// # Safety: C ABI — bindings preserved across reset (pinned; matches C).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_reset(stmt: *mut Sqlite3Stmt) -> c_int {
     if stmt.is_null() {
         return SQLITE_OK;
     }
-    (*stmt).state = State::Ready; // bound value intentionally kept
+    let s = &mut *stmt;
+    s.state = State::Ready;
+    s.rows = None;
+    s.cur = 0;
+    s.text_cache.clear();
     SQLITE_OK
 }
 
@@ -678,7 +985,7 @@ pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_stmt_readonly(stmt: *mut Sqlite3Stmt) -> c_int {
-    if stmt.is_null() { 0 } else { 1 } // all recognized statements are SELECTs (pinned scope)
+    if stmt.is_null() { 0 } else { (*stmt).readonly as c_int } // real statement property
 }
 /// # Safety: C ABI.
 #[no_mangle]
@@ -686,11 +993,17 @@ pub unsafe extern "C" fn sqlite3_stmt_busy(stmt: *mut Sqlite3Stmt) -> c_int {
     if stmt.is_null() { return 0; }
     match (*stmt).state { State::Row => 1, _ => 0 }
 }
-/// # Safety: C ABI — pinned coercion case: TEXT '42abc'.
+/// # Safety: C ABI — real storage class of the current row's column.
 #[no_mangle]
-pub unsafe extern "C" fn sqlite3_column_type(stmt: *mut Sqlite3Stmt, _i: c_int) -> c_int {
+pub unsafe extern "C" fn sqlite3_column_type(stmt: *mut Sqlite3Stmt, i: c_int) -> c_int {
     if stmt.is_null() { return 5; /* NULL */ }
-    match (*stmt).kind { Kind::SelectText => 3 /* SQLITE_TEXT */, _ => 1 /* INTEGER */ }
+    match col_val(&*stmt, i) {
+        Some(eval::V::Int(_)) => 1,
+        Some(eval::V::Real(_)) => 2,
+        Some(eval::V::Text(_)) => 3,
+        Some(eval::V::Blob(_)) => 4,
+        _ => 5,
+    }
 }
 
 // ===================== run-12 leftovers widening (pack v3) =====================

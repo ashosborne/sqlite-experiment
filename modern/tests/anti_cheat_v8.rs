@@ -161,3 +161,69 @@ fn anti_cheat_thin_misc_runtime() {
     assert_eq!(rows2[0][0].as_deref().map(|h| h.to_lowercase()),
                Some(format!("{:016x}", (n as f64 + 0.5).to_bits())));
 }
+
+// ---- pack v13 anti-cheat: prepared statements compute with runtime binds ----
+
+#[test]
+fn anti_cheat_prepare_runtime_bind() {
+    unsafe {
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(":memory:").unwrap().as_ptr(), &mut db);
+        let mut st: *mut Sqlite3Stmt = std::ptr::null_mut();
+        let sql = CString::new("SELECT ?1 + ?2").unwrap();
+        assert_eq!(sqlite3_prepare_v2(db, sql.as_ptr(), -1, &mut st, std::ptr::null_mut()), 0);
+        let (a, b) = (runtime_int(), runtime_int() / 3 + 11);
+        sqlite3_bind_int64(st, 1, a);
+        sqlite3_bind_int64(st, 2, b);
+        assert_eq!(sqlite3_step(st), 100);
+        assert_eq!(sqlite3_column_int64(st, 0), a + b, "bound values must drive the computation");
+        sqlite3_finalize(st);
+        sqlite3_close(db);
+    }
+}
+
+#[test]
+fn anti_cheat_prepare_dml_visible() {
+    unsafe {
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(":memory:").unwrap().as_ptr(), &mut db);
+        let k = runtime_int();
+        let (rc0, _rows) = (sqlite3_exec(db, CString::new("CREATE TABLE ac(v);").unwrap().as_ptr(), None, std::ptr::null_mut(), std::ptr::null_mut()), ());
+        assert_eq!(rc0, 0);
+        let mut st: *mut Sqlite3Stmt = std::ptr::null_mut();
+        let ins = CString::new("INSERT INTO ac VALUES(?1)").unwrap();
+        assert_eq!(sqlite3_prepare_v2(db, ins.as_ptr(), -1, &mut st, std::ptr::null_mut()), 0);
+        sqlite3_bind_int64(st, 1, k);
+        assert_eq!(sqlite3_step(st), 101);
+        sqlite3_finalize(st);
+        let sel = CString::new(format!("SELECT v FROM ac WHERE v = {k}")).unwrap();
+        let mut st2: *mut Sqlite3Stmt = std::ptr::null_mut();
+        assert_eq!(sqlite3_prepare_v2(db, sel.as_ptr(), -1, &mut st2, std::ptr::null_mut()), 0);
+        assert_eq!(sqlite3_step(st2), 100, "prepared DML effect must be visible");
+        assert_eq!(sqlite3_column_int64(st2, 0), k);
+        sqlite3_finalize(st2);
+        sqlite3_close(db);
+    }
+}
+
+#[test]
+fn anti_cheat_column_types() {
+    unsafe {
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(":memory:").unwrap().as_ptr(), &mut db);
+        let n = runtime_int();
+        let mut st: *mut Sqlite3Stmt = std::ptr::null_mut();
+        let sql = CString::new(format!("SELECT {n}, {n}.5, 'v{n}', NULL")).unwrap();
+        assert_eq!(sqlite3_prepare_v2(db, sql.as_ptr(), -1, &mut st, std::ptr::null_mut()), 0);
+        assert_eq!(sqlite3_step(st), 100);
+        assert_eq!(sqlite3_column_type(st, 0), 1);
+        assert_eq!(sqlite3_column_type(st, 1), 2);
+        assert_eq!(sqlite3_column_type(st, 2), 3);
+        assert_eq!(sqlite3_column_type(st, 3), 5);
+        assert_eq!(sqlite3_column_int64(st, 0), n);
+        let p = sqlite3_column_text(st, 2);
+        assert_eq!(CStr::from_ptr(p as *const std::os::raw::c_char).to_str().unwrap(), format!("v{n}"));
+        sqlite3_finalize(st);
+        sqlite3_close(db);
+    }
+}

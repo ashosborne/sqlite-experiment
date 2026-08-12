@@ -82,6 +82,7 @@ fn encode_record(vals: &[Val]) -> Vec<u8> {
         match v {
             Val::Null => put_varint(&mut st, 0),
             Val::Int(i) => { let (t, b) = int_serial(*i); put_varint(&mut st, t); body.extend_from_slice(&b); }
+            Val::Real(r) => { put_varint(&mut st, 7); body.extend_from_slice(&r.to_bits().to_be_bytes()); }
             Val::Text(t) => { let b = t.as_bytes(); put_varint(&mut st, 13 + 2 * b.len() as u64); body.extend_from_slice(b); }
             Val::Blob(b) => { put_varint(&mut st, 12 + 2 * b.len() as u64); body.extend_from_slice(b); }
         }
@@ -112,6 +113,7 @@ fn decode_record(payload: &[u8]) -> Vec<Val> {
             4 => { out.push(Val::Int(i32::from_be_bytes([payload[body],payload[body+1],payload[body+2],payload[body+3]]) as i64)); body += 4; }
             5 => { let mut x=0i64; for k in 0..6 { x=(x<<8)|payload[body+k] as i64; } if x & 0x8000_0000_0000!=0 { x-=0x1_0000_0000_0000; } out.push(Val::Int(x)); body += 6; }
             6 => { let mut a=[0u8;8]; a.copy_from_slice(&payload[body..body+8]); out.push(Val::Int(i64::from_be_bytes(a))); body += 8; }
+            7 => { let mut a=[0u8;8]; a.copy_from_slice(&payload[body..body+8]); out.push(Val::Real(f64::from_bits(u64::from_be_bytes(a)))); body += 8; }
             n if n >= 13 && n % 2 == 1 => { let l=((n-13)/2) as usize; out.push(Val::Text(String::from_utf8_lossy(&payload[body..body+l]).into_owned())); body += l; }
             n if n >= 12 => { let l=((n-12)/2) as usize; out.push(Val::Blob(payload[body..body+l].to_vec())); body += l; }
             _ => out.push(Val::Null),
@@ -207,10 +209,13 @@ fn table_cell(rowid: i64, vals: &[Val], datapages: &mut Vec<[u8; PAGE]>) -> Vec<
 /// sort key across SQLite storage classes (NULL < INT < TEXT < BLOB; binary collation)
 fn val_ord(a: &Val, b: &Val) -> std::cmp::Ordering {
     use std::cmp::Ordering::*;
-    let rank = |v: &Val| match v { Val::Null => 0, Val::Int(_) => 1, Val::Text(_) => 2, Val::Blob(_) => 3 };
+    let rank = |v: &Val| match v { Val::Null => 0, Val::Int(_) | Val::Real(_) => 1, Val::Text(_) => 2, Val::Blob(_) => 3 };
     match rank(a).cmp(&rank(b)) {
         Equal => match (a, b) {
             (Val::Int(x), Val::Int(y)) => x.cmp(y),
+            (Val::Int(x), Val::Real(y)) => (*x as f64).partial_cmp(y).unwrap_or(Equal),
+            (Val::Real(x), Val::Int(y)) => x.partial_cmp(&(*y as f64)).unwrap_or(Equal),
+            (Val::Real(x), Val::Real(y)) => x.partial_cmp(y).unwrap_or(Equal),
             (Val::Text(x), Val::Text(y)) => x.as_bytes().cmp(y.as_bytes()),
             (Val::Blob(x), Val::Blob(y)) => x.cmp(y),
             _ => Equal,

@@ -20,6 +20,7 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Val {
     Int(i64),
+    Real(f64),
     Text(String),
     Blob(Vec<u8>),
     Null,
@@ -28,6 +29,9 @@ impl Val {
     fn render(&self) -> Option<String> {
         match self {
             Val::Int(i) => Some(i.to_string()),
+            Val::Real(r) => Some(if r.is_finite() && *r == r.trunc() && r.abs() < 1e15 {
+                format!("{:.1}", r)
+            } else { format!("{}", r) }),
             Val::Text(t) => Some(t.clone()),
             Val::Blob(b) => Some(String::from_utf8_lossy(b).into_owned()),
             Val::Null => None,
@@ -85,7 +89,7 @@ pub enum Outcome {
 }
 
 fn val_to_ev(v: &Val) -> eval::V {
-    match v { Val::Null => eval::V::Null, Val::Int(i) => eval::V::Int(*i),
+    match v { Val::Null => eval::V::Null, Val::Int(i) => eval::V::Int(*i), Val::Real(r) => eval::V::Real(*r),
               Val::Text(t) => eval::V::Text(t.clone()), Val::Blob(b) => eval::V::Blob(b.clone()) }
 }
 
@@ -270,6 +274,11 @@ fn parse_literal(tok: &str) -> Option<Val> {
     }
     if let Ok(i) = t.parse::<i64>() {
         return Some(Val::Int(i));
+    }
+    if (t.contains('.') || t.contains('e') || t.contains('E')) && !t.starts_with('\'') {
+        if let Ok(f) = t.parse::<f64>() {
+            return Some(Val::Real(f));
+        }
     }
     if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') {
         return Some(Val::Text(t[1..t.len() - 1].replace("''", "'")));
@@ -702,7 +711,7 @@ fn ev_truthy(v: &eval::V) -> bool {
               eval::V::Text(t) => t.parse::<f64>().map(|f| f != 0.0).unwrap_or(false), eval::V::Blob(_) => true }
 }
 fn ev_to_val(v: eval::V) -> Val {
-    match v { eval::V::Null => Val::Null, eval::V::Int(i) => Val::Int(i), eval::V::Real(r) => Val::Int(r as i64),
+    match v { eval::V::Null => Val::Null, eval::V::Int(i) => Val::Int(i), eval::V::Real(r) => Val::Real(r),
               eval::V::Text(t) => Val::Text(t), eval::V::Blob(b) => Val::Blob(b) }
 }
 /// Fire matching triggers for one row event. WHEN + body value expressions are
@@ -755,6 +764,69 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
         }
     }
     Ok(())
+}
+
+/// Typed single-statement query for the statement API (pack v13): SELECT/PRAGMA run
+/// through the SAME eval engine as sqlite3_exec, returning typed rows + column names.
+/// Kitchen-owned targets (sqlite_master) fall back to the rendered kitchen path.
+/// prepare-time syntax gate: does the engine recognize this statement shape at all?
+pub fn stmt_prepare_check(_db: usize, sql: &str) -> bool {
+    let s = sql.trim().trim_end_matches(';').trim();
+    if parse_stmt(s).is_some() { return true; }
+    let up = s.to_ascii_uppercase();
+    up.starts_with("PRAGMA") || up.starts_with("ATTACH") || up.starts_with("DETACH")
+        || up.starts_with("SELECT") || up.starts_with("CREATE") || up.starts_with("DROP")
+        || up.starts_with("ALTER") || up.starts_with("INSERT") || up.starts_with("UPDATE")
+        || up.starts_with("DELETE")
+}
+/// prepare-time resolution: DML against a missing table (C reports at compile time)
+pub fn stmt_missing_table(db: usize, sql: &str) -> Option<String> {
+    let s = sql.trim().trim_end_matches(';').trim();
+    match parse_stmt(s) {
+        Some(Stmt::Insert { name, .. }) | Some(Stmt::Update { name, .. }) | Some(Stmt::Delete { name, .. }) => {
+            with_store(db, |st| {
+                if st.tables.iter().any(|(n, _)| *n == name) || st.views.contains_key(&name) { None }
+                else { Some(name) }
+            })
+        }
+        _ => None,
+    }
+}
+
+pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<eval::V>>), String> {
+    let s = sql.trim().trim_end_matches(';').trim();
+    let up = s.to_ascii_uppercase();
+    let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA");
+    if up.starts_with("SELECT") && !master {
+        return with_store(db, |st| {
+            let snap: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> =
+                st.tables.iter().map(|(n, t)| (n.clone(),
+                    (t.cols.iter().map(|c| c.name.clone()).collect(),
+                     t.rows.iter().map(|(_, r)| r.iter().map(val_to_ev).collect()).collect()))).collect();
+            let fk: std::collections::HashMap<String, usize> = st.tables.iter()
+                .map(|(n, t)| (n.clone(), t.cols.iter().filter(|c| c.references.is_some()).count())).collect();
+            let idx: std::collections::HashMap<String, usize> = {
+                let mut m = std::collections::HashMap::new();
+                for tn in st.index_owner.values() { *m.entry(tn.clone()).or_insert(0) += 1; }
+                for (n, _) in &st.tables { m.entry(n.clone()).or_insert(0); }
+                m
+            };
+            let views = st.views.clone();
+            let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views };
+            eval::stmt_select_typed(&mut ctx, s)
+        });
+    }
+    // non-SELECT (DML/DDL/pragma/sqlite_master): run through the shared script engine
+    match execute_script(db, s) {
+        Outcome::Done { rows, rc: 0, .. } => {
+            let n = rows.first().map(|r| r.len()).unwrap_or(0);
+            let names = (0..n).map(|i| format!("column{i}")).collect();
+            Ok((names, rows.into_iter().map(|r| r.into_iter().map(|c| match c {
+                Some(s) => eval::V::Text(s), None => eval::V::Null }).collect()).collect()))
+        }
+        Outcome::Done { err, .. } => Err(err.unwrap_or_else(|| "SQL error".into())),
+        Outcome::NotKitchen => Err("SQL error".into()),
+    }
 }
 
 pub fn execute_script(db: usize, script: &str) -> Outcome {

@@ -51,7 +51,7 @@ fn render_real(r: f64) -> String {
         if s.contains('.') || s.contains('e') || s.contains("inf") || s.contains("nan") { s } else { format!("{}.0", s) }
     }
 }
-fn text_to_num(t: &str) -> Option<f64> {
+pub fn text_to_num(t: &str) -> Option<f64> {
     let s = t.trim();
     // SQLite numeric-prefix parse
     let mut end = 0; let b = s.as_bytes();
@@ -1674,6 +1674,11 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
         rows = rows.into_iter().skip(off).take(n).collect();
     }
     Ok((colnames, rows))
+}
+
+/// typed SELECT for the statement API: same executor, rows stay typed
+pub fn stmt_select_typed(ctx: &mut Ctx, sql: &str) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    select_rows_o(ctx, sql, &Row::new())
 }
 
 // ---------------- statement dispatcher ----------------
