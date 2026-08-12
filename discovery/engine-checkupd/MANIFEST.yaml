@@ -1,0 +1,17 @@
+slice_id: engine-checkupd
+app_id: sqlite-experiment
+seed: composed CHECK-on-UPDATE slice (run 26)
+status: accepted
+features:
+- feature_id: engine-checkupd-001
+  name: script scope
+  status: accepted
+  evidence: [src/update.c:1]
+- feature_id: engine-checkupd-002
+  name: OR-mode scope
+  status: accepted
+  evidence: [src/update.c:1]
+- feature_id: engine-checkupd-003
+  name: durable scope
+  status: accepted
+  evidence: [src/update.c:1]

@@ -2350,6 +2350,15 @@ surfaces:
   notes: composed transaction slice (run 25); seam-kind=api
   discovery_evidence:
   - src/pager.c:1
+- surface_id: sur-engine-checkupd
+  kind: other
+  locator: CHECK-on-UPDATE pinned sequences
+  repo_path: src/update.c
+  status: accepted
+  slice_id: engine-checkupd
+  notes: composed CHECK-on-UPDATE slice (run 26); seam-kind=api
+  discovery_evidence:
+  - src/update.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2765,17 +2774,20 @@ behaviours:
 - behaviour_id: dml-codegen-002
   surface_id: sur-sqlite3generateconstraintchecks
   name: Constraint checks + ON CONFLICT resolution matrix
-  status: documented
+  status: converted
   slice_id: dml-codegen
   discovery_card: discovery/dml-codegen/features/dml-codegen-002.md
   legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-25) — conflict
-    matrix now IGNORE/REPLACE/ABORT/FAIL/ROLLBACK (OR ROLLBACK aborts the whole txn) + CHECK/NOT NULL/UNIQUE/FK on insert;
-    CHECK-on-UPDATE still absent
+  notes: 'confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-26): conflict matrix
+    IGNORE/REPLACE/ABORT/FAIL/ROLLBACK + CHECK/NOT NULL/UNIQUE/FK enforced on INSERT and UPDATE (post-update row image); OR
+    ROLLBACK unwinds v15 txns; CHECK-on-UPDATE gap closed'
   traceability: tests/characterization/dml-codegen/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 16
 - behaviour_id: error-status-api-001
   surface_id: sur-sqlite3-errmsg
   name: Error introspection family
@@ -5261,20 +5273,65 @@ behaviours:
   traceability: tests/characterization/engine-txnfile/TRACEABILITY.yaml
   notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
     RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
-last_updated: '2026-08-12T09:18:11Z'
+- behaviour_id: engine-checkupd-001
+  surface_id: sur-engine-checkupd
+  name: CHECK-on-UPDATE script scope
+  status: converted
+  slice_id: engine-checkupd
+  discovery_card: discovery/engine-checkupd/features/engine-checkupd-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 16
+  traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-26 delegated stamp)'
+- behaviour_id: engine-checkupd-002
+  surface_id: sur-engine-checkupd
+  name: OR-mode statement semantics
+  status: converted
+  slice_id: engine-checkupd
+  discovery_card: discovery/engine-checkupd/features/engine-checkupd-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 16
+  traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-26 delegated stamp)'
+- behaviour_id: engine-checkupd-003
+  surface_id: sur-engine-checkupd
+  name: Durable CHECK-on-UPDATE twins
+  status: converted
+  slice_id: engine-checkupd
+  discovery_card: discovery/engine-checkupd/features/engine-checkupd-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 16
+  traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-26 delegated stamp)'
+last_updated: '2026-08-12T09:22:06Z'
 updated_by: sqlite-engine-v16-check-on-update
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 218
+  surfaces_total: 219
   surfaces_by_status:
     candidate: 185
-    accepted: 33
-  behaviours_known: 226
+    accepted: 34
+  behaviours_known: 229
   behaviours_by_status:
-    documented: 155
-    converted: 71
+    documented: 154
+    converted: 75
   unscanned_hints: 3
-  legacy_green: 136
+  legacy_green: 139
   parity_green: 0

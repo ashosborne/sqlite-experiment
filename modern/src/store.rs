@@ -800,7 +800,9 @@ fn check_row(name: &str, cols: &[Col], checks: &[String], row: &[Val]) -> Result
         env.insert(cc.name.clone(), val_to_ev(row.get(cj).unwrap_or(&Val::Null)));
     }
     for (ci, col) in cols.iter().enumerate() {
-        let _ = ci;
+        if col.not_null && matches!(row.get(ci), Some(Val::Null) | None) {
+            return Ok(Some(format!("NOT NULL constraint failed: {}.{}", name, col.name)));
+        }
         if let Some(chk) = &col.check {
             let r = eval::eval_standalone(chk, &env)?;
             if !matches!(r, eval::V::Null) && !ev_truthy(&r) {

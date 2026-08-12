@@ -433,3 +433,15 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   cargo 360/360; 297 prior goldens md5-identical.
 - Scoreboard full 66→71 (+5 txn behaviours); dml-codegen-002 honestly kept partial
   (CHECK-on-UPDATE); triggers-002 note aligned with real txns.
+
+## Run 26 — 2026-08-12 — engine v16: CHECK on UPDATE (pack v16)
+
+- Focused single-gap loop. Pack v15→v16 BOUND (+versions/16, ADR 0014): CHECK-on-UPDATE law.
+- check_row() evaluates column + (newly captured) table-level CHECKs + NOT NULL against the
+  post-update row image; UPDATE OR IGNORE/ABORT/FAIL/ROLLBACK wired to v15 snapshots
+  (ABORT statement-atomic, FAIL keeps earlier rows — both pinned; ROLLBACK unwinds txn).
+  Table-level CHECKs now also enforced on INSERT.
+- 15 goldens (8 script, 5 bespoke, 2 file twins), zero deferrals, all replayed.
+- dml-codegen-002 → FULL (matrix complete on INSERT + UPDATE). +3 engine-checkupd fulls.
+- Scoreboard full 71→75 / partial 51 / none 103. cargo 377/377 (job-3 commit msg said 379 —
+  corrected: 377). anti-cheat 24/24; 324 prior goldens md5-identical; parity 0.

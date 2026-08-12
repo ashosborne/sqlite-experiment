@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T09:10:03Z
+- Generated: 2026-08-12T09:22:07Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T09:10:03Z by `sqlite-engine-v15-transactions`
+- Manifest last_updated: 2026-08-12T09:22:06Z by `sqlite-engine-v16-check-on-update`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 52 | Some modern execution; gaps in notes |
-| full (converted) | 71 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 51 | Some modern execution; gaps in notes |
+| full (converted) | 75 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -27,6 +27,7 @@
 - `date-time-funcs-004` — timediff interval arithmetic
 - `ddl-schema-001` — Table/view create-drop lifecycle
 - `ddl-schema-003` — ALTER TABLE family (rename/add/rename-col/drop-col)
+- `dml-codegen-002` — Constraint checks + ON CONFLICT resolution matrix
 - `exec-convenience-api-001` — sqlite3_exec callback loop
 - `foreign-keys-002` — Cascading referential actions
 - `misc-basexx-001` — base64 + base85 + combined basexx encoders (one optional pack)
@@ -91,6 +92,9 @@
 - `engine-savepoint-001` — SAVEPOINT/RELEASE/ROLLBACK TO nesting
 - `engine-orrollback-001` — OR ROLLBACK conflict semantics + get_autocommit
 - `engine-txnfile-001` — Durable txn reopen (commit/rollback/close)
+- `engine-checkupd-001` — CHECK-on-UPDATE script scope
+- `engine-checkupd-002` — OR-mode statement semantics
+- `engine-checkupd-003` — Durable CHECK-on-UPDATE twins
 
 ### Partial in modern
 
@@ -105,7 +109,6 @@
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
 - `ddl-schema-002` — index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced, DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes, index-driven lookups, multi-leaf index b-trees
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
-- `dml-codegen-002` — confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-25) — conflict matrix now IGNORE/REPLACE/ABORT/FAIL/ROLLBACK (OR ROLLBACK aborts the whole txn) + CHECK/NOT NULL/UNIQUE/FK on insert; CHECK-on-UPDATE still absent
 - `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
 - `error-status-api-002` — sqlite3_limit get/set with prior-value semantics real for the pinned limit id only
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
@@ -257,26 +260,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 218 |
-| Behaviours known | 226 |
+| Surfaces total | 219 |
+| Behaviours known | 229 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 136 |
+| legacy_green flags | 139 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 33 |
+| accepted | 34 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 71 |
-| documented | 155 |
+| converted | 75 |
+| documented | 154 |
 
 ## Surfaces per slice
 
@@ -295,6 +298,7 @@
 | ddl-schema | 3 |
 | dml-codegen | 2 |
 | engine-agg-having | 1 |
+| engine-checkupd | 1 |
 | engine-constraints | 1 |
 | engine-datetime | 1 |
 | engine-ddl2 | 1 |
