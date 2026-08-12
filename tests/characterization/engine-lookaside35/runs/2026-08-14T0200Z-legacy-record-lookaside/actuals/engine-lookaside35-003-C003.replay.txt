@@ -1,0 +1,2 @@
+OBS engine-lookaside35-003-C003 default_no_miss_size 1
+OBS engine-lookaside35-003-C003 default_no_miss_full 1

@@ -1,0 +1,5 @@
+OBS engine-lookaside35-001-C003 neg_sz_rc 0
+OBS engine-lookaside35-001-C003 used_after_negsz_zero 1
+OBS engine-lookaside35-001-C003 neg_cnt_rc 0
+OBS engine-lookaside35-001-C003 used_after_negcnt_zero 1
+OBS engine-lookaside35-001-C003 huge_sz_rc 0

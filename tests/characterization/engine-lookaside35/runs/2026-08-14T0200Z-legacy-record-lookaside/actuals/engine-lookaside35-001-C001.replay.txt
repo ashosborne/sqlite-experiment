@@ -1,0 +1,3 @@
+OBS engine-lookaside35-001-C001 used_fresh_zero 1
+OBS engine-lookaside35-001-C001 hit_fresh_zero 1
+OBS engine-lookaside35-001-C001 cfg_fresh_rc 0

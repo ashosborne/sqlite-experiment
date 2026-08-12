@@ -1,0 +1,3 @@
+OBS engine-lookaside35-001-C005 disable_rc 0
+OBS engine-lookaside35-001-C005 used_disabled_zero 1
+OBS engine-lookaside35-001-C005 hit_frozen_while_disabled 1

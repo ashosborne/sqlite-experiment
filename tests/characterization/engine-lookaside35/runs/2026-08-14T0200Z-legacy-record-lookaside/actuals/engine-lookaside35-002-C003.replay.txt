@@ -1,0 +1,3 @@
+OBS engine-lookaside35-002-C003 used_live_pos 1
+OBS engine-lookaside35-002-C003 miss_full_grew 1
+OBS engine-lookaside35-002-C003 used_drained_zero 1

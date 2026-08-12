@@ -1,0 +1,2 @@
+OBS engine-lookaside35-003-C004 hit_cur_zero_under_traffic 1
+OBS engine-lookaside35-003-C004 badop_rc_still_error 1

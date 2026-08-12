@@ -1,0 +1,100 @@
+[
+ {
+  "id": "engine-lookaside35-001-C001",
+  "feature": "engine-lookaside35-001",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "fresh connection: USED/HIT zero; reconfig on a quiet connection rc 0"
+ },
+ {
+  "id": "engine-lookaside35-001-C002",
+  "feature": "engine-lookaside35-001",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "live prepared stmt: USED positive; reconfig BUSY 5; finalize then rc 0"
+ },
+ {
+  "id": "engine-lookaside35-001-C003",
+  "feature": "engine-lookaside35-001",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "negative size / negative count / huge size normalize with rc 0; USED zeros after"
+ },
+ {
+  "id": "engine-lookaside35-001-C004",
+  "feature": "engine-lookaside35-001",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "unknown db_config verb rc 1"
+ },
+ {
+  "id": "engine-lookaside35-001-C005",
+  "feature": "engine-lookaside35-001",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "disable (0,0) rc 0; USED zeros; HIT frozen while disabled"
+ },
+ {
+  "id": "engine-lookaside35-002-C001",
+  "feature": "engine-lookaside35-002",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "prepare/finalize traffic grows HIT (cur always 0); USED drains to 0"
+ },
+ {
+  "id": "engine-lookaside35-002-C002",
+  "feature": "engine-lookaside35-002",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "64-byte slots force MISS_SIZE growth (cur 0)"
+ },
+ {
+  "id": "engine-lookaside35-002-C003",
+  "feature": "engine-lookaside35-002",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "512x2 pool + six live stmts: USED positive, MISS_FULL grows, drain to 0"
+ },
+ {
+  "id": "engine-lookaside35-002-C004",
+  "feature": "engine-lookaside35-002",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "freed slot HITs again on the next prepare (pool reuse)"
+ },
+ {
+  "id": "engine-lookaside35-002-C005",
+  "feature": "engine-lookaside35-002",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "resetFlag: USED highwater pulls to current while live; HIT reset clears"
+ },
+ {
+  "id": "engine-lookaside35-003-C001",
+  "feature": "engine-lookaside35-003",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "DEFAULT pool serves prepare traffic (hits without any config call)"
+ },
+ {
+  "id": "engine-lookaside35-003-C002",
+  "feature": "engine-lookaside35-003",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "regression coupling: MEMORY_USED sane + SCHEMA_USED positive with hi 0"
+ },
+ {
+  "id": "engine-lookaside35-003-C003",
+  "feature": "engine-lookaside35-003",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "default config light traffic: MISS_SIZE/MISS_FULL exact zeros"
+ },
+ {
+  "id": "engine-lookaside35-003-C004",
+  "feature": "engine-lookaside35-003",
+  "slice": "engine-lookaside35",
+  "kind": "bespoke",
+  "note": "HIT current always 0 under live traffic; bad db_status op still ERROR"
+ }
+]
