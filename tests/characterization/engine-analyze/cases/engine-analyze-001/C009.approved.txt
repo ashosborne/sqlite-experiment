@@ -1,0 +1,4 @@
+OBS engine-analyze-001-C009 before t,ia,2 1
+OBS engine-analyze-001-C009 analyze2 rc=0 err=-
+OBS engine-analyze-001-C009 after t,ia,4 2
+OBS engine-analyze-001-C009 rowcount 1

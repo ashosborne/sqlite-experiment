@@ -1,0 +1,5 @@
+OBS engine-analyze-002-C002 before_vac t,ia,2 1
+OBS engine-analyze-002-C002 vac rc=0 err=-
+OBS engine-analyze-002-C002 after_vac t,ia,2 1
+OBS engine-analyze-002-C002 analyze2 rc=0 err=-
+OBS engine-analyze-002-C002 after_re t,ia,2 1

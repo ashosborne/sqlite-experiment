@@ -1,0 +1,115 @@
+slice_id: engine-analyze
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-analyze-001-C001
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C001.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C002
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C002.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C003
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C003.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C004
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C004.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C005
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C005.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C006
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C006.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C007
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C007.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C008
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C008.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C009
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C009.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C010
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C010.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C011
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C011.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C012
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C012.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C013
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C013.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C014
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C014.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-001-C015
+  feature_id: engine-analyze-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-001/C015.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-002-C001
+  feature_id: engine-analyze-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-002/C001.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+- case_id: engine-analyze-002-C002
+  feature_id: engine-analyze-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-analyze-002/C002.approved.txt
+  run_id: 2026-08-13T0800Z-legacy-record-analyze
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-37 delegated stamp (ANALYZE -> sqlite_stat1)
+  stamped_case_ids:
+  - engine-analyze-001-C001
+  - engine-analyze-001-C002
+  - engine-analyze-001-C003
+  - engine-analyze-001-C004
+  - engine-analyze-001-C005
+  - engine-analyze-001-C006
+  - engine-analyze-001-C007
+  - engine-analyze-001-C008
+  - engine-analyze-001-C009
+  - engine-analyze-001-C010
+  - engine-analyze-001-C011
+  - engine-analyze-001-C012
+  - engine-analyze-001-C013
+  - engine-analyze-001-C014
+  - engine-analyze-001-C015
+  - engine-analyze-002-C001
+  - engine-analyze-002-C002
+updated_at: '2026-08-12T16:20:38Z'
+run_id: 2026-08-13T0800Z-legacy-record-analyze

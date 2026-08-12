@@ -1,0 +1,2 @@
+OBS engine-analyze-001-C011 analyze rc=0 err=-
+OBS engine-analyze-001-C011 stat1 w,w,2 1

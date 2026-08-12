@@ -1,0 +1,121 @@
+[
+{
+"id": "engine-analyze-001-C001",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "empty table: sqlite_stat1 created but holds no rows"
+},
+{
+"id": "engine-analyze-001-C002",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "no-index table: NULL-idx row with the row count"
+},
+{
+"id": "engine-analyze-001-C003",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "one index: N M selectivity (3 rows, 2 distinct -> 3 2)"
+},
+{
+"id": "engine-analyze-001-C004",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "several indexes: one row per index, no NULL row"
+},
+{
+"id": "engine-analyze-001-C005",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "multi-column index: N d1 d2 prefix selectivities"
+},
+{
+"id": "engine-analyze-001-C006",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "ANALYZE <table> scopes to that table"
+},
+{
+"id": "engine-analyze-001-C007",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "ANALYZE <index> writes only that index row"
+},
+{
+"id": "engine-analyze-001-C008",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "whole-db ANALYZE covers several tables"
+},
+{
+"id": "engine-analyze-001-C009",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "re-ANALYZE replaces rows after INSERT/DELETE churn"
+},
+{
+"id": "engine-analyze-001-C010",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "DROP INDEX / DROP TABLE clear matching stat1 rows"
+},
+{
+"id": "engine-analyze-001-C011",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "WITHOUT ROWID: PK index row named like the table"
+},
+{
+"id": "engine-analyze-001-C012",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "IPK rowid table: only the explicit index row"
+},
+{
+"id": "engine-analyze-001-C013",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "durable file: reopen keeps sqlite_stat1 (integrity ok)"
+},
+{
+"id": "engine-analyze-001-C014",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "rounding quirk: 11 rows / 10 distinct pins as 11 1 (not 11 2)"
+},
+{
+"id": "engine-analyze-001-C015",
+"slice": "engine-analyze",
+"feature": "engine-analyze-001",
+"kind": "bespoke",
+"note": "ANALYZE main schema form"
+},
+{
+"id": "engine-analyze-002-C001",
+"slice": "engine-analyze",
+"feature": "engine-analyze-002",
+"kind": "bespoke",
+"note": "WAL file: ANALYZE + reopen, mode untouched"
+},
+{
+"id": "engine-analyze-002-C002",
+"slice": "engine-analyze",
+"feature": "engine-analyze-002",
+"kind": "bespoke",
+"note": "ANALYZE survives VACUUM; re-ANALYZE after VACUUM"
+}
+]

@@ -1,0 +1,3 @@
+OBS engine-analyze-001-C013 analyze rc=0 err=-
+OBS engine-analyze-001-C013 reopen t,ia,3 1
+OBS engine-analyze-001-C013 integ ok

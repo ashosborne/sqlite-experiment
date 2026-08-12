@@ -1,0 +1,5 @@
+OBS engine-analyze-001-C010 before t,ia,3 2|u,~,1
+OBS engine-analyze-001-C010 dropidx rc=0 err=-
+OBS engine-analyze-001-C010 after_dropidx u,~,1
+OBS engine-analyze-001-C010 droptbl rc=0 err=-
+OBS engine-analyze-001-C010 after_droptbl 

@@ -1,0 +1,2 @@
+OBS engine-analyze-001-C004 analyze rc=0 err=-
+OBS engine-analyze-001-C004 stat1 t,ia,4 1|t,ib,4 2
