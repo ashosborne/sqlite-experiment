@@ -2246,6 +2246,89 @@ pub fn udf_invoke_aggregate(dbid: usize, name: &str, rows: &[Vec<eval::V>]) -> O
     else { Some(Ok(ctx.result)) }
 }
 
+// ---------------- run-42: compile-option diagnostics (pinned bare-build fingerprint) ----------------
+
+/// The pinned bare amalgamation's option table (run-42 fingerprint; ADR 0030).
+/// The COMPILER row restates the pinned C baseline toolchain — a pin decision,
+/// not a claim about how this library was built.
+static COMPILE_OPTS: [&std::ffi::CStr; 38] = [
+    c"ATOMIC_INTRINSICS=1",
+    c"COMPILER=gcc-13.3.0",
+    c"DEFAULT_AUTOVACUUM",
+    c"DEFAULT_CACHE_SIZE=-2000",
+    c"DEFAULT_FILE_FORMAT=4",
+    c"DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+    c"DEFAULT_MMAP_SIZE=0",
+    c"DEFAULT_PAGE_SIZE=4096",
+    c"DEFAULT_PCACHE_INITSZ=20",
+    c"DEFAULT_RECURSIVE_TRIGGERS",
+    c"DEFAULT_SECTOR_SIZE=4096",
+    c"DEFAULT_SYNCHRONOUS=2",
+    c"DEFAULT_WAL_AUTOCHECKPOINT=1000",
+    c"DEFAULT_WAL_SYNCHRONOUS=2",
+    c"DEFAULT_WORKER_THREADS=0",
+    c"DIRECT_OVERFLOW_READ",
+    c"MALLOC_SOFT_LIMIT=1024",
+    c"MAX_ATTACHED=10",
+    c"MAX_COLUMN=2000",
+    c"MAX_COMPOUND_SELECT=500",
+    c"MAX_DEFAULT_PAGE_SIZE=8192",
+    c"MAX_EXPR_DEPTH=1000",
+    c"MAX_FUNCTION_ARG=1000",
+    c"MAX_LENGTH=1000000000",
+    c"MAX_LIKE_PATTERN_LENGTH=50000",
+    c"MAX_MMAP_SIZE=0x7fff0000",
+    c"MAX_PAGE_COUNT=0xfffffffe",
+    c"MAX_PAGE_SIZE=65536",
+    c"MAX_SCHEMA=10000000",
+    c"MAX_SQL_LENGTH=1000000000",
+    c"MAX_TRIGGER_DEPTH=1000",
+    c"MAX_VARIABLE_NUMBER=32766",
+    c"MAX_VDBE_OP=250000000",
+    c"MAX_WORKER_THREADS=8",
+    c"MUTEX_PTHREADS",
+    c"SYSTEM_MALLOC",
+    c"TEMP_STORE=1",
+    c"THREADSAFE=1",
+];
+
+/// case-insensitive used() with optional SQLITE_ prefix and the C "=" boundary rule:
+/// a query matches an entry when it equals the whole entry or a prefix ending at '='.
+pub fn compileoption_used(opt: &str) -> i64 {
+    let q = if opt.len() >= 7 && opt[..7].eq_ignore_ascii_case("SQLITE_") { &opt[7..] } else { opt };
+    if q.is_empty() { return 0; }
+    for e in COMPILE_OPTS.iter() {
+        let e = e.to_str().unwrap_or("");
+        if e.len() >= q.len() && e[..q.len()].eq_ignore_ascii_case(q) {
+            let rest = &e[q.len()..];
+            if rest.is_empty() || rest.starts_with('=') { return 1; }
+        }
+    }
+    0
+}
+/// enumeration in C order; None past either end
+pub fn compileoption_get_str(n: i64) -> Option<&'static str> {
+    if n < 0 { return None; }
+    COMPILE_OPTS.get(n as usize).and_then(|c| c.to_str().ok())
+}
+
+/// # Safety: C ABI — mirrors sqlite3_compileoption_used on the pinned option table.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_compileoption_used(z_opt_name: *const c_char) -> c_int {
+    if z_opt_name.is_null() { return 0; }
+    let s = CStr::from_ptr(z_opt_name).to_string_lossy();
+    compileoption_used(&s) as c_int
+}
+/// # Safety: C ABI — returned pointer is static; NULL past the end (and for negatives).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_compileoption_get(n: c_int) -> *const c_char {
+    if n < 0 { return ptr::null(); }
+    match COMPILE_OPTS.get(n as usize) {
+        Some(c) => c.as_ptr(),
+        None => ptr::null(),
+    }
+}
+
 // ---------------- run-41: virtual table core (create_module / declare_vtab / cursor scan) ----------------
 
 /// C-layout base of a module's vtab object (module code embeds this as first member).

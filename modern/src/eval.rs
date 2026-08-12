@@ -735,6 +735,15 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
             let val = crate::json::extract(&doc, &path)?;
             if ln == "->>" { crate::json::to_sql_text(val) } else { crate::json::to_json_text(val) } }
         "typeof" => V::Text(match a(0)? { V::Null=>"null",V::Int(_)=>"integer",V::Real(_)=>"real",V::Text(_)=>"text",V::Blob(_)=>"blob" }.into()),
+        // run-42: SQL twins over the pinned compile-option table (ADR 0030)
+        "sqlite_compileoption_used" => V::Int(crate::compileoption_used(&a(0)?.as_text())),
+        "sqlite_compileoption_get" => match a(0)? {
+            V::Null => V::Null,
+            v => match crate::compileoption_get_str(v.as_f64() as i64) {
+                Some(s) => V::Text(s.to_string()),
+                None => V::Null,
+            },
+        },
         "length" => match a(0)? { V::Null => V::Null, V::Blob(b) => V::Int(b.len() as i64), v => V::Int(v.as_text().chars().count() as i64) },
         "upper" => V::Text(a(0)?.as_text().to_uppercase()),
         "lower" => V::Text(a(0)?.as_text().to_lowercase()),
