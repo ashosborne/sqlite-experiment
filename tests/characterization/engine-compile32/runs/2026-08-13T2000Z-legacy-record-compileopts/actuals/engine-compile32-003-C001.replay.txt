@@ -1,0 +1,4 @@
+OBS engine-compile32-003-C001 fts5 used=0
+OBS engine-compile32-003-C001 fts3 used=0
+OBS engine-compile32-003-C001 rtree used=0
+OBS engine-compile32-003-C001 geopoly used=0

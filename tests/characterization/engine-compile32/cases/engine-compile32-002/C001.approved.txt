@@ -1,0 +1,4 @@
+OBS engine-compile32-002-C001 load_ext used=0
+OBS engine-compile32-002-C001 wal used=0
+OBS engine-compile32-002-C001 vtab used=0
+OBS engine-compile32-002-C001 trigger used=0

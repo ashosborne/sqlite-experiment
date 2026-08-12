@@ -1,0 +1,4 @@
+OBS engine-compile32-002-C004 attach used=0
+OBS engine-compile32-002-C004 subquery used=0
+OBS engine-compile32-002-C004 view used=0
+OBS engine-compile32-002-C004 sql_omit 0,0

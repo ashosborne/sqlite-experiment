@@ -1,0 +1,4 @@
+OBS engine-compile32-001-C012 bare_gate used=1
+OBS engine-compile32-001-C012 bare_gate_valued used=0
+OBS engine-compile32-001-C012 compiler_row used=1
+OBS engine-compile32-001-C012 compiler_bare used=1

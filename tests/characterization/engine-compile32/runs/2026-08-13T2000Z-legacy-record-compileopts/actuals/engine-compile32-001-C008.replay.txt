@@ -1,0 +1,4 @@
+OBS engine-compile32-001-C008 max_attached used=1
+OBS engine-compile32-001-C008 max_attached_val used=1
+OBS engine-compile32-001-C008 max_var used=1
+OBS engine-compile32-001-C008 temp_store used=1

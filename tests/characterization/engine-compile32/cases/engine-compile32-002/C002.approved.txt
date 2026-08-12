@@ -1,0 +1,2 @@
+OBS engine-compile32-002-C002 autoreset used=0
+OBS engine-compile32-002-C002 diags used=0

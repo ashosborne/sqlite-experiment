@@ -1,0 +1,135 @@
+[
+ {
+  "id": "engine-compile32-001-C001",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "used(): plain / SQLITE_-prefixed / =value forms; wrong value -> 0"
+ },
+ {
+  "id": "engine-compile32-001-C002",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "unknown / empty / bare-prefix option names -> 0"
+ },
+ {
+  "id": "engine-compile32-001-C003",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "get(): first/second/last entries; past-end/far/negative -> NULL"
+ },
+ {
+  "id": "engine-compile32-001-C004",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "full enumeration: 38 pinned entries in C order"
+ },
+ {
+  "id": "engine-compile32-001-C005",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "SQL twin sqlite_compileoption_used known-on / unknown"
+ },
+ {
+  "id": "engine-compile32-001-C006",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "SQL twin sqlite_compileoption_get first/last/out-of-range NULL"
+ },
+ {
+  "id": "engine-compile32-001-C007",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "SQL twin with SQLITE_ prefix and =value forms"
+ },
+ {
+  "id": "engine-compile32-001-C008",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "MAX_ATTACHED / MAX_VARIABLE_NUMBER / TEMP_STORE rows agree with pinned limits"
+ },
+ {
+  "id": "engine-compile32-001-C009",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "case-insensitive matching (threadsafe / ThreadSafe=1 / sqlite_threadsafe)"
+ },
+ {
+  "id": "engine-compile32-001-C011",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "typeof through the SQL twins: integer / text / null"
+ },
+ {
+  "id": "engine-compile32-001-C012",
+  "feature": "engine-compile32-001",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "bare-gate =value mismatch -> 0; pinned COMPILER row (gcc-13.3.0, ADR 0030 pin decision)"
+ },
+ {
+  "id": "engine-compile32-002-C001",
+  "feature": "engine-compile32-002",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "OMIT census: LOAD_EXTENSION/WAL/VIRTUALTABLE/TRIGGER gates inactive on the pin"
+ },
+ {
+  "id": "engine-compile32-002-C002",
+  "feature": "engine-compile32-002",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "OMIT_AUTORESET / OMIT_COMPILEOPTION_DIAGS = 0 (charter PIN line)"
+ },
+ {
+  "id": "engine-compile32-002-C003",
+  "feature": "engine-compile32-002",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "zero OMIT_-prefixed entries in the full enumeration"
+ },
+ {
+  "id": "engine-compile32-002-C004",
+  "feature": "engine-compile32-002",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "OMIT_ATTACH/SUBQUERY/VIEW inactive; SQL twin census probes"
+ },
+ {
+  "id": "engine-compile32-003-C001",
+  "feature": "engine-compile32-003",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "ENABLE census: FTS5/FTS3/RTREE/GEOPOLY gates inactive on the pin"
+ },
+ {
+  "id": "engine-compile32-003-C002",
+  "feature": "engine-compile32-003",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "ENABLE_STAT4/API_ARMOR/UNLOCK_NOTIFY/SESSION = 0 (armor per charter; unlock-notify presence check)"
+ },
+ {
+  "id": "engine-compile32-003-C003",
+  "feature": "engine-compile32-003",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "zero ENABLE_-prefixed entries in the full enumeration"
+ },
+ {
+  "id": "engine-compile32-003-C004",
+  "feature": "engine-compile32-003",
+  "slice": "engine-compile32",
+  "kind": "bespoke",
+  "note": "SQL twin census probes for ENABLE gates"
+ }
+]

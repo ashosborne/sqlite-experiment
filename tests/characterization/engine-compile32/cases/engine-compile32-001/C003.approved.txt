@@ -1,0 +1,6 @@
+OBS engine-compile32-001-C003 first get=ATOMIC_INTRINSICS=1
+OBS engine-compile32-001-C003 second get=COMPILER=gcc-13.3.0
+OBS engine-compile32-001-C003 last get=THREADSAFE=1
+OBS engine-compile32-001-C003 past_end get=NULL
+OBS engine-compile32-001-C003 far get=NULL
+OBS engine-compile32-001-C003 negative get=NULL
