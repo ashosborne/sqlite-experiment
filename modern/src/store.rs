@@ -369,6 +369,7 @@ enum Stmt {
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
+             target: Option<(Vec<String>, Option<String>)>, // ON CONFLICT (<expr-list>) [WHERE <pred>]
              upd_sets: Vec<(String, String)>, /* DO UPDATE SET col=<expr>, ... */
              upd_where: Option<String> /* DO UPDATE ... WHERE <expr> */ },
     Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)>, or_mode: u8 /* 0=abort 1=ignore 2=fail 3=rollback */ },
@@ -672,9 +673,37 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let mut upd_sets: Vec<(String, String)> = Vec::new();
         let mut upd_where = None;
         let vup = vals.to_ascii_uppercase();
+        let mut target: Option<(Vec<String>, Option<String>)> = None;
         if let Some(oc) = vup.find(" ON CONFLICT") {
             let clause = &vals[oc..];
             let cup = clause.to_ascii_uppercase();
+            // optional conflict target: ON CONFLICT (<expr-list>) [WHERE <pred>] DO ...
+            {
+                let after_kw = clause[" ON CONFLICT".len()..].trim_start();
+                if after_kw.starts_with('(') {
+                    let mut depth = 0; let mut end = None;
+                    for (i, ch) in after_kw.char_indices() {
+                        match ch { '(' => depth += 1, ')' => { depth -= 1; if depth == 0 { end = Some(i); break; } }, _ => {} }
+                    }
+                    let end = end?;
+                    let inner = &after_kw[1..end];
+                    let mut exprs = Vec::new();
+                    { let mut d = 0; let mut cur = String::new();
+                      for ch in inner.chars() {
+                          match ch { '(' => { d += 1; cur.push(ch); } ')' => { d -= 1; cur.push(ch); }
+                                    ',' if d == 0 => { exprs.push(cur.trim().to_string()); cur.clear(); } _ => cur.push(ch) }
+                      }
+                      if !cur.trim().is_empty() { exprs.push(cur.trim().to_string()); } }
+                    let rest = after_kw[end + 1..].trim_start();
+                    let rup = rest.to_ascii_uppercase();
+                    let twhere = if rup.starts_with("WHERE ") {
+                        let dp = rup.find(" DO ")?;
+                        Some(rest["WHERE ".len()..dp].trim().to_string())
+                    } else { None };
+                    if exprs.is_empty() { return None; }
+                    target = Some((exprs, twhere));
+                }
+            }
             if cup.contains("DO NOTHING") {
                 policy = Policy::DoNothing;
             } else if let Some(du) = cup.find("DO UPDATE SET ") {
@@ -710,7 +739,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             }
             rows.push(row);
         }
-        return Some(Stmt::Insert { name, collist, rows, policy, upd_sets, upd_where });
+        return Some(Stmt::Insert { name, collist, rows, policy, target, upd_sets, upd_where });
     }
     if up.starts_with("UPDATE ") {
         let (or_mode, after): (u8, &str) = if up.starts_with("UPDATE OR IGNORE ") { (1, &s["UPDATE OR IGNORE ".len()..]) }
@@ -906,6 +935,95 @@ fn unique_index_conflict(t: &Table, idefs: &[IndexDef], vals: &[Val]) -> Result<
             if let Some(rk) = index_key_for(&t.cols, idx, r)? {
                 if rk == key { return Ok(Some(pos)); }
             }
+        }
+    }
+    Ok(None)
+}
+
+/// normalize an index/target expression for structural comparison
+/// (lowercase, whitespace removed — the same spirit as sqlite3UpsertAnalyzeTarget's
+/// sqlite3ExprCompare for the pinned scope)
+fn norm_expr(e: &str) -> String {
+    e.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_ascii_lowercase().trim_matches('"').to_string()
+}
+
+/// resolved ON CONFLICT target
+enum UpsertTk {
+    Cols(Vec<usize>),   // PK / UNIQUE column(s) or table-constraint UNIQUE set
+    Idx(IndexDef),      // explicit UNIQUE index (column / multi-column / expression / partial)
+}
+
+/// C sqlite3UpsertAnalyzeTarget equivalent for the frozen scope: match the target
+/// expression list (and optional WHERE) against PK/UNIQUE columns, UNIQUE table
+/// constraints and UNIQUE indexes; mismatch -> the pinned C error
+fn resolve_upsert_target(t: &Table, idefs: &[IndexDef], exprs: &[String], twhere: &Option<String>)
+    -> Result<UpsertTk, String> {
+    const NOMATCH: &str = "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint";
+    let want: Vec<String> = exprs.iter().map(|e| norm_expr(e)).collect();
+    let wwant = twhere.as_ref().map(|w| norm_expr(w));
+    // explicit UNIQUE indexes first (covers expression / multi-column / partial)
+    for idx in idefs {
+        if !idx.unique { continue; }
+        let have: Vec<String> = idx.exprs.iter().map(|e| norm_expr(e)).collect();
+        let whave = idx.where_c.as_ref().map(|w| norm_expr(w));
+        if have == want && whave == wwant { return Ok(UpsertTk::Idx(idx.clone())); }
+    }
+    if wwant.is_some() { return Err(NOMATCH.into()); } // WHERE only matches a partial index
+    // single PK / UNIQUE column
+    if want.len() == 1 {
+        if let Some(ci) = t.cols.iter().position(|c| c.name.to_ascii_lowercase() == want[0] && c.unique) {
+            return Ok(UpsertTk::Cols(vec![ci]));
+        }
+    }
+    // multi-column UNIQUE(a,b,...) table constraint
+    for set in &t.uniq_sets {
+        let have: Vec<String> = set.iter().map(|c| c.to_ascii_lowercase()).collect();
+        if have == want {
+            let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
+            if cis.len() == set.len() { return Ok(UpsertTk::Cols(cis)); }
+        }
+    }
+    Err(NOMATCH.into())
+}
+
+/// conflict row for a resolved target only
+fn targeted_conflict(t: &Table, tk: &UpsertTk, vals: &[Val]) -> Result<Option<usize>, String> {
+    match tk {
+        UpsertTk::Cols(cis) => {
+            if cis.iter().any(|&ci| matches!(vals.get(ci), Some(Val::Null) | None)) { return Ok(None); }
+            Ok(t.rows.iter().position(|(_, r)| cis.iter().all(|&ci| r.get(ci) == vals.get(ci))))
+        }
+        UpsertTk::Idx(idx) => unique_index_conflict(t, std::slice::from_ref(idx), vals),
+    }
+}
+
+/// qualified UNIQUE-violation message for conflicts on constraints OTHER than the
+/// upsert target (C aborts with rc 19 and names the constraint)
+fn other_conflict_msg(name: &str, t: &Table, idefs: &[IndexDef], tk: &UpsertTk, vals: &[Val])
+    -> Result<Option<String>, String> {
+    let skip_ci: Vec<usize> = match tk { UpsertTk::Cols(c) => c.clone(), _ => Vec::new() };
+    let skip_idx: Option<&str> = match tk { UpsertTk::Idx(i) => Some(&i.name), _ => None };
+    for (ci, col) in t.cols.iter().enumerate() {
+        if !col.unique || skip_ci == vec![ci] { continue; }
+        if let Some(v) = vals.get(ci) {
+            if *v != Val::Null && t.rows.iter().any(|(_, r)| r.get(ci) == Some(v)) {
+                return Ok(Some(format!("UNIQUE constraint failed: {name}.{}", col.name)));
+            }
+        }
+    }
+    for set in &t.uniq_sets {
+        let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
+        if cis.len() != set.len() || (matches!(tk, UpsertTk::Cols(c) if *c == cis)) { continue; }
+        if cis.iter().any(|&ci| matches!(vals.get(ci), Some(Val::Null) | None)) { continue; }
+        if t.rows.iter().any(|(_, r)| cis.iter().all(|&ci| r.get(ci) == vals.get(ci))) {
+            let qual: Vec<String> = set.iter().map(|c| format!("{name}.{c}")).collect();
+            return Ok(Some(format!("UNIQUE constraint failed: {}", qual.join(", "))));
+        }
+    }
+    for idx in idefs {
+        if !idx.unique || Some(idx.name.as_str()) == skip_idx { continue; }
+        if unique_index_conflict(t, std::slice::from_ref(idx), vals)?.is_some() {
+            return Ok(Some(format!("UNIQUE constraint failed: index '{}'", idx.name)));
         }
     }
     Ok(None)
@@ -1501,7 +1619,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     t.1.create_sql = format!("CREATE TABLE {}({})", table,
                         t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                 }
-                Stmt::Insert { name, collist, rows, policy, upd_sets, upd_where } => {
+                Stmt::Insert { name, collist, rows, policy, target, upd_sets, upd_where } => {
                     if st.views.contains_key(&name) {
                         // INSTEAD OF INSERT triggers make views writable
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 0);
@@ -1631,10 +1749,29 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let idefs: Vec<IndexDef> = st.indexes.iter()
                             .filter(|d| d.table == name && d.unique).cloned().collect();
                         let t = &mut st.tables[ti].1;
+                        // ON CONFLICT (<expr-list>) [WHERE <pred>]: resolve the target like
+                        // sqlite3UpsertAnalyzeTarget; mismatch is the pinned C error
+                        let tk: Option<UpsertTk> = match &target {
+                            Some((exprs, twhere)) => Some(resolve_upsert_target(t, &idefs, exprs, twhere)?),
+                            None => None,
+                        };
                         for full in pending {
-                            let conflict = match conflict_row(t, &full) {
-                                Some(p) => Some(p),
-                                None => unique_index_conflict(t, &idefs, &full)?,
+                            // a conflict on a constraint OTHER than the resolved target
+                            // aborts with the qualified UNIQUE message (rc 19), like C
+                            if let Some(tk) = &tk {
+                                if let Some(msg) = other_conflict_msg(&name, t, &idefs, tk, &full)? {
+                                    if matches!(policy, Policy::TxnRollback) {
+                                        return Err(format!("__TXNROLLBACK__{msg}"));
+                                    }
+                                    return Err(msg);
+                                }
+                            }
+                            let conflict = match &tk {
+                                Some(tk) => targeted_conflict(t, tk, &full)?,
+                                None => match conflict_row(t, &full) {
+                                    Some(p) => Some(p),
+                                    None => unique_index_conflict(t, &idefs, &full)?,
+                                },
                             };
                             match conflict {
                                 Some(pos) => match policy {
