@@ -256,6 +256,7 @@ pub(crate) unsafe fn conn_teardown(db: *mut Sqlite3) {
     store::drop_store(db as usize);
     udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
     coll_close(db as usize); // run-30: run pending xDestroy for registered collations
+    vtab_close(db as usize); // run-41: xDisconnect live vtabs, run module _v2 destructors
     ZOMBIES.with(|z| { z.borrow_mut().remove(&(db as usize)); });
     STMTS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
     EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
@@ -2243,6 +2244,333 @@ pub fn udf_invoke_aggregate(dbid: usize, name: &str, rows: &[Vec<eval::V>]) -> O
     }
     if ctx.is_error { Some(Err(ctx.errmsg.unwrap_or_else(|| "error".into()))) }
     else { Some(Ok(ctx.result)) }
+}
+
+// ---------------- run-41: virtual table core (create_module / declare_vtab / cursor scan) ----------------
+
+/// C-layout base of a module's vtab object (module code embeds this as first member).
+#[repr(C)]
+pub struct Sqlite3Vtab {
+    pub p_module: *const Sqlite3Module,
+    pub n_ref: c_int,
+    pub z_err_msg: *mut c_char,
+}
+/// C-layout base of a module's cursor object.
+#[repr(C)]
+pub struct Sqlite3VtabCursor {
+    pub p_vtab: *mut Sqlite3Vtab,
+}
+/// xBestIndex exchange struct (v1 core fields; modern offers zero constraints = full scan).
+#[repr(C)]
+pub struct Sqlite3IndexInfo {
+    pub n_constraint: c_int,
+    pub a_constraint: *mut c_void,
+    pub n_order_by: c_int,
+    pub a_order_by: *mut c_void,
+    pub a_constraint_usage: *mut c_void,
+    pub idx_num: c_int,
+    pub idx_str: *mut c_char,
+    pub need_to_free_idx_str: c_int,
+    pub order_by_consumed: c_int,
+    pub estimated_cost: f64,
+    pub estimated_rows: i64,
+    pub idx_flags: c_int,
+    pub col_used: u64,
+}
+
+pub type XVtCreate = unsafe extern "C" fn(*mut Sqlite3, *mut c_void, c_int, *const *const c_char, *mut *mut Sqlite3Vtab, *mut *mut c_char) -> c_int;
+pub type XVtBestIndex = unsafe extern "C" fn(*mut Sqlite3Vtab, *mut Sqlite3IndexInfo) -> c_int;
+pub type XVtDisconnect = unsafe extern "C" fn(*mut Sqlite3Vtab) -> c_int;
+pub type XVtOpen = unsafe extern "C" fn(*mut Sqlite3Vtab, *mut *mut Sqlite3VtabCursor) -> c_int;
+pub type XVtClose = unsafe extern "C" fn(*mut Sqlite3VtabCursor) -> c_int;
+pub type XVtFilter = unsafe extern "C" fn(*mut Sqlite3VtabCursor, c_int, *const c_char, c_int, *mut *mut Sqlite3Value) -> c_int;
+pub type XVtNext = unsafe extern "C" fn(*mut Sqlite3VtabCursor) -> c_int;
+pub type XVtEof = unsafe extern "C" fn(*mut Sqlite3VtabCursor) -> c_int;
+pub type XVtColumn = unsafe extern "C" fn(*mut Sqlite3VtabCursor, *mut Sqlite3Context, c_int) -> c_int;
+pub type XVtRowid = unsafe extern "C" fn(*mut Sqlite3VtabCursor, *mut i64) -> c_int;
+pub type XVtUpdate = unsafe extern "C" fn(*mut Sqlite3Vtab, c_int, *mut *mut Sqlite3Value, *mut i64) -> c_int;
+pub type XVtTxn = unsafe extern "C" fn(*mut Sqlite3Vtab) -> c_int;
+pub type XVtFindFunction = unsafe extern "C" fn(*mut Sqlite3Vtab, c_int, *const c_char, *mut c_void, *mut *mut c_void) -> c_int;
+pub type XVtRename = unsafe extern "C" fn(*mut Sqlite3Vtab, *const c_char) -> c_int;
+pub type XVtSavepoint = unsafe extern "C" fn(*mut Sqlite3Vtab, c_int) -> c_int;
+pub type XVtShadowName = unsafe extern "C" fn(*const c_char) -> c_int;
+pub type XVtIntegrity = unsafe extern "C" fn(*mut Sqlite3Vtab, *const c_char, *const c_char, c_int, *mut *mut c_char) -> c_int;
+
+/// C-ABI sqlite3_module function-pointer table (fields through v4; modern drives the v1 set).
+#[repr(C)]
+pub struct Sqlite3Module {
+    pub i_version: c_int,
+    pub x_create: Option<XVtCreate>,
+    pub x_connect: Option<XVtCreate>,
+    pub x_best_index: Option<XVtBestIndex>,
+    pub x_disconnect: Option<XVtDisconnect>,
+    pub x_destroy: Option<XVtDisconnect>,
+    pub x_open: Option<XVtOpen>,
+    pub x_close: Option<XVtClose>,
+    pub x_filter: Option<XVtFilter>,
+    pub x_next: Option<XVtNext>,
+    pub x_eof: Option<XVtEof>,
+    pub x_column: Option<XVtColumn>,
+    pub x_rowid: Option<XVtRowid>,
+    pub x_update: Option<XVtUpdate>,
+    pub x_begin: Option<XVtTxn>,
+    pub x_sync: Option<XVtTxn>,
+    pub x_commit: Option<XVtTxn>,
+    pub x_rollback: Option<XVtTxn>,
+    pub x_find_function: Option<XVtFindFunction>,
+    pub x_rename: Option<XVtRename>,
+    pub x_savepoint: Option<XVtSavepoint>,
+    pub x_release: Option<XVtSavepoint>,
+    pub x_rollback_to: Option<XVtSavepoint>,
+    pub x_shadow_name: Option<XVtShadowName>,
+    pub x_integrity: Option<XVtIntegrity>,
+}
+unsafe impl Sync for Sqlite3Module {}
+
+type XModDestroy = unsafe extern "C" fn(*mut c_void);
+struct ModEntry { module: usize, aux: usize, destroy: Option<XModDestroy> }
+#[derive(Clone)]
+struct VtabColDecl { name: String, ctype: String, hidden: bool }
+struct VtabInst { vtab: usize, module: usize, cols: Vec<VtabColDecl>, sql: String }
+
+thread_local! {
+    // db -> module-name(lower) -> registration
+    static VTAB_MOD: RefCell<std::collections::HashMap<usize, std::collections::HashMap<String, ModEntry>>> =
+        RefCell::new(std::collections::HashMap::new());
+    // db -> table-name -> live instance
+    static VTAB_INST: RefCell<std::collections::HashMap<usize, std::collections::HashMap<String, VtabInst>>> =
+        RefCell::new(std::collections::HashMap::new());
+    // db -> pending declare slot (key present = an xCreate/xConnect is on the stack)
+    static VTAB_DECLARE: RefCell<std::collections::HashMap<usize, Option<Vec<VtabColDecl>>>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+
+unsafe fn vtab_register(db: *mut Sqlite3, z_name: *const c_char, module: *const Sqlite3Module,
+                        aux: *mut c_void, destroy: Option<XModDestroy>) -> c_int {
+    if db.is_null() || z_name.is_null() { return SQLITE_MISUSE; }
+    let name = CStr::from_ptr(z_name).to_string_lossy().to_ascii_lowercase();
+    let old = VTAB_MOD.with(|m| m.borrow_mut().entry(db as usize).or_default()
+        .insert(name, ModEntry { module: module as usize, aux: aux as usize, destroy }));
+    // redefining a module name replaces it; the old registration's _v2 destructor runs
+    if let Some(o) = old { if let Some(d) = o.destroy { d(o.aux as *mut c_void); } }
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — registers a virtual-table module on this connection.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_module(db: *mut Sqlite3, z_name: *const c_char,
+        p_module: *const Sqlite3Module, p_aux: *mut c_void) -> c_int {
+    vtab_register(db, z_name, p_module, p_aux, None)
+}
+/// # Safety: C ABI — create_module with a module destructor.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_module_v2(db: *mut Sqlite3, z_name: *const c_char,
+        p_module: *const Sqlite3Module, p_aux: *mut c_void, x_destroy: Option<XModDestroy>) -> c_int {
+    vtab_register(db, z_name, p_module, p_aux, x_destroy)
+}
+
+/// parse the column list of a declare_vtab "CREATE TABLE x(...)" statement
+fn vtab_parse_decl(sql: &str) -> Option<Vec<VtabColDecl>> {
+    let open = sql.find('(')?;
+    let close = sql.rfind(')')?;
+    if close <= open { return None; }
+    let inner = &sql[open + 1..close];
+    let mut cols = Vec::new();
+    let (mut depth, mut start) = (0usize, 0usize);
+    let bytes = inner.as_bytes();
+    let mut parts: Vec<&str> = Vec::new();
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' => depth += 1,
+            b')' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 => { parts.push(&inner[start..i]); start = i + 1; }
+            _ => {}
+        }
+    }
+    parts.push(&inner[start..]);
+    for p in parts {
+        let toks: Vec<&str> = p.split_whitespace().collect();
+        if toks.is_empty() { return None; }
+        let name = toks[0].trim_matches('"').trim_matches('`').trim_matches('[').trim_matches(']').to_string();
+        let mut hidden = false;
+        let mut ty: Vec<&str> = Vec::new();
+        for t in &toks[1..] {
+            if t.eq_ignore_ascii_case("hidden") { hidden = true; } else { ty.push(t); }
+        }
+        cols.push(VtabColDecl { name, ctype: ty.join(" "), hidden });
+    }
+    Some(cols)
+}
+
+/// # Safety: C ABI — legal only while an xCreate/xConnect is on the stack (else MISUSE).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_declare_vtab(db: *mut Sqlite3, z_sql: *const c_char) -> c_int {
+    if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
+    let armed = VTAB_DECLARE.with(|d| d.borrow().contains_key(&(db as usize)));
+    if !armed { return SQLITE_MISUSE; }
+    let sql = CStr::from_ptr(z_sql).to_string_lossy().into_owned();
+    match vtab_parse_decl(&sql) {
+        Some(cols) => { VTAB_DECLARE.with(|d| d.borrow_mut().insert(db as usize, Some(cols))); SQLITE_OK }
+        None => SQLITE_ERROR,
+    }
+}
+
+/// is a module of this (lowercased) name registered on the connection?
+pub fn vtab_module_registered(dbid: usize, module: &str) -> bool {
+    let key = module.to_ascii_lowercase();
+    VTAB_MOD.with(|m| m.borrow().get(&dbid).map(|per| per.contains_key(&key)).unwrap_or(false))
+}
+
+/// CREATE VIRTUAL TABLE path: xCreate with the C argv convention, capture declare_vtab.
+pub fn vtab_create_instance(dbid: usize, tname: &str, module_raw: &str, args: &[String], sql: &str)
+        -> Result<(), String> {
+    let key = module_raw.to_ascii_lowercase();
+    let (mptr, aux) = VTAB_MOD.with(|m| m.borrow().get(&dbid)
+        .and_then(|per| per.get(&key)).map(|e| (e.module, e.aux)))
+        .ok_or_else(|| format!("no such module: {module_raw}"))?;
+    unsafe {
+        let m = &*(mptr as *const Sqlite3Module);
+        let ctor = m.x_create.or(m.x_connect)
+            .ok_or_else(|| format!("no such module: {module_raw}"))?;
+        let mut argv_c: Vec<CString> = Vec::new();
+        argv_c.push(CString::new(module_raw).map_err(|_| "bad module name".to_string())?);
+        argv_c.push(CString::new("main").unwrap());
+        argv_c.push(CString::new(tname).map_err(|_| "bad table name".to_string())?);
+        for a in args { argv_c.push(CString::new(a.as_str()).map_err(|_| "bad argument".to_string())?); }
+        let argv: Vec<*const c_char> = argv_c.iter().map(|c| c.as_ptr()).collect();
+        let mut pvtab: *mut Sqlite3Vtab = ptr::null_mut();
+        let mut pzerr: *mut c_char = ptr::null_mut();
+        VTAB_DECLARE.with(|d| { d.borrow_mut().insert(dbid, None); });
+        let rc = ctor(dbid as *mut Sqlite3, aux as *mut c_void, argv.len() as c_int,
+                      argv.as_ptr(), &mut pvtab, &mut pzerr);
+        let declared = VTAB_DECLARE.with(|d| d.borrow_mut().remove(&dbid)).flatten();
+        if rc != SQLITE_OK {
+            let msg = if pzerr.is_null() {
+                format!("vtable constructor failed: {tname}")
+            } else {
+                let s = CStr::from_ptr(pzerr).to_string_lossy().into_owned();
+                sqlite3_free(pzerr as *mut c_void);
+                s
+            };
+            return Err(msg);
+        }
+        let cols = match declared {
+            Some(c) if !c.is_empty() => c,
+            _ => {
+                if let Some(xd) = m.x_disconnect { if !pvtab.is_null() { xd(pvtab); } }
+                return Err(format!("vtable constructor did not declare schema: {tname}"));
+            }
+        };
+        if !pvtab.is_null() { (*pvtab).p_module = mptr as *const Sqlite3Module; (*pvtab).n_ref = 1; }
+        VTAB_INST.with(|i| { i.borrow_mut().entry(dbid).or_default().insert(tname.to_string(),
+            VtabInst { vtab: pvtab as usize, module: mptr, cols, sql: sql.to_string() }); });
+    }
+    Ok(())
+}
+
+/// is this table name a live vtab instance?
+pub fn vtab_is_instance(dbid: usize, tname: &str) -> bool {
+    VTAB_INST.with(|i| i.borrow().get(&dbid).map(|per| per.contains_key(tname)).unwrap_or(false))
+}
+/// sqlite_master `sql` text for a vtab instance
+pub fn vtab_master_sql(dbid: usize, tname: &str) -> Option<String> {
+    VTAB_INST.with(|i| i.borrow().get(&dbid).and_then(|per| per.get(tname)).map(|v| v.sql.clone()))
+}
+/// declared shape (name, type, hidden) for pragma table_info
+pub fn vtab_shape(dbid: usize, tname: &str) -> Option<Vec<(String, String, bool)>> {
+    VTAB_INST.with(|i| i.borrow().get(&dbid).and_then(|per| per.get(tname))
+        .map(|v| v.cols.iter().map(|c| (c.name.clone(), c.ctype.clone(), c.hidden)).collect()))
+}
+
+/// DROP TABLE on a vtab: xDestroy and remove the instance. Returns false if not a vtab.
+pub fn vtab_drop_instance(dbid: usize, tname: &str) -> bool {
+    let inst = VTAB_INST.with(|i| i.borrow_mut().get_mut(&dbid).and_then(|per| per.remove(tname)));
+    match inst {
+        Some(v) => {
+            unsafe {
+                let m = &*(v.module as *const Sqlite3Module);
+                if let Some(xd) = m.x_destroy.or(m.x_disconnect) {
+                    if v.vtab != 0 { xd(v.vtab as *mut Sqlite3Vtab); }
+                }
+            }
+            true
+        }
+        None => false,
+    }
+}
+
+/// full scan through the module cursor: xOpen -> xBestIndex(0 constraints) -> xFilter ->
+/// xEof/xColumn/xNext loop -> xClose. Returns (visible cols, all cols, rows over all cols).
+pub fn vtab_scan(dbid: usize, tname: &str) -> Option<Result<(Vec<String>, Vec<String>, Vec<Vec<eval::V>>), String>> {
+    let (vtab, module, cols) = VTAB_INST.with(|i| i.borrow().get(&dbid).and_then(|per| per.get(tname))
+        .map(|v| (v.vtab, v.module, v.cols.clone())))?;
+    let visible: Vec<String> = cols.iter().filter(|c| !c.hidden).map(|c| c.name.clone()).collect();
+    let all: Vec<String> = cols.iter().map(|c| c.name.clone()).collect();
+    let r = unsafe {
+        let m = &*(module as *const Sqlite3Module);
+        let pv = vtab as *mut Sqlite3Vtab;
+        let (xo, xc, xf, xn, xe, xcol) = match (m.x_open, m.x_close, m.x_filter, m.x_next, m.x_eof, m.x_column) {
+            (Some(a), Some(b), Some(c), Some(d), Some(e), Some(f)) => (a, b, c, d, e, f),
+            _ => return Some(Err(format!("malformed module for table {tname}"))),
+        };
+        // xBestIndex is part of the pinned contract even for the zero-constraint full scan
+        if let Some(bi) = m.x_best_index {
+            let mut info = Sqlite3IndexInfo {
+                n_constraint: 0, a_constraint: ptr::null_mut(), n_order_by: 0, a_order_by: ptr::null_mut(),
+                a_constraint_usage: ptr::null_mut(), idx_num: 0, idx_str: ptr::null_mut(),
+                need_to_free_idx_str: 0, order_by_consumed: 0, estimated_cost: 0.0,
+                estimated_rows: 0, idx_flags: 0, col_used: u64::MAX,
+            };
+            let rc = bi(pv, &mut info);
+            if rc != SQLITE_OK { return Some(Err(format!("xBestIndex failed for table {tname}"))); }
+        }
+        let mut cur: *mut Sqlite3VtabCursor = ptr::null_mut();
+        let rc = xo(pv, &mut cur);
+        if rc != SQLITE_OK || cur.is_null() { return Some(Err(format!("unable to open cursor on {tname}"))); }
+        (*cur).p_vtab = pv;
+        let rc = xf(cur, 0, ptr::null(), 0, ptr::null_mut());
+        if rc != SQLITE_OK { xc(cur); return Some(Err(format!("xFilter failed for table {tname}"))); }
+        let mut rows: Vec<Vec<eval::V>> = Vec::new();
+        while xe(cur) == 0 {
+            let mut row = Vec::with_capacity(all.len());
+            for i in 0..all.len() {
+                let mut ctx = Sqlite3Context { db: dbid, user_data: ptr::null_mut(), result: eval::V::Null,
+                    is_error: false, errmsg: None, text_keep: Vec::new(), agg: ptr::null_mut(), agg_size: 0 };
+                let rc = xcol(cur, &mut ctx as *mut _, i as c_int);
+                if rc != SQLITE_OK || ctx.is_error {
+                    xc(cur);
+                    return Some(Err(ctx.errmsg.unwrap_or_else(|| format!("xColumn failed for table {tname}"))));
+                }
+                row.push(ctx.result);
+            }
+            rows.push(row);
+            let rc = xn(cur);
+            if rc != SQLITE_OK { xc(cur); return Some(Err(format!("xNext failed for table {tname}"))); }
+        }
+        xc(cur);
+        Ok((visible, all, rows))
+    };
+    Some(r)
+}
+
+/// connection close: xDisconnect live instances, run module destructors
+fn vtab_close(dbid: usize) {
+    let insts = VTAB_INST.with(|i| i.borrow_mut().remove(&dbid));
+    if let Some(per) = insts {
+        for (_n, v) in per {
+            unsafe {
+                let m = &*(v.module as *const Sqlite3Module);
+                if let Some(xd) = m.x_disconnect { if v.vtab != 0 { xd(v.vtab as *mut Sqlite3Vtab); } }
+            }
+        }
+    }
+    let mods = VTAB_MOD.with(|m| m.borrow_mut().remove(&dbid));
+    if let Some(per) = mods {
+        for (_n, e) in per {
+            if let Some(d) = e.destroy { unsafe { d(e.aux as *mut c_void); } }
+        }
+    }
+    VTAB_DECLARE.with(|d| { d.borrow_mut().remove(&dbid); });
 }
 
 // ---- sqlite3_value_* accessors ----

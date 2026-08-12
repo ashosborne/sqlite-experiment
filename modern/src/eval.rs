@@ -1352,7 +1352,17 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                     m.insert("key".into(), V::Int(i as i64)); m.insert("value".into(), v); m }).collect();
                 return Ok((vec!["key".into(), "value".into()], rows));
             }
-            "pragma_table_info" => { let n = ctx.tables.get(&arg).map(|(c,_)| c.len()).unwrap_or(0);
+            "pragma_table_info" => {
+                // run-41: a vtab instance reports its declared visible shape (name/type)
+                if let Some(shape) = crate::vtab_shape(ctx.db, &arg) {
+                    let rows = shape.iter().filter(|(_, _, hidden)| !hidden).enumerate()
+                        .map(|(i, (name, ty, _))| { let mut m = Row::new();
+                            m.insert("cid".into(), V::Int(i as i64));
+                            m.insert("name".into(), V::Text(name.clone()));
+                            m.insert("type".into(), V::Text(ty.clone())); m }).collect();
+                    return Ok((vec!["cid".into(), "name".into(), "type".into()], rows));
+                }
+                let n = ctx.tables.get(&arg).map(|(c,_)| c.len()).unwrap_or(0);
                 return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
             "pragma_foreign_key_list" => { let n = *ctx.fk_counts.get(&arg).unwrap_or(&0);
                 return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
@@ -1388,6 +1398,18 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
             }
             _ => return Err(format!("unsupported table source: {fname}")),
         }
+    }
+    // run-41: registered-module vtab instance — real cursor scan through
+    // xOpen/xBestIndex/xFilter/xEof/xColumn/xNext/xClose. Rows carry HIDDEN columns
+    // (selectable by name / usable in WHERE) but the visible column list drives SELECT *.
+    if let Some(res) = crate::vtab_scan(ctx.db, f) {
+        // the col list carries HIDDEN columns too (addressable by name / in WHERE);
+        // `SELECT *` expansion filters to the visible shape via vtab_shape upstream.
+        let (_visible, all, rows) = res?;
+        let rmaps = rows.into_iter()
+            .map(|r| all.iter().cloned().zip(r).collect())
+            .collect();
+        return Ok((all, rmaps));
     }
     // run-38: wholenumber eponymous vtab — a bounded generator (needs a WHERE bound;
     // vtab-core general module system is a documented residual)
@@ -1746,6 +1768,10 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
         if let Some(f) = &from_str {
             if let Some((cols, _)) = ctx.tables.get(f.trim()) {
                 items = cols.iter().map(|c| (c.clone(), c.clone())).collect();
+            } else if let Some(shape) = crate::vtab_shape(ctx.db, f.trim()) {
+                // run-41: vtab star expands to the declared VISIBLE columns only
+                items = shape.iter().filter(|(_, _, hidden)| !hidden)
+                    .map(|(n, _, _)| (n.clone(), n.clone())).collect();
             }
         }
     }

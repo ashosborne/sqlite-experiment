@@ -763,7 +763,7 @@ enum Stmt {
     Analyze { target: Option<String> },
     Attach { schema: String, path: String },
     Detach { schema: String },
-    CreateVtab { name: String, module: String },
+    CreateVtab { name: String, module: String, args: Vec<String>, sql: String },
     // Begin.immediate: BEGIN IMMEDIATE/EXCLUSIVE takes the file write lock now (run-36)
     // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
@@ -1229,15 +1229,36 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         return Some(Stmt::Analyze { target: None });
     }
     if up.starts_with("CREATE VIRTUAL TABLE ") {
-        // CREATE VIRTUAL TABLE <name> USING <module>[(args)] — run-38 (wholenumber only)
+        // CREATE VIRTUAL TABLE <name> USING <module>[(args)] — run-41 real module path
+        let sql = s.trim().trim_end_matches(';').trim().to_string();
         let rest = s["CREATE VIRTUAL TABLE ".len()..].trim();
         let rest = rest.strip_prefix("IF NOT EXISTS ").unwrap_or(rest);
         if let Some(up_pos) = rest.to_ascii_uppercase().find(" USING ") {
             let name = ident(rest[..up_pos].trim())?;
-            let mut module = rest[up_pos + 7..].trim().to_string();
-            if let Some(p) = module.find('(') { module.truncate(p); }
-            let module = module.trim().to_ascii_lowercase();
-            return Some(Stmt::CreateVtab { name, module });
+            let modpart = rest[up_pos + 7..].trim().trim_end_matches(';').trim();
+            let (module, args) = if let Some(p) = modpart.find('(') {
+                let close = modpart.rfind(')')?;
+                if close < p { return None; }
+                let inner = &modpart[p + 1..close];
+                // raw args split at top-level commas, whitespace-trimmed (C convention)
+                let mut args: Vec<String> = Vec::new();
+                let (mut depth, mut start, mut inq) = (0usize, 0usize, false);
+                for (i, b) in inner.bytes().enumerate() {
+                    match b {
+                        b'\'' => inq = !inq,
+                        b'(' if !inq => depth += 1,
+                        b')' if !inq => depth = depth.saturating_sub(1),
+                        b',' if !inq && depth == 0 => { args.push(inner[start..i].trim().to_string()); start = i + 1; }
+                        _ => {}
+                    }
+                }
+                let last = inner[start..].trim();
+                if !last.is_empty() || !args.is_empty() { args.push(last.to_string()); }
+                (modpart[..p].trim().to_string(), args)
+            } else {
+                (modpart.to_string(), Vec::new())
+            };
+            return Some(Stmt::CreateVtab { name, module, args, sql });
         }
         return None;
     }
@@ -2177,11 +2198,20 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             } else { None };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
-                Stmt::CreateVtab { name, module } => {
-                    // run-38: register the vtab name; only 'wholenumber' has a generator.
-                    // vtab-core general module system is a documented residual.
-                    st.conn.vtabs.insert(name.clone(), module.clone());
-                    st.catalog.push(("table".into(), name.clone()));
+                Stmt::CreateVtab { name, module, args, sql } => {
+                    // run-41: real module path — a registered module's xCreate runs with the
+                    // C argv convention and must declare_vtab a shape. The run-38 wholenumber
+                    // generator stays as the legacy harvest28 path (not re-homed; see ADR 0029).
+                    if crate::vtab_module_registered(db, &module) {
+                        crate::vtab_create_instance(db, &name, &module, &args, &sql)?;
+                        st.catalog.push(("table".into(), name.clone()));
+                        st.conn.schema_version += 1;
+                    } else if module.eq_ignore_ascii_case("wholenumber") {
+                        st.conn.vtabs.insert(name.clone(), module.to_ascii_lowercase());
+                        st.catalog.push(("table".into(), name.clone()));
+                    } else {
+                        return Err(format!("no such module: {module}"));
+                    }
                 }
                 Stmt::Analyze { target } => {
                     // run-37: real scans -> sqlite_stat1 rows (pinned C text format)
@@ -2497,6 +2527,13 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::DropView { name } => {
                     st.views.remove(&name);
                     st.catalog.retain(|(ty, n)| !(ty == "view" && *n == name));
+                    st.conn.schema_version += 1;
+                }
+                // run-41: DROP TABLE on a vtab instance -> module xDestroy + schema removal
+                Stmt::Drop { ref name } if crate::vtab_is_instance(db, name) => {
+                    crate::vtab_drop_instance(db, name);
+                    st.conn.vtabs.remove(name);
+                    st.catalog.retain(|(ty, n)| !(ty == "table" && n == name));
                     st.conn.schema_version += 1;
                 }
                 Stmt::Drop { name } => {
@@ -3044,6 +3081,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     "type" => row.push(Some(ty.clone())),
                                     "name" => row.push(Some(n.clone())),
                                     "tbl_name" => row.push(Some(st.index_owner.get(n).cloned().unwrap_or_else(|| n.clone()))),
+                                    // run-41: vtab entries carry rootpage 0 and the CREATE VIRTUAL TABLE text
+                                    "rootpage" if crate::vtab_is_instance(db, n) => row.push(Some("0".into())),
+                                    "sql" if crate::vtab_is_instance(db, n) =>
+                                        row.push(crate::vtab_master_sql(db, n)),
+                                    "sql" if st.tables.iter().any(|(tn, _)| tn == n) =>
+                                        row.push(st.tables.iter().find(|(tn, _)| tn == n).map(|(_, t)| t.create_sql.clone())),
                                     _ => return Err(format!("no such column: {it}")),
                                 }
                             }
