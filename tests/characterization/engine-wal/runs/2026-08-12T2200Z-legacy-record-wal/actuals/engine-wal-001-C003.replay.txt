@@ -1,0 +1,4 @@
+OBS engine-wal-001-C003 wal_after_close 0
+OBS engine-wal-001-C003 shm_after_close 0
+OBS engine-wal-001-C003 mode wal
+OBS engine-wal-001-C003 rows 7

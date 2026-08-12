@@ -1,0 +1,2 @@
+OBS engine-wal-002-C003 bare busy=0 backfilled=1
+OBS engine-wal-002-C003 rows 9

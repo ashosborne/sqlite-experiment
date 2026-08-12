@@ -1,0 +1,5 @@
+OBS engine-wal-001-C002 write rc=0 err=-
+OBS engine-wal-001-C002 wal_exists 1
+OBS engine-wal-001-C002 wal_nonempty 1
+OBS engine-wal-001-C002 shm_exists 1
+OBS engine-wal-001-C002 read 7

@@ -1,0 +1,3 @@
+OBS engine-wal-001-C001 set wal
+OBS engine-wal-001-C001 wal_after_pragma 0
+OBS engine-wal-001-C001 shm_after_pragma 0

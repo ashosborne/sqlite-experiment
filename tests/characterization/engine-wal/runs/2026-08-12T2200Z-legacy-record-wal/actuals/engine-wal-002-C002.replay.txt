@@ -1,0 +1,2 @@
+OBS engine-wal-002-C002 cp1 busy=0 backfilled=1
+OBS engine-wal-002-C002 rows 2,3

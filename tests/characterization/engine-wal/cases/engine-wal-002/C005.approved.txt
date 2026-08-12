@@ -1,0 +1,5 @@
+OBS engine-wal-002-C005 wal_before 1
+OBS engine-wal-002-C005 trunc busy=0 backfilled=1
+OBS engine-wal-002-C005 wal_size_zero 1
+OBS engine-wal-002-C005 rows 12
+OBS engine-wal-002-C005 reopen 12

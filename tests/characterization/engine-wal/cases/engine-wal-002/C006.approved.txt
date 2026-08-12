@@ -1,0 +1,3 @@
+OBS engine-wal-002-C006 restart busy=0 backfilled=1
+OBS engine-wal-002-C006 rows 2,27
+OBS engine-wal-002-C006 reopen 2,27

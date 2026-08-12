@@ -1,0 +1,2 @@
+OBS engine-wal-001-C007 live 1
+OBS engine-wal-001-C007 reopen 1

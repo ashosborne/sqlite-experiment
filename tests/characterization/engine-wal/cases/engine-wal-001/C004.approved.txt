@@ -1,0 +1,4 @@
+OBS engine-wal-001-C004 set delete
+OBS engine-wal-001-C004 wal_after_switch 0
+OBS engine-wal-001-C004 rows 7|8
+OBS engine-wal-001-C004 mode2 delete

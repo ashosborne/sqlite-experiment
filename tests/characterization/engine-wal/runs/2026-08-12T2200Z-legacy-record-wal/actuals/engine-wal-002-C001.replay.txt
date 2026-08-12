@@ -1,0 +1,3 @@
+OBS engine-wal-002-C001 passive busy=0 backfilled=1
+OBS engine-wal-002-C001 rows 11
+OBS engine-wal-002-C001 reopen 11

@@ -1,0 +1,2 @@
+OBS engine-wal-002-C004 full busy=0 backfilled=1
+OBS engine-wal-002-C004 rows 11

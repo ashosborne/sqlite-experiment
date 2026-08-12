@@ -1,0 +1,114 @@
+[
+{
+"id": "engine-wal-001-C001",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "journal_mode=WAL returns wal; no -wal/-shm until first write"
+},
+{
+"id": "engine-wal-001-C002",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "commit creates -wal (nonempty) and -shm while connection open"
+},
+{
+"id": "engine-wal-001-C003",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "clean close deletes -wal/-shm; mode persists; rows durable"
+},
+{
+"id": "engine-wal-001-C004",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "switch WAL->delete removes -wal; mode persists as delete"
+},
+{
+"id": "engine-wal-001-C005",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": ":memory: journal_mode=WAL -> memory (WAL refused)"
+},
+{
+"id": "engine-wal-001-C006",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "several autocommit txns all visible after reopen"
+},
+{
+"id": "engine-wal-001-C007",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "rolled-back txn not visible live or after reopen"
+},
+{
+"id": "engine-wal-001-C008",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "multi-page dataset (60 text rows) durable through WAL"
+},
+{
+"id": "engine-wal-001-C009",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "second same-process connection sees committed rows"
+},
+{
+"id": "engine-wal-001-C010",
+"slice": "engine-wal",
+"feature": "engine-wal-001",
+"kind": "bespoke",
+"note": "empty DB: WAL mode persists; integrity_check ok"
+},
+{
+"id": "engine-wal-002-C001",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "wal_checkpoint(PASSIVE) busy=0 backfilled; rows durable"
+},
+{
+"id": "engine-wal-002-C002",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "checkpoint then more writes then reopen"
+},
+{
+"id": "engine-wal-002-C003",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "bare PRAGMA wal_checkpoint"
+},
+{
+"id": "engine-wal-002-C004",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "wal_checkpoint(FULL) single-connection"
+},
+{
+"id": "engine-wal-002-C005",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "wal_checkpoint(TRUNCATE) zeroes -wal"
+},
+{
+"id": "engine-wal-002-C006",
+"slice": "engine-wal",
+"feature": "engine-wal-002",
+"kind": "bespoke",
+"note": "wal_checkpoint(RESTART); next commit works"
+}
+]
