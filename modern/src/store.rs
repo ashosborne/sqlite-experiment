@@ -47,6 +47,7 @@ struct Col {
     check: Option<String>, // CHECK(<expr>) — evaluated for real via eval::eval_standalone
     default: Option<Val>,
     references: Option<(String, String, u8, u8)>, // (parent, pcol, on-delete, on-update): 0=none 1=CASCADE 2=SET NULL 3=RESTRICT 4=SET DEFAULT
+    coll: Option<String>, // declared column collation (COLLATE <name>, stored lowercase)
 }
 
 #[derive(Default, Clone)]
@@ -427,6 +428,11 @@ fn parse_coldefs(inner: &str) -> Option<Vec<Col>> {
         }
         if let Some(dp) = up.find("DEFAULT ") {
             col.default = parse_literal(d[dp + "DEFAULT ".len()..].split_whitespace().next()?);
+        }
+        if let Some(cp) = up.find("COLLATE ") {
+            if let Some(w) = d[cp + "COLLATE ".len()..].split_whitespace().next() {
+                col.coll = Some(w.trim_matches('"').to_ascii_lowercase());
+            }
         }
         cols.push(col);
     }
@@ -1060,6 +1066,17 @@ pub fn index_for(db: usize, table: &str, col: &str) -> Option<String> {
 
 /// single-column index maps for the eval probe path: table -> [(col, key_str -> row positions)].
 /// key positions index into the snapshot's row vector (built alongside `snap`).
+/// declared column collations (lower colname -> lower collation name) for eval's
+/// COLLATE resolution; pinned scope assumes unambiguous column names across tables
+fn build_coll_snapshot(st: &Store) -> std::collections::HashMap<String, String> {
+    let mut m = std::collections::HashMap::new();
+    for (_n, t) in &st.tables {
+        for c in &t.cols {
+            if let Some(cl) = &c.coll { m.insert(c.name.to_ascii_lowercase(), cl.clone()); }
+        }
+    }
+    m
+}
 fn build_index_snapshot(st: &Store)
     -> std::collections::HashMap<String, Vec<(String, std::collections::BTreeMap<String, Vec<usize>>)>> {
     let mut out = std::collections::HashMap::new();
@@ -1237,9 +1254,10 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             };
             let views = st.views.clone();
             let idxmaps = build_index_snapshot(st);
+            let colls = build_coll_snapshot(st);
             PROBE_CELL.with(|c| c.set(0));
             let r = PROBE_CELL.with(|probes| {
-                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes };
+                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls };
                 eval::stmt_select_typed(&mut ctx, s)
             });
             r
@@ -1291,8 +1309,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     };
                     let idxmaps = build_index_snapshot(st);
                     let views2 = st.views.clone();
+                    let colls2 = build_coll_snapshot(st);
                     let res = PROBE_CELL.with(|probes| {
-                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes };
+                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2 };
                         eval::run_stmt(&mut ctx, s)
                     });
                     match res {

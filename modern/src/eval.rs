@@ -353,6 +353,8 @@ pub struct Ctx<'a> {
     pub indexes: &'a std::collections::HashMap<String, Vec<(String, std::collections::BTreeMap<String, Vec<usize>>)>>,
     /// real index-probe counter (anti-cheat proof that lookups use the index)
     pub probes: &'a std::cell::Cell<u64>,
+    /// declared column collations (lower colname -> lower collation name)
+    pub col_colls: &'a std::collections::HashMap<String, String>,
 }
 
 /// Evaluate one expression against a plain env (used by the store for CHECK
@@ -366,7 +368,8 @@ pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -
     let indexes = std::collections::HashMap::new();
     let probes = std::cell::Cell::new(0u64);
     let mut conn = Conn::default();
-    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes };
+    let colls = std::collections::HashMap::new();
+    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes, col_colls: &colls };
     eval_expr(&e, env, &ctx)
 }
 
@@ -395,6 +398,26 @@ fn vcmp(a: &V, b: &V) -> std::cmp::Ordering {
 }
 
 fn collate_of(e: &Ex) -> Option<String> { if let Ex::Collate(_, c) = e { Some(c.to_ascii_lowercase()) } else { None } }
+/// declared collation of a bare column reference (CREATE TABLE ... COLLATE name)
+fn decl_collate_of(e: &Ex, ctx: &Ctx) -> Option<String> {
+    if let Ex::Col(n) = e { ctx.col_colls.get(&n.rsplit('.').next().unwrap_or(n).to_ascii_lowercase()).cloned() } else { None }
+}
+/// resolve a collation name to a text ordering: builtins first, then the
+/// per-connection create_collation registry (real xCompare); unknown -> Err
+fn coll_order(ctx: &Ctx, name: &str, x: &V, y: &V) -> Result<std::cmp::Ordering, String> {
+    Ok(match name {
+        "uint" => uint_cmp(&x.as_text(), &y.as_text()),
+        "rot13" => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
+        "nocase" => x.as_text().to_lowercase().cmp(&y.as_text().to_lowercase()),
+        "decimal" => dec_cmp(&x.as_text(), &y.as_text()).cmp(&0),
+        "rtrim" => x.as_text().trim_end_matches(' ').cmp(y.as_text().trim_end_matches(' ')),
+        "binary" => x.as_text().cmp(&y.as_text()),
+        _ => match crate::coll_user_cmp(ctx.db, name, &x.as_text(), &y.as_text()) {
+            Some(o) => o,
+            None => return Err(format!("no such collation sequence: {name}")),
+        },
+    })
+}
 fn uint_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     // compare with embedded unsigned-integer runs compared numerically
     let split = |s: &str| -> Vec<(bool, String)> {
@@ -492,25 +515,26 @@ fn eval_expr(ex: &Ex, row: &Row, ctx: &Ctx) -> Result<V, String> {
                     }
                 }
                 "=" | "<>" => {
-                    let coll = collate_of(a).or_else(|| collate_of(b));
-                    let eq = if coll.as_deref() == Some("rot13") {
-                        if matches!(x, V::Null) || matches!(y, V::Null) { None }
-                        else { Some(rot13s(&x.as_text()) == rot13s(&y.as_text())) }
-                    } else if coll.as_deref() == Some("uint") {
-                        if matches!(x, V::Null) || matches!(y, V::Null) { None }
-                        else { Some(uint_cmp(&x.as_text(), &y.as_text()) == std::cmp::Ordering::Equal) }
-                    } else { vnum_eq(&x, &y) };
+                    let coll = collate_of(a).or_else(|| collate_of(b))
+                        .or_else(|| decl_collate_of(a, ctx)).or_else(|| decl_collate_of(b, ctx));
+                    let eq = match coll.as_deref() {
+                        Some(name) => {
+                            // registry/builtin resolution happens even on NULL operands (C errors on unknown collation)
+                            if !matches!(x, V::Null) && !matches!(y, V::Null) {
+                                Some(coll_order(ctx, name, &x, &y)? == std::cmp::Ordering::Equal)
+                            } else { coll_order(ctx, name, &V::Text(String::new()), &V::Text(String::new()))?; None }
+                        }
+                        None => vnum_eq(&x, &y),
+                    };
                     match eq { Some(b) => V::Int((b ^ (op == "<>")) as i64), None => V::Null }
                 }
                 "<" | "<=" | ">" | ">=" => {
                     if matches!(x, V::Null) || matches!(y, V::Null) { return Ok(V::Null); }
-                    let coll = collate_of(a).or_else(|| collate_of(b));
+                    let coll = collate_of(a).or_else(|| collate_of(b))
+                        .or_else(|| decl_collate_of(a, ctx)).or_else(|| decl_collate_of(b, ctx));
                     let o = match coll.as_deref() {
-                        Some("uint") => uint_cmp(&x.as_text(), &y.as_text()),
-                        Some("rot13") => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
-                        Some("nocase") => x.as_text().to_lowercase().cmp(&y.as_text().to_lowercase()),
-                        Some("decimal") => dec_cmp(&x.as_text(), &y.as_text()).cmp(&0),
-                        _ => vcmp(&x, &y),
+                        Some(name) => coll_order(ctx, name, &x, &y)?,
+                        None => vcmp(&x, &y),
                     };
                     let r = match op.as_str() {
                         "<" => o.is_lt(), "<=" => o.is_le(), ">" => o.is_gt(), _ => o.is_ge() };
@@ -1958,12 +1982,12 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
         for term in split_top(&ob, ',') {
             let words: Vec<String> = term.split_whitespace().map(|w| w.to_string()).collect();
             let name = words.first().cloned().unwrap_or_else(|| "1".into());
-            let mut desc = false; let mut coll = None; let mut nulls_first = None;
+            let mut desc = false; let mut coll: Option<String> = None; let mut nulls_first = None;
             let mut wi = 1;
             while wi < words.len() {
                 let w = words[wi].to_ascii_uppercase();
                 match w.as_str() {
-                    "COLLATE" => { if wi + 1 < words.len() { coll = Some(words[wi+1].to_ascii_lowercase()); wi += 1; } }
+                    "COLLATE" => { if wi + 1 < words.len() { coll = Some(words[wi+1].trim_matches('"').to_ascii_lowercase()); wi += 1; } }
                     "ASC" => desc = false,
                     "DESC" => desc = true,
                     "NULLS" => { if wi + 1 < words.len() { nulls_first = Some(words[wi+1].eq_ignore_ascii_case("FIRST")); wi += 1; } }
@@ -1976,6 +2000,18 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
                     .or_else(|| colnames.iter().position(|c| c.rsplit('.').next() == name.rsplit('.').next()))
                     .unwrap_or(0)
             });
+            // declared column collation applies when no explicit COLLATE is given
+            if coll.is_none() {
+                if let Some(cn) = colnames.get(ci) {
+                    coll = ctx.col_colls.get(&cn.rsplit('.').next().unwrap_or(cn).to_ascii_lowercase()).cloned();
+                }
+            }
+            // resolve custom collations up front so unknown names error like C prepare
+            if let Some(name) = coll.as_deref() {
+                if !matches!(name, "uint" | "rot13" | "nocase" | "decimal" | "rtrim" | "binary") && !crate::coll_user_exists(ctx.db, name) {
+                    return Err(format!("no such collation sequence: {name}"));
+                }
+            }
             keys.push(OKey { ci, desc, coll, nulls_first });
         }
         rows.sort_by(|a, b| {
@@ -1991,11 +2027,8 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
                            else { if first { Greater } else { Less } };
                 }
                 let o = match k.coll.as_deref() {
-                    Some("uint") => uint_cmp(&x.as_text(), &y.as_text()),
-                    Some("rot13") => rot13s(&x.as_text()).cmp(&rot13s(&y.as_text())),
-                    Some("nocase") => x.as_text().to_lowercase().cmp(&y.as_text().to_lowercase()),
-                    Some("decimal") => dec_cmp(&x.as_text(), &y.as_text()).cmp(&0),
-                    _ => vcmp(x, y),
+                    Some(name) => coll_order(ctx, name, x, y).unwrap_or_else(|_| vcmp(x, y)),
+                    None => vcmp(x, y),
                 };
                 if o != Equal { return if k.desc { o.reverse() } else { o }; }
             }

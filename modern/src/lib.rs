@@ -226,6 +226,7 @@ pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
         store::save_file(db as usize); // run-15: persist file-backed connections before teardown
         store::drop_store(db as usize);
         udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
+        coll_close(db as usize); // run-30: run pending xDestroy for registered collations
         EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
         drop(Box::from_raw(db));
     }
@@ -1354,6 +1355,122 @@ thread_local! {
     static UDF_REG: std::cell::RefCell<std::collections::HashMap<usize,
         std::collections::HashMap<(String, i32), FnEntry>>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+// ---- run-30: per-connection collation registry (create_collation[_v2]) ----
+type XColCompare = unsafe extern "C" fn(*mut c_void, c_int, *const c_void, c_int, *const c_void) -> c_int;
+type XColDestroy = unsafe extern "C" fn(*mut c_void);
+type XCollNeeded = unsafe extern "C" fn(*mut c_void, *mut Sqlite3, c_int, *const c_char);
+
+struct CollEntry { p_arg: usize, x_cmp: usize, x_destroy: usize }
+
+thread_local! {
+    // db -> name_lower -> entry
+    static COLL_REG: std::cell::RefCell<std::collections::HashMap<usize,
+        std::collections::HashMap<String, CollEntry>>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+    // db -> (p_arg, callback) for sqlite3_collation_needed
+    static COLL_NEEDED: std::cell::RefCell<std::collections::HashMap<usize, (usize, usize)>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+fn coll_run_destroy(e: &CollEntry) {
+    if e.x_destroy != 0 {
+        let f: XColDestroy = unsafe { std::mem::transmute(e.x_destroy) };
+        unsafe { f(e.p_arg as *mut c_void) };
+    }
+}
+
+fn coll_close(dbid: usize) {
+    COLL_REG.with(|r| {
+        if let Some(per) = r.borrow_mut().remove(&dbid) {
+            for e in per.values() { coll_run_destroy(e); }
+        }
+    });
+    COLL_NEEDED.with(|r| { r.borrow_mut().remove(&dbid); });
+}
+
+/// # Safety: C ABI — register/replace/delete a named collating sequence.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_collation(
+    db: *mut Sqlite3, z_name: *const c_char, e_text_rep: c_int,
+    p_arg: *mut c_void, x_compare: Option<XColCompare>,
+) -> c_int { sqlite3_create_collation_v2(db, z_name, e_text_rep, p_arg, x_compare, None) }
+
+/// # Safety: C ABI — v2 adds xDestroy(pArg), run on replace/delete/close.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_collation_v2(
+    db: *mut Sqlite3, z_name: *const c_char, e_text_rep: c_int,
+    p_arg: *mut c_void, x_compare: Option<XColCompare>, x_destroy: Option<XColDestroy>,
+) -> c_int {
+    if db.is_null() || z_name.is_null() { return SQLITE_MISUSE; }
+    // pinned eTextRep matrix: UTF8(1)/UTF16LE(2)/UTF16BE(3)/UTF16(4)/UTF16_ALIGNED(8) ok; 0/99 -> MISUSE
+    if !matches!(e_text_rep, 1 | 2 | 3 | 4 | 8) { return SQLITE_MISUSE; }
+    let name = CStr::from_ptr(z_name).to_string_lossy().to_ascii_lowercase();
+    let dbid = db as usize;
+    COLL_REG.with(|r| {
+        let mut reg = r.borrow_mut();
+        let per = reg.entry(dbid).or_default();
+        match x_compare {
+            None => { if let Some(old) = per.remove(&name) { coll_run_destroy(&old); } }
+            Some(f) => {
+                let e = CollEntry { p_arg: p_arg as usize, x_cmp: f as usize,
+                                    x_destroy: x_destroy.map(|d| d as usize).unwrap_or(0) };
+                if let Some(old) = per.insert(name, e) { coll_run_destroy(&old); }
+            }
+        }
+    });
+    db_ok(&mut *db);
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — register the lazy collation factory.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_collation_needed(
+    db: *mut Sqlite3, p_arg: *mut c_void, cb: Option<XCollNeeded>,
+) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    let dbid = db as usize;
+    COLL_NEEDED.with(|r| {
+        match cb {
+            Some(f) => { r.borrow_mut().insert(dbid, (p_arg as usize, f as usize)); }
+            None => { r.borrow_mut().remove(&dbid); }
+        }
+    });
+    SQLITE_OK
+}
+
+/// registry lookup with lazy collation_needed factory; true if `name` resolves
+pub fn coll_user_exists(dbid: usize, name: &str) -> bool {
+    let key = name.to_ascii_lowercase();
+    let hit = COLL_REG.with(|r| r.borrow().get(&dbid).map_or(false, |per| per.contains_key(&key)));
+    if hit { return true; }
+    let factory = COLL_NEEDED.with(|r| r.borrow().get(&dbid).copied());
+    if let Some((p_arg, cb)) = factory {
+        let f: XCollNeeded = unsafe { std::mem::transmute(cb) };
+        if let Ok(cname) = CString::new(name) {
+            unsafe { f(p_arg as *mut c_void, dbid as *mut Sqlite3, 1 /*SQLITE_UTF8*/, cname.as_ptr()) };
+        }
+        return COLL_REG.with(|r| r.borrow().get(&dbid).map_or(false, |per| per.contains_key(&key)));
+    }
+    false
+}
+
+/// compare two texts through the registered xCompare (REAL C callback);
+/// None when the collation is unknown even after the collation_needed factory
+pub fn coll_user_cmp(dbid: usize, name: &str, a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    if !coll_user_exists(dbid, name) { return None; }
+    let key = name.to_ascii_lowercase();
+    let (p_arg, x_cmp) = COLL_REG.with(|r| {
+        let reg = r.borrow();
+        let e = reg.get(&dbid).and_then(|per| per.get(&key)).unwrap();
+        (e.p_arg, e.x_cmp)
+    });
+    let f: XColCompare = unsafe { std::mem::transmute(x_cmp) };
+    let r = unsafe { f(p_arg as *mut c_void,
+                       a.len() as c_int, a.as_ptr() as *const c_void,
+                       b.len() as c_int, b.as_ptr() as *const c_void) };
+    Some(r.cmp(&0))
 }
 
 fn run_destroy(e: &FnEntry) {
