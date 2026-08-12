@@ -1,0 +1,2 @@
+OBS engine-conn-002-C005 clear_rc 0
+OBS engine-conn-002-C005 blocked rc=5 err=database is locked

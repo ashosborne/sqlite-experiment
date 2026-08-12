@@ -1,0 +1,5 @@
+OBS engine-conn-003-C004 begin rc=0 err=-
+OBS engine-conn-003-C004 ins rc=0 err=-
+OBS engine-conn-003-C004 commit rc=19 err=constraint failed
+OBS engine-conn-003-C004 autocommit 1
+OBS engine-conn-003-C004 cnt 1

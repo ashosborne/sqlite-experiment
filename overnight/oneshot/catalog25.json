@@ -1,0 +1,156 @@
+[
+{
+"id": "engine-conn-001-C001",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "clean close OK; NULL close/close_v2 no-ops"
+},
+{
+"id": "engine-conn-001-C002",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "unfinalized statement blocks close (rc 5 + errmsg); finalize unblocks"
+},
+{
+"id": "engine-conn-001-C003",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "close_v2 zombies: statement stays usable, finalize completes teardown"
+},
+{
+"id": "engine-conn-001-C004",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "close with open transaction rolls back (file reopen proves it)"
+},
+{
+"id": "engine-conn-001-C005",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "stepped/reset statement still blocks close until finalize"
+},
+{
+"id": "engine-conn-001-C006",
+"slice": "engine-conn",
+"feature": "engine-conn-001",
+"kind": "bespoke",
+"note": "open blob handle blocks close like a statement"
+},
+{
+"id": "engine-conn-002-C001",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "second connection write blocked while a txn holds the file lock; commit unblocks"
+},
+{
+"id": "engine-conn-002-C002",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "busy handler returning 0: called once with count 0; BUSY propagates"
+},
+{
+"id": "engine-conn-002-C003",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "busy handler retries twice then gives up (3 calls)"
+},
+{
+"id": "engine-conn-002-C004",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "busy_timeout replaces a handler (handler never fires); still BUSY after wait"
+},
+{
+"id": "engine-conn-002-C005",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "busy_timeout(0) clears: immediate BUSY"
+},
+{
+"id": "engine-conn-002-C006",
+"slice": "engine-conn",
+"feature": "engine-conn-002",
+"kind": "bespoke",
+"note": "no contention: handler never called"
+},
+{
+"id": "engine-conn-003-C001",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "update_hook op/db/table/rowid for INSERT/UPDATE/DELETE"
+},
+{
+"id": "engine-conn-003-C002",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "update_hook unset returns prior arg and stops fires"
+},
+{
+"id": "engine-conn-003-C003",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "commit_hook fires per committed txn (autocommit + explicit)"
+},
+{
+"id": "engine-conn-003-C004",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "commit_hook non-zero aborts COMMIT (rc 19 constraint failed) and rolls back"
+},
+{
+"id": "engine-conn-003-C005",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "commit_hook replacement returns prior arg; only new hook fires"
+},
+{
+"id": "engine-conn-003-C006",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "trace_v2 STMT captures SQL text"
+},
+{
+"id": "engine-conn-003-C007",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "trace_v2 ROW fires per result row"
+},
+{
+"id": "engine-conn-003-C008",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "trace_v2 CLOSE fires once at close"
+},
+{
+"id": "engine-conn-003-C009",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "trace mask 0 unsets: no further events"
+},
+{
+"id": "engine-conn-003-C010",
+"slice": "engine-conn",
+"feature": "engine-conn-003",
+"kind": "bespoke",
+"note": "trace_v2 PROFILE fires per completed statement (count)"
+}
+]

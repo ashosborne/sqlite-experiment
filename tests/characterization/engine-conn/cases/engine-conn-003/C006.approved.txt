@@ -1,0 +1,1 @@
+OBS engine-conn-003-C006 log {CREATE TABLE t(a);} {INSERT INTO t VALUES(42);}

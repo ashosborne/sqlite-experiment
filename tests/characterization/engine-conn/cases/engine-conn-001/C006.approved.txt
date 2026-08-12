@@ -1,0 +1,3 @@
+OBS engine-conn-001-C006 close rc=5 err=unable to close due to unfinalized statements or unfinished backups
+OBS engine-conn-001-C006 blob_close 0
+OBS engine-conn-001-C006 close2 0

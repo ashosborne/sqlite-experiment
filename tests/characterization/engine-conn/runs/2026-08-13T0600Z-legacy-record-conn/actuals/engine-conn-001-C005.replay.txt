@@ -1,0 +1,4 @@
+OBS engine-conn-001-C005 close rc=5 err=unable to close due to unfinalized statements or unfinished backups
+OBS engine-conn-001-C005 close_after_reset rc=5 err=unable to close due to unfinalized statements or unfinished backups
+OBS engine-conn-001-C005 finalize 0
+OBS engine-conn-001-C005 close2 0
