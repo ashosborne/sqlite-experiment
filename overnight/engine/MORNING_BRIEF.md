@@ -1,77 +1,80 @@
-# MORNING BRIEF — engine v13: prepare/bind through the real engine (run 23)
+# MORNING BRIEF — engine v14: thin-gap harvest #2 (run 24)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–22 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v13-prepare-bind. MAX_NEW_CASES 40 (used 26).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–23 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v14-thin-gap-2. MAX_NEW_CASES 40 (used 29).
 REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @13 BOUND — statement-API / bind / column laws
+## 1. Pack @14 BOUND
 
-versions/13.yaml + ADR 0011, schema-validated. prepare must execute via the SAME
-store/eval engine as sqlite3_exec — pin tables and per-golden state machines banned;
-typed binds must provably affect results; column accessors cover the frozen matrix
-with real coercions. completeness: **incomplete**.
+versions/14.yaml + ADR 0012, schema-validated; all prior laws carried. One deliberate
+honesty decision recorded in the pack: the two-table **EXPLAIN QUERY PLAN join case was
+NOT frozen** — C's output exposes its cost-based planner (BLOOM FILTER, AUTOMATIC
+COVERING INDEX) and reproducing that text from a nested-loop engine would be a fake
+planner essay. EQP is pinned only where this engine's honest plan (SCAN t) is the truth.
 
-## 2. How prepare executes (plainly)
+## 2. Scoreboard before → after
 
-**Shared engine, not a mini-VDBE.** prepare slices the first statement (pzTail),
-scans ?, ?N and :name parameters, and resolves names at prepare time exactly where C
-does — a side-effect-free dry run of SELECTs with NULL parameters yields
-"no such table:" / "no such function:" errors and the column-name list; DML targets
-are checked against the catalog. step substitutes typed bound values into the
-statement and runs it through the same engine as exec: SELECT/PRAGMA materialize
-typed rows at first step (nested-loop eval — **not** a bytecode VDBE), DML/DDL run
-the script engine with real constraint codes (19). Autoreset (OMIT_AUTORESET=off)
-re-executes after DONE; reset keeps bindings and discards rows. The three legacy
-recognizer pins (SELECT 1 / SELECT ? / '42abc') now pass through this real path
-byte-identically — the recognizer is gone.
+| State | run 23 | **run 24** |
+|---|---|---|
+| full | 53 | **66** |
+| partial | 57 | **52** (6 notes tightened) |
+| none | 103 | 103 |
+| behaviours | 213 | 221 (+8 harvest slices) |
 
-## 3. Bind / column coverage
-
-| Family | Real now |
-|---|---|
-| binds | null, int, int64, double, text, blob (values copied — TRANSIENT-safe), parameter_count/name/index, SQLITE_RANGE on bad index |
-| columns | count, name (expression spelling), type (5/1/2/3/4), int, int64, double, text, blob, bytes — real coercions: text integer-prefix ('42abc'→42), real truncation (2.5→2), before-step/after-done → NULL/0, out-of-range → NULL/0 |
-| statement | stmt_readonly / stmt_busy real properties; prepared DML effects visible to later statements |
-| store | `Val::Real` end-to-end (literals, file serial 7) — bound doubles insert + persist |
-
-## 4. prepare-statement-api-001..006 — each card
+## 3. Prepare cards — final verdicts
 
 | Card | old → new | Why |
 |---|---|---|
-| 001 prepare family | partial → **partial** (tighter) | v2 fully real; v1/v3 prepFlags + UTF-16 honestly absent |
-| 002 step machine | partial → **full** | real execution, ROW/DONE/19, autoreset — no VDBE claim |
-| 003 typed binding | partial → **full** | full typed matrix + names + RANGE, runtime-proven |
-| 004 column access | partial → **full** | full accessor matrix with real coercions |
-| 005 reset/finalize | partial → **partial** (tighter) | reset/finalize/autoreset real; auto-reprepare on schema change absent |
-| 006 introspection | partial → **partial** (tighter) | readonly/busy real; EXPLAIN absent |
+| 001 prepare family | partial → **partial** (UTF-16 only) | prepare_v3 + prepFlags real (PERSISTENT/NO_VTAB honest no-ops); UTF-16 is the sole remaining gap |
+| 005 reset/reprepare | partial → **full** | auto-reprepare on schema change real: DDL under a live stmt re-resolves; DROP → step SQLITE_ERROR "no such table" as pinned |
+| 006 introspection | partial → **partial** (tighter) | readonly/busy + honest EQP + EXPLAIN 8-column shape real; bytecode listing honestly absent (no VDBE) |
 
-Plus 3 new full behaviours (engine-prepare-001/-002/-003).
+## 4. Tier B verdicts
 
-## 5. Cases / anti-cheat / cargo
+**→ full (4):** printf-format-001 (comma grouping + %p close the last holes) ·
+upsert-002 (multi-assignment SET with expressions over excluded.* + WHERE) ·
+triggers-002 (RAISE(IGNORE) row-skip, FAIL/ROLLBACK rc19, INSTEAD OF UPDATE/DELETE
+with real view projections — base tables untouched exactly as C pins) ·
+serialize-memdb-api-001 (populated images via the shared dbfile writer/reader; all
+five storage classes round-trip).
 
-26 bespoke goldens frozen on pinned C (two-run determinism, delegated stamp), all
-replay byte-identical through the Rust statement path. Anti-cheat **15/15** (new:
-runtime binds drive a computed sum; prepared DML with a runtime key visible to a
-later prepared SELECT; mixed runtime column types). `cargo test` **297/297**; all 256
-prior goldens md5-identical; kitchens, file suites, interop unchanged green.
+**stayed partial, tighter (4):** window-functions-001 (rank/dense_rank/lag/lead +
+framed aggregates + PARTITION BY real; first_value/ntile family absent) ·
+window-functions-002 (RANGE-peers/ROWS/GROUPS real; EXCLUDE + offset RANGE absent) ·
+misc-decimal-001 (decimal_exp closed; arbitrary precision still i128-bounded) ·
+printf-format-003 (appendchar/reset/length/value + empty-finish NULL; raw append +
+vappendf varargs absent). printf-format-002 unchanged (vmprintf needs a varargs ABI).
 
-## 6. Scoreboard before → after
+**New full (8):** engine-window2 / raise / upsert3 / printf3 / decimal2 / prepare2 /
+serialize2 / str2 -001.
 
-| State | run 22 | **run 23** |
-|---|---|---|
-| full | 47 | **53** |
-| partial | 57+3 | **57** (3 prepare cards tightened) |
-| none | 103 | 103 |
-| behaviours | 210 | 213 |
+## 5. What was implemented
+
+General window engine (partitions, stable window ordering matching C's tie behaviour,
+RANGE-with-peers default frame, ROWS/GROUPS frames, 10 functions); trigger RAISE family
+with a per-row proceed flag; INSTEAD OF UPDATE/DELETE over real view projections;
+upsert multi-assignment evaluated against excluded env; printf `,` grouping + %p;
+decimal_exp (+ one-fraction-digit rendering rule discovered from C bytes);
+sqlite3_prepare_v3; auto-reprepare via the store schema counter; EQP/EXPLAIN
+statements; populated serialize/deserialize sharing the v12 file-format writer/reader;
+sqlite3_str appendchar/reset/length/value, finish→NULL when empty.
+
+## 6. Cases / anti-cheat / cargo
+
+29 new goldens (17 script + 12 bespoke), two-run deterministic, delegated stamp, all
+replay byte-identical (script replays via exec; bespoke via the statement API).
+Anti-cheat **18/18** (new: runtime window rank/RANGE-peer sums; runtime upsert
+v=v+excluded.v; runtime printf grouping). `cargo test` **329/329**; all 269 prior
+goldens md5-identical; kitchens, file suites, interop unchanged green.
 
 ## 7. Explicit honesty line
 
-**SQLite is NOT migrated.** 53 of 213 behaviours done in modern; all parity
-UNVERIFIED; parity_green 0; nothing verified. The statement path is a shared-engine
-executor, not a bytecode VDBE.
+**SQLite is NOT migrated.** 66 of 221 behaviours done in modern; all parity
+UNVERIFIED; parity_green 0; nothing verified. No transactions, no VDBE, no planner.
 
 ## 8. Next call
 
-(a) UTF-16 + prepFlags + auto-reprepare (finishes 001/005 honestly), (b) index-driven
-lookups + multi-column explicit indexes (ddl-schema-002), or (c) sqlite3_value / 
-user-defined function API surface. Pack v14 + goldens first.
+(a) UTF-16 prepare/text APIs (finishes prepare-001 + column UTF-16 notes),
+(b) index-driven lookups + multi-column explicit indexes (ddl-schema-002 focused loop),
+(c) transactions (BEGIN/COMMIT/ROLLBACK — unlocks OR ROLLBACK, dml-codegen-002, and
+savepoint surface). Pack v15 + goldens first.

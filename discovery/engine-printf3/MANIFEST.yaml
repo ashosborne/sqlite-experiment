@@ -1,0 +1,9 @@
+slice_id: engine-printf3
+app_id: sqlite-experiment
+seed: composed thin-gap-2 slice (run 24)
+status: accepted
+features:
+- feature_id: engine-printf3-001
+  name: printf comma grouping + %p
+  status: accepted
+  evidence: [src/printf.c:1]

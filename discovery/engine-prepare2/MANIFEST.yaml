@@ -1,0 +1,9 @@
+slice_id: engine-prepare2
+app_id: sqlite-experiment
+seed: composed thin-gap-2 slice (run 24)
+status: accepted
+features:
+- feature_id: engine-prepare2-001
+  name: prepare_v3 / auto-reprepare / EQP
+  status: accepted
+  evidence: [src/prepare.c:1]

@@ -1,0 +1,9 @@
+slice_id: engine-upsert3
+app_id: sqlite-experiment
+seed: composed thin-gap-2 slice (run 24)
+status: accepted
+features:
+- feature_id: engine-upsert3-001
+  name: Upsert multi-assignment
+  status: accepted
+  evidence: [src/upsert.c:1]

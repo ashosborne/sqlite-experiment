@@ -1,0 +1,9 @@
+slice_id: engine-raise
+app_id: sqlite-experiment
+seed: composed thin-gap-2 slice (run 24)
+status: accepted
+features:
+- feature_id: engine-raise-001
+  name: RAISE family + INSTEAD OF UPDATE/DELETE
+  status: accepted
+  evidence: [src/trigger.c:1]

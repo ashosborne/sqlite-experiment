@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T08:25:52Z
+- Generated: 2026-08-12T08:58:17Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T08:25:52Z by `sqlite-engine-v13-prepare-bind`
+- Manifest last_updated: 2026-08-12T08:58:17Z by `sqlite-engine-v14-thin-gap-2`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 57 | Some modern execution; gaps in notes |
-| full (converted) | 53 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 52 | Some modern execution; gaps in notes |
+| full (converted) | 66 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -43,8 +43,13 @@
 - `prepare-statement-api-002` — Step execution state machine
 - `prepare-statement-api-003` — Parameter binding (typed)
 - `prepare-statement-api-004` — Column result access (typed, with coercions)
+- `prepare-statement-api-005` — Reset / finalize / auto-reprepare on schema change
+- `printf-format-001` — SQL printf()/format() functions
 - `select-codegen-002` — Compound SELECT set operations
+- `serialize-memdb-api-001` — Serialize / deserialize byte-image round-trip
 - `triggers-001` — Trigger DDL lifecycle
+- `triggers-002` — Row-trigger firing semantics
+- `upsert-002` — DO UPDATE / DO NOTHING execution
 - `engine-kitchen-001` — Kitchen-spine row round-trip
 - `engine-files-001` — Durable file round-trip
 - `engine-files-002` — Durable multi-page tables (size/pages)
@@ -73,6 +78,14 @@
 - `engine-prepare-001` — Prepare + step through the shared engine
 - `engine-prepare-002` — Typed bind matrix
 - `engine-prepare-003` — Column accessor matrix
+- `engine-window2-001` — General window-function engine
+- `engine-raise-001` — RAISE family + INSTEAD OF UPDATE/DELETE
+- `engine-upsert3-001` — Upsert multi-assignment
+- `engine-printf3-001` — printf comma grouping + %p
+- `engine-decimal2-001` — decimal_exp
+- `engine-prepare2-001` — prepare_v3 / auto-reprepare / EQP
+- `engine-serialize2-001` — Populated serialize/deserialize
+- `engine-str2-001` — sqlite3_str completion
 
 ### Partial in modern
 
@@ -105,7 +118,7 @@
 - `loadext-api-001` — enable-gate + not-authorized path real; actual shared-library loading absent by design
 - `loadext-api-002` — auto-extension register/invoke on open real; cancel/reset entry points absent
 - `malloc-subsystem-001` — malloc64/free/msize real allocator; memory accounting (memory_used/highwater) absent
-- `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/collation real (exact scaled i128); decimal_exp and true arbitrary precision absent
+- `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
 - `misc-func-packs-001` — decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent
 - `misc-prefixes-001` — prefixes() real as FROM row source; vtab constraint pushdown absent
 - `misc-regexp-001` — regexp operator real for literal/dot/anchor patterns; full NFA regex engine absent
@@ -115,24 +128,19 @@
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent
 - `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
-- `prepare-statement-api-001` — prepare_v2 real (first-statement slicing, pzTail, prepare-time no-such-table/function resolution, column names); v1/v3 prepFlags and UTF-16 variants absent
-- `prepare-statement-api-005` — reset/finalize + autoreset real (bindings preserved, rows discarded); auto-reprepare on schema change absent (no schema-cookie tracking)
-- `prepare-statement-api-006` — stmt_readonly/stmt_busy real statement properties; EXPLAIN introspection absent
-- `printf-format-001` — flags/width/precision + 16 conversions incl. %w and # real; thousands-separator comma flag and %p absent
+- `prepare-statement-api-001` — prepare_v2 + v3 (prepFlags accepted; PERSISTENT/NO_VTAB honest no-ops) real; UTF-16 prepare variants are the sole remaining gap
+- `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent
-- `printf-format-003` — str_new/appendf/errcode/finish real; appendchar/reset and grow edges absent
+- `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent
 - `select-codegen-001` — joins/subqueries/FROM depth run real (nested loop); full select.c orchestration, flattening and planner absent
 - `select-codegen-003` — pinned observable executes via direct subquery evaluation; the flattening rewrite itself does not exist in modern
-- `serialize-memdb-api-001` — serialize/deserialize + FREEONCLOSE ownership real for empty images; populated-image round-trip absent
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
-- `triggers-002` — old/new, WHEN, B/A ordering, RAISE(ABORT), UPDATE OF, recursive_triggers real; RAISE(IGNORE/FAIL/ROLLBACK) and INSTEAD OF UPDATE/DELETE firing absent
 - `upsert-001` — conflict targets (PK/UNIQUE col) now DURABLE: OR IGNORE/REPLACE + DO UPDATE resolve against on-disk unique indexes after reopen; index-expression targets and target WHERE still absent
-- `upsert-002` — DO NOTHING / DO UPDATE SET c=excluded.c + conditional WHERE real; multi-assignment SET breadth absent
 - `util-primitives-001` — PRNG (sqlite3_randomness) real; UTF codecs and hash primitives absent
-- `window-functions-001` — row_number + sum OVER real for pinned shapes; the built-in window family breadth absent
-- `window-functions-002` — ROWS BETWEEN 1 PRECEDING AND CURRENT ROW real; RANGE/GROUPS/EXCLUDE absent
+- `window-functions-001` — rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
+- `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
 
 ### Remaining (impl_in_modern=none|absent, not deferred)
 
@@ -244,26 +252,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 206 |
-| Behaviours known | 213 |
+| Surfaces total | 214 |
+| Behaviours known | 221 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 123 |
+| legacy_green flags | 131 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 21 |
+| accepted | 29 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 53 |
-| documented | 160 |
+| converted | 66 |
+| documented | 155 |
 
 ## Surfaces per slice
 
@@ -285,6 +293,7 @@
 | engine-constraints | 1 |
 | engine-datetime | 1 |
 | engine-ddl2 | 1 |
+| engine-decimal2 | 1 |
 | engine-files | 1 |
 | engine-fk2 | 1 |
 | engine-funcs | 1 |
@@ -296,12 +305,19 @@
 | engine-overflow | 1 |
 | engine-pragma | 1 |
 | engine-prepare | 1 |
+| engine-prepare2 | 1 |
+| engine-printf3 | 1 |
+| engine-raise | 1 |
+| engine-serialize2 | 1 |
 | engine-setops | 1 |
+| engine-str2 | 1 |
 | engine-subquery | 1 |
 | engine-trig2 | 1 |
 | engine-triggers | 1 |
 | engine-upsert2 | 1 |
+| engine-upsert3 | 1 |
 | engine-views | 1 |
+| engine-window2 | 1 |
 | error-status-api | 3 |
 | exec-convenience-api | 2 |
 | expert | 1 |

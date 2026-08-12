@@ -1,0 +1,9 @@
+slice_id: engine-str2
+app_id: sqlite-experiment
+seed: composed thin-gap-2 slice (run 24)
+status: accepted
+features:
+- feature_id: engine-str2-001
+  name: sqlite3_str completion
+  status: accepted
+  evidence: [src/printf.c:1]

@@ -404,3 +404,18 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Flips: prepare-statement-api-002/003/004 → full; 001/005/006 partial tightened (UTF-16/
   prepFlags, auto-reprepare, EXPLAIN honestly absent). +3 engine-prepare fulls.
 - Scoreboard full 47→53; cargo 297/297; anti-cheat 15/15; 256 prior goldens md5-identical.
+
+## Run 24 — 2026-08-12 — engine v14: thin-gap harvest #2 (pack v14)
+
+- Pack v13→v14 BOUND (+versions/14, ADR 0012). 29 goldens (17 script + 12 bespoke);
+  EQP join case deliberately NOT frozen (C planner artifacts — no fake planner essay).
+- Implemented: general window engine (PARTITION/ORDER/RANGE-peers/ROWS/GROUPS; 10 fns);
+  RAISE(IGNORE/FAIL/ROLLBACK) with per-row skip; INSTEAD OF UPDATE/DELETE on view
+  projections; upsert multi-assignment (excluded env); printf comma+%p; decimal_exp;
+  prepare_v3 prepFlags; auto-reprepare on schema change (DROP->error); EQP honest SCAN;
+  EXPLAIN column shape; populated serialize/deserialize via shared dbfile writer/reader;
+  sqlite3_str completion. Val-restore incident mid-run: uncommitted store patches lost to
+  a git restore and re-applied — checkpoint-commit discipline tightened.
+- Flips: +5 partial→full (prepare-005, upsert-002, triggers-002, printf-001, serialize-001),
+  6 tightened, +8 new fulls. Scoreboard full 53→66 / partial 52 / none 103.
+- cargo 329/329; anti-cheat 18/18; 269 prior goldens md5-identical; parity 0.
