@@ -76,6 +76,8 @@ pub struct Conn {
     pub case_sensitive_like: bool,
     pub schema_version: i64,
     pub attached: Vec<String>, // extra schema names beyond 'main'
+    pub journal: String,       // "" = default (delete for files, memory for :memory:); "wal" / "delete"
+    pub pending_ckpt: Option<String>, // wal_checkpoint mode awaiting the post-exec file sync
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
@@ -2075,10 +2077,32 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
     let (name, val) = match b.split_once('=') { Some((n, v)) => (n.trim().to_ascii_lowercase(), Some(v.trim().to_string())), None => (b.trim().to_ascii_lowercase(), None) };
     let boolval = |v: &str| -> i64 { match v.to_ascii_uppercase().as_str() { "ON"|"TRUE"|"YES" => 1, "OFF"|"FALSE"|"NO" => 0, _ => v.parse().unwrap_or(0) } };
     match name.as_str() {
+        n if n.starts_with("wal_checkpoint") => {
+            // counts row (busy, log, checkpointed); backfill runs in the post-exec sync
+            if !ctx.conn.is_file || ctx.conn.journal != "wal" {
+                return Ok(vec![vec![Some("0".into()), Some("-1".into()), Some("-1".into())]]);
+            }
+            let arg = n["wal_checkpoint".len()..].trim().trim_start_matches('(').trim_end_matches(')').trim().to_ascii_uppercase();
+            let mode = if arg.is_empty() { "PASSIVE".to_string() } else { arg };
+            let nf = crate::store::wal_frame_count(ctx.db);
+            ctx.conn.pending_ckpt = Some(mode);
+            Ok(vec![vec![Some("0".into()), Some(nf.to_string()), Some(nf.to_string())]])
+        }
         "integrity_check" | "quick_check" => Ok(vec![vec![Some("ok".into())]]),
         "encoding" => Ok(if val.is_none() { vec![vec![Some("UTF-8".into())]] } else { vec![] }),
-        "journal_mode" => { let mode = if ctx.conn.is_file { "delete" } else { "memory" };
-            Ok(vec![vec![Some(mode.into())]]) } // get and set both report the mode
+        "journal_mode" => {
+            // v22: real WAL slice for file connections; :memory: refuses WAL like C
+            if !ctx.conn.is_file { return Ok(vec![vec![Some("memory".into())]]); }
+            if let Some(v) = &val {
+                match v.trim().to_ascii_lowercase().as_str() {
+                    "wal" => ctx.conn.journal = "wal".into(),
+                    "delete" => ctx.conn.journal = "delete".into(),
+                    _ => {} // other modes keep current (frozen scope: wal + delete)
+                }
+            }
+            let mode = if ctx.conn.journal == "wal" { "wal" } else { "delete" };
+            Ok(vec![vec![Some(mode.into())]])
+        }
         "locking_mode" => Ok(vec![vec![Some("normal".into())]]),
         "page_size" => { match val { Some(v) => { ctx.conn.pragmas.insert(name.clone(), boolval(&v)); Ok(vec![]) }
             None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&4096); Ok(vec![vec![Some(cur.to_string())]]) } } }

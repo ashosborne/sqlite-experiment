@@ -329,6 +329,112 @@ fn chunk_leaves(cells: Vec<(i64, Vec<u8>)>) -> Vec<Vec<(i64, Vec<u8>)>> {
     leaves
 }
 
+// ---------------- run-32: real SQLite WAL format (v22 slice) ----------------
+// WAL header (32B, big-endian fields): magic 0x377f0682 (LE-word checksums),
+// version 3007000, page size, ckpt seq, salt1, salt2, cksum1, cksum2.
+// Frame header (24B): pgno, db-size-after-commit (0 = non-commit), salt1, salt2,
+// cumulative cksum1/2 over frame-header[0..8] + page data (native LE u32 pairs).
+
+const WAL_MAGIC: u32 = 0x377f0682;
+const WAL_SALT1: u32 = 0xA5F0_3C69;
+const WAL_SALT2: u32 = 0x5A0F_C396;
+
+fn wal_cksum(mut s1: u32, mut s2: u32, data: &[u8]) -> (u32, u32) {
+    for ch in data.chunks_exact(8) {
+        let x1 = u32::from_le_bytes([ch[0], ch[1], ch[2], ch[3]]);
+        let x2 = u32::from_le_bytes([ch[4], ch[5], ch[6], ch[7]]);
+        s1 = s1.wrapping_add(x1).wrapping_add(s2);
+        s2 = s2.wrapping_add(x2).wrapping_add(s1);
+    }
+    (s1, s2)
+}
+
+/// force the DB header journalling versions (1 = rollback, 2 = WAL)
+pub fn set_journal_versions(buf: &mut [u8], wal: bool) {
+    if buf.len() > 19 { let v = if wal { 2 } else { 1 }; buf[18] = v; buf[19] = v; }
+}
+
+/// write a complete -wal holding every page of `dbbuf` as one committed transaction
+pub fn write_wal(path: &Path, dbbuf: &[u8]) -> std::io::Result<()> {
+    let npages = dbbuf.len() / PAGE;
+    let mut out: Vec<u8> = Vec::with_capacity(32 + npages * (24 + PAGE));
+    let mut hdr = [0u8; 32];
+    hdr[0..4].copy_from_slice(&WAL_MAGIC.to_be_bytes());
+    hdr[4..8].copy_from_slice(&3007000u32.to_be_bytes());
+    hdr[8..12].copy_from_slice(&(PAGE as u32).to_be_bytes());
+    hdr[12..16].copy_from_slice(&0u32.to_be_bytes()); // checkpoint sequence
+    hdr[16..20].copy_from_slice(&WAL_SALT1.to_be_bytes());
+    hdr[20..24].copy_from_slice(&WAL_SALT2.to_be_bytes());
+    let (mut s1, mut s2) = wal_cksum(0, 0, &hdr[0..24]);
+    hdr[24..28].copy_from_slice(&s1.to_be_bytes());
+    hdr[28..32].copy_from_slice(&s2.to_be_bytes());
+    out.extend_from_slice(&hdr);
+    for i in 0..npages {
+        let pgno = (i + 1) as u32;
+        let commit = if i + 1 == npages { npages as u32 } else { 0 };
+        let mut fh = [0u8; 24];
+        fh[0..4].copy_from_slice(&pgno.to_be_bytes());
+        fh[4..8].copy_from_slice(&commit.to_be_bytes());
+        fh[8..12].copy_from_slice(&WAL_SALT1.to_be_bytes());
+        fh[12..16].copy_from_slice(&WAL_SALT2.to_be_bytes());
+        let page = &dbbuf[i * PAGE..(i + 1) * PAGE];
+        let c = wal_cksum(s1, s2, &fh[0..8]);
+        let c = wal_cksum(c.0, c.1, page);
+        s1 = c.0; s2 = c.1;
+        fh[16..20].copy_from_slice(&s1.to_be_bytes());
+        fh[20..24].copy_from_slice(&s2.to_be_bytes());
+        out.extend_from_slice(&fh);
+        out.extend_from_slice(page);
+    }
+    std::fs::write(path, out)
+}
+
+/// newest committed page images from a -wal (checksum-validated recovery scan)
+pub fn read_wal_overlay(path: &Path) -> Option<std::collections::HashMap<u32, Vec<u8>>> {
+    let buf = std::fs::read(path).ok()?;
+    if buf.len() < 32 { return None; }
+    let magic = u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]);
+    if magic & 0xFFFF_FFFE != WAL_MAGIC { return None; }
+    let psz = u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]) as usize;
+    if psz != PAGE { return None; }
+    let salt1 = u32::from_be_bytes([buf[16], buf[17], buf[18], buf[19]]);
+    let salt2 = u32::from_be_bytes([buf[20], buf[21], buf[22], buf[23]]);
+    let (mut s1, mut s2) = wal_cksum(0, 0, &buf[0..24]);
+    if s1 != u32::from_be_bytes([buf[24], buf[25], buf[26], buf[27]])
+        || s2 != u32::from_be_bytes([buf[28], buf[29], buf[30], buf[31]]) { return None; }
+    let mut pending: Vec<(u32, Vec<u8>)> = Vec::new();
+    let mut committed: std::collections::HashMap<u32, Vec<u8>> = Default::default();
+    let mut off = 32;
+    while off + 24 + PAGE <= buf.len() {
+        let fh = &buf[off..off + 24];
+        let pgno = u32::from_be_bytes([fh[0], fh[1], fh[2], fh[3]]);
+        let commit = u32::from_be_bytes([fh[4], fh[5], fh[6], fh[7]]);
+        let fs1 = u32::from_be_bytes([fh[8], fh[9], fh[10], fh[11]]);
+        let fs2 = u32::from_be_bytes([fh[12], fh[13], fh[14], fh[15]]);
+        if fs1 != salt1 || fs2 != salt2 { break; }
+        let page = &buf[off + 24..off + 24 + PAGE];
+        let c = wal_cksum(s1, s2, &fh[0..8]);
+        let c = wal_cksum(c.0, c.1, page);
+        if c.0 != u32::from_be_bytes([fh[16], fh[17], fh[18], fh[19]])
+            || c.1 != u32::from_be_bytes([fh[20], fh[21], fh[22], fh[23]]) { break; }
+        s1 = c.0; s2 = c.1;
+        pending.push((pgno, page.to_vec()));
+        if commit != 0 { for (p, d) in pending.drain(..) { committed.insert(p, d); } }
+        off += 24 + PAGE;
+    }
+    if committed.is_empty() { None } else { Some(committed) }
+}
+
+/// overlay committed WAL pages onto a main-DB buffer (grows the buffer as needed)
+pub fn apply_wal_overlay(dbbuf: &mut Vec<u8>, overlay: &std::collections::HashMap<u32, Vec<u8>>) {
+    let maxpg = overlay.keys().copied().max().unwrap_or(0) as usize;
+    if dbbuf.len() < maxpg * PAGE { dbbuf.resize(maxpg * PAGE, 0); }
+    for (pgno, data) in overlay {
+        let off = (*pgno as usize - 1) * PAGE;
+        dbbuf[off..off + PAGE].copy_from_slice(data);
+    }
+}
+
 pub fn write_db_bytes(img: &DbImage) -> Vec<u8> {
     build_db_buffer(img)
 }

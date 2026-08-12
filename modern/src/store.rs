@@ -140,8 +140,84 @@ pub fn open_file(db: usize, path: &str) {
     with_store(db, |st| st.conn.is_file = true);
     let pb = PathBuf::from(path);
     PATHS.with(|m| { m.borrow_mut().insert(db, pb.clone()); });
-    if let Ok(img) = dbfile::read_db(&pb) {
-        load_image(db, img);
+    // v22: honour a persisted WAL journal mode (header versions == 2) and recover
+    // committed frames from an existing -wal before parsing
+    let mut buf = std::fs::read(&pb).unwrap_or_default();
+    let wal_mode = buf.len() > 19 && buf[18] == 2;
+    let walp = wal_sidecar(&pb, "-wal");
+    if let Some(overlay) = dbfile::read_wal_overlay(&walp) {
+        dbfile::apply_wal_overlay(&mut buf, &overlay);
+    }
+    if wal_mode || dbfile::read_wal_overlay(&walp).is_some() {
+        with_store(db, |st| st.conn.journal = "wal".into());
+    }
+    if !buf.is_empty() {
+        load_image(db, dbfile::read_db_bytes(&buf));
+    }
+}
+
+fn wal_sidecar(pb: &std::path::Path, suffix: &str) -> PathBuf {
+    PathBuf::from(format!("{}{}", pb.display(), suffix))
+}
+
+/// frames currently in the -wal (for wal_checkpoint counts); file-stat only
+pub fn wal_frame_count(db: usize) -> i64 {
+    let path = PATHS.with(|m| m.borrow().get(&db).cloned());
+    match path {
+        Some(pb) => {
+            let sz = std::fs::metadata(wal_sidecar(&pb, "-wal")).map(|m| m.len()).unwrap_or(0);
+            if sz <= 32 { 0 } else { ((sz - 32) / (24 + 4096)) as i64 }
+        }
+        None => 0,
+    }
+}
+
+/// (total_changes, schema_version) marker for detecting write activity in one call
+pub fn wal_marker(db: usize) -> (i64, i64) {
+    with_store(db, |st| (st.total_changes, st.conn.schema_version))
+}
+
+/// post-exec / post-step sync of WAL sidecar files (runs OUTSIDE the store borrow):
+/// flush committed state to -wal, service pending checkpoints, handle wal->delete.
+pub fn wal_sync(db: usize, before: (i64, i64)) {
+    let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return };
+    let (journal, in_txn_now, pending, marker) = with_store(db, |st| {
+        (st.conn.journal.clone(), st.txn.is_some(), st.conn.pending_ckpt.take(), (st.total_changes, st.conn.schema_version))
+    });
+    let walp = wal_sidecar(&path, "-wal");
+    let shmp = wal_sidecar(&path, "-shm");
+    if journal == "wal" {
+        if marker != before && !in_txn_now {
+            // commit visibility: full committed image as one WAL transaction
+            let img = build_image(db);
+            let mut dbbuf = dbfile::write_db_bytes(&img);
+            dbfile::set_journal_versions(&mut dbbuf, true);
+            if !path.exists() {
+                // main file appears at first write (C pin): an empty WAL-mode db
+                let mut empty = dbfile::write_db_bytes(&Default::default());
+                dbfile::set_journal_versions(&mut empty, true);
+                let _ = std::fs::write(&path, empty);
+            }
+            let _ = dbfile::write_wal(&walp, &dbbuf);
+            if !shmp.exists() { let _ = std::fs::write(&shmp, []); }
+        }
+        if let Some(mode) = pending {
+            // PASSIVE/FULL/RESTART backfill committed frames into the main db;
+            // TRUNCATE additionally resets the -wal to zero bytes (C pins)
+            let img = build_image(db);
+            let mut dbbuf = dbfile::write_db_bytes(&img);
+            dbfile::set_journal_versions(&mut dbbuf, true);
+            let _ = std::fs::write(&path, dbbuf);
+            if mode == "TRUNCATE" { let _ = std::fs::write(&walp, []); }
+        }
+    } else if walp.exists() {
+        // journal_mode switched wal -> delete: backfill and drop the sidecars
+        let img = build_image(db);
+        let mut dbbuf = dbfile::write_db_bytes(&img);
+        dbfile::set_journal_versions(&mut dbbuf, false);
+        let _ = std::fs::write(&path, dbbuf);
+        let _ = std::fs::remove_file(&walp);
+        let _ = std::fs::remove_file(&shmp);
     }
 }
 
@@ -270,8 +346,20 @@ pub fn save_file(db: usize) {
     with_store(db, |st| { txn_rollback(st); }); // C: closing with an open txn rolls back
     let path = PATHS.with(|m| m.borrow().get(&db).cloned());
     if let Some(pb) = path {
-        let img = build_image(db);
-        let _ = dbfile::write_db(&pb, &img);
+        let journal = with_store(db, |st| st.conn.journal.clone());
+        if journal == "wal" {
+            // C clean close: checkpoint into the main db, keep WAL mode persisted in the
+            // header (versions=2), delete -wal/-shm
+            let img = build_image(db);
+            let mut buf = dbfile::write_db_bytes(&img);
+            dbfile::set_journal_versions(&mut buf, true);
+            let _ = std::fs::write(&pb, buf);
+            let _ = std::fs::remove_file(wal_sidecar(&pb, "-wal"));
+            let _ = std::fs::remove_file(wal_sidecar(&pb, "-shm"));
+        } else {
+            let img = build_image(db);
+            let _ = dbfile::write_db(&pb, &img);
+        }
     }
     PATHS.with(|m| { m.borrow_mut().remove(&db); });
 }

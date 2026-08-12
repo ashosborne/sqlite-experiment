@@ -549,8 +549,15 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
     }
     let bound = bind_sql(&s.sql, &s.params);
     if s.readonly {
-        match store::stmt_query_typed(s.db, &bound) {
-            Ok((_names, rows)) => {
+        let wal_m0 = store::wal_marker(s.db); // v22: pragmas may switch journal modes
+        let q = store::stmt_query_typed(s.db, &bound);
+        store::wal_sync(s.db, wal_m0);
+        match q {
+            Ok((names, rows)) => {
+                if s.colnames.is_empty() && !names.is_empty() {
+                    // pragmas resolve their result shape at execution (no prepare probe)
+                    s.colnames = names.iter().map(|n| CString::new(n.as_str()).unwrap_or_default()).collect();
+                }
                 let has = !rows.is_empty();
                 s.rows = Some(rows);
                 s.cur = 0;
@@ -559,7 +566,21 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
             Err(_e) => { s.state = State::Done; SQLITE_ERROR }
         }
     } else {
-        match store::execute_script(s.db, &bound) {
+        let wal_m0 = store::wal_marker(s.db); // v22: WAL sidecar sync after DML/pragma steps
+        let step_result = store::execute_script(s.db, &bound);
+        store::wal_sync(s.db, wal_m0);
+        match step_result {
+            store::Outcome::Done { rc: 0, rows, .. } if !rows.is_empty() => {
+                // v22: statement pragmas (journal_mode=..., wal_checkpoint) return rows
+                if s.colnames.is_empty() {
+                    s.colnames = (0..rows[0].len()).map(|i| CString::new(format!("c{i}")).unwrap()).collect();
+                }
+                s.rows = Some(rows.into_iter().map(|r| r.into_iter()
+                    .map(|c| match c { Some(v) => eval::V::Text(v), None => eval::V::Null }).collect()).collect());
+                s.cur = 0;
+                s.state = State::Row;
+                SQLITE_ROW
+            }
             store::Outcome::Done { rc: 0, .. } => { s.state = State::Done; SQLITE_DONE }
             store::Outcome::Done { rc, err, rows: _ } => {
                 let dbp = s.db as *mut Sqlite3;
@@ -998,7 +1019,10 @@ pub unsafe extern "C" fn sqlite3_exec(
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
     // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
-    match store::execute_script(db as usize, sql) {
+    let wal_m0 = store::wal_marker(db as usize); // v22: WAL sidecar sync after the call
+    let exec_result = store::execute_script(db as usize, sql);
+    store::wal_sync(db as usize, wal_m0);
+    match exec_result {
         store::Outcome::NotKitchen => {} // pack v8: no cheat-sheet fallback; treat as unknown below
         store::Outcome::Done { rows, rc, err } => {
             if let Some(f) = cb {
