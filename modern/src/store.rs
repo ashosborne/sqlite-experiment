@@ -988,6 +988,69 @@ thread_local! {
 /// last-statement index-probe count (anti-cheat proof lookups use the index b-tree)
 pub fn index_probe_count() -> u64 { PROBE_CELL.with(|c| c.get()) }
 
+/// declared types for a SELECT's output columns (column_decltype/_16). A bare column
+/// of a single FROM table yields its CREATE-TABLE declared type; expressions -> None.
+pub fn stmt_decltypes(db: usize, sql: &str) -> Vec<Option<String>> {
+    let s = sql.trim().trim_end_matches(';').trim();
+    let up = s.to_ascii_uppercase();
+    if !up.starts_with("SELECT") { return Vec::new(); }
+    let rest = &s[6..];
+    let fpos = match up[6..].find(" FROM ") { Some(p) => p, None => rest.len() };
+    let items_str = &rest[..fpos];
+    let table = if fpos < rest.len() {
+        rest[fpos + 6..].trim().split(|c: char| c.is_whitespace() || c == ',' || c == ';').next().unwrap_or("").to_string()
+    } else { String::new() };
+    with_store(db, |st| {
+        let cols_decl: Vec<(String, String)> = st.tables.iter().find(|(n, _)| *n == table)
+            .map(|(_, t)| {
+                let (o, c) = (t.create_sql.find('('), t.create_sql.rfind(')'));
+                match (o, c) { (Some(o), Some(c)) if c > o =>
+                    parse_coldefs_decl(&t.create_sql[o + 1..c]), _ => Vec::new() }
+            }).unwrap_or_default();
+        let mut items: Vec<String> = Vec::new();
+        { let mut depth = 0; let mut cur = String::new(); let mut inq = false;
+          for ch in items_str.chars() {
+              match ch { '\'' => { inq = !inq; cur.push(ch); } '(' if !inq => { depth += 1; cur.push(ch); }
+                        ')' if !inq => { depth -= 1; cur.push(ch); }
+                        ',' if depth == 0 && !inq => { items.push(cur.trim().to_string()); cur.clear(); } _ => cur.push(ch) }
+          }
+          if !cur.trim().is_empty() { items.push(cur.trim().to_string()); } }
+        items.iter().map(|item| {
+            let it = item.trim();
+            let base = it.rsplit('.').next().unwrap_or(it).trim();
+            cols_decl.iter().find(|(n, _)| n == base).map(|(_, d)| d.clone())
+        }).collect()
+    })
+}
+/// (col name, declared type) pairs from a CREATE TABLE column list
+fn parse_coldefs_decl(inner: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new(); let mut depth = 0; let mut cur = String::new(); let mut defs = Vec::new();
+    for ch in inner.chars() {
+        match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                   ',' if depth == 0 => { defs.push(cur.clone()); cur.clear(); } _ => cur.push(ch) }
+    }
+    if !cur.trim().is_empty() { defs.push(cur); }
+    for d in defs {
+        let d = d.trim();
+        let up = d.to_ascii_uppercase();
+        let first = d.split_whitespace().next().unwrap_or("");
+        if matches!(up.split(['(', ' ']).next().unwrap_or(""), "UNIQUE"|"PRIMARY"|"CHECK"|"FOREIGN"|"CONSTRAINT") { continue; }
+        if let Some(name) = ident(first) {
+            // declared type = tokens after the name up to a constraint keyword
+            let after = d[first.len()..].trim();
+            let mut ty = String::new();
+            for w in after.split_whitespace() {
+                let wu = w.to_ascii_uppercase();
+                if matches!(wu.as_str(), "PRIMARY"|"NOT"|"UNIQUE"|"CHECK"|"DEFAULT"|"REFERENCES"|"COLLATE"|"GENERATED"|"AS") { break; }
+                if !ty.is_empty() { ty.push(' '); }
+                ty.push_str(w);
+            }
+            if !ty.is_empty() { out.push((name, ty)); }
+        }
+    }
+    out
+}
+
 /// name of an explicit index whose first column is `col` on `table` (honest EQP)
 pub fn index_for(db: usize, table: &str, col: &str) -> Option<String> {
     with_store(db, |st| st.indexes.iter()

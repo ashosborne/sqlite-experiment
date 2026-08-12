@@ -1,0 +1,2 @@
+OBS engine-utf16-001-C007 prep.rc 1
+OBS engine-utf16-001-C007 errmsg near "SELECTT": syntax error

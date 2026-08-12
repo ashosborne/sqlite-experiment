@@ -1,0 +1,4 @@
+OBS engine-utf16-002-C002 b0 4
+OBS engine-utf16-002-C002 b1 10
+OBS engine-utf16-002-C002 b2 2
+OBS engine-utf16-002-C002 b3 0

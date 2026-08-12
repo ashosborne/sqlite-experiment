@@ -1,0 +1,4 @@
+OBS engine-utf16-002-C007 empty 
+OBS engine-utf16-002-C007 empty.b16 0
+OBS engine-utf16-002-C007 null NULL
+OBS engine-utf16-002-C007 null.b16 0

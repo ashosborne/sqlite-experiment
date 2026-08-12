@@ -5448,8 +5448,8 @@ behaviours:
   traceability: tests/characterization/engine-value/TRACEABILITY.yaml
   notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
     delegated stamp)'
-last_updated: '2026-08-12T10:03:07Z'
-updated_by: sqlite-engine-v18-udf-value
+last_updated: '2026-08-12T10:24:41Z'
+updated_by: sqlite-engine-v19-utf16-prepare
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

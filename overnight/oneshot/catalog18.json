@@ -1,0 +1,128 @@
+[
+{
+"id": "engine-utf16-001-C001",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "prepare16_v2 SELECT 1"
+},
+{
+"id": "engine-utf16-001-C002",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "prepare16 (v1) arithmetic"
+},
+{
+"id": "engine-utf16-001-C003",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "prepare16_v3 PERSISTENT flag accepted"
+},
+{
+"id": "engine-utf16-001-C004",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "UTF-16 pzTail across two statements"
+},
+{
+"id": "engine-utf16-001-C005",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "nByte exact byte length"
+},
+{
+"id": "engine-utf16-001-C006",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "whitespace-only -> OK + NULL stmt"
+},
+{
+"id": "engine-utf16-001-C007",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "syntax error rc + errmsg"
+},
+{
+"id": "engine-utf16-001-C008",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "UTF-16 CREATE/INSERT then SELECT count/max"
+},
+{
+"id": "engine-utf16-001-C009",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "non-ASCII (accents + emoji) literal round trips via text/text16"
+},
+{
+"id": "engine-utf16-001-C010",
+"slice": "engine-utf16",
+"feature": "engine-utf16-001",
+"kind": "bespoke",
+"note": "bind_text16 param round trip"
+},
+{
+"id": "engine-utf16-002-C001",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "column_text16 coercion matrix"
+},
+{
+"id": "engine-utf16-002-C002",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "column_bytes16 (UTF-16 byte length)"
+},
+{
+"id": "engine-utf16-002-C003",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "column_name16"
+},
+{
+"id": "engine-utf16-002-C004",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "column_decltype16 present + NULL for expression"
+},
+{
+"id": "engine-utf16-002-C005",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "text then text16 then text again"
+},
+{
+"id": "engine-utf16-002-C006",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "before-step / after-done / OOR tolerance"
+},
+{
+"id": "engine-utf16-002-C007",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "empty text16 vs NULL distinct"
+},
+{
+"id": "engine-utf16-002-C008",
+"slice": "engine-utf16",
+"feature": "engine-utf16-002",
+"kind": "bespoke",
+"note": "UTF-8-stored non-ASCII read as text16 (byte lengths)"
+}
+]

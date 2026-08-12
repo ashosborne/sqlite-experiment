@@ -1,0 +1,5 @@
+OBS engine-utf16-002-C001 s0 NULL
+OBS engine-utf16-002-C001 s1 7
+OBS engine-utf16-002-C001 s2 2.5
+OBS engine-utf16-002-C001 s3 txt
+OBS engine-utf16-002-C001 s4 ABC

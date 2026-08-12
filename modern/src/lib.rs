@@ -60,6 +60,8 @@ pub struct Sqlite3Stmt {
     params: Vec<eval::V>,                 // 1-based slots (index i -> params[i-1])
     param_names: Vec<Option<String>>,     // ":k" / "?2" spellings; None for bare ?
     colnames: Vec<CString>,               // known at prepare for SELECT (dry run)
+    decltypes: Vec<Option<CString>>,      // declared column types (column_decltype/_16)
+    u16_keep: Vec<Vec<u16>>,              // scratch for column_text16/name16/decltype16 pointers
     rows: Option<Vec<Vec<eval::V>>>,      // materialized on first step
     cur: usize,
     state: State,
@@ -365,6 +367,9 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     }
 
     db_ok(&mut *db);
+    let decltypes: Vec<Option<CString>> = if mode == StmtMode::Normal && up.starts_with("SELECT") {
+        store::stmt_decltypes(dbid, &stmt_text).into_iter().map(|o| o.map(|s| CString::new(s).unwrap_or_default())).collect()
+    } else { Vec::new() };
     let stmt = Box::new(Sqlite3Stmt {
         db: dbid,
         mode,
@@ -373,6 +378,8 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         params: vec![eval::V::Null; param_count],
         param_names,
         colnames,
+        decltypes,
+        u16_keep: Vec::new(),
         rows: None,
         cur: 0,
         state: State::Ready,
@@ -405,6 +412,62 @@ pub unsafe extern "C" fn sqlite3_prepare_v3(
     sqlite3_prepare_v2(db, z_sql, n_byte, pp_stmt, pz_tail)
 }
 
+/// decode a UTF-16LE buffer (nbytes<0 = until NUL u16) to owned units + String
+unsafe fn utf16_decode(z: *const c_void, n_byte: c_int) -> (Vec<u16>, String) {
+    let p = z as *const u16;
+    let units: Vec<u16> = if n_byte < 0 {
+        let mut v = Vec::new(); let mut i = 0isize;
+        loop { let u = *p.offset(i); if u == 0 { break; } v.push(u); i += 1; }
+        v
+    } else {
+        std::slice::from_raw_parts(p, (n_byte as usize) / 2).to_vec()
+    };
+    let s = String::from_utf16_lossy(&units);
+    (units, s)
+}
+
+/// # Safety: C ABI — sqlite3_prepare16_v2 (UTF-16LE SQL in).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_prepare16_v2(
+    db: *mut Sqlite3, z_sql: *const c_void, n_byte: c_int,
+    pp_stmt: *mut *mut Sqlite3Stmt, pz_tail: *mut *const c_void,
+) -> c_int { prepare16_impl(db, z_sql, n_byte, pp_stmt, pz_tail) }
+
+/// # Safety: C ABI — sqlite3_prepare16 (v1).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_prepare16(
+    db: *mut Sqlite3, z_sql: *const c_void, n_byte: c_int,
+    pp_stmt: *mut *mut Sqlite3Stmt, pz_tail: *mut *const c_void,
+) -> c_int { prepare16_impl(db, z_sql, n_byte, pp_stmt, pz_tail) }
+
+/// # Safety: C ABI — sqlite3_prepare16_v3 (prepFlags accepted, honest no-op).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_prepare16_v3(
+    db: *mut Sqlite3, z_sql: *const c_void, n_byte: c_int, _flags: u32,
+    pp_stmt: *mut *mut Sqlite3Stmt, pz_tail: *mut *const c_void,
+) -> c_int { prepare16_impl(db, z_sql, n_byte, pp_stmt, pz_tail) }
+
+unsafe fn prepare16_impl(
+    db: *mut Sqlite3, z_sql: *const c_void, n_byte: c_int,
+    pp_stmt: *mut *mut Sqlite3Stmt, pz_tail: *mut *const c_void,
+) -> c_int {
+    if db.is_null() || z_sql.is_null() || pp_stmt.is_null() { return SQLITE_MISUSE; }
+    let (_units, sql) = utf16_decode(z_sql, n_byte);
+    // reuse the shared UTF-8 prepare core over a synthesized buffer
+    let cstr = match CString::new(sql.clone()) { Ok(c) => c, Err(_) => { db_syntax_error(&mut *db, "?"); return SQLITE_ERROR; } };
+    let mut u8_tail: *const c_char = std::ptr::null();
+    let rc = sqlite3_prepare_v2(db, cstr.as_ptr(), -1, pp_stmt, &mut u8_tail);
+    // map the consumed UTF-8 prefix length back to a UTF-16 tail pointer in the caller's buffer
+    if !pz_tail.is_null() {
+        let base = cstr.as_ptr();
+        let consumed_bytes = if u8_tail.is_null() { sql.len() } else { (u8_tail as usize).saturating_sub(base as usize) };
+        let prefix = &sql[..consumed_bytes.min(sql.len())];
+        let units_consumed: usize = prefix.encode_utf16().count();
+        *pz_tail = (z_sql as *const u16).add(units_consumed) as *const c_void;
+    }
+    rc
+}
+
 /// # Safety: C ABI — `stmt` must be live (never call after sqlite3_finalize; C003 is BLOCKED).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
@@ -431,6 +494,7 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
 /// execute via the shared store/eval engine (bind substitution -> typed rows)
 unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
     s.text_cache.clear();
+    s.u16_keep.clear();
     // auto-reprepare: DDL since prepare invalidates the compilation (C schema cookie)
     let now_ver = store::schema_version(s.db);
     if now_ver != s.schema_ver {
@@ -596,6 +660,63 @@ pub unsafe extern "C" fn sqlite3_column_bytes(stmt: *mut Sqlite3Stmt, i_col: c_i
 pub unsafe extern "C" fn sqlite3_column_count(stmt: *mut Sqlite3Stmt) -> c_int {
     if stmt.is_null() { return 0; }
     (*stmt).colnames.len() as c_int
+}
+
+/// # Safety: C ABI — pointer valid while the statement lives.
+#[no_mangle]
+/// push a UTF-16LE (NUL-terminated) buffer into the stmt scratch and return its ptr
+unsafe fn stmt_u16(stmt: *mut Sqlite3Stmt, s: &str) -> *const c_void {
+    let mut u: Vec<u16> = s.encode_utf16().collect();
+    u.push(0);
+    let sref = &mut *stmt;
+    sref.u16_keep.push(u);
+    sref.u16_keep.last().unwrap().as_ptr() as *const c_void
+}
+
+/// # Safety: C ABI — UTF-16LE text of the current column (NULL for SQL NULL).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_text16(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_void {
+    if stmt.is_null() { return std::ptr::null(); }
+    match col_val(&*stmt, i_col) {
+        Some(eval::V::Null) | None => std::ptr::null(),
+        Some(v) => { let s = v.render().unwrap_or_default(); stmt_u16(stmt, &s) }
+    }
+}
+/// # Safety: C ABI — byte length of the UTF-16 representation (2 * code units).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_bytes16(stmt: *mut Sqlite3Stmt, i_col: c_int) -> c_int {
+    if stmt.is_null() { return 0; }
+    match col_val(&*stmt, i_col) {
+        Some(eval::V::Null) | None => 0,
+        Some(v) => (v.render().unwrap_or_default().encode_utf16().count() * 2) as c_int,
+    }
+}
+/// # Safety: C ABI — column name as UTF-16LE.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_name16(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_void {
+    if stmt.is_null() || i_col < 0 { return std::ptr::null(); }
+    let name = match (*stmt).colnames.get(i_col as usize) { Some(c) => c.to_string_lossy().into_owned(), None => return std::ptr::null() };
+    stmt_u16(stmt, &name)
+}
+/// # Safety: C ABI — declared column type (UTF-8); NULL for expression columns.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_decltype(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_char {
+    if stmt.is_null() || i_col < 0 { return std::ptr::null(); }
+    match (*stmt).decltypes.get(i_col as usize) { Some(Some(c)) => c.as_ptr(), _ => std::ptr::null() }
+}
+/// # Safety: C ABI — declared column type as UTF-16LE; NULL for expression columns.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_column_decltype16(stmt: *mut Sqlite3Stmt, i_col: c_int) -> *const c_void {
+    if stmt.is_null() || i_col < 0 { return std::ptr::null(); }
+    let d = match (*stmt).decltypes.get(i_col as usize) { Some(Some(c)) => c.to_string_lossy().into_owned(), _ => return std::ptr::null() };
+    stmt_u16(stmt, &d)
+}
+/// # Safety: C ABI — bind a UTF-16LE text parameter (value is COPIED).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_bind_text16(stmt: *mut Sqlite3Stmt, idx: c_int, z: *const c_void, n: c_int, _d: *mut c_void) -> c_int {
+    if z.is_null() { return bind_slot(stmt, idx, eval::V::Null); }
+    let (_u, s) = utf16_decode(z, n);
+    bind_slot(stmt, idx, eval::V::Text(s))
 }
 
 /// # Safety: C ABI — pointer valid while the statement lives.

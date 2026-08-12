@@ -1,0 +1,2 @@
+OBS engine-utf16-001-C006 prep.rc 0
+OBS engine-utf16-001-C006 stmt.null 1

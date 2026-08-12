@@ -1,0 +1,4 @@
+OBS engine-utf16-002-C008 a café
+OBS engine-utf16-002-C008 a.b16 8
+OBS engine-utf16-002-C008 b 😀
+OBS engine-utf16-002-C008 b.b16 4
