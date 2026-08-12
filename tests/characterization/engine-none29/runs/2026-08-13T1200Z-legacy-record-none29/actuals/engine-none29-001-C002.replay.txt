@@ -1,0 +1,2 @@
+OBS engine-none29-001-C002 qual_update rc=1 err=qualified table names are not allowed on INSERT, UPDATE, and DELETE statements within triggers
+OBS engine-none29-001-C002 qual_delete rc=1 err=qualified table names are not allowed on INSERT, UPDATE, and DELETE statements within triggers

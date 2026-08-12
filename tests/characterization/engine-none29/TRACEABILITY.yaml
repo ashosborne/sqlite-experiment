@@ -1,0 +1,55 @@
+slice_id: engine-none29
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-none29-001-C001
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C001.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C002
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C002.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C003
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C003.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C004
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C004.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C005
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C005.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C006
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C006.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+- case_id: engine-none29-001-C007
+  feature_id: engine-none29-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-none29-001/C007.approved.txt
+  run_id: 2026-08-13T1200Z-legacy-record-none29
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-39 delegated stamp (qualified-name-in-trigger rejection)
+  stamped_case_ids:
+  - engine-none29-001-C001
+  - engine-none29-001-C002
+  - engine-none29-001-C003
+  - engine-none29-001-C004
+  - engine-none29-001-C005
+  - engine-none29-001-C006
+  - engine-none29-001-C007
+updated_at: '2026-08-12T17:17:10Z'
+run_id: 2026-08-13T1200Z-legacy-record-none29

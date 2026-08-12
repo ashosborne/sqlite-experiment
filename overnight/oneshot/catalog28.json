@@ -1,0 +1,51 @@
+[
+{
+"id": "engine-none29-001-C001",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "qualified INSERT in trigger body -> rejected; trigger not created"
+},
+{
+"id": "engine-none29-001-C002",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "qualified UPDATE and DELETE in trigger body -> rejected"
+},
+{
+"id": "engine-none29-001-C003",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "unqualified DML trigger created and fires"
+},
+{
+"id": "engine-none29-001-C004",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "qualified table in a SELECT inside the trigger body is allowed"
+},
+{
+"id": "engine-none29-001-C005",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "BEFORE trigger with qualified DML -> rejected"
+},
+{
+"id": "engine-none29-001-C006",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "multi-statement body with one qualified DML -> whole CREATE rejected"
+},
+{
+"id": "engine-none29-001-C007",
+"slice": "engine-none29",
+"feature": "engine-none29-001",
+"kind": "bespoke",
+"note": "TEMP trigger allows qualified table names (subtle exception)"
+}
+]
