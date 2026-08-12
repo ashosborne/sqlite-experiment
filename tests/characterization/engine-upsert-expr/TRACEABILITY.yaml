@@ -1,0 +1,109 @@
+slice_id: engine-upsert-expr
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-upsert-expr-001-C001
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C001.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C002
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C002.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C003
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C003.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C004
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C004.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C005
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C005.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C006
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C006.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C007
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C007.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C008
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C008.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C009
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C009.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-001-C010
+  feature_id: engine-upsert-expr-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-001/C010.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-002-C001
+  feature_id: engine-upsert-expr-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-002/C001.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-002-C002
+  feature_id: engine-upsert-expr-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-002/C002.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-002-C003
+  feature_id: engine-upsert-expr-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-002/C003.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-002-C004
+  feature_id: engine-upsert-expr-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-002/C004.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-003-C001
+  feature_id: engine-upsert-expr-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-003/C001.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+- case_id: engine-upsert-expr-003-C002
+  feature_id: engine-upsert-expr-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-upsert-expr-003/C002.approved.txt
+  run_id: 2026-08-12T2000Z-legacy-record-upsert-expr
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-31 delegated stamp (upsert expression conflict targets)
+  stamped_case_ids:
+  - engine-upsert-expr-001-C001
+  - engine-upsert-expr-001-C002
+  - engine-upsert-expr-001-C003
+  - engine-upsert-expr-001-C004
+  - engine-upsert-expr-001-C005
+  - engine-upsert-expr-001-C006
+  - engine-upsert-expr-001-C007
+  - engine-upsert-expr-001-C008
+  - engine-upsert-expr-001-C009
+  - engine-upsert-expr-001-C010
+  - engine-upsert-expr-002-C001
+  - engine-upsert-expr-002-C002
+  - engine-upsert-expr-002-C003
+  - engine-upsert-expr-002-C004
+  - engine-upsert-expr-003-C001
+  - engine-upsert-expr-003-C002
+updated_at: '2026-08-12T11:58:45Z'
+run_id: 2026-08-12T2000Z-legacy-record-upsert-expr

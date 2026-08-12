@@ -1,0 +1,4 @@
+OBS engine-upsert-expr-001-C008 ignore rc=0 err=-
+OBS engine-upsert-expr-001-C008 mid Delta,1
+OBS engine-upsert-expr-001-C008 replace rc=0 err=-
+OBS engine-upsert-expr-001-C008 after DELTA,3

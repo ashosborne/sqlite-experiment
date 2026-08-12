@@ -1,0 +1,114 @@
+[
+{
+"id": "engine-upsert-expr-001-C001",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "lower(c) unique index + ON CONFLICT(lower(c)) DO NOTHING"
+},
+{
+"id": "engine-upsert-expr-001-C002",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "expression target DO UPDATE SET n=excluded.n"
+},
+{
+"id": "engine-upsert-expr-001-C003",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "arithmetic expression index (a+b) target"
+},
+{
+"id": "engine-upsert-expr-001-C004",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "multi-expression index (lower(a), b) target"
+},
+{
+"id": "engine-upsert-expr-001-C005",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "mismatched targets -> ON CONFLICT clause does not match error"
+},
+{
+"id": "engine-upsert-expr-001-C006",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "catch-all DO NOTHING with expression index present"
+},
+{
+"id": "engine-upsert-expr-001-C007",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "durable: expression unique index + upsert after reopen"
+},
+{
+"id": "engine-upsert-expr-001-C008",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "OR IGNORE / OR REPLACE via expression unique key"
+},
+{
+"id": "engine-upsert-expr-001-C009",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "case/whitespace folding of target vs index expr"
+},
+{
+"id": "engine-upsert-expr-001-C010",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-001",
+"kind": "bespoke",
+"note": "conflict on NON-targeted constraint still aborts (rc 19)"
+},
+{
+"id": "engine-upsert-expr-002-C001",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-002",
+"kind": "bespoke",
+"note": "regression: column UNIQUE target DO UPDATE"
+},
+{
+"id": "engine-upsert-expr-002-C002",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-002",
+"kind": "bespoke",
+"note": "regression: multi-column UNIQUE index target"
+},
+{
+"id": "engine-upsert-expr-002-C003",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-002",
+"kind": "bespoke",
+"note": "regression: INTEGER PRIMARY KEY target"
+},
+{
+"id": "engine-upsert-expr-002-C004",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-002",
+"kind": "bespoke",
+"note": "regression: DO UPDATE ... WHERE guard"
+},
+{
+"id": "engine-upsert-expr-003-C001",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-003",
+"kind": "bespoke",
+"note": "partial unique index + matching ON CONFLICT ... WHERE"
+},
+{
+"id": "engine-upsert-expr-003-C002",
+"slice": "engine-upsert-expr",
+"feature": "engine-upsert-expr-003",
+"kind": "bespoke",
+"note": "absent / wrong target WHERE -> mismatch error"
+}
+]

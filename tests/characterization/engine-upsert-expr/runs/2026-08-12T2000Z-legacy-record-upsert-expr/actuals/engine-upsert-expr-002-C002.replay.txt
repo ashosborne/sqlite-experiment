@@ -1,0 +1,2 @@
+OBS engine-upsert-expr-002-C002 upsert rc=0 err=-
+OBS engine-upsert-expr-002-C002 after 1,2,9

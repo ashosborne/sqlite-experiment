@@ -1,0 +1,2 @@
+OBS engine-upsert-expr-003-C002 no_where rc=1 err=ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint
+OBS engine-upsert-expr-003-C002 wrong_where rc=1 err=ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint
