@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T09:22:07Z
+- Generated: 2026-08-12T09:40:04Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T09:22:06Z by `sqlite-engine-v16-check-on-update`
+- Manifest last_updated: 2026-08-12T09:40:04Z by `sqlite-engine-v17-index-lookups`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 51 | Some modern execution; gaps in notes |
-| full (converted) | 75 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 50 | Some modern execution; gaps in notes |
+| full (converted) | 79 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -26,6 +26,7 @@
 - `date-time-funcs-003` — Modifier grammar (localtime, +N units, weekday, start of ...)
 - `date-time-funcs-004` — timediff interval arithmetic
 - `ddl-schema-001` — Table/view create-drop lifecycle
+- `ddl-schema-002` — Index create-drop lifecycle
 - `ddl-schema-003` — ALTER TABLE family (rename/add/rename-col/drop-col)
 - `dml-codegen-002` — Constraint checks + ON CONFLICT resolution matrix
 - `exec-convenience-api-001` — sqlite3_exec callback loop
@@ -95,6 +96,9 @@
 - `engine-checkupd-001` — CHECK-on-UPDATE script scope
 - `engine-checkupd-002` — OR-mode statement semantics
 - `engine-checkupd-003` — Durable CHECK-on-UPDATE twins
+- `engine-idxlookup-001` — Index-driven equality/range lookups
+- `engine-idxlookup-002` — Multi-column/expression/partial explicit indexes
+- `engine-idxfile-001` — Durable + multi-leaf indexes, C interop
 
 ### Partial in modern
 
@@ -107,7 +111,6 @@
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
-- `ddl-schema-002` — index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced, DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes, index-driven lookups, multi-leaf index b-trees
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
 - `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
 - `error-status-api-002` — sqlite3_limit get/set with prior-value semantics real for the pinned limit id only
@@ -145,7 +148,7 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
-- `upsert-001` — conflict targets (PK/UNIQUE col) now DURABLE: OR IGNORE/REPLACE + DO UPDATE resolve against on-disk unique indexes after reopen; index-expression targets and target WHERE still absent
+- `upsert-001` — conflict targets resolve to PK/UNIQUE columns AND explicit UNIQUE indexes (incl. multi-column, durable); index-EXPRESSION conflict targets still absent
 - `util-primitives-001` — PRNG (sqlite3_randomness) real; UTF codecs and hash primitives absent
 - `window-functions-001` — rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
@@ -260,26 +263,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 219 |
-| Behaviours known | 229 |
+| Surfaces total | 221 |
+| Behaviours known | 232 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 139 |
+| legacy_green flags | 142 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 34 |
+| accepted | 36 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 75 |
-| documented | 154 |
+| converted | 79 |
+| documented | 153 |
 
 ## Surfaces per slice
 
@@ -306,6 +309,8 @@
 | engine-files | 1 |
 | engine-fk2 | 1 |
 | engine-funcs | 1 |
+| engine-idxfile | 1 |
+| engine-idxlookup | 1 |
 | engine-indexes | 1 |
 | engine-join | 1 |
 | engine-kitchen | 1 |

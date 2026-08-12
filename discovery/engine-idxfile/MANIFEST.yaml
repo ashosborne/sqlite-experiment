@@ -1,0 +1,13 @@
+slice_id: engine-idxfile
+app_id: sqlite-experiment
+seed: composed index-lookup slice (run 27)
+status: accepted
+features:
+- feature_id: engine-idxfile-001
+  name: Durable/multi-leaf indexes + C interop
+  status: accepted
+  evidence: [src/btree.c:1]
+- feature_id: engine-idxfile-002
+  name: Durable/multi-leaf indexes + C interop (shapes)
+  status: accepted
+  evidence: [src/btree.c:1]

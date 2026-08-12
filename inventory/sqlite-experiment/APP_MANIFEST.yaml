@@ -2359,6 +2359,24 @@ surfaces:
   notes: composed CHECK-on-UPDATE slice (run 26); seam-kind=api
   discovery_evidence:
   - src/update.c:1
+- surface_id: sur-engine-idxlookup
+  kind: other
+  locator: engine-idxlookup pinned sequences
+  repo_path: src/where.c
+  status: accepted
+  slice_id: engine-idxlookup
+  notes: composed index-lookup slice (run 27); seam-kind=api
+  discovery_evidence:
+  - src/where.c:1
+- surface_id: sur-engine-idxfile
+  kind: other
+  locator: engine-idxfile pinned sequences
+  repo_path: src/btree.c
+  status: accepted
+  slice_id: engine-idxfile
+  notes: composed index-lookup slice (run 27); seam-kind=api
+  discovery_evidence:
+  - src/btree.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2730,18 +2748,21 @@ behaviours:
 - behaviour_id: ddl-schema-002
   surface_id: sur-sqlite3createindex
   name: Index create-drop lifecycle
-  status: documented
+  status: converted
   slice_id: ddl-schema
   discovery_card: discovery/ddl-schema/features/ddl-schema-002.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-22 disk
-    debt) — gaps: index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced,
-    DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes,
-    index-driven lookups, multi-leaf index b-trees'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-27): index
+    create/drop lifecycle durable + reopen-enforced; index-DRIVEN lookups (equality/range probes, probe-counter proven), multi-column
+    + expression + partial explicit indexes, multi-leaf index b-trees (0x02/0x0a) C integrity_check accepts, honest EQP SEARCH
+    USING INDEX. All three v12 residual gaps closed'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 17
 - behaviour_id: ddl-schema-003
   surface_id: sur-sqlite3alterrenametable
   name: ALTER TABLE family (rename/add/rename-col/drop-col)
@@ -4317,9 +4338,9 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-22 disk debt) —
-    gaps: conflict targets (PK/UNIQUE col) now DURABLE: OR IGNORE/REPLACE + DO UPDATE resolve against on-disk unique indexes
-    after reopen; index-expression targets and target WHERE still absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-27) — gaps: conflict
+    targets resolve to PK/UNIQUE columns AND explicit UNIQUE indexes (incl. multi-column, durable); index-EXPRESSION conflict
+    targets still absent'
   traceability: tests/characterization/upsert/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: upsert-002
@@ -5318,20 +5339,65 @@ behaviours:
   traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
   notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
     (run-26 delegated stamp)'
-last_updated: '2026-08-12T09:30:39Z'
+- behaviour_id: engine-idxlookup-001
+  surface_id: sur-engine-idxlookup
+  name: Index-driven equality/range lookups
+  status: converted
+  slice_id: engine-idxlookup
+  discovery_card: discovery/engine-idxlookup/features/engine-idxlookup-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 17
+  traceability: tests/characterization/engine-idxlookup/TRACEABILITY.yaml
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+- behaviour_id: engine-idxlookup-002
+  surface_id: sur-engine-idxlookup
+  name: Multi-column/expression/partial explicit indexes
+  status: converted
+  slice_id: engine-idxlookup
+  discovery_card: discovery/engine-idxlookup/features/engine-idxlookup-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 17
+  traceability: tests/characterization/engine-idxlookup/TRACEABILITY.yaml
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+- behaviour_id: engine-idxfile-001
+  surface_id: sur-engine-idxfile
+  name: Durable + multi-leaf indexes, C interop
+  status: converted
+  slice_id: engine-idxfile
+  discovery_card: discovery/engine-idxfile/features/engine-idxfile-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 17
+  traceability: tests/characterization/engine-idxfile/TRACEABILITY.yaml
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+last_updated: '2026-08-12T09:40:04Z'
 updated_by: sqlite-engine-v17-index-lookups
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 219
+  surfaces_total: 221
   surfaces_by_status:
     candidate: 185
-    accepted: 34
-  behaviours_known: 229
+    accepted: 36
+  behaviours_known: 232
   behaviours_by_status:
-    documented: 154
-    converted: 75
+    documented: 153
+    converted: 79
   unscanned_hints: 3
-  legacy_green: 139
+  legacy_green: 142
   parity_green: 0

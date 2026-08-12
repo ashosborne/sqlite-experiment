@@ -445,3 +445,15 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - dml-codegen-002 → FULL (matrix complete on INSERT + UPDATE). +3 engine-checkupd fulls.
 - Scoreboard full 71→75 / partial 51 / none 103. cargo 377/377 (job-3 commit msg said 379 —
   corrected: 377). anti-cheat 24/24; 324 prior goldens md5-identical; parity 0.
+
+## Run 27 — 2026-08-12 — engine v17: index lookups (pack v17)
+
+- Pack v16→v17 BOUND (+versions/17, ADR 0015): index-lookup / explicit-shape / multi-leaf laws.
+- eval: real index-probe path (BTreeMap over durable entries; probe counter); IndexDef
+  (multi-col/expr/partial); index_key_for evaluates exprs + partial predicate; unique-index
+  conflicts on INSERT. dbfile: 0x02 interior + 0x0a leaf multi-leaf index b-trees. lib: honest
+  EQP SEARCH USING INDEX; store::index_for/index_probe_count.
+- 20 goldens (12 script + 8 file/EQP bespoke); interop: C integrity_check=ok + C planner uses
+  index on Rust multi-leaf files. cargo 401/401; 366 prior goldens md5-identical.
+- ddl-schema-002 → FULL (all three v12 residuals closed). upsert-001 tightened (index-expression
+  conflict targets remain — kept partial). Scoreboard full 75→79 / partial 50 / none 103.

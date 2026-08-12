@@ -1,0 +1,13 @@
+slice_id: engine-idxlookup
+app_id: sqlite-experiment
+seed: composed index-lookup slice (run 27)
+status: accepted
+features:
+- feature_id: engine-idxlookup-001
+  name: Index-driven lookups + explicit index shapes
+  status: accepted
+  evidence: [src/where.c:1]
+- feature_id: engine-idxlookup-002
+  name: Index-driven lookups + explicit index shapes (shapes)
+  status: accepted
+  evidence: [src/where.c:1]

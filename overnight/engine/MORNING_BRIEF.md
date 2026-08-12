@@ -1,71 +1,83 @@
-# MORNING BRIEF — engine v16: CHECK on UPDATE (run 26)
+# MORNING BRIEF — engine v17: index lookups (run 27)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–25 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v16-check-on-update — a focused
-single-gap loop. MAX_NEW_CASES 24 (used 15). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–26 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v17-index-lookups. MAX_NEW_CASES 40 (used 20).
+REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @16 BOUND — CHECK-on-UPDATE law
+## 1. Pack @17 BOUND — index-lookup / explicit-shape / multi-leaf laws
 
-versions/16.yaml + ADR 0014, schema-validated. All prior laws carried.
+versions/17.yaml + ADR 0015, schema-validated. WAL forbidden; no cost-based planner.
 
-## 2. Semantics (pinned on C, now real)
+## 2. Lookup + index shapes implemented
 
-CHECKs — column-level AND table-level `CHECK(a < b)` constraints (the latter were not
-even captured before this run; they are now also enforced on INSERT) — are evaluated
-against the **post-update row image** during statement planning:
+- **Index-driven lookups:** eval's SELECT executor detects a single bare store table
+  with a simple `col = / < / > / <= / >= / BETWEEN` predicate on an indexed column and
+  fetches candidates through a BTreeMap built from the durable index entries, bumping a
+  **probe counter** (anti-cheat). Result bytes match the scan path; the win is real
+  index use.
+- **Explicit shapes:** `IndexDef { exprs, unique, where_c, sql }` — multi-column
+  `(a,b)`, expression `lower(nm)` (evaluated via eval), and partial `WHERE a > 10`
+  indexes; `index_key_for` computes keys + honours the partial predicate; unique
+  conflicts consult them on INSERT (NULL components stay distinct). Persist in
+  sqlite_schema, reload on open.
+- **Multi-leaf index b-trees:** entries exceeding one 0x0a leaf spill dividers up into
+  a real 0x02 interior page. C integrity_check accepts 600- and 1000-key Rust indexes.
+- **Honest EQP:** `SEARCH t USING INDEX i (col=?)` only when an index truly serves the
+  WHERE column, else `SCAN t`. No fabricated BLOOM/AUTOMATIC-COVERING artifacts.
 
-| Mode | Pinned behaviour |
-|---|---|
-| plain / OR ABORT | statement-atomic: nothing applied — rows (1,9) stay (1,9) |
-| OR FAIL | earlier row changes of the SAME statement kept — (1,9) → (6,9), rc 19 |
-| OR IGNORE | violating row skipped, others updated |
-| OR ROLLBACK | whole v15 transaction unwound — autocommit→1, COMMIT then errors |
+## 3. Interop results (mandatory gate — PASS)
 
-NULL CHECK results pass (three-valued semantics, pinned). NOT NULL is validated on
-the post-update image too (unpinned but C-correct direction, noted). File twins pin
-durability: a passing UPDATE survives reopen; a failing one is absent after reopen.
+`rust_write_c_index_lookup`: on a 600-row Rust file, C reports **integrity_check=ok**,
+finds `k=432 → v432`, and **C's own planner plans `USING INDEX ik`** — proving the
+b-tree is a real structure, not decoration. `anti_cheat_multileaf_index`: 1000-key
+index, C integrity_check ok + `k00777 → 777`, Rust re-probes after reopen.
+`anti_cheat_partial_or_expr_index`: partial-UNIQUE predicate + expression index both
+C-readable and correctly enforced.
 
-## 3. Cases: 15 frozen / 0 deferred
+## 4. Cases: 20 frozen / 0 deferred
 
-engine-checkupd-001 (8 script: fail/pass, multi-column table CHECK pass+fail,
-OR IGNORE mixed rows, NULL semantics, expression CHECK, in-txn commit) ·
-engine-checkupd-002 (5 bespoke: row-unchanged proof, OR ABORT-in-txn keeps txn,
-OR ROLLBACK kills it, OR FAIL prefix-keep vs ABORT statement-undo) ·
-engine-checkupd-003 (2 file twins). Two-run deterministic, delegated HUMAN_ACCEPTED,
-all replaying byte-identical.
+engine-idxlookup-001 (6: equality probe, range >, BETWEEN, UNIQUE-index equality,
+point, join+probe) · engine-idxlookup-002 (6: multi-col index + pragma_index_list,
+expression index lookup, partial index membership, multi-col UNIQUE dup error, DROP
+expression index, partial UNIQUE predicate error) · engine-idxfile-001 (8 bespoke:
+500-row reopen probe, multi-col UNIQUE reopen dup, expression reopen, partial UNIQUE
+reopen, 600-key multi-leaf + integrity_check, DROP multi-col persisted, EQP SEARCH
+detail, missing-key empty). All two-run deterministic, delegated HUMAN_ACCEPTED, all
+replaying byte-identical.
 
-## 4. dml-codegen-002 verdict: **FULL**
+## 5. ddl-schema-002 verdict: **FULL**
 
-The card's conflict matrix now reads IGNORE / REPLACE / ABORT / FAIL / ROLLBACK with
-CHECK / NOT NULL / UNIQUE / FK enforced on **INSERT and UPDATE**, OR ROLLBACK unwinding
-real transactions. The CHECK-on-UPDATE gap — the only blocker named since run 20 — is
-closed. Flipped to `impl_in_modern: full`, `status: converted`, `parity: UNVERIFIED`.
+All three v12-residual gaps closed: index-driven lookups (probe-counter proven),
+multi-column + expression + partial explicit indexes (durable, reopen-enforced,
+C-readable), and multi-leaf index b-trees (integrity_check ok). Flipped to
+`impl_in_modern: full`, `status: converted`, `parity: UNVERIFIED`. upsert-001 note
+tightened (conflict targets now resolve to explicit UNIQUE indexes incl. multi-column;
+index-*expression* conflict targets remain its sole gap — kept partial, not greenwashed).
 
-## 5. Anti-cheat + cargo
+## 6. Anti-cheat + cargo
 
-anti-cheat **24/24** (new: runtime bound + runtime SET pass/fail with OR IGNORE proof;
-runtime OR ROLLBACK unwinding a txn insert). `cargo test` **377/377** (checkupd_compare
-8 + engine_checkupd 7 new; all 21 prior suites unchanged). All 324 prior goldens
-md5-identical. SCRIPT_TABLE still 0. (Run-26 job-3 commit message said 379 — the true
-total is 377; corrected here and in the journal.)
+anti-cheat + interop: `rust_write_c_index_lookup`, `anti_cheat_index_lookup_runtime`
+(runtime key found via probe, missing key empty), `anti_cheat_partial_or_expr_index`,
+`anti_cheat_multileaf_index` — all green. `cargo test` **401/401**; all 366 prior
+goldens md5-identical; SCRIPT_TABLE still 0.
 
-## 6. Scoreboard before → after
+## 7. Scoreboard before → after
 
-| State | run 25 | **run 26** |
+| State | run 26 | **run 27** |
 |---|---|---|
-| full | 71 | **75** (+dml-codegen-002, +engine-checkupd-001/-002/-003) |
-| partial | 52 | **51** |
+| full | 75 | **79** (+ddl-schema-002, +engine-idxlookup-001/-002, +engine-idxfile-001) |
+| partial | 51 | **50** |
 | none | 103 | 103 |
-| behaviours | 226 | 229 |
+| behaviours | 229 | 232 |
 
-## 7. Explicit honesty line
+## 8. Explicit honesty line
 
-**SQLite is NOT migrated.** 75 of 229 behaviours done in modern; all parity
-UNVERIFIED; parity_green 0; nothing verified.
+**SQLite is NOT migrated.** 79 of 232 behaviours done in modern; all parity
+UNVERIFIED; parity_green 0; nothing verified. No cost-based planner, no covering-index
+optimization, no WAL.
 
-## 8. Next call
+## 9. Next call
 
-(a) ddl-schema-002 focused loop: index-driven lookups + multi-column explicit
-indexes (the longest-standing named partial), (b) UTF-16 text/prepare APIs
-(prepare-001's sole gap), or (c) sqlite3_value / UDF registration surface.
-Pack v17 + goldens first.
+(a) UTF-16 text/prepare APIs (prepare-statement-api-001's sole gap + column UTF-16),
+(b) sqlite3_value / user-defined-function registration surface, or
+(c) index-expression conflict targets to finish upsert-001. Pack v18 + goldens first.
