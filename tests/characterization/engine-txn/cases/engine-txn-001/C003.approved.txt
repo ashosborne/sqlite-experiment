@@ -1,0 +1,3 @@
+OBS engine-txn-001-C003 exec.rc 1
+OBS engine-txn-001-C003 cb.rows 0
+OBS engine-txn-001-C003 errmsg.nonempty 1

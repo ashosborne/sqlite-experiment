@@ -1,0 +1,5 @@
+OBS engine-orrollback-001-C002 begin.rc 0
+OBS engine-orrollback-001-C002 dup.rc 19
+OBS engine-orrollback-001-C002 autocommit 0
+OBS engine-orrollback-001-C002 commit.rc 0
+OBS engine-orrollback-001-C002 count 1

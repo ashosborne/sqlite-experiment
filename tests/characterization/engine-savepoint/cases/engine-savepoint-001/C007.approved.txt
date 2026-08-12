@@ -1,0 +1,3 @@
+OBS engine-savepoint-001-C007 row0.col0 1
+OBS engine-savepoint-001-C007 exec.rc 0
+OBS engine-savepoint-001-C007 cb.rows 1

@@ -1,0 +1,72 @@
+[
+{
+"id": "engine-orrollback-001-C001",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "INSERT OR ROLLBACK on duplicate kills the whole txn (autocommit back to 1; COMMIT errors; rows gone)"
+},
+{
+"id": "engine-orrollback-001-C002",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "INSERT OR ABORT fails the statement only (txn survives; COMMIT keeps prior work)"
+},
+{
+"id": "engine-orrollback-001-C003",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "FK orphan inside txn then explicit ROLLBACK undoes everything"
+},
+{
+"id": "engine-orrollback-001-C004",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "OR ROLLBACK in autocommit: statement rolled back, existing row remains"
+},
+{
+"id": "engine-orrollback-001-C005",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "DELETE OR ROLLBACK is a SYNTAX ERROR in C (DELETE has no conflict clause) \u2014 txn untouched"
+},
+{
+"id": "engine-orrollback-001-C006",
+"slice": "engine-orrollback",
+"feature": "engine-orrollback-001",
+"kind": "bespoke",
+"note": "sqlite3_get_autocommit across BEGIN/COMMIT"
+},
+{
+"id": "engine-txnfile-001-C001",
+"slice": "engine-txnfile",
+"feature": "engine-txnfile-001",
+"kind": "bespoke",
+"note": "file: COMMIT then reopen sees the row"
+},
+{
+"id": "engine-txnfile-001-C002",
+"slice": "engine-txnfile",
+"feature": "engine-txnfile-001",
+"kind": "bespoke",
+"note": "file: ROLLBACK then reopen sees nothing"
+},
+{
+"id": "engine-txnfile-001-C003",
+"slice": "engine-txnfile",
+"feature": "engine-txnfile-001",
+"kind": "bespoke",
+"note": "file: uncommitted txn at close auto-rolls-back"
+},
+{
+"id": "engine-txnfile-001-C004",
+"slice": "engine-txnfile",
+"feature": "engine-txnfile-001",
+"kind": "bespoke",
+"note": "file: committed marker value visible after reopen"
+}
+]

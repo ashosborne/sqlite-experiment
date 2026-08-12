@@ -1,0 +1,3 @@
+OBS engine-savepoint-001-C008 exec.rc 1
+OBS engine-savepoint-001-C008 cb.rows 0
+OBS engine-savepoint-001-C008 errmsg.nonempty 1

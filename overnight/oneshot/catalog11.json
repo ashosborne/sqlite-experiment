@@ -1,0 +1,121 @@
+[
+{
+"id": "engine-txn-001-C001",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); BEGIN; INSERT INTO t VALUES(1); COMMIT; SELECT a FROM t;"
+},
+{
+"id": "engine-txn-001-C002",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); BEGIN; INSERT INTO t VALUES(1); ROLLBACK; SELECT count(*) FROM t;"
+},
+{
+"id": "engine-txn-001-C003",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "error-script",
+"sql": "BEGIN; BEGIN;"
+},
+{
+"id": "engine-txn-001-C004",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "error-script",
+"sql": "COMMIT;"
+},
+{
+"id": "engine-txn-001-C005",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "error-script",
+"sql": "ROLLBACK;"
+},
+{
+"id": "engine-txn-001-C006",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); BEGIN; INSERT INTO t VALUES(1); INSERT INTO t VALUES(2); INSERT INTO t VALUES(3); ROLLBACK; SELECT count(*) FROM t;"
+},
+{
+"id": "engine-txn-001-C007",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); BEGIN; CREATE TABLE d(x INTEGER); INSERT INTO d VALUES(5); ROLLBACK; SELECT count(*) FROM sqlite_master WHERE name='d'; SELECT count(*) FROM t;"
+},
+{
+"id": "engine-txn-001-C008",
+"slice": "engine-txn",
+"feature": "engine-txn-001",
+"kind": "script",
+"sql": "CREATE TABLE t(a INTEGER); BEGIN DEFERRED; INSERT INTO t VALUES(4); COMMIT; BEGIN IMMEDIATE; INSERT INTO t VALUES(5); COMMIT; SELECT count(*) FROM t;"
+},
+{
+"id": "engine-savepoint-001-C001",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); SAVEPOINT s1; INSERT INTO q VALUES(1); ROLLBACK TO s1; RELEASE s1; SELECT count(*) FROM q;"
+},
+{
+"id": "engine-savepoint-001-C002",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); INSERT INTO q VALUES(0); SAVEPOINT s1; INSERT INTO q VALUES(1); RELEASE s1; SELECT count(*) FROM q;"
+},
+{
+"id": "engine-savepoint-001-C003",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); SAVEPOINT a; INSERT INTO q VALUES(1); SAVEPOINT b; INSERT INTO q VALUES(2); ROLLBACK TO b; RELEASE a; SELECT count(*) FROM q;"
+},
+{
+"id": "engine-savepoint-001-C004",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); SAVEPOINT a; INSERT INTO q VALUES(1); ROLLBACK TO a; INSERT INTO q VALUES(2); RELEASE a; SELECT a FROM q;"
+},
+{
+"id": "engine-savepoint-001-C005",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "error-script",
+"sql": "RELEASE nosp;"
+},
+{
+"id": "engine-savepoint-001-C006",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); SAVEPOINT a; INSERT INTO q VALUES(1); SAVEPOINT b; INSERT INTO q VALUES(2); ROLLBACK TO a; RELEASE a; SELECT count(*) FROM q;"
+},
+{
+"id": "engine-savepoint-001-C007",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "script",
+"sql": "CREATE TABLE q(a INTEGER); BEGIN; INSERT INTO q VALUES(1); SAVEPOINT s; INSERT INTO q VALUES(2); ROLLBACK TO s; COMMIT; SELECT a FROM q;"
+},
+{
+"id": "engine-savepoint-001-C008",
+"slice": "engine-savepoint",
+"feature": "engine-savepoint-001",
+"kind": "error-script",
+"sql": "CREATE TABLE q(a INTEGER); SAVEPOINT a; RELEASE a; ROLLBACK TO a;"
+},
+{
+"id": "engine-txn-002-C001",
+"slice": "engine-txn",
+"feature": "engine-txn-002",
+"kind": "script",
+"sql": "CREATE TABLE u(a INTEGER UNIQUE); BEGIN; INSERT INTO u VALUES(1); INSERT OR IGNORE INTO u VALUES(1); COMMIT; SELECT count(*) FROM u;"
+}
+]

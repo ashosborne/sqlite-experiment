@@ -1,0 +1,114 @@
+slice_id: engine-txn
+source_discovery: discovery/engine-txn/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-txn-001
+- engine-txn-002
+cases:
+- id: engine-txn-001-C001
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-001.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C002
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-002.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C003
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-003.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C004
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-004.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C005
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-005.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C006
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-006.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C007
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-007.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C007.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-001-C008
+  feature_id: engine-txn-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-001/CASE-008.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-001/C008.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-001.md
+- id: engine-txn-002-C001
+  feature_id: engine-txn-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-txn-002/CASE-001.md
+  golden: tests/characterization/engine-txn/cases/engine-txn-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-txn/features/engine-txn-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-25 delegated stamp (full-autonomy charter, transactions)
+  stamped_case_ids:
+  - engine-txn-001-C001
+  - engine-txn-001-C002
+  - engine-txn-001-C003
+  - engine-txn-001-C004
+  - engine-txn-001-C005
+  - engine-txn-001-C006
+  - engine-txn-001-C007
+  - engine-txn-001-C008
+  - engine-txn-002-C001
+updated_at: '2026-08-12T09:05:24Z'

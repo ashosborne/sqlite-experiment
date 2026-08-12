@@ -1,0 +1,2 @@
+OBS engine-txnfile-001-C001 w.rc 0
+OBS engine-txnfile-001-C001 count 1

@@ -1,0 +1,5 @@
+OBS engine-orrollback-001-C005 begin.rc 0
+OBS engine-orrollback-001-C005 del.rc 1
+OBS engine-orrollback-001-C005 autocommit 0
+OBS engine-orrollback-001-C005 commit.rc 0
+OBS engine-orrollback-001-C005 p 2
