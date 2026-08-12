@@ -1,0 +1,3 @@
+OBS engine-blob-002-C006 too_long rc=1 err=SQL logic error
+OBS engine-blob-002-C006 at_end rc=1 err=SQL logic error
+OBS engine-blob-002-C006 cell 4141

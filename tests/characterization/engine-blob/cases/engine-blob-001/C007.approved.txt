@@ -1,0 +1,5 @@
+OBS engine-blob-001-C007 open_text rc=0 err=not an error
+OBS engine-blob-001-C007 bytes 5
+OBS engine-blob-001-C007 read rc=0 err=not an error
+OBS engine-blob-001-C007 text texty
+OBS engine-blob-001-C007 close 0

@@ -1,0 +1,4 @@
+OBS engine-blob-002-C010 open rc=0 err=not an error
+OBS engine-blob-002-C010 bytes 0
+OBS engine-blob-002-C010 read0 rc=0 err=not an error
+OBS engine-blob-002-C010 read1 rc=1 err=SQL logic error

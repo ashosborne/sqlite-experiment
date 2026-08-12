@@ -1,0 +1,156 @@
+[
+{
+"id": "engine-blob-001-C001",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "open read-only; bytes; close"
+},
+{
+"id": "engine-blob-001-C002",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "open read-write (flags=1)"
+},
+{
+"id": "engine-blob-001-C003",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "reopen repositions to another rowid; bytes/content follow"
+},
+{
+"id": "engine-blob-001-C004",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "nonexistent rowid on open and reopen -> no such rowid"
+},
+{
+"id": "engine-blob-001-C005",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "no such table (schema-qualified) / quoted no such column / cannot open view"
+},
+{
+"id": "engine-blob-001-C006",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "RW open refused on indexed column; RO allowed"
+},
+{
+"id": "engine-blob-001-C007",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "text cell opened as blob: bytes + readable content"
+},
+{
+"id": "engine-blob-001-C008",
+"slice": "engine-blob",
+"feature": "engine-blob-001",
+"kind": "bespoke",
+"note": "NULL cell refused: cannot open value of type null"
+},
+{
+"id": "engine-blob-002-C001",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "full read matches INSERT"
+},
+{
+"id": "engine-blob-002-C002",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "offset slice read"
+},
+{
+"id": "engine-blob-002-C003",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "read past end / negative offset -> SQL logic error, buffer untouched"
+},
+{
+"id": "engine-blob-002-C004",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "write at offset; SELECT sees bytes; length unchanged"
+},
+{
+"id": "engine-blob-002-C005",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "write on read-only handle -> rc 8 readonly"
+},
+{
+"id": "engine-blob-002-C006",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "write past end -> SQL logic error; cell unchanged"
+},
+{
+"id": "engine-blob-002-C007",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "zeroblob preallocate then interior write"
+},
+{
+"id": "engine-blob-002-C008",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "expiry on UPDATE: rc 4 query aborted, bytes -> 0"
+},
+{
+"id": "engine-blob-002-C009",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "expiry on DELETE"
+},
+{
+"id": "engine-blob-002-C010",
+"slice": "engine-blob",
+"feature": "engine-blob-002",
+"kind": "bespoke",
+"note": "zero-length blob: bytes 0, n=0 read ok, n=1 read errors"
+},
+{
+"id": "engine-blob-003-C001",
+"slice": "engine-blob",
+"feature": "engine-blob-003",
+"kind": "bespoke",
+"note": "file db: handle write persists across reopen (integrity ok)"
+},
+{
+"id": "engine-blob-003-C002",
+"slice": "engine-blob",
+"feature": "engine-blob-003",
+"kind": "bespoke",
+"note": "blob_read on a reopened file"
+},
+{
+"id": "engine-blob-003-C003",
+"slice": "engine-blob",
+"feature": "engine-blob-003",
+"kind": "bespoke",
+"note": "normal SELECT still right after handle writes"
+},
+{
+"id": "engine-blob-003-C004",
+"slice": "engine-blob",
+"feature": "engine-blob-003",
+"kind": "bespoke",
+"note": "WAL file: handle I/O works; journal mode untouched"
+}
+]

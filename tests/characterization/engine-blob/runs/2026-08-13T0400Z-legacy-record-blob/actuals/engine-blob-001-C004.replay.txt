@@ -1,0 +1,4 @@
+OBS engine-blob-001-C004 open99 rc=1 err=no such rowid: 99
+OBS engine-blob-001-C004 handle_null 1
+OBS engine-blob-001-C004 reopen99 rc=1 err=no such rowid: 99
+OBS engine-blob-001-C004 close 0

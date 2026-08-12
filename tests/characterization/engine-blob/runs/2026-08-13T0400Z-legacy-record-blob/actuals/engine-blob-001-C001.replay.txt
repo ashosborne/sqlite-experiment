@@ -1,0 +1,3 @@
+OBS engine-blob-001-C001 open rc=0 err=not an error
+OBS engine-blob-001-C001 bytes 5
+OBS engine-blob-001-C001 close 0

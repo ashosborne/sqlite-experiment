@@ -1,0 +1,1 @@
+OBS engine-blob-002-C005 ro_write rc=8 err=attempt to write a readonly database

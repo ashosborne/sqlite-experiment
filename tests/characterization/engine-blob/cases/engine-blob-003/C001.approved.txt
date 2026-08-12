@@ -1,0 +1,3 @@
+OBS engine-blob-003-C001 write rc=0 err=not an error
+OBS engine-blob-003-C001 reopen HELLO!,6
+OBS engine-blob-003-C001 integ ok

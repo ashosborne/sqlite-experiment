@@ -1,0 +1,4 @@
+OBS engine-blob-002-C008 upd rc=0 err=-
+OBS engine-blob-002-C008 read_after rc=4 err=query aborted
+OBS engine-blob-002-C008 write_after rc=4 err=query aborted
+OBS engine-blob-002-C008 bytes_after 0

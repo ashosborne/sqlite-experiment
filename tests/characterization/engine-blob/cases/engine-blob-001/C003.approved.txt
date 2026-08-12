@@ -1,0 +1,6 @@
+OBS engine-blob-001-C003 bytes1 2
+OBS engine-blob-001-C003 reopen rc=0 err=not an error
+OBS engine-blob-001-C003 bytes2 4
+OBS engine-blob-001-C003 read rc=0 err=not an error
+OBS engine-blob-001-C003 hex BBBBBBBB
+OBS engine-blob-001-C003 close 0

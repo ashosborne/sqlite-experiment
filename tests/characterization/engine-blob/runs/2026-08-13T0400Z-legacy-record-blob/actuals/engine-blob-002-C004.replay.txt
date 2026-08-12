@@ -1,0 +1,3 @@
+OBS engine-blob-002-C004 write rc=0 err=not an error
+OBS engine-blob-002-C004 bytes 5
+OBS engine-blob-002-C004 cell 4178794141,5

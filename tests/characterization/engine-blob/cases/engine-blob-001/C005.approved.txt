@@ -1,0 +1,3 @@
+OBS engine-blob-001-C005 no_table rc=1 err=no such table: main.nope
+OBS engine-blob-001-C005 no_col rc=1 err=no such column: "zz"
+OBS engine-blob-001-C005 view rc=1 err=cannot open view: v

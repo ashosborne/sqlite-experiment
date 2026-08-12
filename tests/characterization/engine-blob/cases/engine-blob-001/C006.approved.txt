@@ -1,0 +1,2 @@
+OBS engine-blob-001-C006 rw_indexed rc=1 err=cannot open indexed column for writing
+OBS engine-blob-001-C006 ro_indexed rc=0 err=not an error

@@ -1,0 +1,2 @@
+OBS engine-blob-002-C009 del rc=0 err=-
+OBS engine-blob-002-C009 read_after rc=4 err=query aborted

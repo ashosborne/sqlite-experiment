@@ -1,0 +1,2 @@
+OBS engine-blob-002-C007 write rc=0 err=not an error
+OBS engine-blob-002-C007 cell 0000004D49440000

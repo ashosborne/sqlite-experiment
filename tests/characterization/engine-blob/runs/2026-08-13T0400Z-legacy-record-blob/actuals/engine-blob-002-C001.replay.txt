@@ -1,0 +1,2 @@
+OBS engine-blob-002-C001 read rc=0 err=not an error
+OBS engine-blob-002-C001 data ABCDE

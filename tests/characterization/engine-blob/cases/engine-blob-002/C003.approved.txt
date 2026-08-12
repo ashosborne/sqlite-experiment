@@ -1,0 +1,4 @@
+OBS engine-blob-002-C003 past_end rc=1 err=SQL logic error
+OBS engine-blob-002-C003 untouched 1
+OBS engine-blob-002-C003 neg_off rc=1 err=SQL logic error
+OBS engine-blob-002-C003 off_plus_n rc=1 err=SQL logic error
