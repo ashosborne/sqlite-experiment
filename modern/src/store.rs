@@ -49,7 +49,7 @@ struct Col {
     references: Option<(String, String, u8, u8)>, // (parent, pcol, on-delete, on-update): 0=none 1=CASCADE 2=SET NULL 3=RESTRICT 4=SET DEFAULT
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Table {
     cols: Vec<Col>,
     uniq_sets: Vec<Vec<String>>, // table-constraint UNIQUE(a,b,...) column lists
@@ -69,9 +69,30 @@ struct Trigger {
     raw: String,                 // raw CREATE TRIGGER text (for durable schema)
 }
 
+/// full-store snapshot (pack v15 transaction model: snapshot/undo, NOT a pager
+/// journal and NOT WAL — documented plainly; counters are not rolled back, like C's
+/// total_changes)
+#[derive(Clone, Default)]
+struct Snap {
+    tables: Vec<(String, Table)>,
+    catalog: Vec<(String, String)>,
+    views: std::collections::HashMap<String, String>,
+    triggers: Vec<(String, Trigger)>,
+    indexes: Vec<(String, String, String, bool, String)>,
+    index_owner: HashMap<String, String>,
+    fk_on: bool,
+}
+#[derive(Default)]
+struct Txn {
+    snap: Snap,
+    implicit: bool, // started by SAVEPOINT (outermost RELEASE commits)
+    savepoints: Vec<(String, Snap)>,
+}
+
 #[derive(Default)]
 pub struct Store {
     pub conn: eval::Conn,
+    txn: Option<Txn>,
     pub views: std::collections::HashMap<String, String>, // view name -> SELECT body
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>, // (type: table|index|trigger, name) — creation order
@@ -230,6 +251,7 @@ pub fn has_tables(db: usize) -> bool {
 }
 
 pub fn save_file(db: usize) {
+    with_store(db, |st| { txn_rollback(st); }); // C: closing with an open txn rolls back
     let path = PATHS.with(|m| m.borrow().get(&db).cloned());
     if let Some(pb) = path {
         let img = build_image(db);
@@ -308,13 +330,19 @@ fn ident(s: &str) -> Option<String> {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate }
+enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate, TxnRollback }
 
 enum Stmt {
     PragmaFkOn,
     Create { name: String, cols: Vec<Col>, sql: String },
     CreateIndex { name: String, table: String, col: String, unique: bool, sql: String },
     DropIndex { name: String },
+    Begin,
+    Commit,
+    Rollback,
+    Savepoint { name: String },
+    Release { name: String },
+    RollbackTo { name: String },
     CreateTrigger { name: String, def: Trigger, sql: String },
     CreateView { name: String, body: String, sql: String },
     DropView { name: String },
@@ -400,6 +428,37 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     if up == "PRAGMA FOREIGN_KEYS=ON" || up == "PRAGMA FOREIGN_KEYS = ON" {
         return Some(Stmt::PragmaFkOn); // ONLY this pragma; all others stay recognizer territory
     }
+    if up == "BEGIN" || up.starts_with("BEGIN ") || up == "BEGIN TRANSACTION" {
+        let rest = up.trim_start_matches("BEGIN").trim();
+        if rest.is_empty() || matches!(rest, "TRANSACTION" | "DEFERRED" | "IMMEDIATE" | "EXCLUSIVE")
+            || rest.starts_with("DEFERRED") || rest.starts_with("IMMEDIATE") || rest.starts_with("EXCLUSIVE") {
+            return Some(Stmt::Begin);
+        }
+        return None;
+    }
+    if up == "COMMIT" || up == "COMMIT TRANSACTION" || up == "END" || up == "END TRANSACTION" {
+        return Some(Stmt::Commit);
+    }
+    if up == "ROLLBACK" || up == "ROLLBACK TRANSACTION" {
+        return Some(Stmt::Rollback);
+    }
+    if let Some(r) = up.strip_prefix("ROLLBACK") {
+        let r = r.trim().trim_start_matches("TRANSACTION").trim();
+        if let Some(nm) = r.strip_prefix("TO ") {
+            let nm = nm.trim().trim_start_matches("SAVEPOINT ").trim();
+            let orig = &s[s.len() - nm.len()..];
+            return Some(Stmt::RollbackTo { name: ident(orig)? });
+        }
+        return None;
+    }
+    if up.starts_with("SAVEPOINT ") {
+        return Some(Stmt::Savepoint { name: ident(&s["SAVEPOINT ".len()..])? });
+    }
+    if up.starts_with("RELEASE ") {
+        let rest = s["RELEASE ".len()..].trim();
+        let rest = if rest.to_ascii_uppercase().starts_with("SAVEPOINT ") { &rest["SAVEPOINT ".len()..] } else { rest };
+        return Some(Stmt::Release { name: ident(rest)? });
+    }
     if let Some(_r) = up.strip_prefix("CREATE TABLE ") {
         let open = s.find('(')?;
         let name = ident(&s["CREATE TABLE ".len()..open])?;
@@ -464,6 +523,12 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
                 let verb = inner.split(',').next().unwrap_or("").trim().to_ascii_uppercase();
                 if verb == "IGNORE" {
                     body.push(("#raise_ignore".to_string(), Vec::new()));
+                    continue;
+                }
+                if verb == "ROLLBACK" {
+                    let msg = inner.split_once(',').map(|(_, m)| m.trim().trim_matches('\'').to_string())
+                        .unwrap_or_else(|| "RAISE".into());
+                    body.push(("#raise_txnrb".to_string(), vec![format!("'{}'", msg.replace('\'', "''"))]));
                     continue;
                 }
                 let msg = inner.split_once(',').map(|(_, m)| m.trim().trim_matches('\'').to_string())
@@ -543,6 +608,8 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             (Policy::Abort, &s["INSERT OR FAIL INTO ".len()..])
         } else if up.starts_with("INSERT OR ABORT INTO ") {
             (Policy::Abort, &s["INSERT OR ABORT INTO ".len()..])
+        } else if up.starts_with("INSERT OR ROLLBACK INTO ") {
+            (Policy::TxnRollback, &s["INSERT OR ROLLBACK INTO ".len()..])
         } else if up.starts_with("INSERT INTO ") {
             (Policy::Abort, &s["INSERT INTO ".len()..])
         } else {
@@ -742,6 +809,10 @@ fn run_trigger_bodies(st: &mut Store, trigs: &[Trigger], env: &std::collections:
         }
         for (target, exprs) in &tg.body {
             if target == "#raise_ignore" { return Ok(()); }
+            if target == "#raise_txnrb" {
+                let msg = eval::eval_standalone(&exprs[0], env)?;
+                return Err(format!("__TXNROLLBACK__{}", msg.render().unwrap_or_default()));
+            }
             if target == "#raise" {
                 let msg = eval::eval_standalone(&exprs[0], env)?;
                 return Err(format!("__RAISE__{}", msg.render().unwrap_or_default()));
@@ -768,6 +839,38 @@ fn view_colnames(body: &str) -> Vec<String> {
         if let Some(p) = iu.rfind(" AS ") { it[p+4..].trim().to_string() }
         else { it.rsplit('.').next().unwrap_or(it).trim().to_string() }
     }).collect()
+}
+
+fn take_snap(st: &Store) -> Snap {
+    Snap {
+        tables: st.tables.clone(),
+        catalog: st.catalog.clone(),
+        views: st.views.clone(),
+        triggers: st.triggers.clone(),
+        indexes: st.indexes.clone(),
+        index_owner: st.index_owner.clone(),
+        fk_on: st.fk_on,
+    }
+}
+fn restore_snap(st: &mut Store, s: Snap) {
+    st.tables = s.tables;
+    st.catalog = s.catalog;
+    st.views = s.views;
+    st.triggers = s.triggers;
+    st.indexes = s.indexes;
+    st.index_owner = s.index_owner;
+    st.fk_on = s.fk_on;
+}
+/// roll the whole transaction back (OR ROLLBACK / explicit ROLLBACK / close)
+fn txn_rollback(st: &mut Store) -> bool {
+    match st.txn.take() {
+        Some(tx) => { restore_snap(st, tx.snap); true }
+        None => false,
+    }
+}
+/// is this connection inside an explicit/savepoint transaction? (sqlite3_get_autocommit)
+pub fn in_txn(db: usize) -> bool {
+    with_store(db, |st| st.txn.is_some())
 }
 
 fn ev_truthy(v: &eval::V) -> bool {
@@ -809,6 +912,11 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
         for (target, exprs) in &tg.body {
             if target == "#raise_ignore" {
                 return Ok(false); // RAISE(IGNORE): skip this row's operation silently
+            }
+            if target == "#raise_txnrb" {
+                let msg = eval::eval_standalone(&exprs[0], &env)?;
+                // RAISE(ROLLBACK): the whole transaction unwinds (v15 real txns)
+                return Err(format!("__TXNROLLBACK__{}", match msg { eval::V::Text(m) => m, v => v.render().unwrap_or_default() }));
             }
             if target == "#raise" {
                 let msg = eval::eval_standalone(&exprs[0], &env)?;
@@ -937,6 +1045,63 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
+                Stmt::Begin => {
+                    if st.txn.is_some() {
+                        return Err("cannot start a transaction within a transaction".into());
+                    }
+                    let snap = take_snap(st);
+                    st.txn = Some(Txn { snap, implicit: false, savepoints: Vec::new() });
+                }
+                Stmt::Commit => {
+                    if st.txn.take().is_none() {
+                        return Err("cannot commit - no transaction is active".into());
+                    }
+                }
+                Stmt::Rollback => {
+                    if !txn_rollback(st) {
+                        return Err("cannot rollback - no transaction is active".into());
+                    }
+                }
+                Stmt::Savepoint { name } => {
+                    let snap = take_snap(st);
+                    match st.txn.as_mut() {
+                        Some(tx) => tx.savepoints.push((name.to_ascii_lowercase(), snap)),
+                        None => {
+                            // savepoint outside a txn opens an implicit one (C semantics)
+                            st.txn = Some(Txn { snap: snap.clone(), implicit: true,
+                                                savepoints: vec![(name.to_ascii_lowercase(), snap)] });
+                        }
+                    }
+                }
+                Stmt::RollbackTo { name } => {
+                    let key = name.to_ascii_lowercase();
+                    let hit = st.txn.as_ref().and_then(|tx|
+                        tx.savepoints.iter().rposition(|(n, _)| *n == key));
+                    match hit {
+                        Some(i) => {
+                            let snap = st.txn.as_ref().unwrap().savepoints[i].1.clone();
+                            restore_snap(st, snap);
+                            let tx = st.txn.as_mut().unwrap();
+                            tx.savepoints.truncate(i + 1); // the named savepoint survives
+                        }
+                        None => return Err(format!("no such savepoint: {name}")),
+                    }
+                }
+                Stmt::Release { name } => {
+                    let key = name.to_ascii_lowercase();
+                    let hit = st.txn.as_ref().and_then(|tx|
+                        tx.savepoints.iter().rposition(|(n, _)| *n == key));
+                    match hit {
+                        Some(i) => {
+                            let tx = st.txn.as_mut().unwrap();
+                            tx.savepoints.truncate(i);
+                            if tx.savepoints.is_empty() && tx.implicit {
+                                st.txn = None; // releasing the outermost implicit savepoint commits
+                            }
+                        }
+                        None => return Err(format!("no such savepoint: {name}")),
+                    }
+                }
                 Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
                     let uniq_sets = parse_uniq_sets(&sql);
@@ -1128,9 +1293,16 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                             if let Some(msg) = viol {
                                 if matches!(policy, Policy::Ignore | Policy::DoNothing) { continue; }
+                                if matches!(policy, Policy::TxnRollback) {
+                                    return Err(format!("__TXNROLLBACK__{msg}"));
+                                }
                                 return Err(msg);
                             }
                             if fk_on {
+                                let fk_fail = |e: String| -> String {
+                                    if matches!(policy, Policy::TxnRollback) { format!("__TXNROLLBACK__{e}") } else { e }
+                                };
+                                let _ = &fk_fail;
                                 for (ci, col) in cols_meta.iter().enumerate() {
                                     if let Some((p, pc, _, _)) = &col.references {
                                         let v = full.get(ci).cloned().unwrap_or(Val::Null);
@@ -1165,6 +1337,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             match conflict_row(t, &full) {
                                 Some(pos) => match policy {
                                     Policy::Abort => return Err(UNIQ_ERR.into()),
+                                    Policy::TxnRollback => {
+                                        // OR ROLLBACK: the conflict aborts the WHOLE transaction
+                                        // (rolled back by execute_script's error handler via marker)
+                                        return Err(format!("__TXNROLLBACK__{UNIQ_ERR}"));
+                                    }
                                     Policy::Ignore | Policy::DoNothing => continue,
                                     Policy::Replace => {
                                         t.rows.remove(pos);
@@ -1463,7 +1640,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
     match res {
         Ok(()) => Outcome::Done { rows: out, rc: 0, err: None },
         Err(e) => {
-            let (rc, msg) = if let Some(m) = e.strip_prefix("__RAISE__") { (19, m.to_string()) }
+            let (rc, msg) = if let Some(m) = e.strip_prefix("__TXNROLLBACK__") {
+                    with_store(db, |st| { txn_rollback(st); }); // OR ROLLBACK: kill the txn
+                    (19, m.to_string())
+                }
+                else if let Some(m) = e.strip_prefix("__RAISE__") { (19, m.to_string()) }
                 else if e == FK_ERR || e == UNIQ_ERR || e.contains("constraint failed") { (19, e) }
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }

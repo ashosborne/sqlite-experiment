@@ -263,3 +263,72 @@ fn anti_cheat_printf_decimal_runtime() {
     assert_eq!(digits, n.to_string());
     assert_eq!(s.chars().filter(|&c| c == ',').count(), 2, "grouped for real: {s}");
 }
+
+// ---- pack v15 anti-cheat: transactions with runtime keys ----
+
+#[test]
+fn anti_cheat_txn_runtime_commit_and_rollback() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE tx(v INTEGER); BEGIN; INSERT INTO tx VALUES({n}); COMMIT; \
+         BEGIN; INSERT INTO tx VALUES({}); ROLLBACK; SELECT v FROM tx;", n + 1));
+    assert_eq!(rc, 0);
+    assert_eq!(rows, vec![vec![Some(n.to_string())]], "committed visible, rolled-back gone");
+}
+
+#[test]
+fn anti_cheat_savepoint_partial_undo() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE sp(v INTEGER); SAVEPOINT outer1; INSERT INTO sp VALUES({n}); \
+         SAVEPOINT inner1; INSERT INTO sp VALUES({}); ROLLBACK TO inner1; \
+         RELEASE outer1; SELECT v FROM sp;", n + 1));
+    assert_eq!(rc, 0);
+    assert_eq!(rows, vec![vec![Some(n.to_string())]], "outer kept, inner undone");
+}
+
+#[test]
+fn anti_cheat_or_rollback_runtime() {
+    unsafe {
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(":memory:").unwrap().as_ptr(), &mut db);
+        let n = runtime_int();
+        let ex = |db, s: String| sqlite3_exec(db, CString::new(s).unwrap().as_ptr(), None, std::ptr::null_mut(), std::ptr::null_mut());
+        assert_eq!(ex(db, format!("CREATE TABLE oq(a INTEGER UNIQUE); INSERT INTO oq VALUES({n});")), 0);
+        assert_eq!(ex(db, format!("BEGIN; INSERT INTO oq VALUES({});", n + 1)), 0);
+        assert_eq!(sqlite3_get_autocommit(db), 0);
+        assert_eq!(ex(db, format!("INSERT OR ROLLBACK INTO oq VALUES({n});")), 19, "duplicate must roll the txn back");
+        assert_eq!(sqlite3_get_autocommit(db), 1, "txn gone after OR ROLLBACK");
+        assert_eq!(ex(db, "COMMIT;".into()), 1);
+        sqlite3_close(db);
+    }
+}
+
+#[test]
+fn file_txn_reopen_commit_and_rollback() {
+    unsafe {
+        let n = runtime_int();
+        let path = format!("/tmp/ac_txn_{}.db", std::process::id());
+        let _ = std::fs::remove_file(&path);
+        let ex = |db, s: String| sqlite3_exec(db, CString::new(s).unwrap().as_ptr(), None, std::ptr::null_mut(), std::ptr::null_mut());
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(path.clone()).unwrap().as_ptr(), &mut db);
+        assert_eq!(ex(db, format!("CREATE TABLE t(v INTEGER); BEGIN; INSERT INTO t VALUES({n}); COMMIT; BEGIN; INSERT INTO t VALUES({});", n + 1)), 0);
+        sqlite3_close(db); // uncommitted second txn must auto-rollback
+        let mut db2: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(path.clone()).unwrap().as_ptr(), &mut db2);
+        let mut rows: Vec<Vec<Option<String>>> = Vec::new();
+        unsafe extern "C" fn cb(a: *mut std::os::raw::c_void, nn: std::os::raw::c_int, v: *mut *mut std::os::raw::c_char, _z: *mut *mut std::os::raw::c_char) -> std::os::raw::c_int {
+            let out = unsafe { &mut *(a as *mut Vec<Vec<Option<String>>>) };
+            let mut r = Vec::new();
+            for i in 0..nn as isize { let p = unsafe { *v.offset(i) };
+                r.push(if p.is_null() { None } else { Some(unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned()) }); }
+            out.push(r); 0
+        }
+        sqlite3_exec(db2, CString::new("SELECT v FROM t;").unwrap().as_ptr(), Some(cb),
+                     &mut rows as *mut _ as *mut std::os::raw::c_void, std::ptr::null_mut());
+        sqlite3_close(db2);
+        assert_eq!(rows, vec![vec![Some(n.to_string())]], "committed survives reopen; uncommitted rolled back");
+        let _ = std::fs::remove_file(&path);
+    }
+}

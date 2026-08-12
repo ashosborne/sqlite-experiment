@@ -383,6 +383,13 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     SQLITE_OK
 }
 
+/// # Safety: C ABI — 1 in autocommit mode, 0 inside an explicit/savepoint transaction.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_get_autocommit(db: *mut Sqlite3) -> c_int {
+    if db.is_null() { return 1; }
+    (!store::in_txn(db as usize)) as c_int
+}
+
 /// # Safety: C ABI — sqlite3_prepare_v3: prepFlags accepted (PERSISTENT/NO_VTAB are
 /// no-ops for this engine — no statement cache, no vtabs); same shared-engine path.
 #[no_mangle]
