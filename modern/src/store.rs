@@ -1200,10 +1200,8 @@ pub fn stmt_prepare_check(_db: usize, sql: &str) -> bool {
     let s = sql.trim().trim_end_matches(';').trim();
     if parse_stmt(s).is_some() { return true; }
     let up = s.to_ascii_uppercase();
-    up.starts_with("PRAGMA") || up.starts_with("ATTACH") || up.starts_with("DETACH")
-        || up.starts_with("SELECT") || up.starts_with("CREATE") || up.starts_with("DROP")
-        || up.starts_with("ALTER") || up.starts_with("INSERT") || up.starts_with("UPDATE")
-        || up.starts_with("DELETE")
+    ["PRAGMA", "ATTACH", "DETACH", "SELECT", "CREATE", "DROP", "ALTER", "INSERT", "UPDATE", "DELETE"]
+        .iter().any(|kw| crate::eval::kw_bound(&up, kw))
 }
 /// prepare-time resolution: DML against a missing table (C reports at compile time)
 pub fn stmt_missing_table(db: usize, sql: &str) -> Option<String> {

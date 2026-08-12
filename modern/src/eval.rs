@@ -1173,12 +1173,16 @@ fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, Str
 }
 
 // ---------------- SELECT executor ----------------
+/// does `up` begin with keyword `kw` at a word boundary?
+pub(crate) fn kw_bound(up: &str, kw: &str) -> bool {
+    up.starts_with(kw) && !matches!(up.as_bytes().get(kw.len()), Some(c) if c.is_ascii_alphanumeric() || *c == b'_')
+}
 fn find_kw_top(s: &str, kw: &str) -> Option<usize> {
     let up = s.to_ascii_uppercase(); let kwu = kw.to_ascii_uppercase();
     let b = up.as_bytes(); let mut depth = 0i32; let mut i = 0;
     while i < b.len() {
         match b[i] { b'(' => depth += 1, b')' => depth -= 1, _ => {} }
-        if depth == 0 && up[i..].starts_with(&kwu) {
+        if depth == 0 && b[i..].starts_with(kwu.as_bytes()) {
             let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
             let before = i == 0 || !word(b[i-1]);
             let after = i + kwu.len() >= b.len() || !word(b[i+kwu.len()]);
@@ -1554,7 +1558,7 @@ fn in_range(v: &V, lo: &Option<V>, hi: &Option<V>) -> bool {
 fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
     let s = sql.trim();
     let up = s.to_ascii_uppercase();
-    if !up.starts_with("SELECT") { return Err("not a SELECT".into()); }
+    if !kw_bound(&up, "SELECT") { return Err("not a SELECT".into()); }
     let mut rest = s[6..].to_string();
     // GROUP BY (top level; ORDER BY/LIMIT already stripped by select_rows_o)
     let mut group_str: Option<String> = None;
@@ -2026,7 +2030,7 @@ pub fn run_stmt(ctx: &mut Ctx, sql: &str) -> Result<Option<Vec<Vec<Option<String
         ctx.conn.attached.retain(|a| a != name);
         return Ok(Some(vec![]));
     }
-    if up.starts_with("SELECT") {
+    if kw_bound(&up, "SELECT") {
         let (_c, rows) = select_rows_o(ctx, s, &Row::new())?;
         return Ok(Some(rows.into_iter().map(|r| r.into_iter().map(|v| v.render()).collect()).collect()));
     }

@@ -337,7 +337,7 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         }
         StmtMode::Normal => {}
     }
-    if mode == StmtMode::Normal && up.starts_with("SELECT") {
+    if mode == StmtMode::Normal && eval::kw_bound(&up, "SELECT") {
         let probe = bind_sql(&stmt_text, &vec![eval::V::Null; param_count]);
         match store::stmt_query_typed(dbid, &probe) {
             Ok((names, _rows)) => {
@@ -367,7 +367,7 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     }
 
     db_ok(&mut *db);
-    let decltypes: Vec<Option<CString>> = if mode == StmtMode::Normal && up.starts_with("SELECT") {
+    let decltypes: Vec<Option<CString>> = if mode == StmtMode::Normal && eval::kw_bound(&up, "SELECT") {
         store::stmt_decltypes(dbid, &stmt_text).into_iter().map(|o| o.map(|s| CString::new(s).unwrap_or_default())).collect()
     } else { Vec::new() };
     let stmt = Box::new(Sqlite3Stmt {
