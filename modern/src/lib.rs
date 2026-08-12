@@ -402,7 +402,10 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     }
     if mode == StmtMode::Normal && eval::kw_bound(&up, "SELECT") {
         let probe = bind_sql(&stmt_text, &vec![eval::V::Null; param_count]);
-        match store::stmt_query_typed(dbid, &probe) {
+        store::set_read_auth_suppressed(true); // run-38: don't fire the authorizer at the prepare dry-run
+        let probe_res = store::stmt_query_typed(dbid, &probe);
+        store::set_read_auth_suppressed(false);
+        match probe_res {
             Ok((names, _rows)) => {
                 colnames = names.into_iter().map(|n| CString::new(n).unwrap_or_default()).collect();
             }
@@ -1286,6 +1289,21 @@ unsafe fn auth_check_action(db: *mut Sqlite3, code: c_int) -> c_int {
     SQLITE_OK
 }
 unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int { auth_check_action(db, SQLITE_SELECT_ACTION) }
+
+/// is an authorizer installed on this connection? (run-38: gates the read prepass)
+pub fn authorizer_present(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().auth_cb != 0)
+}
+/// consult the authorizer for a column READ (code 20): 0 OK / 1 DENY / 2 IGNORE
+pub fn auth_read_column(dbid: usize, table: &str, col: &str) -> i32 {
+    let (cb, arg) = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default(); (e.auth_cb, e.auth_arg) });
+    if cb == 0 { return 0; }
+    let f: unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, *const c_char, *const c_char) -> c_int =
+        unsafe { std::mem::transmute(cb) };
+    let (tt, cc) = (CString::new(table).unwrap_or_default(), CString::new(col).unwrap_or_default());
+    let dbn = CString::new("main").unwrap();
+    unsafe { f(arg as *mut c_void, 20, tt.as_ptr(), cc.as_ptr(), dbn.as_ptr(), std::ptr::null()) }
+}
 /// run-33: statement-class action codes checked before execution
 unsafe fn auth_code_for(sql_up: &str) -> Option<c_int> {
     let s = sql_up.trim_start();
@@ -1588,7 +1606,27 @@ pub unsafe extern "C" fn sqlite3_str_value(s: *mut Sqlite3Str) -> *const c_char 
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
     if z.is_null() { return 0; }
-    let s = match CStr::from_ptr(z).to_str() { Ok(s) => s.trim_end(), Err(_) => return 0 };
+    let s = match CStr::from_ptr(z).to_str() { Ok(s) => s, Err(_) => return 0 };
+    // run-38: strip string literals and comments so their ';' / END don't count
+    let b = s.as_bytes();
+    let mut clean = String::new();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'\'' | b'"' | b'`' => { // string / quoted identifier
+                let q = b[i]; clean.push(' '); i += 1;
+                while i < b.len() { if b[i] == q { if i + 1 < b.len() && b[i+1] == q { i += 2; continue; } i += 1; break; } i += 1; }
+            }
+            b'-' if i + 1 < b.len() && b[i+1] == b'-' => { // line comment
+                while i < b.len() && b[i] != b'\n' { i += 1; }
+            }
+            b'/' if i + 1 < b.len() && b[i+1] == b'*' => { // block comment
+                i += 2; while i + 1 < b.len() && !(b[i] == b'*' && b[i+1] == b'/') { i += 1; } i += 2;
+            }
+            c => { clean.push(c as char); i += 1; }
+        }
+    }
+    let s = clean.trim_end();
     if !s.ends_with(';') { return 0; }
     let u = s.to_ascii_uppercase();
     if !u.contains("CREATE TRIGGER") { return 1; }
@@ -1602,6 +1640,110 @@ pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
         }
     }
     (saw_begin && depth <= 0) as c_int
+}
+
+// ---------------- run-38: sqlite3_status64 / sqlite3_db_status ----------------
+/// # Safety: C ABI — MEMORY_USED wired to the real allocator counters (run-33).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_status64(op: c_int, p_cur: *mut i64, p_hi: *mut i64, reset: c_int) -> c_int {
+    if op != 0 /* SQLITE_STATUS_MEMORY_USED */ { return SQLITE_MISUSE; } // pinned: bad op -> 21
+    if !p_cur.is_null() { *p_cur = MEM_USED.load(Ordering::SeqCst); }
+    if !p_hi.is_null() { *p_hi = MEM_HIGH.load(Ordering::SeqCst); }
+    if reset != 0 { MEM_HIGH.store(MEM_USED.load(Ordering::SeqCst), Ordering::SeqCst); }
+    SQLITE_OK
+}
+/// # Safety: C ABI — per-connection counters; unknown op -> SQLITE_ERROR (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_db_status(db: *mut Sqlite3, op: c_int, p_cur: *mut c_int, p_hi: *mut c_int, reset: c_int) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    let (cur, hi): (c_int, c_int) = match op {
+        0 => (0, 0),                                   // LOOKASIDE_USED (no lookaside)
+        2 => { let n = store::schema_footprint(db as usize) as c_int; (n, n) } // SCHEMA_USED
+        1 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 => (0, 0), // other known ops: honest zero
+        _ => return SQLITE_ERROR,
+    };
+    if !p_cur.is_null() { *p_cur = cur; }
+    if !p_hi.is_null() { *p_hi = hi; }
+    let _ = reset;
+    SQLITE_OK
+}
+
+// ---------------- run-38: sqlite3_get_table / free_table ----------------
+/// # Safety: C ABI — runs the query and marshals header + row cells into a
+/// flat char** (row-major, header first). Non-queries yield 0x0; errors NULL.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_get_table(
+    db: *mut Sqlite3, z_sql: *const c_char,
+    pp_result: *mut *mut *mut c_char, p_nrow: *mut c_int, p_ncol: *mut c_int, p_errmsg: *mut *mut c_char,
+) -> c_int {
+    if !pp_result.is_null() { *pp_result = std::ptr::null_mut(); }
+    if !p_nrow.is_null() { *p_nrow = 0; }
+    if !p_ncol.is_null() { *p_ncol = 0; }
+    if !p_errmsg.is_null() { *p_errmsg = std::ptr::null_mut(); }
+    if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
+    let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
+    let up = sql.trim_start().to_ascii_uppercase();
+    let is_query = up.starts_with("SELECT") || up.starts_with("VALUES") || up.starts_with("WITH")
+        || up.starts_with("PRAGMA") || up.starts_with("EXPLAIN");
+    if !is_query {
+        // run the statement for its side effects; report 0x0 (pinned)
+        let rc = sqlite3_exec(db, z_sql, None, std::ptr::null_mut(), p_errmsg);
+        return rc;
+    }
+    match store::stmt_query_typed(db as usize, sql) {
+        Ok((names, rows)) => {
+            let ncol = names.len();
+            // run-38: C's get_table sets nColumn from the row callback, so a zero-row
+            // result reports 0x0 with a non-null (dummy) result array
+            if rows.is_empty() {
+                let boxed: Box<[*mut c_char]> = vec![std::ptr::null_mut()].into_boxed_slice();
+                let ptr = Box::into_raw(boxed) as *mut *mut c_char;
+                if !pp_result.is_null() { *pp_result = ptr; }
+                GET_TABLE_LEN.with(|m| { m.borrow_mut().insert(ptr as usize, 1); });
+                db_ok(&mut *db);
+                return SQLITE_OK;
+            }
+            let mut cells: Vec<*mut c_char> = Vec::with_capacity((rows.len() + 1) * ncol);
+            for n in &names { cells.push(alloc_cstr(n)); }
+            for r in &rows {
+                for v in r {
+                    match v.render() {
+                        Some(s) => cells.push(alloc_cstr(&s)),
+                        None => cells.push(std::ptr::null_mut()), // SQL NULL -> NULL pointer
+                    }
+                }
+            }
+            let boxed = cells.into_boxed_slice();
+            let ptr = Box::into_raw(boxed) as *mut *mut c_char;
+            if !pp_result.is_null() { *pp_result = ptr; }
+            if !p_ncol.is_null() { *p_ncol = ncol as c_int; }
+            if !p_nrow.is_null() { *p_nrow = rows.len() as c_int; }
+            GET_TABLE_LEN.with(|m| { m.borrow_mut().insert(ptr as usize, (rows.len() + 1) * ncol); });
+            db_ok(&mut *db);
+            SQLITE_OK
+        }
+        Err(e) => {
+            (*db).errcode = SQLITE_ERROR;
+            (*db).extended = SQLITE_ERROR;
+            (*db).errmsg = Some(CString::new(e.clone()).unwrap_or_default());
+            if !p_errmsg.is_null() { *p_errmsg = alloc_cstr(&e); }
+            SQLITE_ERROR
+        }
+    }
+}
+thread_local! {
+    static GET_TABLE_LEN: RefCell<std::collections::HashMap<usize, usize>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+/// # Safety: C ABI — frees a table returned by sqlite3_get_table; NULL tolerated.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_free_table(result: *mut *mut c_char) {
+    if result.is_null() { return; }
+    let n = GET_TABLE_LEN.with(|m| m.borrow_mut().remove(&(result as usize))).unwrap_or(0);
+    if n == 0 { return; }
+    let slice = std::slice::from_raw_parts_mut(result, n);
+    for &mut cell in slice.iter_mut() { if !cell.is_null() { sqlite3_free(cell as *mut c_void); } }
+    drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(result, n)));
 }
 
 /// # Safety: C ABI.

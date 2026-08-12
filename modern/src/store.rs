@@ -548,6 +548,16 @@ fn image_of(st: &Store) -> DbImage {
 }
 
 /// current schema-change counter (statement auto-reprepare)
+/// rough schema byte footprint for db_status(SCHEMA_USED) — grows with objects
+pub fn schema_footprint(db: usize) -> i64 {
+    with_store(db, |st| {
+        let mut n: i64 = 0;
+        for (name, t) in &st.tables { n += name.len() as i64 + t.create_sql.len() as i64 + 64; }
+        for d in &st.indexes { n += d.sql.len() as i64 + 48; }
+        for (nm, body) in &st.views { n += nm.len() as i64 + body.len() as i64 + 48; }
+        n
+    })
+}
 pub fn schema_version(db: usize) -> i64 {
     with_store(db, |st| st.conn.schema_version)
 }
@@ -640,6 +650,14 @@ fn parse_literal(tok: &str) -> Option<Val> {
 
 fn ident(s: &str) -> Option<String> {
     let t = s.trim();
+    // run-38: quoted identifiers "x" / [x] / `x` (keywords usable as names)
+    if t.len() >= 2 {
+        let b = t.as_bytes();
+        if (b[0] == b'"' && b[t.len()-1] == b'"') || (b[0] == b'`' && b[t.len()-1] == b'`') {
+            return Some(t[1..t.len()-1].to_string());
+        }
+        if b[0] == b'[' && b[t.len()-1] == b']' { return Some(t[1..t.len()-1].to_string()); }
+    }
     if !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         Some(t.to_string())
     } else {
@@ -672,6 +690,7 @@ enum Stmt {
     AddColumn { table: String, col: String, default: Option<Val> },
     Vacuum { into: Option<String> },
     Analyze { target: Option<String> },
+    CreateVtab { name: String, module: String },
     // Begin.immediate: BEGIN IMMEDIATE/EXCLUSIVE takes the file write lock now (run-36)
     // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
@@ -1062,6 +1081,19 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     }
     if up == "ANALYZE" {
         return Some(Stmt::Analyze { target: None });
+    }
+    if up.starts_with("CREATE VIRTUAL TABLE ") {
+        // CREATE VIRTUAL TABLE <name> USING <module>[(args)] — run-38 (wholenumber only)
+        let rest = s["CREATE VIRTUAL TABLE ".len()..].trim();
+        let rest = rest.strip_prefix("IF NOT EXISTS ").unwrap_or(rest);
+        if let Some(up_pos) = rest.to_ascii_uppercase().find(" USING ") {
+            let name = ident(rest[..up_pos].trim())?;
+            let mut module = rest[up_pos + 7..].trim().to_string();
+            if let Some(p) = module.find('(') { module.truncate(p); }
+            let module = module.trim().to_ascii_lowercase();
+            return Some(Stmt::CreateVtab { name, module });
+        }
+        return None;
     }
     if up.starts_with("ANALYZE ") {
         let name = ident(s["ANALYZE ".len()..].trim())?;
@@ -1821,6 +1853,56 @@ pub fn stmt_missing_table(db: usize, sql: &str) -> Option<String> {
     }
 }
 
+
+/// run-38: fire the authorizer READ for each referenced column (select-list order
+/// first) and NULL out any column the callback answers SQLITE_IGNORE for. Scoped to
+/// the single FROM table of the pinned queries; multi-table read-auth is a residual.
+thread_local! { static READ_AUTH_SUPPRESS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+pub fn set_read_auth_suppressed(v: bool) { READ_AUTH_SUPPRESS.with(|c| c.set(v)); }
+fn apply_read_auth(db: usize, sql: &str, snap: &mut std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)>) {
+    if READ_AUTH_SUPPRESS.with(|c| c.get()) { return; }
+    if !crate::authorizer_present(db) { return; }
+    let up = sql.to_ascii_uppercase();
+    let (sp, fp) = match (up.find("SELECT"), up.find(" FROM ")) {
+        (Some(a), Some(b)) if b > a => (a + 6, b),
+        _ => return,
+    };
+    let table = up[fp + 6..].trim().split(|c: char| c.is_whitespace() || c == SEMI).next().unwrap_or("").to_string();
+    let tname = match snap.keys().find(|k| k.eq_ignore_ascii_case(&table)) { Some(k) => k.clone(), None => return };
+    let colnames = snap.get(&tname).map(|(c, _)| c.clone()).unwrap_or_default();
+    let select_list = &sql[sp..fp];
+    let mut ordered: Vec<String> = Vec::new();
+    let is_word = |c: char| c.is_alphanumeric() || c == UNDER;
+    let mut push_col = |name: &str, ordered: &mut Vec<String>| {
+        if let Some(real) = colnames.iter().find(|c| c.eq_ignore_ascii_case(name)) {
+            if !ordered.iter().any(|x| x == real) { ordered.push(real.clone()); }
+        }
+    };
+    if select_list.contains(STAR) {
+        for c in &colnames { if !ordered.contains(c) { ordered.push(c.clone()); } }
+    }
+    for tok in select_list.split(|c: char| !is_word(c)) {
+        if !tok.is_empty() { push_col(tok, &mut ordered); }
+    }
+    for tok in sql.split(|c: char| !is_word(c)) {
+        if !tok.is_empty() { push_col(tok, &mut ordered); }
+    }
+    let mut ignored: Vec<usize> = Vec::new();
+    for cname in &ordered {
+        if crate::auth_read_column(db, &tname, cname) == 2 {
+            if let Some(ci) = colnames.iter().position(|c| c == cname) { ignored.push(ci); }
+        }
+    }
+    if !ignored.is_empty() {
+        if let Some((_, rows)) = snap.get_mut(&tname) {
+            for r in rows.iter_mut() { for &ci in &ignored { if ci < r.len() { r[ci] = eval::V::Null; } } }
+        }
+    }
+}
+const SEMI: char = ';';
+const UNDER: char = '_';
+const STAR: char = '*';
+
 pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<eval::V>>), String> {
     maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let s = sql.trim().trim_end_matches(';').trim();
@@ -1845,6 +1927,8 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             let views = st.views.clone();
             let idxmaps = build_index_snapshot(st);
             let colls = build_coll_snapshot(st);
+            let mut snap = snap;
+            apply_read_auth(db, s, &mut snap); // run-38: authorizer READ -> IGNORE nulls columns
             PROBE_CELL.with(|c| c.set(0));
             let r = PROBE_CELL.with(|probes| {
                 let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls };
@@ -1930,6 +2014,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             } else { None };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
+                Stmt::CreateVtab { name, module } => {
+                    // run-38: register the vtab name; only 'wholenumber' has a generator.
+                    // vtab-core general module system is a documented residual.
+                    st.conn.vtabs.insert(name.clone(), module.clone());
+                    st.catalog.push(("table".into(), name.clone()));
+                }
                 Stmt::Analyze { target } => {
                     // run-37: real scans -> sqlite_stat1 rows (pinned C text format)
                     ensure_stat1(st);

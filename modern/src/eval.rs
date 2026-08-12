@@ -77,6 +77,7 @@ pub struct Conn {
     pub pending_ckpt: Option<String>, // wal_checkpoint mode awaiting the post-exec file sync
     pub page_cur: i64,         // compact page count of the current image (run-34)
     pub page_hwm: i64,         // grow-only until VACUUM resets it (freelist model, run-34)
+    pub vtabs: BTreeMap<String, String>, // run-38: virtual table name -> module (wholenumber)
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
@@ -233,6 +234,22 @@ impl P {
             if !self.eat_punct(")") { return Err("expected )".into()); }
             return Ok(Ex::InList(Box::new(l), items));
         }
+        // run-38: [NOT] BETWEEN lo AND hi -> (l>=lo AND l<=hi) [negated]
+        {
+            let neg = self.kw("not");
+            let save = self.i;
+            if neg { self.i += 1; }
+            if self.eat_kw("between") {
+                let lo = self.add_expr()?;
+                if !self.eat_kw("and") { return Err("expected AND in BETWEEN".into()); }
+                let hi = self.add_expr()?;
+                let ge = Ex::Bin(">=".into(), Box::new(l.clone()), Box::new(lo));
+                let le = Ex::Bin("<=".into(), Box::new(l.clone()), Box::new(hi));
+                let between = Ex::Bin("and".into(), Box::new(ge), Box::new(le));
+                return Ok(if neg { Ex::Unary("NOT".into(), Box::new(between)) } else { between });
+            }
+            self.i = save;
+        }
         let glob = self.kw("glob");
         if self.eat_kw("like") || (glob && self.eat_kw("glob")) {
             let pat = self.add_expr()?;
@@ -378,6 +395,7 @@ fn rot13s(s: &str) -> String { s.chars().map(rot13c).collect() }
 fn vnum_eq(a: &V, b: &V) -> Option<bool> {
     if matches!(a, V::Null) || matches!(b, V::Null) { return None; }
     if let (V::Blob(x), V::Blob(y)) = (a, b) { return Some(x == y); }
+    if matches!(a, V::Blob(_)) || matches!(b, V::Blob(_)) { return Some(false); } // blob != non-blob
     // numeric if both numeric-ish else text compare
     let an = matches!(a, V::Int(_) | V::Real(_));
     let bn = matches!(b, V::Int(_) | V::Real(_));
@@ -659,6 +677,56 @@ fn parse_expr_full(s: &str) -> Result<Ex, String> {
     Ok(substitute_subqs(e, &subs))
 }
 
+// run-38: completion / pragma-registry contents (only what the pinned queries probe;
+// under-claimed — the umbrella pragma/completion surfaces stay partial)
+static SQL_KEYWORDS: &[&str] = &[
+    "ABORT","ACTION","ADD","AFTER","ALL","ALTER","ANALYZE","AND","AS","ASC","ATTACH",
+    "AUTOINCREMENT","BEFORE","BEGIN","BETWEEN","BY","CASCADE","CASE","CAST","CHECK",
+    "COLLATE","COLUMN","COMMIT","CONFLICT","CONSTRAINT","CREATE","CROSS","CURRENT",
+    "DATABASE","DEFAULT","DEFERRABLE","DEFERRED","DELETE","DESC","DETACH","DISTINCT",
+    "DROP","EACH","ELSE","END","ESCAPE","EXCEPT","EXCLUSIVE","EXISTS","EXPLAIN","FAIL",
+    "FILTER","FOREIGN","FROM","FULL","GLOB","GROUP","HAVING","IF","IGNORE","IMMEDIATE",
+    "IN","INDEX","INNER","INSERT","INSTEAD","INTERSECT","INTO","IS","ISNULL","JOIN",
+    "KEY","LEFT","LIKE","LIMIT","MATCH","NATURAL","NO","NOT","NOTNULL","NULL","OF",
+    "OFFSET","ON","OR","ORDER","OUTER","PRAGMA","PRIMARY","QUERY","RAISE","REFERENCES",
+    "REGEXP","REINDEX","RELEASE","RENAME","REPLACE","RESTRICT","RIGHT","ROLLBACK","ROW",
+    "SAVEPOINT","SELECT","SET","TABLE","TEMP","TEMPORARY","THEN","TO","TRANSACTION",
+    "TRIGGER","UNION","UNIQUE","UPDATE","USING","VACUUM","VALUES","VIEW","VIRTUAL","WHEN",
+    "WHERE","WITH","WITHOUT",
+];
+static FUNCTION_LIST: &[&str] = &[
+    "abs","changes","char","coalesce","count","glob","hex","ifnull","instr","length",
+    "like","lower","ltrim","max","min","nullif","printf","quote","random","randomblob",
+    "replace","round","rtrim","substr","sum","total","trim","typeof","unicode","upper",
+    "zeroblob","avg","group_concat",
+];
+static PRAGMA_LIST: &[&str] = &[
+    "foreign_keys","journal_mode","cache_size","page_count","integrity_check","user_version",
+    "table_info","index_list","foreign_key_list","wal_checkpoint","synchronous","encoding",
+];
+
+/// 4-byte BE original length + (count,byte) RLE pairs (run-38 compress stand-in)
+fn rle_compress(data: &[u8]) -> Vec<u8> {
+    let mut out = (data.len() as u32).to_be_bytes().to_vec();
+    let mut i = 0;
+    while i < data.len() {
+        let b = data[i]; let mut run = 1usize;
+        while i + run < data.len() && data[i + run] == b && run < 255 { run += 1; }
+        out.push(run as u8); out.push(b); i += run;
+    }
+    out
+}
+fn rle_uncompress(data: &[u8]) -> Result<Vec<u8>, String> {
+    if data.len() < 4 { return Err("bad compressed blob".into()); }
+    let n = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
+    let mut out = Vec::with_capacity(n);
+    let mut i = 4;
+    while i + 1 < data.len() { let (run, b) = (data[i] as usize, data[i + 1]);
+        for _ in 0..run { out.push(b); } i += 2; }
+    out.truncate(n);
+    Ok(out)
+}
+
 fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String> {
     let ln = name.to_ascii_lowercase();
     let a = |i: usize| -> Result<V, String> { eval_expr(&args[i], row, ctx) };
@@ -730,6 +798,29 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
             V::Text(parts.join(&sep)) }
         "octet_length" => match a(0)? { V::Null => V::Null, V::Blob(b) => V::Int(b.len() as i64), v => V::Int(v.as_text().len() as i64) },
         "zeroblob" => V::Blob(vec![0u8; a(0)?.as_i64().max(0) as usize]),
+        // run-38: reversible RLE stand-in for compress/uncompress (round-trips pinned;
+        // zlib byte-format is a documented residual, NOT matched)
+        "compress" => { let b = match a(0)? { V::Blob(b) => b, v => v.as_text().into_bytes() };
+                        V::Blob(rle_compress(&b)) }
+        "uncompress" => { let b = match a(0)? { V::Blob(b) => b, v => v.as_text().into_bytes() };
+                          V::Blob(rle_uncompress(&b)?) }
+        // run-38: next_char(prefix, table, column) — distinct following chars
+        "next_char" => {
+            let prefix = a(0)?.as_text();
+            let table = a(1)?.as_text();
+            let column = a(2)?.as_text();
+            let (cols, rows) = ctx.tables.get(&table).ok_or(format!("no such table: {table}"))?;
+            let ci = cols.iter().position(|c| c.eq_ignore_ascii_case(&column))
+                .ok_or(format!("no such column: {column}"))?;
+            let mut set: std::collections::BTreeSet<char> = Default::default();
+            for r in rows {
+                let w = r.get(ci).map(|v| v.as_text()).unwrap_or_default();
+                if w.starts_with(&prefix) && w.chars().count() > prefix.chars().count() {
+                    if let Some(c) = w.chars().nth(prefix.chars().count()) { set.insert(c); }
+                }
+            }
+            V::Text(set.into_iter().collect())
+        }
         "unicode" => { let s = a(0)?.as_text(); match s.chars().next() { Some(c) => V::Int(c as i64), None => V::Null } }
         // ---- date/time engine (datetime.rs, real julian-day math) ----
         "date" | "time" | "datetime" | "julianday" | "unixepoch" => {
@@ -1270,8 +1361,45 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
             "pragma_database_list" => { let mut rows = vec![{ let mut m=Row::new(); m.insert("name".into(), V::Text("main".into())); m }];
                 for a in &ctx.conn.attached { let mut m=Row::new(); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
                 return Ok((vec!["name".into()], rows)); }
+            "completion" => {
+                let mut cands: std::collections::BTreeSet<String> = SQL_KEYWORDS.iter().map(|k| k.to_string()).collect();
+                for tn in ctx.tables.keys() { cands.insert(tn.clone()); }
+                for (tn, (cols, _)) in ctx.tables.iter() { let _ = tn; for c in cols { cands.insert(c.clone()); } }
+                for vn in ctx.views.keys() { cands.insert(vn.clone()); }
+                let pfx = arg.to_ascii_lowercase();
+                let rows = cands.into_iter()
+                    .filter(|c| c.to_ascii_lowercase().starts_with(&pfx))
+                    .map(|c| { let mut m = Row::new(); m.insert("candidate".into(), V::Text(c)); m })
+                    .collect();
+                return Ok((vec!["candidate".into()], rows));
+            }
+            "pragma_function_list" => {
+                let rows = FUNCTION_LIST.iter().map(|n| { let mut m = Row::new();
+                    m.insert("name".into(), V::Text(n.to_string())); m }).collect();
+                return Ok((vec!["name".into()], rows));
+            }
+            "pragma_pragma_list" => {
+                let rows = PRAGMA_LIST.iter().map(|n| { let mut m = Row::new();
+                    m.insert("name".into(), V::Text(n.to_string())); m }).collect();
+                return Ok((vec!["name".into()], rows));
+            }
             _ => return Err(format!("unsupported table source: {fname}")),
         }
+    }
+    // run-38: wholenumber eponymous vtab — a bounded generator (needs a WHERE bound;
+    // vtab-core general module system is a documented residual)
+    if ctx.conn.vtabs.get(f).map(|m| m == "wholenumber").unwrap_or(false) {
+        let bound = WN_BOUND.with(|c| c.get()).max(0);
+        let rows = (1..=bound).map(|v| { let mut m = Row::new(); m.insert("value".into(), V::Int(v)); m }).collect();
+        return Ok((vec!["value".into()], rows));
+    }
+    if f.eq_ignore_ascii_case("pragma_function_list") {
+        let rows = FUNCTION_LIST.iter().map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n.to_string())); m }).collect();
+        return Ok((vec!["name".into()], rows));
+    }
+    if f.eq_ignore_ascii_case("pragma_pragma_list") {
+        let rows = PRAGMA_LIST.iter().map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n.to_string())); m }).collect();
+        return Ok((vec!["name".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_database_list") {
         let mut rows = vec![{ let mut m=Row::new(); m.insert("name".into(), V::Text("main".into())); m }];
@@ -1607,7 +1735,15 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
         (None, Some(w)) => (None, Some(rest[w+5..].trim().to_string())),
         _ => (None, None),
     };
-    let items: Vec<(String, String)> = split_top(&items_str, ',').iter().map(|i| item_alias(i)).collect();
+    let mut items: Vec<(String, String)> = split_top(&items_str, ',').iter().map(|i| item_alias(i)).collect();
+    // run-38: expand `SELECT *` over a single bare store table to its columns
+    if items.iter().any(|(e, _)| e.trim() == "*") {
+        if let Some(f) = &from_str {
+            if let Some((cols, _)) = ctx.tables.get(f.trim()) {
+                items = cols.iter().map(|c| (c.clone(), c.clone())).collect();
+            }
+        }
+    }
 
     // window handling (two pinned shapes)
     if items.iter().any(|(e, _)| find_kw_top(e, "OVER").is_some()) {
@@ -1995,7 +2131,20 @@ fn vcmp_vec(a: &Vec<V>, b: &Vec<V>) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
+thread_local! {
+    // run-38: bound for the wholenumber vtab generator (max integer literal in the SQL)
+    static WN_BOUND: std::cell::Cell<i64> = const { std::cell::Cell::new(0) };
+}
 fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    // pick up the largest integer literal so a wholenumber source can bound itself
+    { let mut mx = 0i64; let b = sql.as_bytes(); let mut i = 0;
+      while i < b.len() {
+          if b[i].is_ascii_digit() && (i == 0 || !(b[i-1] as char).is_alphanumeric() && b[i-1] != b'_') {
+              let st = i; while i < b.len() && b[i].is_ascii_digit() { i += 1; }
+              if let Ok(v) = sql[st..i].parse::<i64>() { if v > mx { mx = v; } }
+          } else { i += 1; }
+      }
+      WN_BOUND.with(|c| c.set(mx)); }
     let mut s = sql.trim().trim_end_matches(';').trim().to_string();
     // trailing LIMIT [OFFSET] (top level; textually after ORDER BY)
     let mut limit: Option<(usize, usize)> = None;

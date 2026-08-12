@@ -1,2 +1,0 @@
-OBS engine-harvest28-005-C001 p50 5.5
-OBS engine-harvest28-005-C001 p25_p75 3.25,7.75

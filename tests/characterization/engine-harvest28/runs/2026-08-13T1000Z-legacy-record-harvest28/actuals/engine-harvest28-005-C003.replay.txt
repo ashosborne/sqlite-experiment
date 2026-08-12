@@ -1,2 +1,0 @@
-OBS engine-harvest28-005-C003 med 15.0
-OBS engine-harvest28-005-C003 empty ~

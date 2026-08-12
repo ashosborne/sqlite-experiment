@@ -1,2 +1,0 @@
-OBS engine-harvest28-005-C002 median 2.0
-OBS engine-harvest28-005-C002 median_even 2.5

@@ -154,48 +154,6 @@
 "note": "empty string round-trip"
 },
 {
-"id": "engine-harvest28-005-C001",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "percentile linear interpolation (p50/p25/p75)"
-},
-{
-"id": "engine-harvest28-005-C002",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "median odd + even count"
-},
-{
-"id": "engine-harvest28-005-C003",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "median ignores NULLs; empty -> NULL"
-},
-{
-"id": "engine-harvest28-005-C004",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "percentile out-of-range fraction errors"
-},
-{
-"id": "engine-harvest28-005-C005",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "percentile_cont / percentile_disc"
-},
-{
-"id": "engine-harvest28-005-C006",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-005",
-"kind": "bespoke",
-"note": "median non-numeric input errors"
-},
-{
 "id": "engine-harvest28-006-C001",
 "slice": "engine-harvest28",
 "feature": "engine-harvest28-006",
@@ -250,13 +208,6 @@
 "feature": "engine-harvest28-008",
 "kind": "bespoke",
 "note": "keywords usable as unquoted identifiers"
-},
-{
-"id": "engine-harvest28-008-C002",
-"slice": "engine-harvest28",
-"feature": "engine-harvest28-008",
-"kind": "bespoke",
-"note": "quoted keywords as identifiers"
 },
 {
 "id": "engine-harvest28-008-C003",

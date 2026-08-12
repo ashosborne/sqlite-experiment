@@ -416,7 +416,7 @@ golden_approval:
   operator: Ash Osborne
   date: '2026-08-11'
   tz: Europe/London
-  note: run-38 delegated stamp (mega harvest)
+  note: "run-38 delegated stamp (mega harvest; percentile dropped \u2014 absent from pinned build)"
   stamped_case_ids:
   - engine-harvest28-001-C001
   - engine-harvest28-001-C002
@@ -458,4 +458,4 @@ golden_approval:
   - engine-harvest28-008-C003
   - engine-harvest28-008-C004
   - engine-harvest28-008-C005
-updated_at: '2026-08-12T16:39:29Z'
+updated_at: '2026-08-12T17:00:53Z'
