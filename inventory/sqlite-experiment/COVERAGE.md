@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T20:07:01Z
+- Generated: 2026-08-12T20:38:53Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T22:30:00Z by `sqlite-engine-v33-attached-trigger`
+- Manifest last_updated: 2026-08-14T00:30:00Z by `sqlite-engine-v34-status-pragma-matrix`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 79 | Not started in modern |
 | partial | 62 | Some modern execution; gaps in notes |
-| full (converted) | 145 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 149 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -165,6 +165,10 @@
 - `engine-attach33-002` — resolution and error edges
 - `engine-attach33-003` — event kinds and timing on attached tables
 - `engine-attach33-004` — DETACH teardown of attached triggers
+- `engine-status34-001` — global status64 op matrix
+- `engine-status34-002` — db_status op matrix
+- `engine-pragma34-001` — pragma dispatcher batch
+- `engine-pragma34-002` — pragma TVF batch
 
 ### Partial in modern
 
@@ -187,7 +191,7 @@
 - `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
 - `connection-lifecycle-api-004` — confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour unpinned; legacy sqlite3_trace/profile not implemented.
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
-- `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked.
+- `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked. run-44: op-matrix residual SHRUNK - global status64 answers the full valid op range (0..9; out-of-range MISUSE): MEMORY_USED + MALLOC_SIZE/MALLOC_COUNT (real allocator count/largest-alloc), PAGECACHE_OVERFLOW/PAGECACHE_SIZE (real page-image bytes held/flushed), NOT-USED ops (SCRATCH_*, PARSER_STACK, PAGECACHE_USED) exact zeros, resetFlag re-arms highwater, sqlite3_status 32-bit twin. db_status answers 0..12 (bad op ERROR): CACHE_USED(_SHARED)/SCHEMA_USED/STMT_USED real byte footprints with highwater 0 like C, CACHE_HIT/MISS/WRITE wired to real I/O events (magnitudes not claimed - pinned predicates are the contract, ADR 0032), DEFERRED_FKS on-demand violation scan (exact 0/1 pinned). RESIDUAL (named): lookaside positives (no lookaside allocator in modern; LOOKASIDE_USED/HIT keep run-38 vacuous predicates, MISS_SIZE/FULL pinned zeros), CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched.
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
@@ -212,8 +216,8 @@
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `parser-grammar-002` — confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): keyword-fallback table absent in modern; pinned error observable reproduced by honest parse failure run-38: PARTIAL — keywords usable as UNQUOTED identifiers (key/value/offset/action as columns) real. RESIDUAL: quoted reserved words as TABLE names (FROM "select") still trip the tokenizer.
-- `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded).
-- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms).
+- `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded). run-44: breadth bump ~27 -> ~40 of ~70 - data_version (own writes do not bump, sibling commits do), freelist_count, collation_list (live registry, newest-first), table_xinfo/index_info/index_xinfo row shapes, query_only ENFORCED ("attempt to write a readonly database" rc 8), ignore_check_constraints ENFORCED, quick_check now REALLY validates CHECK constraints ("CHECK constraint failed in T"), unknown pragma names silently ignored (get+set, the classic trap). RESIDUAL: remaining ~30 pragmas (journal-size/wal tuning, mmap, cache_spill, locking edges), typed/pk metadata in xinfo rows (pinned tables are typeless), integrity_check corruption taxonomy beyond CHECK validation.
+- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms). run-44: registry TVF residual SHRUNK - pragma_collation_list (live registry: runtime-registered collation appears at seq 0), pragma_table_xinfo (real shape incl. vtab HIDDEN), pragma_index_info, pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. RESIDUAL: pragma_module_list (C populates it lazily per pragma-vtab use - fragile pin, deferred with ADR 0032 note), index_xinfo TVF form, remaining result pragmas.
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.
 - `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).
@@ -317,25 +321,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 238 |
-| Behaviours known | 286 |
+| Surfaces total | 240 |
+| Behaviours known | 290 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 196 |
+| legacy_green flags | 200 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 53 |
+| accepted | 55 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 144 |
+| converted | 148 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -383,6 +387,7 @@
 | engine-orrollback | 1 |
 | engine-overflow | 1 |
 | engine-pragma | 1 |
+| engine-pragma34 | 1 |
 | engine-prepare | 1 |
 | engine-prepare2 | 1 |
 | engine-printf3 | 1 |
@@ -390,6 +395,7 @@
 | engine-savepoint | 1 |
 | engine-serialize2 | 1 |
 | engine-setops | 1 |
+| engine-status34 | 1 |
 | engine-str2 | 1 |
 | engine-subquery | 1 |
 | engine-trig2 | 1 |

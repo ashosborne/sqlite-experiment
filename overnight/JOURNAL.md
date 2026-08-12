@@ -791,3 +791,31 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   resolution); engine-attach33-001/002/003/004 new composed full.
 - Scoreboard full 141->145 / partial 62 / none 79 (286 known). cargo 739/739.
 
+## Run 44 — 2026-08-14 — engine v34: status/pragma matrix (pack v34)
+
+- Pack v33→v34 BOUND (+versions/34, ADR 0032): STATUS/PRAGMA MATRIX LAW. Probe-first on
+  the bare pin: global ops 0..9 / db ops 0..12 all valid; SCRATCH_*/PARSER_STACK/
+  PAGECACHE_USED exact zeros; C default build HAS lookaside (modern refuses to fake it);
+  data_version bumps only on sibling commits; quick_check reports CHECK violations;
+  pragma_module_list is lazily populated (deferred as fragile).
+- lib.rs: MEM_COUNT/_HI + MEM_BIGGEST allocator stats; PCACHE page-image accounting
+  (pcache_note/forget); sqlite3_status64 full matrix + resetFlag + sqlite3_status 32-bit
+  twin; sqlite3_db_status matrix (footprints hi=0, io events, DEFERRED_FKS scan);
+  COLL_ORDER registration order + collation_list_names(); compileoption_all().
+- store.rs: IOSTATS hit/miss/write wired to real refresh/load/flush events;
+  cache_footprint() on-demand image bytes; deferred_fk_violations() scan; query_only
+  write gate (rc 8 mapping); ignore_check_constraints gates both CHECK sites; kitchen
+  Stmt::PragmaCheck (real CHECK validation) / PragmaTableXinfo / PragmaIndexInfo(x);
+  data_version bump on sibling reload. eval.rs: Conn.data_version; dispatcher adds
+  data_version/freelist_count/collation_list + silent unknown pragmas; Ctx.index_defs;
+  TVFs pragma_collation_list/table_xinfo/index_info/compile_options (bare + parens).
+- 27 goldens (engine-status34-001 x6, -002 x8; engine-pragma34-001 x9, -002 x4; harness
+  /tmp/sp_harness.c + /tmp/sp_probe.c, two-run deterministic; predicate pin style).
+  3 anti-cheat (runtime alloc/schema move counters; runtime pragma+TVF round-trip;
+  bad ops fail + runtime collation at seq 0). 706 prior goldens untouched.
+- Flips: error-status-api-003 residual shrunk (partial; lookaside/CACHE_SPILL/
+  stmt_status named); pragma-surface-001 ~27->~40 of ~70 (partial); pragma-surface-002
+  TVF residual shrunk (partial; module_list deferred); engine-status34-001/002 +
+  engine-pragma34-001/002 new composed full.
+- Scoreboard full 145->149 / partial 62 / none 79 (290 known). cargo 750/750.
+

@@ -1,84 +1,84 @@
-# MORNING BRIEF — engine v33: attached-trigger fire (run 43)
+# MORNING BRIEF — engine v34: status/pragma matrix (run 44)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–42 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v33-attached-trigger, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 20). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–43 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v34-status-pragma-matrix, REQUIRE_BASELINE_PRESENCE_CHECK.
+MAX_NEW_CASES 55 (used 27). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @33 BOUND — ATTACHED-TRIGGER FIRE law
+## 1. Pack @34 BOUND — STATUS/PRAGMA MATRIX law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v32 → **v33**
-(versions/1–33 retained; ADR `0031-engine-v33-attached-trigger.md`; schema VALID; 39 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v33 → **v34**
+(versions/1–34 retained; ADR `0032-engine-v34-status-pragma-matrix.md`; schema VALID; 40 laws).
+Everything pinned is core on the bare amalgamation; the probe ran before every freeze.
+Counter magnitudes are machine state, so pins are **predicates + exact zeros + exact rc
+codes + exact pragma rows** (the run-38 status style).
 
-## 2. The pin taught the model (probe before freeze)
+## 2. Status ops newly tracked (the run-38 residual, cut down)
 
-The first harness draft wrote `CREATE TRIGGER trg ... ON aux.t` — and bare C refused:
-`trigger trg cannot reference objects in database aux`. The probe run mapped the real C
-rules, and the frozen batch pins them:
-
-- **The trigger NAME carries the schema**: `CREATE TRIGGER aux.trg ... ON t` creates an
-  aux object (`aux.sqlite_master` lists it; main's counts 0). Unqualified names live in
-  main.
-- **ON resolves strictly in the trigger's schema**: `ON main.m` from `aux.trg` →
-  cross-schema error; `ON t` with `t` only in aux from a main trigger → `no such table:
-  main.t`.
-- **Body targets resolve strictly in the trigger's schema — no fallback**: collision
-  (`log` in both) hits `aux.log` only; `log` only in main → CREATE succeeds but FIRE
-  errors `no such table: aux.log`; missing → `no such table: aux.nolog`.
-
-## 3. What landed — run-40's firing residual is cleared
-
-| Behaviour | Evidence |
+| Seam | What's real now |
 | --- | --- |
-| Fire + body write | `INSERT INTO aux.t` fires `aux.trg`; unqualified body writes real `aux.log` rows (single, multi-row, expression, WHEN-gated) |
-| Collision safety | `log` in both schemas → aux trigger writes aux only; main trigger writes main only |
-| Entry paths | fire through qualified `aux.t` and through unqualified `INSERT INTO t` (DML now resolves main-first then attach-order) |
-| Event/timing | AFTER UPDATE, AFTER DELETE, BEFORE INSERT, BEFORE→AFTER order — all on attached tables |
-| Errors | both C error shapes at CREATE; fire-time `no such table: aux.X`; run-40 fixation guard (qualified body rejected) stays green |
-| Teardown | DETACH removes attached triggers (no ghost after re-ATTACH); per-schema `sqlite_master` real (bare = main only, like C) |
-| Two schemas | independent triggers fire into their own logs |
+| status64 global | ops 0..9 all answer (out-of-range → MISUSE 21): MEMORY_USED (existing), **MALLOC_SIZE / MALLOC_COUNT** (real allocator largest-alloc + outstanding count), **PAGECACHE_OVERFLOW / PAGECACHE_SIZE** (real bytes of db file images held/flushed); **SCRATCH_\*/PARSER_STACK/PAGECACHE_USED exact zeros** (NOT USED on the pin — no tracking invented); resetFlag re-arms highwater; **sqlite3_status 32-bit twin** added |
+| db_status | ops 0..12 all answer (bad op → ERROR 1): **CACHE_USED(_SHARED) / SCHEMA_USED / STMT_USED** real byte footprints with highwater 0 like C (STMT_USED goes 0→pos→0 across prepare/finalize); **CACHE_HIT / MISS / WRITE** wired to modern's real I/O events (miss = actual file-image load, write = actual flush, hit = memory-served read; magnitudes not claimed — ADR 0032); **DEFERRED_FKS** = on-demand deferred-FK violation scan, pinned exactly 0→1→0 around a deferred txn |
+| honesty line | **lookaside**: C's default build runs one (probe: 6/50 used, 249 hits); modern has none — LOOKASIDE ops stay honest-zero / run-38 vacuous predicates; fabricating positives = greenwash, refused |
 
-Incidental honest fixes forced by pins: missing-table DML errors now carry the qualified
-name (`no such table: aux.t`); a plain `SELECT` trigger-body statement compiles as a no-op
-so ON validation happens at CREATE like C.
+## 3. Pragmas / TVFs landed
+
+- Dispatcher: `data_version` (own writes don't bump; **sibling commits do**),
+  `schema_version` +1 per DDL, `freelist_count`, `collation_list` (live registry,
+  newest-first), `table_xinfo` / `index_info` / `index_xinfo` (incl. C's rowid row),
+  **`query_only` enforced** (write → `attempt to write a readonly database`, rc 8),
+  **`ignore_check_constraints` enforced**, **`quick_check` really validates CHECKs**
+  (pinned `CHECK constraint failed in u` via a row smuggled in under icc),
+  **unknown pragma names silently ignored** (get + set — the classic trap; modern used
+  to error).
+- TVFs: `pragma_collation_list`, `pragma_table_xinfo`, `pragma_index_info`,
+  `pragma_compile_options` (the v32 38-entry fingerprint), bare + parenthesized forms.
+- Skipped honestly: `pragma_module_list` — the probe showed C fills it lazily with
+  whichever pragma vtabs the session has touched; pinning that is fragile (ADR note).
 
 ## 4. Flips table
 
 | Card | Before | After | Why |
 | --- | --- | --- | --- |
-| attach-detach-003 | partial (firing residual) | **partial** (residual cleared, new precise text) | firing real; leftovers named: TEMP-trigger cross-schema fire matrix, non-INSERT trigger bodies, URI/lock/txn edges |
-| attach-detach-001 | partial | partial (note) | pin-forced deepen: unqualified DML resolution into attached schemas |
-| engine-attach33-001/002/003/004 | — | **full** (composed) | exact frozen batches (8 + 7 + 4 + 1 cases) |
+| error-status-api-003 | partial (op-matrix residual) | **partial** (residual shrunk to named leftovers) | full valid-op matrices real; leftovers: lookaside positives, CACHE_SPILL under pressure, stmt_status/scanstatus |
+| pragma-surface-001 | partial (~27 of ~70) | **partial (~40 of ~70)** | dispatcher batch + two enforcements + silent-unknown |
+| pragma-surface-002 | partial (registries deferred) | **partial** (residual shrunk) | 4 TVFs landed; module_list deferred with reason |
+| engine-status34-001/002 | — | **full** (composed) | exact frozen batches (6 + 8) |
+| engine-pragma34-001/002 | — | **full** (composed) | exact frozen batches (9 + 4) |
 
 ## 5. Anti-cheat + goldens
 
-- 20 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-attach33/`), two-run
-  deterministic; prior 686 goldens untouched.
-- 2 anti-cheat tests: runtime schema/table/trigger names with a runtime payload written
-  by the fired body into the attached log; collision + DETACH-ghost check with runtime
-  values.
-- SCRIPT_TABLE.len()==0; no cheat sheet — fired rows land in the real attached store.
+- 27 new HUMAN_ACCEPTED goldens (`engine-status34/`, `engine-pragma34/`), two-run
+  deterministic; prior 706 goldens untouched.
+- 3 anti-cheat tests: runtime-sized allocation must move MEMORY_USED by ≥ that size and
+  a runtime-named table must grow SCHEMA_USED (hi stays 0); runtime pragma value + runtime
+  column name round-trip through dispatcher and TVF; bad ops still fail and a
+  runtime-registered collation appears at seq 0 of collation_list (live registry).
+- SCRIPT_TABLE.len()==0.
 
 ## 6. cargo
 
-`cargo test` (modern): **739 passed / 0 failed** (was 717; +22 attach33 twins/anti-cheat).
-attach30 / none29 / compile32 / vtab31 / harvest / ANALYZE / conn / blob / vacuum / WAL all green.
+`cargo test` (modern): **750 passed / 0 failed** (was 739; +11 status34 twins/anti-cheat).
+attach33 / compile32 / vtab31 / attach30 / none29 / harvest / ANALYZE / conn / blob /
+vacuum / WAL all green — including after the silent-unknown-pragma and main-only
+bare-sqlite_master behavior corrections.
 
 ## 7. Scoreboard
 
-before → after: **141 full / 62 partial / 79 none of 282** → **145 full / 62 partial / 79 none of 286**
-(the four new composed cards are the full-count movement; attach-detach-003 stays an
-honest partial with its residual text rewritten).
+before → after: **145 full / 62 partial / 79 none of 286** → **149 full / 62 partial / 79 none of 290**
+(four new composed fulls; the three deepened cards stay honest partials with shrunk,
+precisely named residuals).
 
 ## 8. Not migrated
 
-SQLite is NOT migrated. Left out on purpose: TEMP-trigger cross-schema fire matrix,
-trigger bodies beyond INSERT..VALUES/RAISE/no-op SELECT, URI/encryption ATTACH maze,
-DETACH-locked edges, cross-schema txn joins, xBestIndex pushdown, planner, unlock-notify
-(absent on pin), WAL depth, wasm/jni/vfs/FTS/rtree/session.
+SQLite is NOT migrated. Not claimed: lookaside allocator, SCRATCH tracking, CACHE_SPILL
+pressure paths, stmt_status/scanstatus, the remaining ~30 pragmas, pragma_module_list,
+integrity_check corruption taxonomy, xBestIndex pushdown, planner, unlock-notify (absent
+on pin), WAL depth, wasm/jni/vfs/FTS/rtree/session.
 
 ## 9. Next call (pick one)
 
 1. **xBestIndex deepen** — real constraint offers to vtab modules (EQ pushdown + HIDDEN
    argv path), cutting the vtab-core-002 residual.
-2. **status matrix** — sqlite3_status/status64 beyond what conn/malloc runs pinned.
-3. **another present-core none** — sweep COVERAGE for the next honest none-cutter.
+2. **stmt_status thin slice** — FULLSCAN_STEP/VM_STEP/RUN on pinned statements
+   (the natural sequel to this run's matrix).
+3. **another present-core none** — sweep COVERAGE's 79 for the next honest cutter.
