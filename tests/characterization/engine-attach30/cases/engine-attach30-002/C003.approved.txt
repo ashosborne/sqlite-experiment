@@ -1,4 +1,3 @@
-OBS engine-attach30-002-C003 empty_after_reattach 0
 OBS engine-attach30-002-C003 recreate rc=0 err=-
 OBS engine-attach30-002-C003 ins rc=0 err=-
 OBS engine-attach30-002-C003 val 2

@@ -6202,7 +6202,7 @@ behaviours:
   pack_version: 29
   traceability: tests/characterization/engine-none29/TRACEABILITY.yaml
   notes: run-39 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-13 (run-39 delegated stamp)
-last_updated: '2026-08-12T18:12:21Z'
+last_updated: '2026-08-12T18:21:01Z'
 updated_by: sqlite-engine-v30-attached-schema
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until

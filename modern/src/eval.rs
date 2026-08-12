@@ -1358,9 +1358,12 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                 return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
             "pragma_index_list" => { let n = *ctx.index_counts.get(&arg).unwrap_or(&0);
                 return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
-            "pragma_database_list" => { let mut rows = vec![{ let mut m=Row::new(); m.insert("name".into(), V::Text("main".into())); m }];
-                for a in &ctx.conn.attached { let mut m=Row::new(); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
-                return Ok((vec!["name".into()], rows)); }
+            "pragma_database_list" => {
+                let mut rows = Vec::new();
+                let mut seq = 0i64;
+                { let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text("main".into())); rows.push(m); }
+                for a in &ctx.conn.attached { seq += 1; let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
+                return Ok((vec!["seq".into(), "name".into()], rows)); }
             "completion" => {
                 let mut cands: std::collections::BTreeSet<String> = SQL_KEYWORDS.iter().map(|k| k.to_string()).collect();
                 for tn in ctx.tables.keys() { cands.insert(tn.clone()); }
@@ -1402,9 +1405,11 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         return Ok((vec!["name".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_database_list") {
-        let mut rows = vec![{ let mut m=Row::new(); m.insert("name".into(), V::Text("main".into())); m }];
-        for a in &ctx.conn.attached { let mut m=Row::new(); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
-        return Ok((vec!["name".into()], rows));
+        let mut rows = Vec::new();
+        let mut seq = 0i64;
+        { let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text("main".into())); rows.push(m); }
+        for a in &ctx.conn.attached { seq += 1; let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
+        return Ok((vec!["seq".into(), "name".into()], rows));
     }
     // view: expand its stored SELECT (real re-execution, not a cache)
     if let Some(vsql) = ctx.views.get(f) {
@@ -2223,11 +2228,15 @@ fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<
                 }
                 wi += 1;
             }
-            let ci = name.parse::<usize>().map(|n| n - 1).unwrap_or_else(|_| {
-                colnames.iter().position(|c| *c == name)
-                    .or_else(|| colnames.iter().position(|c| c.rsplit('.').next() == name.rsplit('.').next()))
-                    .unwrap_or(0)
-            });
+            // run-40: an ORDER BY name that isn't a projected column or ordinal is
+            // skipped (stable) instead of defaulting to column 0 (which mis-sorted
+            // e.g. `SELECT name FROM pragma_database_list ORDER BY seq`)
+            let ci = match name.parse::<usize>() {
+                Ok(n) => Some(n - 1),
+                Err(_) => colnames.iter().position(|c| *c == name)
+                    .or_else(|| colnames.iter().position(|c| c.rsplit('.').next() == name.rsplit('.').next())),
+            };
+            let ci = match ci { Some(ci) => ci, None => continue };
             // declared column collation applies when no explicit COLLATE is given
             if coll.is_none() {
                 if let Some(cn) = colnames.get(ci) {

@@ -250,6 +250,7 @@ pub unsafe extern "C" fn sqlite3_close_v2(db: *mut Sqlite3) -> c_int {
 /// full teardown, shared by close / close_v2-zombie completion (run-36)
 pub(crate) unsafe fn conn_teardown(db: *mut Sqlite3) {
     fire_trace(db as usize, 8 /* SQLITE_TRACE_CLOSE */, db as *mut c_void, std::ptr::null_mut());
+    store::save_attached(db as usize); // run-40: persist file-backed attached schemas
     store::save_file(db as usize); // run-15: persist file-backed connections before teardown
     store::release_file_lock(db as usize); // run-36: drop any held write lock
     store::drop_store(db as usize);

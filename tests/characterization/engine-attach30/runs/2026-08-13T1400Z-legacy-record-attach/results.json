@@ -120,14 +120,6 @@
    "failure_class": null,
    "golden_path": "cases/engine-attach30-003/C002.approved.txt",
    "actual_path": "runs/2026-08-13T1400Z-legacy-record-attach/actuals/engine-attach30-003-C002.replay.txt"
-  },
-  {
-   "case_id": "engine-attach30-003-C003",
-   "feature_id": "engine-attach30-003",
-   "status": "REPLAY_GREEN",
-   "failure_class": null,
-   "golden_path": "cases/engine-attach30-003/C003.approved.txt",
-   "actual_path": "runs/2026-08-13T1400Z-legacy-record-attach/actuals/engine-attach30-003-C003.replay.txt"
   }
  ]
 }

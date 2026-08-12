@@ -254,6 +254,62 @@ pub fn release_file_lock(db: usize) {
     }
 }
 
+thread_local! {
+    // run-40: file-backed attached schemas: db -> (schema -> path)
+    static ATTACHED_PATHS: RefCell<HashMap<usize, HashMap<String, PathBuf>>> = RefCell::new(HashMap::new());
+}
+
+/// build a DbImage containing only one attached schema's tables (bare-named)
+fn attached_image(st: &Store, schema: &str) -> DbImage {
+    let pfx = format!("{schema}.");
+    let tables: Vec<TableImage> = st.tables.iter().filter(|(n, _)| n.starts_with(&pfx)).map(|(n, tt)| {
+        let bare = &n[pfx.len()..];
+        let sql = if tt.create_sql.is_empty() {
+            format!("CREATE TABLE {}({})", bare, tt.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
+        } else {
+            // rewrite the qualified name in the stored CREATE to the bare form for the sub-file
+            tt.create_sql.replacen(&format!("{schema}.{bare}"), bare, 1)
+        };
+        TableImage { name: bare.to_string(), sql, rows: tt.rows.clone() }
+    }).collect();
+    DbImage { tables, triggers: Vec::new(), indexes: Vec::new() }
+}
+
+/// load a parsed sub-file image into a schema's `schema.tbl` keys
+fn load_attached_image(st: &mut Store, schema: &str, img: DbImage) {
+    for ti in img.tables {
+        let key = format!("{schema}.{}", ti.name);
+        let inner = ti.sql.find('(').and_then(|o| ti.sql.rfind(')').map(|c| (o, c)));
+        let cols = match inner { Some((o, c)) if c > o => parse_coldefs(&ti.sql[o + 1..c]).unwrap_or_default(), _ => Vec::new() };
+        let cols = if cols.is_empty() {
+            ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
+        } else { cols };
+        let mut tab = Table { cols, create_sql: format!("CREATE TABLE {}({})", key,
+            "").to_string(), ..Default::default() };
+        // keep a create_sql that names the key so ipk/coldef parsing still works
+        tab.create_sql = ti.sql.replacen(&ti.name, &key, 1);
+        let mut maxr = 0i64;
+        for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
+        tab.next_rowid = maxr;
+        st.catalog.push(("table".into(), key.clone()));
+        st.tables.push((key, tab));
+    }
+}
+
+/// save all file-backed attached schemas for this connection (called at close)
+pub fn save_attached(db: usize) {
+    let paths = ATTACHED_PATHS.with(|m| m.borrow().get(&db).cloned());
+    if let Some(paths) = paths {
+        for (schema, pb) in paths {
+            with_store(db, |st| {
+                let img = attached_image(st, &schema);
+                let _ = dbfile::write_db(&pb, &img);
+            });
+        }
+    }
+    ATTACHED_PATHS.with(|m| { m.borrow_mut().remove(&db); });
+}
+
 fn wal_sidecar(pb: &std::path::Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{}", pb.display(), suffix))
 }
@@ -489,7 +545,9 @@ pub fn build_image(db: usize) -> DbImage {
 fn image_of(st: &Store) -> DbImage {
     {
         let st = &*st;
-        let tables: Vec<TableImage> = st.tables.iter().map(|(n, t)| {
+        // run-40: only main-schema (bare-name) tables belong in the main db file;
+        // attached-schema tables (`sch.tbl`) persist to their own attached files
+        let tables: Vec<TableImage> = st.tables.iter().filter(|(n, _)| !n.contains('.')).map(|(n, t)| {
             let sql = if t.create_sql.is_empty() {
                 format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
             } else { t.create_sql.clone() };
@@ -499,7 +557,7 @@ fn image_of(st: &Store) -> DbImage {
             .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
             .collect();
         let mut indexes: Vec<dbfile::IndexImage> = Vec::new();
-        for (n, t) in &st.tables {
+        for (n, t) in st.tables.iter().filter(|(n, _)| !n.contains('.')) {
             let ipk = dbfile::ipk_index(&t.create_sql);
             let rowid_of = |rid: i64, vals: &Vec<Val>| -> i64 {
                 match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid }
@@ -648,9 +706,20 @@ fn parse_literal(tok: &str) -> Option<Val> {
     None
 }
 
+fn is_plain_ident(s: &str) -> bool { !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') }
+
 fn ident(s: &str) -> Option<String> {
     let t = s.trim();
-    // run-38: quoted identifiers "x" / [x] / `x` (keywords usable as names)
+    // run-40: schema-qualified table name schema.table (main/temp -> bare key)
+    if let Some((sch, tbl)) = t.split_once('.') {
+        let sch = sch.trim(); let tbl = tbl.trim();
+        if is_plain_ident(sch) && is_plain_ident(tbl) {
+            if sch.eq_ignore_ascii_case("main") || sch.eq_ignore_ascii_case("temp") {
+                return Some(tbl.to_string());
+            }
+            return Some(format!("{sch}.{tbl}"));
+        }
+    }
     if t.len() >= 2 {
         let b = t.as_bytes();
         if (b[0] == b'"' && b[t.len()-1] == b'"') || (b[0] == b'`' && b[t.len()-1] == b'`') {
@@ -692,6 +761,8 @@ enum Stmt {
     AddColumn { table: String, col: String, default: Option<Val> },
     Vacuum { into: Option<String> },
     Analyze { target: Option<String> },
+    Attach { schema: String, path: String },
+    Detach { schema: String },
     CreateVtab { name: String, module: String },
     // Begin.immediate: BEGIN IMMEDIATE/EXCLUSIVE takes the file write lock now (run-36)
     // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
@@ -966,8 +1037,25 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     if up.starts_with("CREATE VIEW ") {
         let rest = &s["CREATE VIEW ".len()..];
         let ap = rest.to_ascii_uppercase().find(" AS ")?;
-        let name = ident(&rest[..ap])?;
-        return Some(Stmt::CreateView { name, body: rest[ap + 4..].trim().to_string(), sql: s.trim().to_string() });
+        let raw_name = rest[..ap].trim();
+        let name = ident(raw_name)?;
+        let body = rest[ap + 4..].trim().to_string();
+        // run-40: a view in an attached schema cannot reference another schema (C rule)
+        if let Some((sch, bare)) = raw_name.split_once('.') {
+            let sch = sch.trim(); let bare = bare.trim().trim_matches('"');
+            if !sch.eq_ignore_ascii_case("main") && !sch.eq_ignore_ascii_case("temp") {
+                let bu = body.to_ascii_uppercase();
+                for other in ["MAIN.", "TEMP."] {
+                    if bu.contains(other) {
+                        let od = other.trim_end_matches('.').to_ascii_lowercase();
+                        if !sch.eq_ignore_ascii_case(&od) {
+                            return Some(Stmt::TriggerReject { msg: format!("view {bare} cannot reference objects in database {od}") });
+                        }
+                    }
+                }
+            }
+        }
+        return Some(Stmt::CreateView { name, body, sql: s.trim().to_string() });
     }
     if up.starts_with("DROP VIEW ") {
         return Some(Stmt::DropView { name: ident(&s["DROP VIEW ".len()..])? });
@@ -1119,6 +1207,24 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     if up == "VACUUM" {
         return Some(Stmt::Vacuum { into: None });
     }
+    if up.starts_with("ATTACH ") {
+        // ATTACH [DATABASE] '<path>' AS <schema>
+        let rest = s["ATTACH ".len()..].trim();
+        let rest = rest.strip_prefix("DATABASE ").or_else(|| rest.strip_prefix("database ")).unwrap_or(rest).trim();
+        if let Some(ap) = rest.to_ascii_uppercase().find(" AS ") {
+            let path = rest[..ap].trim().trim_matches('\'').trim_matches('"').to_string();
+            let schema = ident(rest[ap + 4..].trim())?;
+            return Some(Stmt::Attach { schema, path });
+        }
+        return None;
+    }
+    if up.starts_with("DETACH ") {
+        let rest = s["DETACH ".len()..].trim();
+        let rest = rest.strip_prefix("DATABASE ").or_else(|| rest.strip_prefix("database ")).unwrap_or(rest).trim();
+        let schema = ident(rest)?;
+        return Some(Stmt::Detach { schema });
+    }
+
     if up == "ANALYZE" {
         return Some(Stmt::Analyze { target: None });
     }
@@ -1725,6 +1831,29 @@ pub fn index_for(db: usize, table: &str, col: &str) -> Option<String> {
 
 /// single-column index maps for the eval probe path: table -> [(col, key_str -> row positions)].
 /// key positions index into the snapshot's row vector (built alongside `snap`).
+/// run-40: eval table snapshot including schema aliases. Attached tables are keyed
+/// `sch.tbl`; also exposed unqualified when main has no same-named table, and main
+/// tables are also exposed as `main.tbl`, so eval resolves qualified + unqualified.
+fn eval_snapshot(st: &Store) -> std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> {
+    let mut m: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> = Default::default();
+    for (n, tt) in &st.tables {
+        let cols: Vec<String> = tt.cols.iter().map(|c| c.name.clone()).collect();
+        let rows: Vec<Vec<eval::V>> = tt.rows.iter().map(|(_, r)| r.iter().map(val_to_ev).collect()).collect();
+        m.insert(n.clone(), (cols, rows));
+    }
+    // aliases (separate pass so ambiguity favours main/base tables)
+    let keys: Vec<String> = m.keys().cloned().collect();
+    for n in keys {
+        if let Some((_, tbl)) = n.split_once('.') {
+            if !m.contains_key(tbl) { let v = m[&n].clone(); m.insert(tbl.to_string(), v); }
+        } else {
+            let q = format!("main.{n}");
+            if !m.contains_key(&q) { let v = m[&n].clone(); m.insert(q, v); }
+        }
+    }
+    m
+}
+
 /// declared column collations (lower colname -> lower collation name) for eval's
 /// COLLATE resolution; pinned scope assumes unambiguous column names across tables
 fn build_coll_snapshot(st: &Store) -> std::collections::HashMap<String, String> {
@@ -1952,10 +2081,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
     let rowid_kitchen = up.contains("ROWID") && matches!(parse_stmt(s), Some(Stmt::Select { .. }));
     if up.starts_with("SELECT") && !master && !rowid_kitchen {
         return with_store(db, |st| {
-            let snap: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> =
-                st.tables.iter().map(|(n, t)| (n.clone(),
-                    (t.cols.iter().map(|c| c.name.clone()).collect(),
-                     t.rows.iter().map(|(_, r)| r.iter().map(val_to_ev).collect()).collect()))).collect();
+            let snap = eval_snapshot(st);
             let fk: std::collections::HashMap<String, usize> = st.tables.iter()
                 .map(|(n, t)| (n.clone(), t.cols.iter().filter(|c| c.references.is_some()).count())).collect();
             let idx: std::collections::HashMap<String, usize> = {
@@ -2010,10 +2136,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Some(st2) if kitchen_ok => st2,
                 _ => {
                     // not a kitchen statement -> real expression/pragma/attach evaluator (pack v8)
-                    let snap: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> =
-                        st.tables.iter().map(|(n, t)| (n.clone(),
-                            (t.cols.iter().map(|c| c.name.clone()).collect(),
-                             t.rows.iter().map(|(_, r)| r.iter().map(val_to_ev).collect()).collect()))).collect();
+                    let snap = eval_snapshot(st);
                     let fk: std::collections::HashMap<String, usize> = st.tables.iter()
                         .map(|(n, t)| (n.clone(), t.cols.iter().filter(|c| c.references.is_some()).count())).collect();
                     let idx: std::collections::HashMap<String, usize> = {
@@ -2125,6 +2248,45 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                         }
                     }
+                }
+                Stmt::Attach { schema, path } => {
+                    // run-40: open a real second schema slot (in-memory or file-backed)
+                    let low = schema.to_ascii_lowercase();
+                    if low == "main" || low == "temp"
+                        || st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(&schema)) {
+                        return Err(format!("database {schema} is already in use"));
+                    }
+                    st.conn.attached.push(schema.clone());
+                    if path != ":memory:" && !path.is_empty() {
+                        let pb = std::path::PathBuf::from(&path);
+                        ATTACHED_PATHS.with(|m| { m.borrow_mut().entry(db).or_default().insert(schema.clone(), pb.clone()); });
+                        if pb.exists() {
+                            if let Ok(img) = dbfile::read_db(&pb) {
+                                load_attached_image(st, &schema, img);
+                            }
+                        }
+                    }
+                }
+                Stmt::Detach { schema } => {
+                    let low = schema.to_ascii_lowercase();
+                    if low == "main" || low == "temp" {
+                        return Err(format!("cannot detach database {schema}"));
+                    }
+                    if !st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(&schema)) {
+                        return Err(format!("no such database: {schema}"));
+                    }
+                    // persist a file-backed attachment before dropping it
+                    let pb = ATTACHED_PATHS.with(|m| m.borrow().get(&db).and_then(|mm| mm.get(&schema).cloned()));
+                    if let Some(pb) = pb {
+                        let img = attached_image(st, &schema);
+                        let _ = dbfile::write_db(&pb, &img);
+                    }
+                    let pfx = format!("{schema}.");
+                    st.tables.retain(|(n, _)| !n.starts_with(&pfx));
+                    st.catalog.retain(|(_, n)| !n.starts_with(&pfx));
+                    st.indexes.retain(|d| !d.table.starts_with(&pfx));
+                    st.conn.attached.retain(|a| !a.eq_ignore_ascii_case(&schema));
+                    ATTACHED_PATHS.with(|m| { if let Some(mm) = m.borrow_mut().get_mut(&db) { mm.remove(&schema); } });
                 }
                 Stmt::Vacuum { into } => {
                     // run-34: a real rebuild — not a script answer. C refuses inside a txn.

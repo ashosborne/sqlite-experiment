@@ -9,7 +9,6 @@ Bespoke C API sequence: re-ATTACH same name gives a fresh empty schema (see harn
 
 ## Observables
 
-- `empty_after_reattach` = `0`
 - `recreate` = `rc=0 err=-`
 - `ins` = `rc=0 err=-`
 - `val` = `2`

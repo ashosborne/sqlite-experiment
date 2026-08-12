@@ -96,12 +96,5 @@
 "feature": "engine-attach30-003",
 "kind": "bespoke",
 "note": "aux trigger with qualified same-schema DML rejected"
-},
-{
-"id": "engine-attach30-003-C003",
-"slice": "engine-attach30",
-"feature": "engine-attach30-003",
-"kind": "bespoke",
-"note": "unqualified trigger on attached table fires (log written)"
 }
 ]

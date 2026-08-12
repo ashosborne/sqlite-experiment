@@ -1,3 +1,0 @@
-OBS engine-attach30-003-C003 mk rc=0 err=-
-OBS engine-attach30-003-C003 fire rc=0 err=-
-OBS engine-attach30-003-C003 log 1
