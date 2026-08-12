@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T13:55:21Z
+- Generated: 2026-08-12T16:06:24Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T04:30:00Z by `sqlite-engine-v25-blob-io`
+- Manifest last_updated: 2026-08-13T06:30:00Z by `sqlite-engine-v26-connection-lifecycle`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 97 | Not started in modern |
-| partial | 48 | Some modern execution; gaps in notes |
-| full (converted) | 115 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 94 | Not started in modern |
+| partial | 51 | Some modern execution; gaps in notes |
+| full (converted) | 118 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -135,6 +135,9 @@
 - `engine-blob-001` — blob handle lifecycle
 - `engine-blob-002` — incremental read/write, bounds, expiry
 - `engine-blob-003` — durable blob I/O + C interop
+- `engine-conn-001` — close / close_v2 handle tracking
+- `engine-conn-002` — busy handling over the file write lock
+- `engine-conn-003` — commit/update hooks + trace_v2
 
 ### Partial in modern
 
@@ -149,6 +152,9 @@
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
+- `connection-lifecycle-api-002` — confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie connection). run-36: PARTIAL - close refuses (rc 5, exact errmsg) while statements or blob handles live; close_v2 zombies and tears down at the last finalize/blob_close; NULL no-ops; open-txn close rolls back. RESIDUAL: unfinished sqlite3_backup coupling and the post-close MISUSE matrix are unpinned (use-after-close is UB territory - deliberately not frozen).
+- `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
+- `connection-lifecycle-api-004` — confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour unpinned; legacy sqlite3_trace/profile not implemented.
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
@@ -198,9 +204,6 @@
 - `compile-options-omit-enable-001` — compile-options-omit-enable — legacy_green no
 - `compile-options-omit-enable-002` — compile-options-omit-enable — legacy_green no
 - `compile-options-omit-enable-003` — compile-options-omit-enable — legacy_green no
-- `connection-lifecycle-api-002` — connection-lifecycle-api — legacy_green no
-- `connection-lifecycle-api-003` — connection-lifecycle-api — legacy_green no
-- `connection-lifecycle-api-004` — connection-lifecycle-api — legacy_green no
 - `error-status-api-003` — error-status-api — legacy_green no
 - `exec-convenience-api-002` — exec-convenience-api — legacy_green no
 - `expert-001` — expert — legacy_green no
@@ -291,25 +294,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 230 |
-| Behaviours known | 260 |
+| Surfaces total | 231 |
+| Behaviours known | 263 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 170 |
+| legacy_green flags | 173 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 45 |
+| accepted | 46 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 115 |
+| converted | 118 |
 | documented | 145 |
 
 ## Surfaces per slice
@@ -332,6 +335,7 @@
 | engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |
+| engine-conn | 1 |
 | engine-constraints | 1 |
 | engine-datetime | 1 |
 | engine-ddl2 | 1 |

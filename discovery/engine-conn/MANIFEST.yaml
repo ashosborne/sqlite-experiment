@@ -1,0 +1,14 @@
+slice_id: engine-conn
+app_id: sqlite-experiment
+created_by: sqlite-engine-v26-connection-lifecycle
+created_at: 2026-08-13T06:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed connection-lifecycle slice (run 36): close/close_v2 handle tracking,
+  busy handling over the in-process file write lock, and commit/update/trace
+  callbacks, frozen on the pinned C baseline (pack v26 / ADR 0024).
+features:
+  - engine-conn-001
+  - engine-conn-002
+  - engine-conn-003

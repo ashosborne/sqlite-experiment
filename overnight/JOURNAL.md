@@ -617,3 +617,28 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Scoreboard full 112→115 / partial 48 / none 97 (260 known). cargo 565/565.
   528 prior goldens md5-identical.
 
+## Run 36 — 2026-08-13 — engine v26: connection lifecycle (pack v26)
+
+- Pack v25→v26 BOUND (+versions/26, ADR 0024): CONNECTION LIFECYCLE LAW.
+- 22 goldens (engine-conn-001 x6 close/close_v2, -002 x6 busy, -003 x10 hooks/trace;
+  harness /tmp/conn_harness.c). C truths: close rc 5 exact errmsg (blob handles count;
+  reset does not unblock); close_v2 zombie keeps stmts usable; open-txn close rolls
+  back; busy handler counts 1/3 + "database is locked"; timeout<->handler exclusivity;
+  update_hook [op main tbl rowid]; commit_hook 3-fire count + abort rc 19; trace
+  STMT text / ROW 3 / CLOSE 1 / PROFILE 2 / mask-0 unset.
+- lib.rs: STMTS/BLOBS/ZOMBIES registries; conn_teardown extraction (TRACE_CLOSE);
+  busy_handler/busy_timeout + busy_should_retry; commit/update/trace registrations
+  with prior-arg returns; trace fires in exec (STMT/PROFILE) + step (ROW).
+- store.rs: in-process FILE_LOCKS (BEGIN IMMEDIATE holds; write statements consult
+  busy loop; COMMIT/ROLLBACK/close release); FILE_VERSIONS + commit-time delete-mode
+  flush + maybe_refresh_from_file sibling reload; commit_flush_pending flag (COMMIT
+  marker moved in an earlier exec); commit_hook consult at Commit arm + snapshot-based
+  autocommit abort; update_hook fires at insert/replace/update/delete with IPK-aliased
+  rowids; rc 5 mapping.
+- Anti-cheat: close-BUSY/finalize cycle, pid-seeded update_hook log, runtime
+  commit_hook abort. 550 prior goldens md5-identical.
+- Flips (under-claimed): connection-lifecycle-api-002/003/004 none→partial (residuals
+  precise: backup coupling, single-process lock model, trace granularity);
+  engine-conn-001/002/003 new composed full. Stretch skipped.
+- Scoreboard full 115→118 / partial 51 / none 94 (263 known). cargo 589/589.
+

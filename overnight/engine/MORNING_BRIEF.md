@@ -1,78 +1,72 @@
-# MORNING BRIEF — engine v25: incremental blob I/O (run 35)
+# MORNING BRIEF — engine v26: connection lifecycle (run 36)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–34 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v25-blob-io, DEEPEN_WAL/VACUUM: false.
-MAX_NEW_CASES 55 (used 22; stretch batches skipped — blob alone was the run).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–35 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v26-connection-lifecycle,
+DEEPEN_WAL/VACUUM/BLOB: false. MAX_NEW_CASES 60 (used 22; stretch skipped).
 REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @25 BOUND — blob I/O law
+## 1. Pack @26 BOUND — connection lifecycle law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v24 → **v25**
-(versions/1–25 retained; ADR `0023-engine-v25-blob-io.md`; schema VALID; 31 laws).
-Plain language: open a handle on one cell, read/write bytes at an offset, the handle
-dies if the row changes underneath it, and writes can never resize the cell. Serving
-blob bytes from a canned map is a SCOPE_VIOLATION. WAL stays at v22; VACUUM at v24.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v25 → **v26**
+(versions/1–26 retained; ADR `0024-engine-v26-connection-lifecycle.md`; schema VALID;
+32 laws). Plain language: a connection won't close while statements live; close_v2
+says OK and waits; busy handlers sleep and retry against a real (in-process) write
+lock; and hooks fire on commit, row change, and trace events. WAL stays at v22,
+VACUUM at v24, blob at v25.
 
-## 2. What blob handles now do in modern
+## 2. What landed (esp. busy honesty)
 
-| Behaviour | Evidence |
+| Piece | Behaviour |
 | --- | --- |
-| Open on (schema, table, column, rowid) | C's exact validation order + error text: `cannot open view: v` → `no such table: main.nope` → `no such column: "zz"` → `cannot open indexed column for writing` (RW only; RO allowed) → `no such rowid: 99` → `cannot open value of type null` (all pinned) |
-| rowid aliases INTEGER PRIMARY KEY | pinned (handles opened by id on IPK tables) |
-| bytes | live length; 0 after expiry (pinned) |
-| read | full + offset slices; out-of-range / negative → rc 1 "SQL logic error", buffer untouched, no partial transfer (pinned) |
-| write | at offset, visible to SQL, length unchanged; read-only handle → rc 8; write past end refused; zeroblob(N) preallocate + interior write (all pinned) |
-| reopen | repositions to another rowid; missing rowid errors + aborts the handle (pinned) |
-| expiry | UPDATE or DELETE of the row on the same connection → rc 4 "query aborted", bytes → 0 (pinned both ways) |
-| durable + interop | handle writes persist across reopen (integrity ok); WAL-mode files work without deepening WAL |
-| text cells | open + read fine ("texty", pinned) |
-
-One engine hole opened by the pins: `UPDATE ... SET d = zeroblob(4)` — constant
-expressions on the right-hand side now evaluate (mirrors run-34's INSERT fix).
+| close | refuses (rc 5, exact C errmsg) while prepared statements **or blob handles** live; reset does not unblock; finalize/blob_close do (pinned) |
+| close_v2 | returns OK, zombies; the statement stays usable (pinned read-after-close_v2); real teardown at the last handle release |
+| open-txn close | rolls back — pinned via file reopen |
+| **busy (the honesty story)** | a NEW in-process per-file write lock: BEGIN IMMEDIATE holds it, a second connection's write consults its busy handler with increasing retry counts (1-call and 3-call shapes pinned) or sleeps under busy_timeout, then fails rc 5 "database is locked"; handler ⟷ timeout mutually exclusive (pinned); COMMIT releases and the blocked write succeeds. **C's cross-process locking is NOT claimed** — this is the single-process regime only, and the card says so |
+| cross-conn visibility | committed state now flushes to the file at COMMIT (C's durability point) and sibling connections reload before their next statement (only with no local writes / no open txn) |
+| commit_hook | fires per committed txn (2 autocommits + 1 explicit = 3, pinned); non-zero turns COMMIT into a rollback (rc 19 "constraint failed", autocommit restored, data unchanged); autocommit aborts use a pre-statement snapshot; replacement returns the prior argument |
+| update_hook | (op 18/23/9, "main", table, rowid) with IPK-aliased rowids (pinned log); unset stops fires and returns the prior argument |
+| trace_v2 | STMT sees statement text; ROW per delivered row; CLOSE once at teardown; PROFILE per completed statement (counts); mask 0 unsets |
 
 ## 3. Flips table
 
 | Card | Before | After | Residual |
 | --- | --- | --- | --- |
-| blob-io-api-001 | none | **partial** | attached-schema / UTF-16 name forms, WITHOUT ROWID targets, open-inside-transaction interactions — unpinned |
-| blob-io-api-002 | none | **partial** | expiry granularity is connection-write, not per-row like C (every pinned case modifies the handle's own row, so the pins cannot tell — the card says so); TEXT-cell writes unpinned |
-| engine-blob-001/002/003 | — | **new full ×3** | composed cards for exactly the frozen batches |
+| connection-lifecycle-api-002 | none | **partial** | backup-handle close coupling; post-close MISUSE matrix (use-after-close is UB — deliberately unfrozen) |
+| connection-lifecycle-api-003 | none | **partial** | single-process lock model only; no cross-process locking / shared cache / unlock-notify |
+| connection-lifecycle-api-004 | none | **partial** | STMT/PROFILE per exec (not per prepared stmt in multi-statement scripts); WITHOUT ROWID / truncate fast-path; legacy trace/profile |
+| engine-conn-001/002/003 | — | **new full ×3** | composed cards for exactly the frozen batches |
 
-Stretch cards (close_v2, get_table, status counters) skipped per charter.
+connection-lifecycle-api-001 untouched (no thin URI crumb fell out). Stretch skipped.
 
-## 4. Anti-cheat + C interop + cargo
+## 4. Anti-cheat + cargo
 
-- `anti_cheat_blob_runtime` — pid-seeded table + payload, runtime-chosen offset
-  write/read-back, then the expiry proof: touching the row kills the live handle
-  (rc 4, bytes 0). A copied-buffer fake would survive; a script table could not
-  produce the runtime bytes.
-- `rust_blob_write_c_read` — a Rust file whose bytes were written ONLY through a
-  handle is read by the pinned C CLI (integrity ok).
+- `anti_cheat_conn_runtime` — close-BUSY→finalize→close-OK cycle proves live
+  statement tracking; a pid-seeded table name and rowid appear in the update_hook
+  log; a runtime commit_hook abort leaves the runtime row out of the table.
 - `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
-- **cargo test: 565/565 PASS** (was 541; +22 golden twins, +2 anti-cheat/interop).
-  engine-vacuum / engine-wal / upsert-expr / collation / utf16 / harvest23 all green;
-  528 pre-run goldens md5-verified intact.
+- **cargo test: 589/589 PASS** (was 565; +22 golden twins, +2 anti-cheat/guard).
+  engine-blob / engine-vacuum / engine-wal / upsert-expr / collation / utf16 /
+  harvest23 all green; 550 pre-run goldens md5-verified intact.
 
 ## 5. Scoreboard (impl_in_modern) — before → after
 
-| State | Run 34 | Run 35 |
+| State | Run 35 | Run 36 |
 | --- | --- | --- |
-| **full (converted)** | 112 | **115** |
-| partial | 46 | 48 |
-| none (remaining) | 99 | **97** |
-| behaviours known | 257 | 260 |
+| **full (converted)** | 115 | **118** |
+| partial | 48 | 51 |
+| none (remaining) | 97 | **94** |
+| behaviours known | 260 | 263 |
 
-legacy_green 167 → 170. parity_green 0. Nothing `verified`. WAL/VACUUM claims unchanged.
+legacy_green 170 → 173. parity_green 0. Nothing `verified`. WAL/VACUUM/blob unchanged.
 
 ## 6. Not migrated
 
-SQLite is **not migrated**. 115/260 behaviours run honestly in modern for frozen
-scope only. Blob expiry is connection-write granular (documented); no btree/VDBE
-port. Parity UNVERIFIED everywhere (COMPARE never run).
+SQLite is **not migrated**. 118/263 behaviours run honestly in modern for frozen
+scope only. The lock model is in-process; no shared cache, no unlock-notify, no
+cross-process coordination. Parity UNVERIFIED everywhere (COMPARE never run).
 
 ## 7. Next call
 
-1. **connection-lifecycle none crumbs** — close BUSY vs close_v2 zombie
-   (single-process pins), get_table/free_table marshalling, status counters.
-2. **analyze-stats none** — ANALYZE + sqlite_stat1 as real store output.
-3. **vacuum deepen** — URI INTO targets + attached-schema forms to finish vacuum-002.
+1. **analyze-stats none** — ANALYZE + sqlite_stat1 as real store output.
+2. **get_table / status crumbs** — exec-convenience-api-002 + error-status-api-003.
+3. **auth-callback-api-002** — column-read IGNORE → NULL (builds on auth-001).
