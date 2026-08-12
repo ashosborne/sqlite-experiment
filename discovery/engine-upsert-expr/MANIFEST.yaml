@@ -1,0 +1,15 @@
+slice_id: engine-upsert-expr
+app_id: sqlite-experiment
+created_by: sqlite-engine-v21-upsert-expr-targets
+created_at: 2026-08-12T20:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed upsert conflict-target slice (run 31): ON CONFLICT expression-list
+  resolution against UNIQUE indexes (expression / multi-column / partial), plus
+  regression pins for the prior column/PK target surface, frozen on the pinned C
+  baseline. Closes the sole named gap on upsert-001.
+features:
+  - engine-upsert-expr-001
+  - engine-upsert-expr-002
+  - engine-upsert-expr-003

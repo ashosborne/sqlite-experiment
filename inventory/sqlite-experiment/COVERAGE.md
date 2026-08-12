@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T11:47:09Z
+- Generated: 2026-08-12T12:03:38Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T18:30:00Z by `sqlite-engine-v20-create-collation`
+- Manifest last_updated: 2026-08-12T20:30:00Z by `sqlite-engine-v21-upsert-expr-targets`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 49 | Some modern execution; gaps in notes |
-| full (converted) | 88 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 48 | Some modern execution; gaps in notes |
+| full (converted) | 92 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -52,6 +52,7 @@
 - `serialize-memdb-api-001` — Serialize / deserialize byte-image round-trip
 - `triggers-001` — Trigger DDL lifecycle
 - `triggers-002` — Row-trigger firing semantics
+- `upsert-001` — Conflict-target resolution to unique index
 - `upsert-002` — DO UPDATE / DO NOTHING execution
 - `engine-kitchen-001` — Kitchen-spine row round-trip
 - `engine-files-001` — Durable file round-trip
@@ -108,6 +109,9 @@
 - `engine-collation-001` — create_collation[_v2] + registry-driven COMPARE/ORDER BY
 - `engine-collation-002` — column COLLATE + per-connection reopen honesty
 - `engine-collation-003` — collation_needed lazy factory
+- `engine-upsert-expr-001` — expression UNIQUE conflict targets
+- `engine-upsert-expr-002` — prior conflict-target surface regression pins
+- `engine-upsert-expr-003` — partial UNIQUE index targets
 
 ### Partial in modern
 
@@ -156,7 +160,6 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
-- `upsert-001` — conflict targets resolve to PK/UNIQUE columns AND explicit UNIQUE indexes (incl. multi-column, durable); index-EXPRESSION conflict targets still absent
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
 - `window-functions-001` — rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
@@ -271,26 +274,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 225 |
-| Behaviours known | 240 |
+| Surfaces total | 226 |
+| Behaviours known | 243 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 150 |
+| legacy_green flags | 153 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 40 |
+| accepted | 41 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 88 |
-| documented | 152 |
+| converted | 92 |
+| documented | 151 |
 
 ## Surfaces per slice
 
@@ -342,6 +345,7 @@
 | engine-txn | 1 |
 | engine-txnfile | 1 |
 | engine-udf | 1 |
+| engine-upsert-expr | 1 |
 | engine-upsert2 | 1 |
 | engine-upsert3 | 1 |
 | engine-utf16 | 1 |

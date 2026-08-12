@@ -510,3 +510,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   misc-rot13/uint stay full. Scoreboard full 85→88 / partial 49 / none 103 (240 known).
   cargo 469/469.
 
+## Run 31 — 2026-08-12 — engine v21: upsert expression conflict targets (pack v21)
+
+- Pack v20→v21 BOUND (+versions/21, ADR 0019): EXPRESSION-TARGET + EVAL-CONSISTENCY laws.
+- store.rs: Stmt::Insert.target parses ON CONFLICT (<expr-list>) [WHERE <pred>] (was
+  silently DISCARDED pre-run — every target acted catch-all); resolve_upsert_target
+  normalizes case/whitespace and matches UNIQUE IndexDefs (expression/multi-col/partial,
+  WHERE must structurally equal) then PK/UNIQUE cols then uniq_sets; mismatch -> pinned
+  "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint" (rc 1);
+  targeted_conflict routes through index_key_for (v17); non-targeted conflicts abort
+  rc 19 with qualified message (other_conflict_msg).
+- 16 goldens (engine-upsert-expr-001 x10, -002 x4 regressions, -003 x2 partial targets;
+  harness /tmp/upx_harness.c). Batch C partial-WHERE targets frozen (stable pins), not
+  skipped. Rust twin engine_upsert_expr.rs + anti-cheat runtime upsert / mismatch.
+  445 prior goldens md5-identical.
+- Flips: upsert-001 partial→full (sole named gap closed); engine-upsert-expr-001/002/003
+  new full; upsert-002 untouched full. Scoreboard full 88→92 / partial 48 / none 103
+  (243 known). cargo 488/488.
+
