@@ -1,0 +1,3 @@
+OBS engine-harvest23-009-C002 two_stmts_open 0
+OBS engine-harvest23-009-C002 two_stmts_done 1
+OBS engine-harvest23-009-C002 no_trigger 1

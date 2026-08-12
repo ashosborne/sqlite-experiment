@@ -1,0 +1,2 @@
+OBS engine-harvest23-003-C006 len 6
+OBS engine-harvest23-003-C006 out ===abc

@@ -1,0 +1,12 @@
+OBS engine-harvest23-006-C001 e0 not an error
+OBS engine-harvest23-006-C001 e1 SQL logic error
+OBS engine-harvest23-006-C001 e5 database is locked
+OBS engine-harvest23-006-C001 e14 unable to open database file
+OBS engine-harvest23-006-C001 e19 constraint failed
+OBS engine-harvest23-006-C001 e21 bad parameter or other API misuse
+OBS engine-harvest23-006-C001 e23 authorization denied
+OBS engine-harvest23-006-C001 e25 column index out of range
+OBS engine-harvest23-006-C001 e100 another row available
+OBS engine-harvest23-006-C001 e101 no more rows available
+OBS engine-harvest23-006-C001 e787 constraint failed
+OBS engine-harvest23-006-C001 e2067 constraint failed

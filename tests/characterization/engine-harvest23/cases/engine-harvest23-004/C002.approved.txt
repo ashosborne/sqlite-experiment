@@ -1,0 +1,2 @@
+OBS engine-harvest23-004-C002 last_value a,10,30|a,20,30|a,30,30|b,5,15|b,15,15
+OBS engine-harvest23-004-C002 last_dflt 5,5|10,10|15,15|20,20|30,30

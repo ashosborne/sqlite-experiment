@@ -1,0 +1,3 @@
+OBS engine-harvest23-009-C001 open_case 0
+OBS engine-harvest23-009-C001 closed 1
+OBS engine-harvest23-009-C001 plain_body 1

@@ -1,0 +1,7 @@
+OBS engine-harvest23-007-C001 begin rc=0 err=-
+OBS engine-harvest23-007-C001 orphan rc=0 err=-
+OBS engine-harvest23-007-C001 commit1 rc=19 err=FOREIGN KEY constraint failed
+OBS engine-harvest23-007-C001 still_in_txn 1
+OBS engine-harvest23-007-C001 parent rc=0 err=-
+OBS engine-harvest23-007-C001 commit2 rc=0 err=-
+OBS engine-harvest23-007-C001 final 1,1

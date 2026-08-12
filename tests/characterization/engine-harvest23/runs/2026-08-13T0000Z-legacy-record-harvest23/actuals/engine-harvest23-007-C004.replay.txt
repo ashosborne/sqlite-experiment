@@ -1,0 +1,2 @@
+OBS engine-harvest23-007-C004 orphan rc=19 err=FOREIGN KEY constraint failed
+OBS engine-harvest23-007-C004 cnt 0

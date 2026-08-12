@@ -1,0 +1,6 @@
+OBS engine-harvest23-006-C002 uniq rc=19 err=UNIQUE constraint failed: t.a
+OBS engine-harvest23-006-C002 uniq_ext 2067
+OBS engine-harvest23-006-C002 notnull rc=19 err=NOT NULL constraint failed: t.b
+OBS engine-harvest23-006-C002 nn_ext 1299
+OBS engine-harvest23-006-C002 check rc=19 err=CHECK constraint failed: c>0
+OBS engine-harvest23-006-C002 ck_ext 275

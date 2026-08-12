@@ -1,0 +1,6 @@
+OBS engine-harvest23-005-C002 prior_col 2000
+OBS engine-harvest23-005-C002 get_col 50
+OBS engine-harvest23-005-C002 prior_clamp 50
+OBS engine-harvest23-005-C002 get_clamped 2000
+OBS engine-harvest23-005-C002 att_clamp_prior 10
+OBS engine-harvest23-005-C002 att_clamped 10

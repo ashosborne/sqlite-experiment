@@ -1,0 +1,233 @@
+[
+{
+"id": "engine-harvest23-001-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-001",
+"kind": "bespoke",
+"note": "auto-extension registry: two entries both invoked"
+},
+{
+"id": "engine-harvest23-001-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-001",
+"kind": "bespoke",
+"note": "cancel one entry (rc 1 / repeat 0); other still runs"
+},
+{
+"id": "engine-harvest23-001-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-001",
+"kind": "bespoke",
+"note": "reset clears all; duplicate registration invoked once"
+},
+{
+"id": "engine-harvest23-002-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-002",
+"kind": "bespoke",
+"note": "memory_used grows by allocation and returns on free"
+},
+{
+"id": "engine-harvest23-002-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-002",
+"kind": "bespoke",
+"note": "memory_highwater latches the peak (sticky)"
+},
+{
+"id": "engine-harvest23-002-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-002",
+"kind": "bespoke",
+"note": "highwater reset returns prior and re-arms"
+},
+{
+"id": "engine-harvest23-003-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "snprintf %d-%s basic"
+},
+{
+"id": "engine-harvest23-003-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "snprintf truncation at n (NUL at n-1)"
+},
+{
+"id": "engine-harvest23-003-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "snprintf %Q NULL keyword + %q quote doubling"
+},
+{
+"id": "engine-harvest23-003-C004",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "snprintf n<=0 leaves buffer; returns buf"
+},
+{
+"id": "engine-harvest23-003-C005",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "sqlite3_str_append raw n-limited bytes"
+},
+{
+"id": "engine-harvest23-003-C006",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-003",
+"kind": "bespoke",
+"note": "str_append after appendchar; str_length tracking"
+},
+{
+"id": "engine-harvest23-004-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "first_value over partitioned default frame"
+},
+{
+"id": "engine-harvest23-004-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "last_value full frame + default-frame peer behaviour"
+},
+{
+"id": "engine-harvest23-004-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "nth_value(2) + out-of-range NULL"
+},
+{
+"id": "engine-harvest23-004-C004",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "ntile(2)/ntile(3) bucket assignment"
+},
+{
+"id": "engine-harvest23-004-C005",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "percent_rank"
+},
+{
+"id": "engine-harvest23-004-C006",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-004",
+"kind": "bespoke",
+"note": "cume_dist + named-window combo"
+},
+{
+"id": "engine-harvest23-005-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-005",
+"kind": "bespoke",
+"note": "sqlite3_limit defaults matrix (5 ids)"
+},
+{
+"id": "engine-harvest23-005-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-005",
+"kind": "bespoke",
+"note": "set returns prior; over-max clamps (COLUMN/ATTACHED)"
+},
+{
+"id": "engine-harvest23-005-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-005",
+"kind": "bespoke",
+"note": "VARIABLE_NUMBER enforcement at prepare"
+},
+{
+"id": "engine-harvest23-006-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-006",
+"kind": "bespoke",
+"note": "sqlite3_errstr table incl. extended-code fallthrough"
+},
+{
+"id": "engine-harvest23-006-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-006",
+"kind": "bespoke",
+"note": "extended errcodes 2067/1299/275 on constraint paths"
+},
+{
+"id": "engine-harvest23-006-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-006",
+"kind": "bespoke",
+"note": "extended FK errcode 787"
+},
+{
+"id": "engine-harvest23-007-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-007",
+"kind": "bespoke",
+"note": "DEFERRABLE INITIALLY DEFERRED: COMMIT fails, txn stays open, resolvable"
+},
+{
+"id": "engine-harvest23-007-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-007",
+"kind": "bespoke",
+"note": "deferred violation resolved by deleting the child"
+},
+{
+"id": "engine-harvest23-007-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-007",
+"kind": "bespoke",
+"note": "PRAGMA defer_foreign_keys defers an immediate FK; resets at COMMIT"
+},
+{
+"id": "engine-harvest23-007-C004",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-007",
+"kind": "bespoke",
+"note": "deferred FK still immediate outside a transaction"
+},
+{
+"id": "engine-harvest23-008-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-008",
+"kind": "bespoke",
+"note": "authorizer denies SQLITE_INSERT (rc 23)"
+},
+{
+"id": "engine-harvest23-008-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-008",
+"kind": "bespoke",
+"note": "authorizer denies SQLITE_UPDATE / SQLITE_DELETE"
+},
+{
+"id": "engine-harvest23-008-C003",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-008",
+"kind": "bespoke",
+"note": "authorizer denies SQLITE_CREATE_TABLE / SQLITE_PRAGMA"
+},
+{
+"id": "engine-harvest23-009-C001",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-009",
+"kind": "bespoke",
+"note": "sqlite3_complete: CASE..END nesting inside trigger body"
+},
+{
+"id": "engine-harvest23-009-C002",
+"slice": "engine-harvest23",
+"feature": "engine-harvest23-009",
+"kind": "bespoke",
+"note": "sqlite3_complete: multi-statement trigger bodies"
+}
+]
