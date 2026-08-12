@@ -1,0 +1,65 @@
+[
+ {
+  "id": "engine-harvest36-009-C001",
+  "feature": "engine-harvest36-009",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "sqlite3_vtab_config: OK inside xCreate, MISUSE for bad op and outside a constructor"
+ },
+ {
+  "id": "engine-harvest36-009-C002",
+  "feature": "engine-harvest36-009",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "no WHERE -> zero constraints offered, zero-arg xFilter, default scan"
+ },
+ {
+  "id": "engine-harvest36-009-C003",
+  "feature": "engine-harvest36-009",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "EQ on HIDDEN lim offered via xBestIndex, consumed, value reaches xFilter argv (rows bounded)"
+ },
+ {
+  "id": "engine-harvest36-009-C004",
+  "feature": "engine-harvest36-009",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "unconsumed visible-column WHERE stays engine-side; HIDDEN column absent from SELECT *"
+ },
+ {
+  "id": "engine-harvest36-010-C001",
+  "feature": "engine-harvest36-010",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "close(src) BUSY with the unfinished-backups errmsg; close(dst) defers; step/finish error; late closes settle"
+ },
+ {
+  "id": "engine-harvest36-011-C001",
+  "feature": "engine-harvest36-011",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "blob_open on an attached schema reads real bytes; unknown db errors no such table: db.t"
+ },
+ {
+  "id": "engine-harvest36-011-C002",
+  "feature": "engine-harvest36-011",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "WITHOUT ROWID target refused: cannot open table without rowid"
+ },
+ {
+  "id": "engine-harvest36-011-C003",
+  "feature": "engine-harvest36-011",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "blob write inside an open transaction commits durably"
+ },
+ {
+  "id": "engine-harvest36-011-C004",
+  "feature": "engine-harvest36-011",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "non-ASCII table/column names open fine"
+ }
+]

@@ -1,0 +1,2 @@
+OBS engine-harvest36-011-C004 unicode_open_rc 0
+OBS engine-harvest36-011-C004 unicode_bytes 2

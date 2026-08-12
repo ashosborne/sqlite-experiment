@@ -1,0 +1,4 @@
+OBS engine-harvest36-009-C001 cvt rc=0 err=-
+OBS engine-harvest36-009-C001 vtab_config_rc 0
+OBS engine-harvest36-009-C001 vtab_config_badop_rc 21
+OBS engine-harvest36-009-C001 vtab_config_outside_rc 21

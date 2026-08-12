@@ -137,12 +137,57 @@ cases:
   status: REPLAY_GREEN
   golden_path: cases/engine-harvest36-008/C002.approved.txt
   run_id: 2026-08-14T0400Z-legacy-record-harvest36a
+- case_id: engine-harvest36-009-C001
+  feature_id: engine-harvest36-009
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-009/C001.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-009-C002
+  feature_id: engine-harvest36-009
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-009/C002.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-009-C003
+  feature_id: engine-harvest36-009
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-009/C003.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-009-C004
+  feature_id: engine-harvest36-009
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-009/C004.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-010-C001
+  feature_id: engine-harvest36-010
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-010/C001.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-011-C001
+  feature_id: engine-harvest36-011
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-011/C001.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-011-C002
+  feature_id: engine-harvest36-011
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-011/C002.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-011-C003
+  feature_id: engine-harvest36-011
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-011/C003.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
+- case_id: engine-harvest36-011-C004
+  feature_id: engine-harvest36-011
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest36-011/C004.approved.txt
+  run_id: 2026-08-14T0600Z-legacy-record-harvest36b
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne
   date: '2026-08-11'
   tz: Europe/London
-  note: run-46 delegated stamp wave 1 (full-autonomy charter)
+  note: run-46 delegated stamp wave 2 (full-autonomy charter)
   stamped_case_ids:
   - engine-harvest36-001-C001
   - engine-harvest36-001-C002
@@ -171,5 +216,14 @@ golden_approval:
   - engine-harvest36-007-C003
   - engine-harvest36-008-C001
   - engine-harvest36-008-C002
-updated_at: '2026-08-12T21:18:33Z'
-run_id: 2026-08-14T0400Z-legacy-record-harvest36a
+  - engine-harvest36-009-C001
+  - engine-harvest36-009-C002
+  - engine-harvest36-009-C003
+  - engine-harvest36-009-C004
+  - engine-harvest36-010-C001
+  - engine-harvest36-011-C001
+  - engine-harvest36-011-C002
+  - engine-harvest36-011-C003
+  - engine-harvest36-011-C004
+updated_at: '2026-08-12T21:36:34Z'
+run_id: 2026-08-14T0600Z-legacy-record-harvest36b

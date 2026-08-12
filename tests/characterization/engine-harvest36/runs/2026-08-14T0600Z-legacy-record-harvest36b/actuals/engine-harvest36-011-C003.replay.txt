@@ -1,0 +1,3 @@
+OBS engine-harvest36-011-C003 txn_open_rc 0
+OBS engine-harvest36-011-C003 txn_write_rc 0
+OBS engine-harvest36-011-C003 after_commit 00AABB00

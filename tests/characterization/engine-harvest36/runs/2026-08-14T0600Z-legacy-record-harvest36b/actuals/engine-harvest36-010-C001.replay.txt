@@ -1,0 +1,8 @@
+OBS engine-harvest36-010-C001 init_ok 1
+OBS engine-harvest36-010-C001 close_src_rc 5
+OBS engine-harvest36-010-C001 close_src_err unable to close due to unfinalized statements or unfinished backups
+OBS engine-harvest36-010-C001 close_dst_rc 0
+OBS engine-harvest36-010-C001 step_rc 1
+OBS engine-harvest36-010-C001 finish_rc 1
+OBS engine-harvest36-010-C001 close_src2_rc 0
+OBS engine-harvest36-010-C001 close_dst2_rc 21

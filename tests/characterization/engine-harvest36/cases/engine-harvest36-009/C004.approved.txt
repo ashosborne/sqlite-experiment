@@ -1,0 +1,2 @@
+OBS engine-harvest36-009-C004 visible_where 2|3
+OBS engine-harvest36-009-C004 hidden_not_in_star 1|2|3|4

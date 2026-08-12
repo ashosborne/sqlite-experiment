@@ -1,0 +1,4 @@
+OBS engine-harvest36-011-C001 aux_open_rc 0
+OBS engine-harvest36-011-C001 aux_bytes 5
+OBS engine-harvest36-011-C001 aux_read 2,3
+OBS engine-harvest36-011-C001 baddb_rc 1 err=no such table: nosuchdb.t
