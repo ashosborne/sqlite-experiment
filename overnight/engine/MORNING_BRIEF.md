@@ -1,84 +1,88 @@
-# MORNING BRIEF — engine v34: status/pragma matrix (run 44)
+# MORNING BRIEF — engine v35: real lookaside pool (run 45)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–43 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v34-status-pragma-matrix, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 27). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–44 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v35-lookaside-none, REQUIRE_BASELINE_PRESENCE_CHECK.
+MAX_NEW_CASES 55 (used 14). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @34 BOUND — STATUS/PRAGMA MATRIX law
+## 1. Pack @35 BOUND — LOOKASIDE/NONE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v33 → **v34**
-(versions/1–34 retained; ADR `0032-engine-v34-status-pragma-matrix.md`; schema VALID; 40 laws).
-Everything pinned is core on the bare amalgamation; the probe ran before every freeze.
-Counter magnitudes are machine state, so pins are **predicates + exact zeros + exact rc
-codes + exact pragma rows** (the run-38 status style).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v34 → **v35**
+(versions/1–35 retained; ADR `0033-engine-v35-lookaside-none.md`; schema VALID; 41 laws).
 
-## 2. Status ops newly tracked (the run-38 residual, cut down)
+## 2. Presence-check ledger (ADR 0033)
 
-| Seam | What's real now |
+| Surface | Result |
 | --- | --- |
-| status64 global | ops 0..9 all answer (out-of-range → MISUSE 21): MEMORY_USED (existing), **MALLOC_SIZE / MALLOC_COUNT** (real allocator largest-alloc + outstanding count), **PAGECACHE_OVERFLOW / PAGECACHE_SIZE** (real bytes of db file images held/flushed); **SCRATCH_\*/PARSER_STACK/PAGECACHE_USED exact zeros** (NOT USED on the pin — no tracking invented); resetFlag re-arms highwater; **sqlite3_status 32-bit twin** added |
-| db_status | ops 0..12 all answer (bad op → ERROR 1): **CACHE_USED(_SHARED) / SCHEMA_USED / STMT_USED** real byte footprints with highwater 0 like C (STMT_USED goes 0→pos→0 across prepare/finalize); **CACHE_HIT / MISS / WRITE** wired to modern's real I/O events (miss = actual file-image load, write = actual flush, hit = memory-served read; magnitudes not claimed — ADR 0032); **DEFERRED_FKS** = on-demand deferred-FK violation scan, pinned exactly 0→1→0 around a deferred txn |
-| honesty line | **lookaside**: C's default build runs one (probe: 6/50 used, 249 hits); modern has none — LOOKASIDE ops stay honest-zero / run-38 vacuous predicates; fabricating positives = greenwash, refused |
+| lookaside + db_config(LOOKASIDE) | **PRESENT** on the bare pin (default on; BUSY while live) → implemented |
+| delta_create / eval / dbstat / sqlite_stmt / median | ABSENT (`no such function/table` reconfirmed) → **stay none** |
+| unlock-notify | ABSENT (run-42 fingerprint) → **stays none** |
 
-## 3. Pragmas / TVFs landed
+No absence "success" goldens frozen; run-39 absence pins untouched.
 
-- Dispatcher: `data_version` (own writes don't bump; **sibling commits do**),
-  `schema_version` +1 per DDL, `freelist_count`, `collation_list` (live registry,
-  newest-first), `table_xinfo` / `index_info` / `index_xinfo` (incl. C's rowid row),
-  **`query_only` enforced** (write → `attempt to write a readonly database`, rc 8),
-  **`ignore_check_constraints` enforced**, **`quick_check` really validates CHECKs**
-  (pinned `CHECK constraint failed in u` via a row smuggled in under icc),
-  **unknown pragma names silently ignored** (get + set — the classic trap; modern used
-  to error).
-- TVFs: `pragma_collation_list`, `pragma_table_xinfo`, `pragma_index_info`,
-  `pragma_compile_options` (the v32 38-entry fingerprint), bare + parenthesized forms.
-- Skipped honestly: `pragma_module_list` — the probe showed C fills it lazily with
-  whichever pragma vtabs the session has touched; pinning that is fragile (ADR note).
+## 3. What landed — the run-39 "not honestly modellable" gap is closed with a real pool
+
+- **A real slab**: acquired through the counting allocator (MEMORY_USED accounts it once,
+  like C), carved into 8-rounded slots (default 1200×40 at connection open, C's shape).
+- **Real allocations through it**: `sqlite3_prepare_v2` placement-allocates the
+  prepared-statement object from a slot (hit), falls back to the heap on size/full
+  misses, and `sqlite3_finalize` returns the slot for reuse. C additionally routes
+  parse-tree allocations through lookaside, so magnitudes differ — every growth pin is
+  a predicate, every zero pin is C-exact (run-38/44 style). **No invented counters.**
+- **db_config(LOOKASIDE)**: OK on a quiet connection, **SQLITE_BUSY(5) while a statement
+  is live**, OK after finalize; negative/huge size + negative count normalize rc 0;
+  (0,0) disables (USED zeros, HIT frozen); unknown verbs rc 1; HIT/MISS counters survive
+  reconfig (probed C behaviour).
+- **LOOKASIDE db_status is now real**: USED = (outstanding, highwater; reset pulls hi to
+  cur), HIT/MISS_SIZE/MISS_FULL = (current always 0, counter; reset clears). 64-byte
+  slots force MISS_SIZE; a 512×2 pool under six live statements forces MISS_FULL; a
+  freed slot HITs again; the DEFAULT pool serves traffic with zero config calls.
+- Zombie safety: close_v2 with live statements parks the pool; late finalizes drain it
+  and the slab frees with the last slot.
 
 ## 4. Flips table
 
 | Card | Before | After | Why |
 | --- | --- | --- | --- |
-| error-status-api-003 | partial (op-matrix residual) | **partial** (residual shrunk to named leftovers) | full valid-op matrices real; leftovers: lookaside positives, CACHE_SPILL under pressure, stmt_status/scanstatus |
-| pragma-surface-001 | partial (~27 of ~70) | **partial (~40 of ~70)** | dispatcher batch + two enforcements + silent-unknown |
-| pragma-surface-002 | partial (registries deferred) | **partial** (residual shrunk) | 4 TVFs landed; module_list deferred with reason |
-| engine-status34-001/002 | — | **full** (composed) | exact frozen batches (6 + 8) |
-| engine-pragma34-001/002 | — | **full** (composed) | exact frozen batches (9 + 4) |
+| malloc-subsystem-002 | **none** (run-39 "not honestly modellable") | **partial** | real pool + knobs + moving counters; residuals named: two-size mini slots, pBuf external buffers, non-stmt allocations, CONFIG_LOOKASIDE process default |
+| error-status-api-003 | partial | partial (LOOKASIDE residual **cleared**) | leftovers now just CACHE_SPILL pressure + stmt_status/scanstatus |
+| absent-extension nones | none | none (presence notes) | ledger reconfirmed, zero opportunistic flips |
+| engine-lookaside35-001/002/003 | — | **full** (composed) | exact frozen batches (5 + 5 + 4) |
 
 ## 5. Anti-cheat + goldens
 
-- 27 new HUMAN_ACCEPTED goldens (`engine-status34/`, `engine-pragma34/`), two-run
-  deterministic; prior 706 goldens untouched.
-- 3 anti-cheat tests: runtime-sized allocation must move MEMORY_USED by ≥ that size and
-  a runtime-named table must grow SCHEMA_USED (hi stays 0); runtime pragma value + runtime
-  column name round-trip through dispatcher and TVF; bad ops still fail and a
-  runtime-registered collation appears at seq 0 of collation_list (live registry).
-- SCRIPT_TABLE.len()==0.
+- 14 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-lookaside35/`), two-run
+  deterministic; prior 720 goldens untouched.
+- 3 anti-cheat tests: runtime slot count N → exactly N pool-served live statements
+  (USED current == N) with exactly the overflow missing FULL; runtime too-small slot
+  size → every one of a runtime number of prepares MISS_SIZEs with HIT frozen; bad
+  db_status/db_config ops still fail and BUSY guards a live pool.
+- SCRIPT_TABLE.len()==0. FORBID_FAKE_LOOKASIDE_COUNTERS honoured — counters only move
+  when the pool actually serves or misses an allocation.
 
 ## 6. cargo
 
-`cargo test` (modern): **750 passed / 0 failed** (was 739; +11 status34 twins/anti-cheat).
-attach33 / compile32 / vtab31 / attach30 / none29 / harvest / ANALYZE / conn / blob /
-vacuum / WAL all green — including after the silent-unknown-pragma and main-only
-bare-sqlite_master behavior corrections.
+`cargo test` (modern): **767 passed / 0 failed** (was 750; +17 lookaside35 twins/anti-cheat).
+status34 / pragma34 / attach33 / compile32 / vtab31 / attach30 / none29 / harvest /
+ANALYZE / conn / blob / vacuum / WAL all green — including conn's close/zombie paths over
+the new pool and status34's quiet-op zeros under the default config.
 
 ## 7. Scoreboard
 
-before → after: **145 full / 62 partial / 79 none of 286** → **149 full / 62 partial / 79 none of 290**
-(four new composed fulls; the three deepened cards stay honest partials with shrunk,
-precisely named residuals).
+before → after: **149 full / 62 partial / 79 none of 290** → **152 full / 63 partial / 78 none of 293**
+(malloc-subsystem-002 leaves none; three composed fulls).
 
 ## 8. Not migrated
 
-SQLite is NOT migrated. Not claimed: lookaside allocator, SCRATCH tracking, CACHE_SPILL
-pressure paths, stmt_status/scanstatus, the remaining ~30 pragmas, pragma_module_list,
-integrity_check corruption taxonomy, xBestIndex pushdown, planner, unlock-notify (absent
-on pin), WAL depth, wasm/jni/vfs/FTS/rtree/session.
+SQLite is NOT migrated. Not claimed: two-size mini-slot carving, pBuf external buffers,
+lookaside for non-statement allocations, SQLITE_CONFIG_LOOKASIDE, CACHE_SPILL pressure,
+stmt_status/scanstatus, pcache config seam (stretch skipped), xBestIndex, planner,
+unlock-notify and every absent extension in the ledger, wasm/jni/vfs/FTS/rtree/session,
+btree/pager/vdbe/where internals.
 
 ## 9. Next call (pick one)
 
 1. **xBestIndex deepen** — real constraint offers to vtab modules (EQ pushdown + HIDDEN
    argv path), cutting the vtab-core-002 residual.
-2. **stmt_status thin slice** — FULLSCAN_STEP/VM_STEP/RUN on pinned statements
-   (the natural sequel to this run's matrix).
-3. **another present-core none** — sweep COVERAGE's 79 for the next honest cutter.
+2. **stmt_status thin slice** — FULLSCAN_STEP/VM_STEP/RUN composed pins (natural sequel
+   to the status matrix; also names an error-status-api-003 leftover).
+3. **pcache-001 config seam** — the stretch this run skipped (presence-check first).

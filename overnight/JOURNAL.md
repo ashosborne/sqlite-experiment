@@ -819,3 +819,28 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-pragma34-001/002 new composed full.
 - Scoreboard full 145->149 / partial 62 / none 79 (290 known). cargo 750/750.
 
+## Run 45 — 2026-08-14 — engine v35: real lookaside pool (pack v35)
+
+- Pack v34→v35 BOUND (+versions/35, ADR 0033): LOOKASIDE/NONE LAW. Presence ledger:
+  lookaside PRESENT (default on, BUSY while live, counters survive reconfig, HIT/MISS
+  report (0, counter), USED reports (nOut, mxOut)); delta_create/eval/dbstat/
+  sqlite_stmt/median/unlock-notify reconfirmed ABSENT -> stay none, zero flips.
+- lib.rs: LaPool per connection (slab via counting allocator, 8-rounded slots capped
+  65528, free-list, nOut/mxOut/hits/missSize/missFull; counters preserved across
+  reconfig); la_setup/alloc/free/close/status; default 1200x40 at open; prepare
+  placement-allocates Sqlite3Stmt from a slot (la flag) with heap fallback; finalize
+  drops in place + returns slot; zombie-close pools parked in LA_ORPHANS until late
+  finalizes drain; db_status ops 0/4/5/6 wired with C reset semantics;
+  sqlite3_db_config re-exported generic fixed-arity (ENABLE_FKEY + LOOKASIDE verbs,
+  unknown rc 1; bespoke_compare call sites updated).
+- 14 goldens (engine-lookaside35-001 x5 config, -002 x5 pool/fallback, -003 x4 status
+  coupling; harness /tmp/la_harness.c + /tmp/la_probe.c, two-run deterministic,
+  predicate pin style). 3 anti-cheat (runtime slot count N -> USED cur==N with exact
+  overflow miss; runtime too-small size -> per-prepare MISS_SIZE, HIT frozen; bad ops
+  + BUSY guard). 720 prior goldens untouched.
+- Flips: malloc-subsystem-002 NONE->PARTIAL (real pool; residuals: mini slots, pBuf,
+  non-stmt allocations, CONFIG_LOOKASIDE); error-status-api-003 LOOKASIDE residual
+  CLEARED (stays partial: CACHE_SPILL, stmt_status/scanstatus);
+  engine-lookaside35-001/002/003 new composed full.
+- Scoreboard full 149->152 / partial 62->63 / none 79->78 (293 known). cargo 767/767.
+

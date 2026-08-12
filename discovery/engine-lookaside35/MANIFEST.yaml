@@ -1,0 +1,14 @@
+slice_id: engine-lookaside35
+app_id: sqlite-experiment
+created_by: sqlite-engine-v35-lookaside-none
+created_at: 2026-08-14T02:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed lookaside slice (run 45): db_config(LOOKASIDE) knobs, real slot-pool
+  behaviour with heap fallback, and LOOKASIDE db_status coupling, predicate-pinned on
+  the bare C baseline (pack v35 / ADR 0033).
+features:
+  - engine-lookaside35-001
+  - engine-lookaside35-002
+  - engine-lookaside35-003

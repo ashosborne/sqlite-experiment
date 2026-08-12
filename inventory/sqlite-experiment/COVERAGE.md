@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T20:38:53Z
+- Generated: 2026-08-12T21:02:40Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-14T00:30:00Z by `sqlite-engine-v34-status-pragma-matrix`
+- Manifest last_updated: 2026-08-14T02:30:00Z by `sqlite-engine-v35-lookaside-none`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 79 | Not started in modern |
-| partial | 62 | Some modern execution; gaps in notes |
-| full (converted) | 149 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 78 | Not started in modern |
+| partial | 63 | Some modern execution; gaps in notes |
+| full (converted) | 152 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -169,6 +169,9 @@
 - `engine-status34-002` — db_status op matrix
 - `engine-pragma34-001` — pragma dispatcher batch
 - `engine-pragma34-002` — pragma TVF batch
+- `engine-lookaside35-001` — lookaside enable + config
+- `engine-lookaside35-002` — pool behaviour + fallback
+- `engine-lookaside35-003` — status coupling + regression
 
 ### Partial in modern
 
@@ -191,7 +194,7 @@
 - `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
 - `connection-lifecycle-api-004` — confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour unpinned; legacy sqlite3_trace/profile not implemented.
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
-- `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked. run-44: op-matrix residual SHRUNK - global status64 answers the full valid op range (0..9; out-of-range MISUSE): MEMORY_USED + MALLOC_SIZE/MALLOC_COUNT (real allocator count/largest-alloc), PAGECACHE_OVERFLOW/PAGECACHE_SIZE (real page-image bytes held/flushed), NOT-USED ops (SCRATCH_*, PARSER_STACK, PAGECACHE_USED) exact zeros, resetFlag re-arms highwater, sqlite3_status 32-bit twin. db_status answers 0..12 (bad op ERROR): CACHE_USED(_SHARED)/SCHEMA_USED/STMT_USED real byte footprints with highwater 0 like C, CACHE_HIT/MISS/WRITE wired to real I/O events (magnitudes not claimed - pinned predicates are the contract, ADR 0032), DEFERRED_FKS on-demand violation scan (exact 0/1 pinned). RESIDUAL (named): lookaside positives (no lookaside allocator in modern; LOOKASIDE_USED/HIT keep run-38 vacuous predicates, MISS_SIZE/FULL pinned zeros), CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched.
+- `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked. run-44: op-matrix residual SHRUNK - global status64 answers the full valid op range (0..9; out-of-range MISUSE): MEMORY_USED + MALLOC_SIZE/MALLOC_COUNT (real allocator count/largest-alloc), PAGECACHE_OVERFLOW/PAGECACHE_SIZE (real page-image bytes held/flushed), NOT-USED ops (SCRATCH_*, PARSER_STACK, PAGECACHE_USED) exact zeros, resetFlag re-arms highwater, sqlite3_status 32-bit twin. db_status answers 0..12 (bad op ERROR): CACHE_USED(_SHARED)/SCHEMA_USED/STMT_USED real byte footprints with highwater 0 like C, CACHE_HIT/MISS/WRITE wired to real I/O events (magnitudes not claimed - pinned predicates are the contract, ADR 0032), DEFERRED_FKS on-demand violation scan (exact 0/1 pinned). RESIDUAL (named): lookaside positives (no lookaside allocator in modern; LOOKASIDE_USED/HIT keep run-38 vacuous predicates, MISS_SIZE/FULL pinned zeros), CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched. run-45: LOOKASIDE residual CLEARED - LOOKASIDE_USED/HIT/MISS_SIZE/MISS_FULL now answer from the real run-45 pool (run-38 vacuous predicates and run-44 honest zeros superseded under the same honesty line). STAYS PARTIAL for the remaining named leftovers: CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched.
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
@@ -204,6 +207,7 @@
 - `json-funcs-003` — json_valid/json_type real; json_valid flags argument and JSONB validation absent
 - `json-funcs-004` — json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent
 - `loadext-api-001` — shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)
+- `malloc-subsystem-002` — confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator. run-39: not honestly modellable — the real per-connection slab counters (e.g. 48 slots / 116 hits) and the variadic sqlite3_db_config(LOOKASIDE) control cannot be mirrored without a real lookaside allocator. Left none rather than fake counters. run-45: NONE -> PARTIAL with a REAL pool - per-connection slab acquired through the counting allocator, carved into 8-rounded slots (default 1200x40 at open); modern routes prepared-statement objects through it (placement-alloc on hit, heap fallback on size/full miss, free returns the slot); sqlite3_db_config(LOOKASIDE) follows C (BUSY 5 while allocations outstanding, OK after finalize, negative/huge args normalize rc 0, (0,0) disables, counters survive reconfig); LOOKASIDE_USED/HIT/MISS_SIZE/MISS_FULL move because of that pool with C's current-always-0 shape and resetFlag semantics. RESIDUAL: C's two-size mini-slot carving (modern pool is one-size; pinned predicates hold either way), pBuf-supplied external buffers (modern always self-allocates), lookaside for parse-tree/value allocations beyond statement objects, SQLITE_CONFIG_LOOKASIDE process-wide default knob.
 - `misc-completion-001` — confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): completion vtab not implemented in modern run-38: PARTIAL — completion(prefix) yields keyword + schema-name candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations, wildcard ranking) not claimed.
 - `misc-compress-001` — confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): zlib byte-compat not implemented in modern run-38: PARTIAL — compress/uncompress round-trip for real (reversible size-prefixed RLE; repetitive data shrinks; blobs/empty handled). RESIDUAL: not zlib byte-format, so a C-written compressed blob is not cross-decodable — round-trips only.
 - `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
@@ -253,7 +257,6 @@
 - `jni-java-surface-001` — jni-java-surface — legacy_green no
 - `jni-java-surface-002` — jni-java-surface — legacy_green no
 - `jni-java-surface-003` — jni-java-surface — legacy_green no
-- `malloc-subsystem-002` — malloc-subsystem — legacy_green no
 - `misc-amatch-001` — misc-amatch — legacy_green no
 - `misc-appendvfs-001` — misc-appendvfs — legacy_green no
 - `misc-btreeinfo-001` — misc-btreeinfo — legacy_green no
@@ -321,25 +324,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 240 |
-| Behaviours known | 290 |
+| Surfaces total | 241 |
+| Behaviours known | 293 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 200 |
+| legacy_green flags | 203 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 55 |
+| accepted | 56 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 148 |
+| converted | 151 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -381,6 +384,7 @@
 | engine-indexes | 1 |
 | engine-join | 1 |
 | engine-kitchen | 1 |
+| engine-lookaside35 | 1 |
 | engine-misc2 | 1 |
 | engine-none29 | 1 |
 | engine-order2 | 1 |
