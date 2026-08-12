@@ -1,0 +1,1 @@
+OBS engine-harvest36-004-C001 default_eq_f1 1,0,0,1,0

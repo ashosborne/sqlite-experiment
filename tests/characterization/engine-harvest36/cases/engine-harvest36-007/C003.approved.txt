@@ -1,0 +1,3 @@
+OBS engine-harvest36-007-C003 optimize_fresh rc=0 err=-
+OBS engine-harvest36-007-C003 stat1_after 1
+OBS engine-harvest36-007-C003 stat1_rows t,ti,4 1

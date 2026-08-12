@@ -1,0 +1,3 @@
+OBS engine-harvest36-005-C001 drop_parent_blocked rc=19 err=FOREIGN KEY constraint failed
+OBS engine-harvest36-005-C001 drop_child_first rc=0 err=-
+OBS engine-harvest36-005-C001 then_parent_ok rc=0 err=-

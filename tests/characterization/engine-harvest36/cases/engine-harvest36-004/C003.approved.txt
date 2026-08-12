@@ -1,0 +1,3 @@
+OBS engine-harvest36-004-C003 f6_union 1,1,0
+OBS engine-harvest36-004-C003 nulls ~,~
+OBS engine-harvest36-004-C003 numeric_args 1,1,1

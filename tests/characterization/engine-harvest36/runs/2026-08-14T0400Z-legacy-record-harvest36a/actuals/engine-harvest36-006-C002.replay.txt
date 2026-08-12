@@ -1,0 +1,4 @@
+OBS engine-harvest36-006-C002 ps_before 4096
+OBS engine-harvest36-006-C002 ps_pending 4096
+OBS engine-harvest36-006-C002 vacuum rc=0 err=-
+OBS engine-harvest36-006-C002 ps_after 8192

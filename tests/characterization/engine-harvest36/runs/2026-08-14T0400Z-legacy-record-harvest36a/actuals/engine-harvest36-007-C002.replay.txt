@@ -1,0 +1,2 @@
+OBS engine-harvest36-007-C002 analyze_aux_schema rc=0 err=-
+OBS engine-harvest36-007-C002 aux_stat1_count 1

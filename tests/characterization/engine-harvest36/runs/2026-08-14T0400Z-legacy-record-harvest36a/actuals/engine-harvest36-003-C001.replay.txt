@@ -1,0 +1,2 @@
+OBS engine-harvest36-003-C001 detach_locked rc=1 err=database aux is locked
+OBS engine-harvest36-003-C001 detach_after_fin rc=0 err=-

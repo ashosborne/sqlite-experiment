@@ -1,0 +1,3 @@
+OBS engine-harvest36-008-C002 where_fullscan 4
+OBS engine-harvest36-008-C002 no_table_fullscan 0
+OBS engine-harvest36-008-C002 run_one 1

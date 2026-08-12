@@ -1,0 +1,3 @@
+OBS engine-harvest36-006-C004 vacuum_schema rc=0 err=-
+OBS engine-harvest36-006-C004 aux_intact 5
+OBS engine-harvest36-006-C004 vacuum_badschema rc=1 err=unknown database nosuch

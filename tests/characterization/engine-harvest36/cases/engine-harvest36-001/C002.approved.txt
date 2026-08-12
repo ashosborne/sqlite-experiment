@@ -1,0 +1,4 @@
+OBS engine-harvest36-001-C002 quoted_end_in_trigger 1
+OBS engine-harvest36-001-C002 nested_case_end 1
+OBS engine-harvest36-001-C002 bare_semi 1
+OBS engine-harvest36-001-C002 whitespace_only 0

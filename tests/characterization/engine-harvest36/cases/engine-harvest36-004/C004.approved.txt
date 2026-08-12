@@ -1,0 +1,2 @@
+OBS engine-harvest36-004-C004 blob_flags 0,1,1,1,1,0
+OBS engine-harvest36-004-C004 text_with_blob_flags 0,0

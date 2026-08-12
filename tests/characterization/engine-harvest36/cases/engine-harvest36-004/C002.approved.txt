@@ -1,0 +1,2 @@
+OBS engine-harvest36-004-C002 json5_accepts 1,1,1,1,1,1,1
+OBS engine-harvest36-004-C002 strict_rejects 0,0,0,0

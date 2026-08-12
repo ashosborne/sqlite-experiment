@@ -1,0 +1,4 @@
+OBS engine-harvest36-006-C003 av_before 0
+OBS engine-harvest36-006-C003 av_pending 0
+OBS engine-harvest36-006-C003 vacuum rc=0 err=-
+OBS engine-harvest36-006-C003 av_after 1

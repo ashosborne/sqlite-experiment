@@ -1,0 +1,2 @@
+OBS engine-harvest36-005-C004 both_in_txn rc=0 err=-
+OBS engine-harvest36-005-C004 all_gone 0

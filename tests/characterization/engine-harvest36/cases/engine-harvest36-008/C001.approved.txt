@@ -1,0 +1,6 @@
+OBS engine-harvest36-008-C001 fullscan_after_run 4
+OBS engine-harvest36-008-C001 run_count 1
+OBS engine-harvest36-008-C001 vm_step_pos 1
+OBS engine-harvest36-008-C001 memused_pos 1
+OBS engine-harvest36-008-C001 run_count2 2
+OBS engine-harvest36-008-C001 fullscan_accumulates 8

@@ -1,0 +1,4 @@
+OBS engine-harvest36-005-C003 deferred_drop_ok rc=0 err=-
+OBS engine-harvest36-005-C003 commit_blocked rc=19 err=FOREIGN KEY constraint failed
+OBS engine-harvest36-005-C003 rollback_ok rc=0 err=-
+OBS engine-harvest36-005-C003 parent_restored 1

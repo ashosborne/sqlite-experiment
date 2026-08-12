@@ -1,0 +1,191 @@
+[
+ {
+  "id": "engine-harvest36-001-C001",
+  "feature": "engine-harvest36-001",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "complete(): line/block comments and open strings gate the terminal semicolon"
+ },
+ {
+  "id": "engine-harvest36-001-C002",
+  "feature": "engine-harvest36-001",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "complete(): quoted END + nested CASE END in trigger bodies; bare ; complete, whitespace not"
+ },
+ {
+  "id": "engine-harvest36-002-C001",
+  "feature": "engine-harvest36-002",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "quoted reserved word as table name: CREATE/INSERT/SELECT on \"select\""
+ },
+ {
+  "id": "engine-harvest36-002-C002",
+  "feature": "engine-harvest36-002",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "UPDATE/DELETE on \"select\""
+ },
+ {
+  "id": "engine-harvest36-002-C003",
+  "feature": "engine-harvest36-002",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "\"order\" table, qualified \"select\".x, sqlite_master names, DROP"
+ },
+ {
+  "id": "engine-harvest36-002-C004",
+  "feature": "engine-harvest36-002",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "bracket/backtick/double-quote quoting all reach the same table"
+ },
+ {
+  "id": "engine-harvest36-003-C001",
+  "feature": "engine-harvest36-003",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "DETACH while a statement is active on the attached schema -> database aux is locked"
+ },
+ {
+  "id": "engine-harvest36-003-C002",
+  "feature": "engine-harvest36-003",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "DETACH with only a main-table statement active succeeds"
+ },
+ {
+  "id": "engine-harvest36-004-C001",
+  "feature": "engine-harvest36-004",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "json_valid default equals flags=1 (strict text)"
+ },
+ {
+  "id": "engine-harvest36-004-C002",
+  "feature": "engine-harvest36-004",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "flags=2 accepts JSON5 forms (bare keys, trailing comma, single quotes, comments, hex, +Infinity, .5); strict rejects"
+ },
+ {
+  "id": "engine-harvest36-004-C003",
+  "feature": "engine-harvest36-004",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "flags=6 union; NULL passthrough; numeric arguments validate as text"
+ },
+ {
+  "id": "engine-harvest36-004-C004",
+  "feature": "engine-harvest36-004",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "blob inputs: text flags reject; JSONB flags 4/8 validate bytes (x'1331', x'00' valid; x'' not); text with blob-only flags rejects"
+ },
+ {
+  "id": "engine-harvest36-004-C005",
+  "feature": "engine-harvest36-004",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "flags 0 / 16 -> FLAGS parameter to json_valid() must be between 1 and 15"
+ },
+ {
+  "id": "engine-harvest36-005-C001",
+  "feature": "engine-harvest36-005",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "DROP parent with child rows -> 19; child-first then parent OK"
+ },
+ {
+  "id": "engine-harvest36-005-C002",
+  "feature": "engine-harvest36-005",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "NULL-only child references allow DROP parent"
+ },
+ {
+  "id": "engine-harvest36-005-C003",
+  "feature": "engine-harvest36-005",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "deferred FK: DROP parent OK in txn, COMMIT blocked 19, ROLLBACK restores"
+ },
+ {
+  "id": "engine-harvest36-005-C004",
+  "feature": "engine-harvest36-005",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "dropping child then parent inside one txn commits clean"
+ },
+ {
+  "id": "engine-harvest36-005-C005",
+  "feature": "engine-harvest36-005",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "immediate FK blocks DROP parent even inside a txn"
+ },
+ {
+  "id": "engine-harvest36-006-C001",
+  "feature": "engine-harvest36-006",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "VACUUM INTO URI filenames are literal on this pin (USE_URI off): unable to open database"
+ },
+ {
+  "id": "engine-harvest36-006-C002",
+  "feature": "engine-harvest36-006",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "pending PRAGMA page_size applies at VACUUM (4096 until VACUUM, then 8192)"
+ },
+ {
+  "id": "engine-harvest36-006-C003",
+  "feature": "engine-harvest36-006",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "pending PRAGMA auto_vacuum applies at VACUUM (0 until VACUUM, then 1)"
+ },
+ {
+  "id": "engine-harvest36-006-C004",
+  "feature": "engine-harvest36-006",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "VACUUM <schema> rebuilds the attached schema; unknown database errors"
+ },
+ {
+  "id": "engine-harvest36-007-C001",
+  "feature": "engine-harvest36-007",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "ANALYZE aux.t writes aux.sqlite_stat1 (main stays clean)"
+ },
+ {
+  "id": "engine-harvest36-007-C002",
+  "feature": "engine-harvest36-007",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "ANALYZE aux analyzes the whole attached schema"
+ },
+ {
+  "id": "engine-harvest36-007-C003",
+  "feature": "engine-harvest36-007",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "PRAGMA optimize creates missing sqlite_stat1 for indexed tables"
+ },
+ {
+  "id": "engine-harvest36-008-C001",
+  "feature": "engine-harvest36-008",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "stmt_status: FULLSCAN_STEP rows-1 per run and accumulates; RUN per execution; VM_STEP/MEMUSED positive"
+ },
+ {
+  "id": "engine-harvest36-008-C002",
+  "feature": "engine-harvest36-008",
+  "slice": "engine-harvest36",
+  "kind": "bespoke",
+  "note": "unindexed WHERE still full-scans; expression-only statement scans nothing"
+ }
+]

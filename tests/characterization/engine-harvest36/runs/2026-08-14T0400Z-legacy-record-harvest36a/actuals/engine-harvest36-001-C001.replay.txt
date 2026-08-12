@@ -1,0 +1,4 @@
+OBS engine-harvest36-001-C001 cmt_eats_semi 0
+OBS engine-harvest36-001-C001 cmt_then_semi 1
+OBS engine-harvest36-001-C001 block_cmt_semi 1
+OBS engine-harvest36-001-C001 open_string 0

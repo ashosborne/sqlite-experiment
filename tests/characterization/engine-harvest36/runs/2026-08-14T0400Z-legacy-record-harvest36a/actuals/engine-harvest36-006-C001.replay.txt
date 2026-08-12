@@ -1,0 +1,3 @@
+OBS engine-harvest36-006-C001 uri_into rc=14 err=unable to open database: file:/tmp/h36u.db
+OBS engine-harvest36-006-C001 no_uri_file 1
+OBS engine-harvest36-006-C001 uri_into_params rc=14 err=unable to open database: file:/tmp/h36u2.db?mode=rwc
