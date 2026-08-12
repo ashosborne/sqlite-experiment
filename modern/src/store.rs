@@ -671,6 +671,7 @@ enum Stmt {
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
     Vacuum { into: Option<String> },
+    Analyze { target: Option<String> },
     // Begin.immediate: BEGIN IMMEDIATE/EXCLUSIVE takes the file write lock now (run-36)
     // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
@@ -1059,6 +1060,13 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     if up == "VACUUM" {
         return Some(Stmt::Vacuum { into: None });
     }
+    if up == "ANALYZE" {
+        return Some(Stmt::Analyze { target: None });
+    }
+    if up.starts_with("ANALYZE ") {
+        let name = ident(s["ANALYZE ".len()..].trim())?;
+        return Some(Stmt::Analyze { target: Some(name) });
+    }
     if up.starts_with("VACUUM INTO ") {
         let arg = s["VACUUM INTO ".len()..].trim();
         let path = arg.strip_prefix('\'')?.strip_suffix('\'')?.to_string();
@@ -1394,6 +1402,100 @@ fn fk_violation_exists(st: &Store) -> bool {
         }
     }
     false
+}
+
+// ---------------- run-37: ANALYZE -> sqlite_stat1 ----------------
+
+/// PRIMARY KEY column names (for the WITHOUT ROWID pseudo-index in stat1)
+fn pk_cols(create_sql: &str) -> Vec<String> {
+    let (o, c) = match (create_sql.find('('), create_sql.rfind(')')) {
+        (Some(o), Some(c)) if c > o => (o, c),
+        _ => return Vec::new(),
+    };
+    let inner = &create_sql[o + 1..c];
+    let mut out = Vec::new();
+    let mut depth = 0; let mut cur = String::new(); let mut defs = Vec::new();
+    for ch in inner.chars() {
+        match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                  ',' if depth == 0 => { defs.push(cur.clone()); cur.clear(); } _ => cur.push(ch) }
+    }
+    if !cur.trim().is_empty() { defs.push(cur); }
+    for d in &defs {
+        let up = d.to_ascii_uppercase();
+        if up.trim_start().starts_with("PRIMARY KEY") {
+            if let (Some(o2), Some(c2)) = (d.find('('), d.rfind(')')) {
+                for c in d[o2 + 1..c2].split(',') {
+                    if let Some(n) = ident(c.trim()) { out.push(n); }
+                }
+            }
+        } else if up.contains("PRIMARY KEY") {
+            if let Some(n) = d.split_whitespace().next().and_then(ident) { out.push(n); }
+        }
+    }
+    out
+}
+
+/// C's stat1 selectivity: ceil(nRow/nDistinct), with the near-1.0 quirk pinned by
+/// engine-analyze-001-C014 (iVal 2 collapses to 1 when nRow*10 <= nDistinct*11)
+fn stat1_ival(n_row: u64, n_distinct: u64) -> u64 {
+    let iv = (n_row + n_distinct - 1) / n_distinct;
+    if iv == 2 && n_row * 10 <= n_distinct * 11 { 1 } else { iv }
+}
+
+/// stat text for one index: "{nRow} {v1} {v2} ..." over real evaluated key tuples
+fn stat1_text(cols: &[Col], idx: &IndexDef, rows: &[(i64, Vec<Val>)]) -> Result<String, String> {
+    let mut keys: Vec<Vec<Val>> = Vec::new();
+    for (_rid, r) in rows {
+        if let Some(k) = index_key_for(cols, idx, r)? { keys.push(k); }
+    }
+    let n = keys.len() as u64;
+    let mut out = n.to_string();
+    let ncols = idx.exprs.len();
+    for k in 1..=ncols {
+        let mut set: std::collections::HashSet<String> = Default::default();
+        for key in &keys {
+            let pfx: Vec<String> = key[..k].iter().map(|v| format!("{:?}", v.render())).collect();
+            set.insert(pfx.join("\u{1}"));
+        }
+        let d = set.len().max(1) as u64;
+        out.push(' ');
+        out.push_str(&stat1_ival(n, d).to_string());
+    }
+    Ok(out)
+}
+
+/// ensure the sqlite_stat1 catalog table exists (ANALYZE always creates it)
+fn ensure_stat1(st: &mut Store) {
+    if st.tables.iter().any(|(n, _)| n == "sqlite_stat1") { return; }
+    let sql = "CREATE TABLE sqlite_stat1(tbl,idx,stat)";
+    let cols = parse_coldefs("tbl,idx,stat").unwrap_or_default();
+    st.tables.push(("sqlite_stat1".into(), Table { cols, create_sql: sql.into(), ..Default::default() }));
+    st.catalog.push(("table".into(), "sqlite_stat1".into()));
+}
+
+/// delete stat1 rows matching (tbl [, idx]) — re-ANALYZE / DROP maintenance
+fn stat1_delete(st: &mut Store, tbl: Option<&str>, idx: Option<&str>) {
+    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == "sqlite_stat1") {
+        s.rows.retain(|(_, r)| {
+            let rt = match r.first() { Some(Val::Text(t)) => t.clone(), _ => String::new() };
+            let ri = match r.get(1) { Some(Val::Text(t)) => Some(t.clone()), _ => None };
+            let tbl_match = tbl.map_or(true, |t| rt == t);
+            let idx_match = idx.map_or(true, |i| ri.as_deref() == Some(i));
+            !(tbl_match && idx_match)
+        });
+    }
+}
+
+fn stat1_insert(st: &mut Store, tbl: &str, idx: Option<&str>, stat: &str) {
+    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == "sqlite_stat1") {
+        s.next_rowid += 1;
+        let rid = s.next_rowid;
+        s.rows.push((rid, vec![
+            Val::Text(tbl.into()),
+            match idx { Some(i) => Val::Text(i.into()), None => Val::Null },
+            Val::Text(stat.into()),
+        ]));
+    }
 }
 
 fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
@@ -1828,6 +1930,72 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             } else { None };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
+                Stmt::Analyze { target } => {
+                    // run-37: real scans -> sqlite_stat1 rows (pinned C text format)
+                    ensure_stat1(st);
+                    // resolve scope: whole db (None / schema name), one table, or one index
+                    let mut only_index: Option<(String, String)> = None; // (table, index)
+                    let mut tables: Vec<String> = Vec::new();
+                    match &target {
+                        None => {
+                            tables = st.tables.iter().map(|(n, _)| n.clone())
+                                .filter(|n| n != "sqlite_stat1").collect();
+                        }
+                        Some(name) if name == "main" || name == "temp" => {
+                            tables = st.tables.iter().map(|(n, _)| n.clone())
+                                .filter(|n| n != "sqlite_stat1").collect();
+                        }
+                        Some(name) => {
+                            if st.tables.iter().any(|(n, _)| n == name) {
+                                tables = vec![name.clone()];
+                            } else if let Some(d) = st.indexes.iter().find(|d| d.name == *name) {
+                                only_index = Some((d.table.clone(), d.name.clone()));
+                            } else {
+                                return Err(format!("no such table: {name}"));
+                            }
+                        }
+                    }
+                    if let Some((tbl, idxname)) = only_index {
+                        // ANALYZE <index>: replace exactly that row (pinned C007)
+                        let (cols, rows, def) = {
+                            let t = st.tables.iter().find(|(n, _)| *n == tbl).ok_or("no such table")?;
+                            let def = st.indexes.iter().find(|d| d.name == idxname).cloned().ok_or("no such index")?;
+                            (t.1.cols.clone(), t.1.rows.clone(), def)
+                        };
+                        stat1_delete(st, Some(&tbl), Some(&idxname));
+                        if !rows.is_empty() {
+                            let stat = stat1_text(&cols, &def, &rows)?;
+                            stat1_insert(st, &tbl, Some(&idxname), &stat);
+                        }
+                    } else {
+                        for tbl in tables {
+                            let (cols, rows, create_sql) = {
+                                let t = st.tables.iter().find(|(n, _)| *n == tbl).ok_or("no such table")?;
+                                (t.1.cols.clone(), t.1.rows.clone(), t.1.create_sql.clone())
+                            };
+                            let mut idefs: Vec<IndexDef> = st.indexes.iter()
+                                .filter(|d| d.table == tbl).cloned().collect();
+                            // WITHOUT ROWID: the PRIMARY KEY is a stat1 index named like the table
+                            if create_sql.to_ascii_uppercase().contains("WITHOUT ROWID") {
+                                let pks = pk_cols(&create_sql);
+                                if !pks.is_empty() {
+                                    idefs.push(IndexDef { name: tbl.clone(), table: tbl.clone(),
+                                        exprs: pks, unique: true, where_c: None, sql: String::new() });
+                                }
+                            }
+                            stat1_delete(st, Some(&tbl), None);
+                            if rows.is_empty() { continue; } // pinned: empty tables write nothing
+                            if idefs.is_empty() {
+                                stat1_insert(st, &tbl, None, &rows.len().to_string());
+                            } else {
+                                for def in &idefs {
+                                    let stat = stat1_text(&cols, def, &rows)?;
+                                    stat1_insert(st, &tbl, Some(&def.name), &stat);
+                                }
+                            }
+                        }
+                    }
+                }
                 Stmt::Vacuum { into } => {
                     // run-34: a real rebuild — not a script answer. C refuses inside a txn.
                     if st.txn.is_some() {
@@ -1977,6 +2145,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.conn.schema_version += 1;
                 }
                 Stmt::DropIndex { name } => {
+                    stat1_delete(st, None, Some(&name)); // run-37: C clears the index's stat1 row
                     let dropped = st.indexes.iter().find(|d| d.name == name).cloned();
                     st.indexes.retain(|d| d.name != name);
                     st.index_owner.remove(&name);
@@ -2037,6 +2206,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.conn.schema_version += 1;
                 }
                 Stmt::Drop { name } => {
+                    stat1_delete(st, Some(&name), None); // run-37: C clears the table's stat1 rows
                     if st.fk_on {
                         // DROP parent while child rows still reference it -> rc 19
                         for (cn, ct) in &st.tables {

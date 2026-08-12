@@ -228,7 +228,10 @@ fn reg(h: &H, name: &str, f: unsafe extern "C" fn(*mut c_void, c_int, *const c_v
     h.rows("SELECT s FROM r ORDER BY s COLLATE NOCASE, rowid", "nocase_order");
     h.check(); }
 
-#[test] fn n001() { let mut h = H::new("engine-collation-003-C001");
+static NEEDED_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[test] fn n001() { let _g = NEEDED_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut h = H::new("engine-collation-003-C001");
     GNEEDED.store(0, AO::SeqCst); GNEEDNAME.lock().unwrap().clear();
     unsafe { sqlite3_collation_needed(h.db, ptr::null_mut(), Some(needed_cb)); }
     h.rows("SELECT 'A' = 'a' COLLATE lazy1", "eq");
@@ -237,7 +240,8 @@ fn reg(h: &H, name: &str, f: unsafe extern "C" fn(*mut c_void, c_int, *const c_v
     h.os("factory_name", &n);
     h.check(); }
 
-#[test] fn n002() { let mut h = H::new("engine-collation-003-C002");
+#[test] fn n002() { let _g = NEEDED_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut h = H::new("engine-collation-003-C002");
     GNEEDED.store(0, AO::SeqCst); GNEEDNAME.lock().unwrap().clear();
     unsafe { sqlite3_collation_needed(h.db, ptr::null_mut(), Some(needed_cb)); }
     h.rows("SELECT 'A' = 'a' COLLATE lazy2", "eq");
