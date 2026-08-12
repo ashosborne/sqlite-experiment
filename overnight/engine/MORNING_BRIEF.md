@@ -1,95 +1,88 @@
-# MORNING BRIEF — engine v23: thin-gap harvest (run 33)
+# MORNING BRIEF — engine v24: VACUUM and VACUUM INTO (run 34)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–32 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v23-thin-gap-harvest, DEEPEN_WAL: false.
-MAX_NEW_CASES 40 (used 24, as 33 case-ids across 9 batches). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–33 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v24-vacuum, DEEPEN_WAL: false.
+MAX_NEW_CASES 55 (used 18; stretch batches skipped — VACUUM alone was the run).
+REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @23 BOUND — thin-gap harvest law
+## 1. Pack @24 BOUND — VACUUM law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v22 → **v23**
-(versions/1–23 retained; ADR `0021-engine-v23-thin-gap-harvest.md`; schema VALID; 29 laws).
-New law: harvest increments must pin the previously-MISSING behaviour, flip full only when
-the COVERAGE-named residual is honestly gone, and REAL text rendering must stay on the
-ported FpDecode pipeline. WAL claims unchanged from v22. SCRIPT_TABLE stays 0.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v23 → **v24**
+(versions/1–24 retained; ADR `0022-engine-v24-vacuum.md`; schema VALID; 30 laws).
+Plain language: VACUUM must really rebuild the content — copy everything into fresh
+tightly-packed storage and drop the wasted space — and VACUUM INTO must copy the
+rebuilt database into a brand-new file that C can open. Canned answers are a
+SCOPE_VIOLATION. WAL stays at its v22 claim level. SCRIPT_TABLE stays 0.
 
-## 2. Flips table (card → before → after → residual)
+## 2. What VACUUM now does in modern
+
+| Behaviour | Evidence |
+| --- | --- |
+| Plain rowids renumber after deletes (1,3,5 → 1,2,3) | pinned before/after; skipping the rebuild would fail this |
+| INTEGER PRIMARY KEY / WITHOUT ROWID keys preserved | pinned (ids 10,30 stay 10,30) |
+| Free space reclaimed | `PRAGMA page_count` now models the freelist: grows with data, does **not** shrink on DELETE, drops only at VACUUM (pinned shrink booleans) |
+| Cannot VACUUM inside a transaction | C's exact error; the transaction keeps working (pinned) |
+| Files rewritten immediately, C-readable | `rust_vacuum_c_read`: pinned C CLI reads a Rust file after delete+VACUUM, integrity ok |
+| WAL mode | VACUUM rewrites main **and** the -wal (stale frames cannot resurrect old rowids); journal_mode stays wal (pinned) |
+| VACUUM INTO | fresh target with tables+indexes, C-readable, source untouched; "output file already exists" / rc-14 invalid path / txn error pinned; `:memory:` source exports to a file |
+
+The old `vacuum-001-C001` golden (frozen in run 11, honestly deferred ever since —
+`legacy_green ≠ done`) **now replays for real**: `zeroblob(1000)` insert, DROP, VACUUM,
+SELECT — all executed, no script table.
+
+## 3. Engine holes the pins forced open (all real fixes)
+
+- **DELETE with any WHERE** (`n > 5`, `v % 2 = 0`, `IN (...)`) — per-row expression
+  evaluation replaces the old col=int-only filter.
+- **INSERT VALUES with constant expressions** (`zeroblob(1000)`) — computed, not
+  literal-parsed (plus a one-paren-only VALUES fix).
+- **`SELECT rowid` / ORDER BY rowid** — routed to the row store (evaluator rows carry
+  no rowids), with rowid correctly aliasing the INTEGER PRIMARY KEY.
+- **sqlite_master type/name projections** with multi-key ORDER BY.
+
+## 4. Flips table
 
 | Card | Before | After | Residual |
 | --- | --- | --- | --- |
-| loadext-api-002 | partial | **full** | — (cancel/reset/multi-entry landed) |
-| malloc-subsystem-001 | partial | **full** | — (memory_used/highwater on the real allocator) |
-| window-functions-001 | partial | **full** | — (all six leftovers + named WINDOW clause) |
-| error-status-api-002 | partial | **full** | — (limit id matrix + prepare-time enforcement) |
-| error-status-api-001 | partial | **full** | extended codes real for implemented error paths; IOERR/CANTOPEN families have no modern error source |
-| foreign-keys-001 | partial | **full** | — (deferred FKs: COMMIT check, txn stays open, pragma reset) |
-| printf-format-002 | partial | partial (tighter) | vmprintf needs C va_list — stable Rust cannot define it (platform residual) |
-| printf-format-003 | partial | partial (tighter) | vappendf: same va_list residual; str_append landed |
-| auth-callback-api-001 | partial | partial (tighter) | s1–s4 args, SQLITE_IGNORE, ~28 more action codes |
-| tokenizer-002 | partial | partial (tighter) | string-literal-aware lexing in complete() |
-| engine-harvest23-001..009 | — | **new full ×9** | composed cards for exactly the frozen batches |
+| vacuum-001 | none (legacy_green only) | **partial** | pending page_size / auto_vacuum apply; `VACUUM <schema>` attached forms — named in the card, so full would over-claim |
+| vacuum-002 | none | **partial** | URI filename targets (`file:...?...`) — named in the card |
+| engine-vacuum-001/002/003 | — | **new full ×3** | composed cards for exactly the frozen batches |
 
-## 3. What landed (modern/src/{lib,eval,store,fpdec}.rs)
+Stretch cards (get_table, status counters, close_v2) skipped, per charter.
 
-- **auto-extension**: ordered multi-entry registry, cancel (1/0), reset, duplicate collapse.
-- **malloc accounting**: counters in `sized_alloc` (origin of every `sqlite3_free` pointer);
-  sticky highwater with reset-returns-prior semantics.
-- **snprintf** (fixed-arity like the existing mprintf): truncation with NUL at n-1,
-  n<=0 no-op returning buf; **sqlite3_str_append** raw n-limited bytes.
-- **window functions**: first_value/last_value/nth_value (frame-aware, OOR→NULL),
-  ntile (front-loaded buckets), percent_rank, cume_dist; `WINDOW <name> AS (...)` named
-  windows; `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` frame.
-- **sqlite3_limit**: full id matrix (defaults pinned: LENGTH 1e9, COLUMN 2000,
-  FUNCTION_ARG 1000, ATTACHED 10, VARIABLE_NUMBER 32766), prior-value sets, compile-max
-  clamping; VARIABLE_NUMBER enforced at prepare (`variable number must be between ?1 and ?N`).
-- **errors**: sqlite3_errstr (extended codes fall through to base, pinned by e787/e2067);
-  extended constraint codes 2067/1299/275/787 on real paths; UNIQUE/CHECK messages now
-  qualified like C (`UNIQUE constraint failed: t.a`, `CHECK constraint failed: c>0`).
-- **deferred FKs**: `DEFERRABLE INITIALLY DEFERRED` + `PRAGMA defer_foreign_keys`
-  (resets at txn end); COMMIT-time whole-store validation; failed COMMIT keeps the
-  transaction open (pinned); still immediate outside transactions.
-- **authorizer**: INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA deny → rc 23 "not authorized".
-- **complete()**: real BEGIN/CASE/END nesting scan.
+## 5. Anti-cheat + C interop + cargo
 
-### The unplanned deep fix: `fpdec.rs`
-
-Window pins exposed that modern rendered REALs by Rust shortest-round-trip while C
-renders 1.0/3.0 as `0.33333333333333332` (SQLite's own 18-digit convert + round-to-17
-artifact). `fpdec.rs` is a **faithful port of sqlite3FpDecode / Fp2Convert10 /
-Fp10Convert2** (power-of-ten tables, 128-bit multiplies, %!.17g precision-reduction)
-plus the printf %!g assembly. Every prior REAL pin replays through the port.
-
-## 4. Anti-cheat + cargo
-
-- `anti_cheat_harvest_runtime` — pid-seeded rows through window functions, a runtime
-  VARIABLE_NUMBER limit with exact C errmsg, and a runtime deferred-FK commit cycle.
-- Per-card mandatory pins demonstrate the previously-missing behaviour (e.g. wal-blind
-  none of these — WAL untouched).
+- `anti_cheat_vacuum_runtime` — pid-seeded table name + payloads: rowids renumber
+  1..3 after a modulo DELETE + VACUUM; a runtime-chosen `VACUUM INTO` target is read
+  back by the pinned C CLI (sum + integrity ok).
+- `rust_vacuum_c_read` — C reads the Rust file after in-place VACUUM.
+- `legacy_vacuum_001_c001_replays` — the deferred golden replays byte-identical.
 - `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
-- **cargo test: 519/519 PASS** (was 508; +11 harvest tests). engine-wal / upsert-expr /
-  collation / utf16 / prepare / index / UDF suites all green; 477 pre-run goldens
-  md5-verified intact.
+- **cargo test: 541/541 PASS** (was 519; +18 golden twins, +4 anti-cheat/interop/legacy).
+  engine-wal / upsert-expr / collation / utf16 / harvest23 suites all green; 510
+  pre-run goldens md5-verified intact.
 
-## 5. Scoreboard (impl_in_modern) — before → after
+## 6. Scoreboard (impl_in_modern) — before → after
 
-| State | Run 32 | Run 33 |
+| State | Run 33 | Run 34 |
 | --- | --- | --- |
-| **full (converted)** | 94 | **109** |
-| partial | 50 | 44 |
-| none (remaining) | 101 | 101 |
-| behaviours known | 245 | 254 |
+| **full (converted)** | 109 | **112** |
+| partial | 44 | 46 |
+| none (remaining) | 101 | **99** |
+| behaviours known | 254 | 257 |
 
-6 umbrella Partials flipped full; 4 tightened honestly; 9 composed batch cards added.
-legacy_green 155 → 164. parity_green 0. Nothing `verified`. WAL claim level unchanged.
+legacy_green 164 → 167. parity_green 0. Nothing `verified`. WAL claim unchanged.
 
-## 6. Not migrated
+## 7. Not migrated
 
-SQLite is **not migrated**. 109/254 behaviours run honestly in modern for frozen scope
-only. va_list ABI surfaces (vmprintf/vappendf) are platform residuals on stable Rust.
-Parity UNVERIFIED everywhere (COMPARE never run).
+SQLite is **not migrated**. 112/257 behaviours run honestly in modern for frozen scope
+only. VACUUM does not apply pending page_size/auto_vacuum, and INTO takes plain paths
+only. Parity UNVERIFIED everywhere (COMPARE never run).
 
-## 7. Next call
+## 8. Next call
 
-1. **Another harvest** — auth s1–s4 args + SQLITE_IGNORE; tokenizer string-aware
-   complete(); json_valid flags; connection-lifecycle URI thin pins.
-2. **WAL deepen** — frame-level appends to shrink the wal-001 residual.
-3. **A named none** — e.g. RETURNING clause as a new bounded DML card.
+1. **blob-io none** — sqlite3_blob_open/read/write incremental I/O: bounded, real
+   engine work, another none→partial/full.
+2. **VACUUM deepen** — URI INTO targets + attached-schema forms to finish vacuum-002.
+3. **connection-lifecycle none crumbs** — close BUSY vs close_v2 zombie pins
+   (single-process), get_table marshalling.

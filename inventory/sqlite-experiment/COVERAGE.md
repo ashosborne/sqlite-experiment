@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T12:56:23Z
+- Generated: 2026-08-12T13:19:34Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T00:30:00Z by `sqlite-engine-v23-thin-gap-harvest`
+- Manifest last_updated: 2026-08-13T02:30:00Z by `sqlite-engine-v24-vacuum`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 101 | Not started in modern |
-| partial | 44 | Some modern execution; gaps in notes |
-| full (converted) | 109 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 99 | Not started in modern |
+| partial | 46 | Some modern execution; gaps in notes |
+| full (converted) | 112 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -129,6 +129,9 @@
 - `engine-harvest23-007` — deferred foreign keys
 - `engine-harvest23-008` — authorizer statement-class codes
 - `engine-harvest23-009` — sqlite3_complete nesting
+- `engine-vacuum-001` — VACUUM rebuild basics
+- `engine-vacuum-002` — durable VACUUM + C interop
+- `engine-vacuum-003` — VACUUM INTO
 
 ### Partial in modern
 
@@ -173,6 +176,8 @@
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent run-33: real BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies pinned). REMAINING: string-literal-aware lexing inside complete().
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+- `vacuum-001` — confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes. run-34: PARTIAL — the rebuild itself is real in modern (implicit rowids renumber, IPK/WITHOUT ROWID keys kept, freelist page model reclaimed, durable rewrite C reads with integrity ok, txn ban with C errmsg). RESIDUAL: pending page_size / auto_vacuum application during VACUUM and attached-schema forms (VACUUM <schema>) are not implemented — the card names them, so full would over-claim. Old vacuum-001-C001 golden (deferred since the recognizer era) now replays for real.
+- `vacuum-002` — confidence=observed-in-code; Rebuild into named URI target; source unchanged. run-34: PARTIAL — VACUUM INTO writes a fresh C-readable file (tables+indexes, integrity ok), source untouched; exists/txn/invalid-path errors match pins; :memory: export works; runtime-target anti-cheat green. RESIDUAL: URI filename target forms (file:...?...) not pinned or implemented — named in the card, so full would over-claim.
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
@@ -256,8 +261,6 @@
 - `shell-cli-002` — shell-cli — legacy_green no
 - `tcl-binding-001` — tcl-binding — legacy_green no
 - `unlock-notify-api-001` — unlock-notify-api — legacy_green no
-- `vacuum-001` — vacuum — legacy_green yes
-- `vacuum-002` — vacuum — legacy_green no
 - `vdbe-engine-001` — vdbe-engine — legacy_green no
 - `vdbe-engine-002` — vdbe-engine — legacy_green no
 - `vfs-kv-001` — vfs-kv — legacy_green no
@@ -285,25 +288,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 228 |
-| Behaviours known | 254 |
+| Surfaces total | 229 |
+| Behaviours known | 257 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 164 |
+| legacy_green flags | 167 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 43 |
+| accepted | 44 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 109 |
+| converted | 112 |
 | documented | 145 |
 
 ## Surfaces per slice
@@ -361,6 +364,7 @@
 | engine-upsert2 | 1 |
 | engine-upsert3 | 1 |
 | engine-utf16 | 1 |
+| engine-vacuum | 1 |
 | engine-value | 1 |
 | engine-views | 1 |
 | engine-wal | 1 |

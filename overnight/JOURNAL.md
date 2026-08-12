@@ -571,3 +571,27 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Scoreboard full 94→109 / partial 44 / none 101 (254 known). cargo 519/519.
   477 prior goldens md5-identical. WAL claims untouched.
 
+## Run 34 — 2026-08-13 — engine v24: VACUUM + VACUUM INTO (pack v24)
+
+- Pack v23→v24 BOUND (+versions/24, ADR 0022): VACUUM LAW (real rebuild; INTO writes a
+  fresh C-readable file; canned answers = SCOPE_VIOLATION).
+- 18 goldens (engine-vacuum-001 x8 basics, -002 x4 durable/interop, -003 x6 INTO;
+  harness /tmp/vac_harness.c). Key C truths pinned: implicit rowids renumber 1,3,5->1,2,3;
+  IPK/WITHOUT ROWID keep keys; "cannot VACUUM from within a transaction" (txn survives);
+  page_count shrink; INTO exists/txn/rc-14 errors; :memory: export; WAL mode preserved.
+- store.rs: Stmt::Vacuum{into} + exec arm (renumber, freelist reset, immediate file+wal
+  rewrite, INTO write with pinned errors); freelist page model (refresh_pages after
+  INSERT/DELETE/UPDATE; page_hwm grow-only); image_of(&Store) refactor; DELETE arbitrary
+  WHERE via eval_standalone (whx fallback); INSERT constant-expression VALUES
+  (zeroblob) + one-paren VALUES fix; kitchen rowid projection/sort with IPK aliasing;
+  sqlite_master type/name projections + multi-key ORDER BY (kitchen-only for master).
+  eval.rs: page_count pragma (freelist model); Conn.page_cur/page_hwm. rc-14 mapping.
+- Legacy vacuum-001-C001 golden (deferred since run 11) now replays for real
+  (engine_vacuum.rs twin). Anti-cheat: pid-seeded renumbering + runtime INTO target
+  read by C. Interop: C reads Rust file after in-place VACUUM (integrity ok).
+- Flips (under-claimed): vacuum-001 none→partial (page_size/auto_vacuum apply +
+  attached forms residual), vacuum-002 none→partial (URI targets residual);
+  engine-vacuum-001/002/003 new composed full. Stretch skipped per charter.
+- Scoreboard full 109→112 / partial 46 / none 99 (257 known). cargo 541/541.
+  510 prior goldens md5-identical.
+
