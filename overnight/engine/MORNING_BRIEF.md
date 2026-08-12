@@ -1,88 +1,74 @@
-# MORNING BRIEF — engine v35: real lookaside pool (run 45)
+# MORNING BRIEF — engine v36: partial→full harvest (run 46, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–44 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v35-lookaside-none, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 14). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–45 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v36-partial-to-full, PACING overnight,
+FORBID_GREENWASH_FULL, ALLOW_XBESTINDEX. MAX_NEW_CASES 120 (used 36).
 
-## 1. Pack @35 BOUND — LOOKASIDE/NONE law
+## 1. Pack @36 BOUND — PARTIAL→FULL HARVEST law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v34 → **v35**
-(versions/1–35 retained; ADR `0033-engine-v35-lookaside-none.md`; schema VALID; 41 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v35 → **v36**
+(versions/1–36 retained; ADR `0034-engine-v36-partial-to-full.md`; schema VALID; 42 laws).
 
-## 2. Presence-check ledger (ADR 0033)
+## 2. Partial → FULL (10 estate flips — the stretch goal landed)
 
-| Surface | Result |
+Every flip's former residual is covered by fresh pins (36 goldens, two waves, probe-first):
+
+| Card | Former residual → evidence |
 | --- | --- |
-| lookaside + db_config(LOOKASIDE) | **PRESENT** on the bare pin (default on; BUSY while live) → implemented |
-| delta_create / eval / dbstat / sqlite_stmt / median | ABSENT (`no such function/table` reconfirmed) → **stay none** |
-| unlock-notify | ABSENT (run-42 fingerprint) → **stays none** |
+| **tokenizer-002** | audit confirmed run-38 closed the chain; fresh comment/string/END pins |
+| **parser-grammar-002** | quoted reserved TABLE names end-to-end (all quote styles, CRUD, qualified, master) + runtime-keyword anti-cheat |
+| **attach-detach-002** | locked DETACH: active statement reading the schema → `database aux is locked`; main-only statements don't lock |
+| **json-funcs-003** | json_valid FLAGS matrix: strict/JSON5 text validators, JSONB byte walker, 1..15 range error (strict `.5` rejection fixed) |
+| **foreign-keys-003** | drop-order matrix: immediate block, child-first, NULL children, deferred-drop + COMMIT catch + ROLLBACK restore |
+| **vacuum-001** | pending page_size/auto_vacuum apply **at VACUUM** (pending readback pinned); `VACUUM <schema>`; `unknown database` |
+| **vacuum-002** | URI INTO **pin-absent with evidence**: USE_URI off → literal-path refusal pinned |
+| **vtab-core-002** | sqlite3_vtab_config (ctor-only/MISUSE matrix) + real xBestIndex EQ offers — consumed argvIndex delivers the value to xFilter argv, module bounds the scan (runtime anti-cheat) |
+| **connection-lifecycle-api-002** | backup coupling: src close BUSY + errmsg, dst close defers to finish, step/finish error after deferral, tombstoned double-close → MISUSE (post-close depth stays unfrozen UB by design) |
+| **blob-io-api-001** | attached-schema opens read real bytes, WITHOUT ROWID refusal, txn write-through durable, non-ASCII names; UTF-16 forms pin-absent (no UTF-16 blob_open API) |
 
-No absence "success" goldens frozen; run-39 absence pins untouched.
+## 3. Deepened, honestly still partial
 
-## 3. What landed — the run-39 "not honestly modellable" gap is closed with a real pool
+| Card | This run | Remaining |
+| --- | --- | --- |
+| error-status-api-003 | **sqlite3_stmt_status**: FULLSCAN_STEP exact rows−1 tally + accumulation (runtime anti-cheat), RUN cycles, MEMUSED real footprint, VM_STEP predicate-only | CACHE_SPILL pressure, VM_STEP magnitudes (no VDBE), scanstatus |
+| analyze-stats-001 | attached ANALYZE → `aux.sqlite_stat1` (+ `CREATE INDEX aux.ti` schema resolution); PRAGMA optimize missing-stats contract | optimize usage-gating heuristics; stat4 + sz=/unordered stay pin-absent |
 
-- **A real slab**: acquired through the counting allocator (MEMORY_USED accounts it once,
-  like C), carved into 8-rounded slots (default 1200×40 at connection open, C's shape).
-- **Real allocations through it**: `sqlite3_prepare_v2` placement-allocates the
-  prepared-statement object from a slot (hit), falls back to the heap on size/full
-  misses, and `sqlite3_finalize` returns the slot for reuse. C additionally routes
-  parse-tree allocations through lookaside, so magnitudes differ — every growth pin is
-  a predicate, every zero pin is C-exact (run-38/44 style). **No invented counters.**
-- **db_config(LOOKASIDE)**: OK on a quiet connection, **SQLITE_BUSY(5) while a statement
-  is live**, OK after finalize; negative/huge size + negative count normalize rc 0;
-  (0,0) disables (USED zeros, HIT frozen); unknown verbs rc 1; HIT/MISS counters survive
-  reconfig (probed C behaviour).
-- **LOOKASIDE db_status is now real**: USED = (outstanding, highwater; reset pulls hi to
-  cur), HIT/MISS_SIZE/MISS_FULL = (current always 0, counter; reset clears). 64-byte
-  slots force MISS_SIZE; a 512×2 pool under six live statements forces MISS_FULL; a
-  freed slot HITs again; the DEFAULT pool serves traffic with zero config calls.
-- Zombie safety: close_v2 with live statements parks the pool; late finalizes drain it
-  and the slab frees with the last slot.
+## 4. Stayed partial untouched (structural, per charter)
 
-## 4. Flips table
+WAL multi-conn, planner/VDBE, ~30 remaining pragmas, ~60 scalars, zlib byte-format,
+va_list, lookaside mini-slots, decimal precision, regexp NFA, dlopen, unlock-notify,
+compile-options census, pager/btree/vfs/fts/wasm/jni/session/expert,
+attach-detach-003 TEMP-fire matrix, vtab-core-001 mega lifecycle.
 
-| Card | Before | After | Why |
-| --- | --- | --- | --- |
-| malloc-subsystem-002 | **none** (run-39 "not honestly modellable") | **partial** | real pool + knobs + moving counters; residuals named: two-size mini slots, pBuf external buffers, non-stmt allocations, CONFIG_LOOKASIDE process default |
-| error-status-api-003 | partial | partial (LOOKASIDE residual **cleared**) | leftovers now just CACHE_SPILL pressure + stmt_status/scanstatus |
-| absent-extension nones | none | none (presence notes) | ledger reconfirmed, zero opportunistic flips |
-| engine-lookaside35-001/002/003 | — | **full** (composed) | exact frozen batches (5 + 5 + 4) |
+## 5. xBestIndex outcome
 
-## 5. Anti-cheat + goldens
+Real constraint plumbing landed: C-layout `sqlite3_index_constraint(_usage)` arrays, a
+detected `col = literal` EQ term offered on single-vtab FROMs, consumed values delivered
+through xFilter argv, engine WHERE still applied (safe with omit). Under-claim recorded:
+one simple EQ term per scan; series/prefixes/wholenumber not re-homed.
 
-- 14 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-lookaside35/`), two-run
-  deterministic; prior 720 goldens untouched.
-- 3 anti-cheat tests: runtime slot count N → exactly N pool-served live statements
-  (USED current == N) with exactly the overflow missing FULL; runtime too-small slot
-  size → every one of a runtime number of prepares MISS_SIZEs with HIT frozen; bad
-  db_status/db_config ops still fail and BUSY guards a live pool.
-- SCRIPT_TABLE.len()==0. FORBID_FAKE_LOOKASIDE_COUNTERS honoured — counters only move
-  when the pool actually serves or misses an allocation.
+## 6. Anti-cheat + goldens + cargo
 
-## 6. cargo
-
-`cargo test` (modern): **767 passed / 0 failed** (was 750; +17 lookaside35 twins/anti-cheat).
-status34 / pragma34 / attach33 / compile32 / vtab31 / attach30 / none29 / harvest /
-ANALYZE / conn / blob / vacuum / WAL all green — including conn's close/zombie paths over
-the new pool and status34's quiet-op zeros under the default config.
+- 36 new HUMAN_ACCEPTED goldens (engine-harvest36-001…011); prior 734 goldens untouched.
+- 4 anti-cheat tests: runtime-keyword quoted table round-trip; runtime row count →
+  FULLSCAN_STEP == N−1; runtime EQ bound reaching the module through argv (offer + argc
+  + bounded rows asserted); plus the wave-1 golden runtime probes.
+- `cargo test` (modern): **806 passed / 0 failed** (was 767; +39 harvest36 twins).
+  All prior suites green. SCRIPT_TABLE.len()==0.
 
 ## 7. Scoreboard
 
-before → after: **149 full / 62 partial / 79 none of 290** → **152 full / 63 partial / 78 none of 293**
-(malloc-subsystem-002 leaves none; three composed fulls).
+before → after: **152 full / 63 partial / 78 none of 293** → **173 full / 53 partial / 78 none of 304**
+(10 estate partial→full + 11 composed fulls; partial count down 10; none untouched).
 
 ## 8. Not migrated
 
-SQLite is NOT migrated. Not claimed: two-size mini-slot carving, pBuf external buffers,
-lookaside for non-statement allocations, SQLITE_CONFIG_LOOKASIDE, CACHE_SPILL pressure,
-stmt_status/scanstatus, pcache config seam (stretch skipped), xBestIndex, planner,
-unlock-notify and every absent extension in the ledger, wasm/jni/vfs/FTS/rtree/session,
-btree/pager/vdbe/where internals.
+SQLite is NOT migrated — the §4 list alone spans the pager/btree/VDBE core.
 
 ## 9. Next call (pick one)
 
-1. **xBestIndex deepen** — real constraint offers to vtab modules (EQ pushdown + HIDDEN
-   argv path), cutting the vtab-core-002 residual.
-2. **stmt_status thin slice** — FULLSCAN_STEP/VM_STEP/RUN composed pins (natural sequel
-   to the status matrix; also names an error-status-api-003 leftover).
-3. **pcache-001 config seam** — the stretch this run skipped (presence-check first).
+1. **another partial→full wave** — next one-holes: prepare-statement-api-006 leftovers,
+   connection-lifecycle-api-001 URI open, auth-callback s1–s4/IGNORE, backup multi-page,
+   window EXCLUDE, global-init-config matrices.
+2. **vtab-core-001 lifecycle deepen** — xConnect schema reload, drop_modules, xUpdate.
+3. **stmt_status VM_STEP honesty study** — whether any real modern quantity can carry it.

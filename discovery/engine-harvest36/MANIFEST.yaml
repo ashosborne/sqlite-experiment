@@ -1,0 +1,21 @@
+slice_id: engine-harvest36
+app_id: sqlite-experiment
+created_by: sqlite-engine-v36-partial-to-full
+created_at: 2026-08-14T07:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed partial-to-full harvest slice (run 46): every batch closes a named residual
+  on a Partial estate card, probe-first on the bare C baseline (pack v36 / ADR 0034).
+features:
+  - engine-harvest36-001
+  - engine-harvest36-002
+  - engine-harvest36-003
+  - engine-harvest36-004
+  - engine-harvest36-005
+  - engine-harvest36-006
+  - engine-harvest36-007
+  - engine-harvest36-008
+  - engine-harvest36-009
+  - engine-harvest36-010
+  - engine-harvest36-011

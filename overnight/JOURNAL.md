@@ -844,3 +844,28 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-lookaside35-001/002/003 new composed full.
 - Scoreboard full 149->152 / partial 62->63 / none 79->78 (293 known). cargo 767/767.
 
+## Run 46 — 2026-08-14 — engine v36: partial-to-full harvest (pack v36, overnight)
+
+- Pack v35→v36 BOUND (+versions/36, ADR 0034): PARTIAL-TO-FULL HARVEST LAW. 36 goldens
+  in two waves (engine-harvest36-001..011), probe-first, ≤120 budget, 4 anti-cheat.
+- ESTATE FLIPS partial->FULL (10): tokenizer-002 (audit + comment/string/END pins),
+  parser-grammar-002 (quoted reserved table names end-to-end: find_kw_top quote-aware,
+  source_rows/alias unquoting, backtick lexing, quoted-qualifier column chains),
+  attach-detach-002 (locked DETACH via active-statement schema-read gate),
+  json-funcs-003 (FLAGS matrix: strict fix for '.5', JSON5 validator, JSONB byte
+  walker, range error), foreign-keys-003 (drop-order matrix incl deferred-drop with
+  COMMIT catch), vacuum-001 (pending page_size/auto_vacuum apply at VACUUM; VACUUM
+  <schema>; unknown database), vacuum-002 (URI INTO pin-absent: USE_URI off, literal
+  refusal pinned), vtab-core-002 (sqlite3_vtab_config matrix + REAL xBestIndex EQ
+  offers with C-layout arrays, argv into xFilter, runtime-bound anti-cheat),
+  connection-lifecycle-api-002 (backup-close coupling + tombstoned double-close),
+  blob-io-api-001 (attached-schema opens, WITHOUT ROWID refusal, txn write-through,
+  non-ASCII names; UTF-16 pin-absent).
+- DEEPENED still partial (2, tightened text): error-status-api-003 (sqlite3_stmt_status:
+  FULLSCAN_STEP exact rows-1 + accumulation, RUN, MEMUSED; VM_STEP predicate-only;
+  leftovers CACHE_SPILL/VM_STEP magnitudes/scanstatus), analyze-stats-001 (attached
+  ANALYZE -> aux.sqlite_stat1 + CREATE INDEX schema resolution + PRAGMA optimize
+  missing-stats contract; leftover optimize gating heuristics).
+- Composed engine-harvest36-001..011 new full. Structural partials untouched per law.
+- Scoreboard full 152->173 / partial 63->53 / none 78 (304 known). cargo 806/806.
+
