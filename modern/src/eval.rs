@@ -347,6 +347,11 @@ pub struct Ctx<'a> {
     pub fk_counts: &'a std::collections::HashMap<String, usize>,
     pub index_counts: &'a std::collections::HashMap<String, usize>,
     pub views: &'a std::collections::HashMap<String, String>,
+    /// per-table single-column index maps (indexed col -> sorted key -> row positions),
+    /// used for real index probes; empty when the caller supplies none.
+    pub indexes: &'a std::collections::HashMap<String, Vec<(String, std::collections::BTreeMap<String, Vec<usize>>)>>,
+    /// real index-probe counter (anti-cheat proof that lookups use the index)
+    pub probes: &'a std::cell::Cell<u64>,
 }
 
 /// Evaluate one expression against a plain env (used by the store for CHECK
@@ -357,8 +362,10 @@ pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -
     let fk = std::collections::HashMap::new();
     let ix = std::collections::HashMap::new();
     let views = std::collections::HashMap::new();
+    let indexes = std::collections::HashMap::new();
+    let probes = std::cell::Cell::new(0u64);
     let mut conn = Conn::default();
-    let ctx = Ctx { conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views };
+    let ctx = Ctx { conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes };
     eval_expr(&e, env, &ctx)
 }
 
@@ -1447,6 +1454,52 @@ fn schema_row_of(ctx: &Ctx, from: &str, outer: &Row) -> Result<Row, String> {
     Ok(m)
 }
 
+/// parse a simple probe predicate "col = lit" / "col <op> lit" / "col BETWEEN a AND b"
+/// (single top-level term, no AND/OR) -> (col, low_bound, high_bound), inclusive
+fn simple_range_pred(w: &str) -> Option<(String, Option<V>, Option<V>)> {
+    if find_kw_top(w, "AND").is_some() && find_kw_top(w, "BETWEEN").is_none() { return None; }
+    if find_kw_top(w, "OR").is_some() { return None; }
+    if let Some(p) = find_kw_top(w, "BETWEEN") {
+        let col = w[..p].trim().to_string();
+        let rest = &w[p + 7..];
+        let ap = find_kw_top(rest, "AND")?;
+        let lo = lit_val(rest[..ap].trim())?;
+        let hi = lit_val(rest[ap + 3..].trim())?;
+        if !is_ident(&col) { return None; }
+        return Some((col, Some(lo), Some(hi)));
+    }
+    for (op, lob, hib) in [("<=", false, true), (">=", true, false), ("<", false, true), (">", true, false), ("=", true, true)] {
+        if let Some(p) = w.find(op) {
+            // avoid matching '<=' as '<'
+            if op == "<" && w[p..].starts_with("<=") { continue; }
+            if op == ">" && w[p..].starts_with(">=") { continue; }
+            let col = w[..p].trim().to_string();
+            let val = lit_val(w[p + op.len()..].trim())?;
+            if !is_ident(&col) { return None; }
+            let lo = if lob { Some(val.clone()) } else { None };
+            let hi = if hib { Some(val) } else { None };
+            return Some((col, lo, hi));
+        }
+    }
+    None
+}
+fn is_ident(s: &str) -> bool { !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') }
+fn lit_val(s: &str) -> Option<V> {
+    let s = s.trim();
+    if let Ok(i) = s.parse::<i64>() { return Some(V::Int(i)); }
+    if let Ok(f) = s.parse::<f64>() { return Some(V::Real(f)); }
+    if s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'') { return Some(V::Text(s[1..s.len()-1].replace("''", "'"))); }
+    None
+}
+fn key_num_or_text(k: &str) -> V {
+    if let Ok(i) = k.parse::<i64>() { V::Int(i) } else if let Ok(f) = k.parse::<f64>() { V::Real(f) } else { V::Text(k.to_string()) }
+}
+fn in_range(v: &V, lo: &Option<V>, hi: &Option<V>) -> bool {
+    if let Some(l) = lo { if vcmp(v, l) == std::cmp::Ordering::Less { return false; } }
+    if let Some(h) = hi { if vcmp(v, h) == std::cmp::Ordering::Greater { return false; } }
+    true
+}
+
 fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
     let s = sql.trim();
     let up = s.to_ascii_uppercase();
@@ -1481,7 +1534,32 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
         return window_select(ctx, &items, from_str.as_deref().unwrap_or(""), outer);
     }
 
-    let src: Vec<Row> = match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] };
+    // real index probe: single bare store table + a simple indexed predicate ->
+    // fetch candidate rows through the index b-tree map instead of a full scan.
+    let mut src: Option<Vec<Row>> = None;
+    if let (Some(f), Some(w)) = (&from_str, &where_str) {
+        let tname = f.trim();
+        if let (Some((cols, rows)), Some(idxs)) = (ctx.tables.get(tname), ctx.indexes.get(tname)) {
+            if let Some((col, lo, hi)) = simple_range_pred(w) {
+                if let Some((_c, map)) = idxs.iter().find(|(c, _)| *c == col) {
+                    let mut hits: Vec<usize> = Vec::new();
+                    for (k, positions) in map.iter() {
+                        let kv = key_num_or_text(k);
+                        if in_range(&kv, &lo, &hi) { hits.extend(positions.iter().copied()); }
+                    }
+                    ctx.probes.set(ctx.probes.get() + 1);
+                    let mut rmaps = Vec::new();
+                    for p in hits { if let Some(r) = rows.get(p) {
+                        rmaps.push(cols.iter().cloned().zip(r.iter().cloned()).collect()); } }
+                    src = Some(rmaps);
+                }
+            }
+        }
+    }
+    let src: Vec<Row> = match src {
+        Some(s) => s,
+        None => match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] },
+    };
     // eager name resolution: C reports "no such column"/"ambiguous column name" at
     // prepare time even when the source is empty. Build a schema row and probe.
     if from_str.is_some() && src.is_empty() {

@@ -207,7 +207,7 @@ fn table_cell(rowid: i64, vals: &[Val], datapages: &mut Vec<[u8; PAGE]>) -> Vec<
 }
 
 /// sort key across SQLite storage classes (NULL < INT < TEXT < BLOB; binary collation)
-fn val_ord(a: &Val, b: &Val) -> std::cmp::Ordering {
+pub(crate) fn val_ord(a: &Val, b: &Val) -> std::cmp::Ordering {
     use std::cmp::Ordering::*;
     let rank = |v: &Val| match v { Val::Null => 0, Val::Int(_) | Val::Real(_) => 1, Val::Text(_) => 2, Val::Blob(_) => 3 };
     match rank(a).cmp(&rank(b)) {
@@ -222,6 +222,30 @@ fn val_ord(a: &Val, b: &Val) -> std::cmp::Ordering {
         },
         o => o,
     }
+}
+
+/// index interior page (0x02): cells = 4-byte left child + varint(payload) + divider entry
+fn index_interior_page(children: &[(u32, Vec<u8>)], rightmost: u32) -> [u8; PAGE] {
+    let mut page = [0u8; PAGE];
+    let mut cells: Vec<Vec<u8>> = Vec::new();
+    for (child, payload) in children {
+        let mut c = Vec::new();
+        c.extend_from_slice(&child.to_be_bytes());
+        put_varint(&mut c, payload.len() as u64);
+        c.extend_from_slice(payload);
+        cells.push(c);
+    }
+    let mut content = PAGE;
+    let mut ptrs = Vec::new();
+    for cell in &cells { content -= cell.len(); page[content..content+cell.len()].copy_from_slice(cell); ptrs.push(content as u16); }
+    page[0] = 0x02;
+    page[3..5].copy_from_slice(&(cells.len() as u16).to_be_bytes());
+    let cs: u16 = if cells.is_empty() { PAGE as u16 } else { content as u16 };
+    page[5..7].copy_from_slice(&cs.to_be_bytes());
+    page[8..12].copy_from_slice(&rightmost.to_be_bytes());
+    let mut p = 12;
+    for ptr in ptrs { page[p..p+2].copy_from_slice(&ptr.to_be_bytes()); p += 2; }
+    page
 }
 
 /// index-leaf page (0x0a): cells = varint(payload) + record(key cols + rowid)
@@ -372,8 +396,53 @@ pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
             }
             ra.cmp(rb)
         });
-        let rootpage = 2 + datapages.len() as i64;
-        datapages.push(index_leaf_page(&entries));
+        // multi-leaf split when entries exceed one 0x0a leaf: divider entries move up
+        // into a 0x02 interior page exactly as the file format requires.
+        let cell_size = |e: &(Vec<Val>, i64)| -> usize {
+            let mut vals = e.0.clone(); vals.push(Val::Int(e.1));
+            encode_record(&vals).len() + 4 // varint + ptr slack
+        };
+        let mut groups: Vec<Vec<(Vec<Val>, i64)>> = Vec::new();
+        let mut dividers: Vec<(Vec<Val>, i64)> = Vec::new();
+        {
+            let mut cur: Vec<(Vec<Val>, i64)> = Vec::new();
+            let mut used = 8usize;
+            let mut it = entries.iter().cloned().peekable();
+            while let Some(e) = it.next() {
+                let add = cell_size(&e) + 2;
+                if !cur.is_empty() && used + add > PAGE - 24 {
+                    groups.push(std::mem::take(&mut cur));
+                    dividers.push(e); // this entry becomes the interior divider
+                    used = 8;
+                    continue;
+                }
+                used += add;
+                cur.push(e);
+            }
+            groups.push(cur);
+        }
+        let rootpage;
+        if groups.len() == 1 {
+            rootpage = 2 + datapages.len() as i64;
+            datapages.push(index_leaf_page(&groups[0]));
+        } else {
+            let root_idx = datapages.len();
+            rootpage = 2 + root_idx as i64;
+            datapages.push([0u8; PAGE]); // interior placeholder
+            let mut leaf_nos: Vec<u32> = Vec::new();
+            for g in &groups {
+                let no = (2 + datapages.len()) as u32;
+                datapages.push(index_leaf_page(g));
+                leaf_nos.push(no);
+            }
+            let mut children: Vec<(u32, Vec<u8>)> = Vec::new();
+            for (i, div) in dividers.iter().enumerate() {
+                let mut vals = div.0.clone(); vals.push(Val::Int(div.1));
+                children.push((leaf_nos[i], encode_record(&vals)));
+            }
+            let rightmost = *leaf_nos.last().unwrap();
+            datapages[root_idx] = index_interior_page(&children, rightmost);
+        }
         let sqlval = match &ix.sql { Some(s) => Val::Text(s.clone()), None => Val::Null };
         let rec = vec![Val::Text("index".into()), Val::Text(ix.name.clone()),
                        Val::Text(ix.tbl.clone()), Val::Int(rootpage), sqlval];

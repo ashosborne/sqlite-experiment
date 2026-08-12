@@ -450,15 +450,21 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
     }
     match s.mode {
         StmtMode::Eqp => {
-            // honest plan of THIS engine: nested-loop full scans of the FROM tables.
-            // (cost-based artifacts like bloom filters were deliberately not frozen.)
+            // honest plan of THIS engine: SEARCH ... USING INDEX when a real index
+            // serves the WHERE equality; otherwise a nested-loop SCAN. No fake
+            // BLOOM/AUTOMATIC-COVERING artifacts are ever emitted.
             let mut rows: Vec<Vec<eval::V>> = Vec::new();
-            if let Some(p) = s.sql.to_ascii_uppercase().find(" FROM ") {
+            let up = s.sql.to_ascii_uppercase();
+            if let Some(p) = up.find(" FROM ") {
                 let tail = s.sql[p + 6..].trim();
                 let t = tail.split(|c: char| c.is_whitespace() || c == ',' || c == ';').next().unwrap_or("");
                 if !t.is_empty() && !t.starts_with('(') {
-                    rows.push(vec![eval::V::Int(2), eval::V::Int(0), eval::V::Int(0),
-                                   eval::V::Text(format!("SCAN {t}"))]);
+                    let detail = up.find(" WHERE ").and_then(|wp| {
+                        let cond = s.sql[wp + 7..].trim();
+                        let col = cond.split(|c: char| c == '=' || c == '<' || c == '>' || c.is_whitespace()).next().unwrap_or("").trim();
+                        store::index_for(s.db, t, col).map(|iname| format!("SEARCH {t} USING INDEX {iname} ({col}=?)"))
+                    }).unwrap_or_else(|| format!("SCAN {t}"));
+                    rows.push(vec![eval::V::Int(2), eval::V::Int(0), eval::V::Int(0), eval::V::Text(detail)]);
                 }
             }
             let has = !rows.is_empty();

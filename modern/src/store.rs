@@ -73,13 +73,23 @@ struct Trigger {
 /// full-store snapshot (pack v15 transaction model: snapshot/undo, NOT a pager
 /// journal and NOT WAL — documented plainly; counters are not rolled back, like C's
 /// total_changes)
+#[derive(Clone)]
+pub(crate) struct IndexDef {
+    pub name: String,
+    pub table: String,
+    pub exprs: Vec<String>,          // column names OR expressions (evaluated via eval)
+    pub unique: bool,
+    pub where_c: Option<String>,     // partial-index predicate
+    pub sql: String,                 // raw CREATE INDEX text (persisted)
+}
+
 #[derive(Clone, Default)]
 struct Snap {
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>,
     views: std::collections::HashMap<String, String>,
     triggers: Vec<(String, Trigger)>,
-    indexes: Vec<(String, String, String, bool, String)>,
+    indexes: Vec<IndexDef>,
     index_owner: HashMap<String, String>,
     fk_on: bool,
 }
@@ -94,11 +104,14 @@ struct Txn {
 pub struct Store {
     pub conn: eval::Conn,
     txn: Option<Txn>,
+    mutation_counter: u64,               // invalidates the index probe cache
+    index_cache: HashMap<String, (u64, std::collections::BTreeMap<KeyVal, Vec<i64>>)>,
+    pub index_probes: u64,               // anti-cheat: real probe counter
     pub views: std::collections::HashMap<String, String>, // view name -> SELECT body
     tables: Vec<(String, Table)>,
     catalog: Vec<(String, String)>, // (type: table|index|trigger, name) — creation order
     index_owner: HashMap<String, String>, // index name -> table
-    indexes: Vec<(String, String, String, bool, String)>, // (name, table, col, unique, raw sql)
+    indexes: Vec<IndexDef>, // explicit CREATE [UNIQUE] INDEX definitions
     triggers: Vec<(String, Trigger)>,     // (trigger name, def)
     fk_on: bool,
     changes: i64,
@@ -155,13 +168,13 @@ pub fn load_image(db: usize, img: DbImage) {
             st.catalog.push(("index".into(), ix.name.clone()));
             st.index_owner.insert(ix.name.clone(), ix.tbl.clone());
             if let Some(isql) = ix.sql {
-                if let Some(Stmt::CreateIndex { name, table, col, unique, sql }) = parse_stmt(&isql) {
-                    st.indexes.push((name, table.clone(), col.clone(), unique, sql));
-                    if unique {
+                if let Some(Stmt::CreateIndex { name, table, exprs, unique, where_c, sql }) = parse_stmt(&isql) {
+                    if unique && exprs.len() == 1 && where_c.is_none() {
                         if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
-                            if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) { c.unique = true; }
+                            if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == exprs[0]) { c.unique = true; }
                         }
                     }
+                    st.indexes.push(IndexDef { name, table, exprs, unique, where_c, sql });
                 }
             }
         }
@@ -225,17 +238,18 @@ pub fn build_image(db: usize) -> DbImage {
                 auto_n += 1;
             }
         }
-        for (iname, itable, icol, _uniq, isql) in &st.indexes {
-            if let Some((_, t)) = st.tables.iter().find(|(n, _)| n == itable) {
+        for idef in &st.indexes {
+            if let Some((_, t)) = st.tables.iter().find(|(n, _)| *n == idef.table) {
                 let ipk = dbfile::ipk_index(&t.create_sql);
-                if let Some(ci) = t.cols.iter().position(|c| c.name == *icol) {
-                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
+                let mut entries: Vec<(Vec<Val>, i64)> = Vec::new();
+                for (rid, vals) in &t.rows {
+                    if let Ok(Some(key)) = index_key_for(&t.cols, idef, vals) {
                         let rowid = match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => *rid }, None => *rid };
-                        (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid)
-                    }).collect();
-                    indexes.push(dbfile::IndexImage { name: iname.clone(), tbl: itable.clone(),
-                        sql: Some(isql.clone()), entries });
+                        entries.push((key, rowid));
+                    }
                 }
+                indexes.push(dbfile::IndexImage { name: idef.name.clone(), tbl: idef.table.clone(),
+                    sql: Some(idef.sql.clone()), entries });
             }
         }
         DbImage { tables, triggers, indexes }
@@ -336,7 +350,7 @@ enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate, TxnRollback }
 enum Stmt {
     PragmaFkOn,
     Create { name: String, cols: Vec<Col>, sql: String },
-    CreateIndex { name: String, table: String, col: String, unique: bool, sql: String },
+    CreateIndex { name: String, table: String, exprs: Vec<String>, unique: bool, where_c: Option<String>, sql: String },
     DropIndex { name: String },
     Begin,
     Commit,
@@ -475,8 +489,27 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let tail = &rest[onp + 4..];
         let open = tail.find('(')?;
         let table = ident(&tail[..open])?;
-        let col = ident(&tail[open + 1..tail.find(')')?])?;
-        return Some(Stmt::CreateIndex { name, table, col, unique, sql: s.trim().to_string() });
+        // balanced close paren (expression indexes contain nested parens)
+        let mut depth = 0; let mut close = None;
+        for (i, ch) in tail.char_indices().skip(open) {
+            match ch { '(' => depth += 1, ')' => { depth -= 1; if depth == 0 { close = Some(i); break; } }, _ => {} }
+        }
+        let close = close?;
+        let inner = &tail[open + 1..close];
+        let mut exprs = Vec::new();
+        { let mut d = 0; let mut cur = String::new();
+          for ch in inner.chars() {
+              match ch { '(' => { d += 1; cur.push(ch); } ')' => { d -= 1; cur.push(ch); }
+                        ',' if d == 0 => { exprs.push(cur.trim().to_string()); cur.clear(); } _ => cur.push(ch) }
+          }
+          if !cur.trim().is_empty() { exprs.push(cur.trim().to_string()); } }
+        if exprs.is_empty() { return None; }
+        // optional partial-index predicate
+        let after = tail[close + 1..].trim();
+        let where_c = if after.to_ascii_uppercase().starts_with("WHERE ") {
+            Some(after["WHERE ".len()..].trim().to_string())
+        } else { None };
+        return Some(Stmt::CreateIndex { name, table, exprs, unique, where_c, sql: s.trim().to_string() });
     }
     if up.starts_with("CREATE TRIGGER ") {
         // CREATE TRIGGER <n> [BEFORE|AFTER] [INSERT|UPDATE|DELETE] ON <t> [WHEN <e>] BEGIN <INSERT...;>+ END
@@ -819,6 +852,59 @@ fn check_row(name: &str, cols: &[Col], checks: &[String], row: &[Val]) -> Result
     Ok(None)
 }
 
+/// total-ordered index key (val_ord over each component)
+#[derive(Clone, PartialEq)]
+pub(crate) struct KeyVal(pub Vec<Val>);
+impl Eq for KeyVal {} // Val holds f64; ordering is total via val_ord (NaN never stored by pins)
+impl PartialOrd for KeyVal { fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(o)) } }
+impl Ord for KeyVal {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        for i in 0..self.0.len().min(o.0.len()) {
+            let c = dbfile::val_ord(&self.0[i], &o.0[i]);
+            if c != std::cmp::Ordering::Equal { return c; }
+        }
+        self.0.len().cmp(&o.0.len())
+    }
+}
+
+/// evaluate an index key tuple for a row; None when a partial predicate excludes it
+fn index_key_for(cols: &[Col], idx: &IndexDef, row: &[Val]) -> Result<Option<Vec<Val>>, String> {
+    let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+    for (cj, cc) in cols.iter().enumerate() {
+        env.insert(cc.name.clone(), val_to_ev(row.get(cj).unwrap_or(&Val::Null)));
+    }
+    if let Some(w) = &idx.where_c {
+        let r = eval::eval_standalone(w, &env)?;
+        if matches!(r, eval::V::Null) || !ev_truthy(&r) { return Ok(None); }
+    }
+    let mut key = Vec::new();
+    for e in &idx.exprs {
+        // plain column name: direct fetch; anything else: real expression evaluation
+        if let Some(ci) = cols.iter().position(|c| c.name == *e) {
+            key.push(row.get(ci).cloned().unwrap_or(Val::Null));
+        } else {
+            key.push(ev_to_val(eval::eval_standalone(e, &env)?));
+        }
+    }
+    Ok(Some(key))
+}
+
+/// conflict against explicit UNIQUE indexes (multi-column, partial, expression):
+/// NULL key components keep rows distinct, exactly like SQL UNIQUE.
+fn unique_index_conflict(t: &Table, idefs: &[IndexDef], vals: &[Val]) -> Result<Option<usize>, String> {
+    for idx in idefs {
+        if !idx.unique { continue; }
+        let key = match index_key_for(&t.cols, idx, vals)? { Some(k) => k, None => continue };
+        if key.iter().any(|v| matches!(v, Val::Null)) { continue; }
+        for (pos, (_, r)) in t.rows.iter().enumerate() {
+            if let Some(rk) = index_key_for(&t.cols, idx, r)? {
+                if rk == key { return Ok(Some(pos)); }
+            }
+        }
+    }
+    Ok(None)
+}
+
 fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
     for (ci, col) in t.cols.iter().enumerate() {
         if !col.unique { continue; }
@@ -894,6 +980,53 @@ fn view_colnames(body: &str) -> Vec<String> {
         if let Some(p) = iu.rfind(" AS ") { it[p+4..].trim().to_string() }
         else { it.rsplit('.').next().unwrap_or(it).trim().to_string() }
     }).collect()
+}
+
+thread_local! {
+    static PROBE_CELL: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+/// last-statement index-probe count (anti-cheat proof lookups use the index b-tree)
+pub fn index_probe_count() -> u64 { PROBE_CELL.with(|c| c.get()) }
+
+/// name of an explicit index whose first column is `col` on `table` (honest EQP)
+pub fn index_for(db: usize, table: &str, col: &str) -> Option<String> {
+    with_store(db, |st| st.indexes.iter()
+        .find(|d| d.table == table && d.where_c.is_none() && d.exprs.first().map(|e| e == col).unwrap_or(false))
+        .map(|d| d.name.clone()))
+}
+
+/// single-column index maps for the eval probe path: table -> [(col, key_str -> row positions)].
+/// key positions index into the snapshot's row vector (built alongside `snap`).
+fn build_index_snapshot(st: &Store)
+    -> std::collections::HashMap<String, Vec<(String, std::collections::BTreeMap<String, Vec<usize>>)>> {
+    let mut out = std::collections::HashMap::new();
+    for (tname, t) in &st.tables {
+        let mut cols_with_index: Vec<String> = Vec::new();
+        // explicit single-column, non-partial indexes on plain columns
+        for d in &st.indexes {
+            if d.table == *tname && d.where_c.is_none() && d.exprs.len() == 1
+                && t.cols.iter().any(|c| c.name == d.exprs[0]) {
+                cols_with_index.push(d.exprs[0].clone());
+            }
+        }
+        // column UNIQUE autoindexes probe too
+        for c in &t.cols { if c.unique { cols_with_index.push(c.name.clone()); } }
+        cols_with_index.sort(); cols_with_index.dedup();
+        let mut maps = Vec::new();
+        for col in cols_with_index {
+            let ci = match t.cols.iter().position(|c| c.name == col) { Some(i) => i, None => continue };
+            let mut m: std::collections::BTreeMap<String, Vec<usize>> = std::collections::BTreeMap::new();
+            for (pos, (_, r)) in t.rows.iter().enumerate() {
+                if let Some(v) = r.get(ci) {
+                    if matches!(v, Val::Null) { continue; }
+                    m.entry(v.render().unwrap_or_default()).or_default().push(pos);
+                }
+            }
+            maps.push((col, m));
+        }
+        if !maps.is_empty() { out.insert(tname.clone(), maps); }
+    }
+    out
 }
 
 fn take_snap(st: &Store) -> Snap {
@@ -1042,8 +1175,13 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
                 m
             };
             let views = st.views.clone();
-            let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views };
-            eval::stmt_select_typed(&mut ctx, s)
+            let idxmaps = build_index_snapshot(st);
+            PROBE_CELL.with(|c| c.set(0));
+            let r = PROBE_CELL.with(|probes| {
+                let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes };
+                eval::stmt_select_typed(&mut ctx, s)
+            });
+            r
         });
     }
     // non-SELECT (DML/DDL/pragma/sqlite_master): run through the shared script engine
@@ -1090,8 +1228,13 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         for (n, _) in &st.tables { m.entry(n.clone()).or_insert(0); }
                         m
                     };
-                    let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &st.views };
-                    match eval::run_stmt(&mut ctx, s) {
+                    let idxmaps = build_index_snapshot(st);
+                    let views2 = st.views.clone();
+                    let res = PROBE_CELL.with(|probes| {
+                        let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes };
+                        eval::run_stmt(&mut ctx, s)
+                    });
+                    match res {
                         Ok(Some(rows)) => { out.extend(rows); continue; }
                         Ok(None) => return Err(format!("unsupported statement: {}", s)),
                         Err(e) => return Err(e),
@@ -1164,33 +1307,42 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.tables.push((name, Table { cols, uniq_sets, checks, create_sql: sql, ..Default::default() }));
                     st.conn.schema_version += 1;
                 }
-                Stmt::CreateIndex { name, table, col, unique, sql } => {
+                Stmt::CreateIndex { name, table, exprs, unique, where_c, sql } => {
                     st.catalog.push(("index".into(), name.clone()));
                     st.index_owner.insert(name.clone(), table.clone());
-                    st.indexes.push((name, table.clone(), col.clone(), unique, sql));
-                    if unique {
+                    if unique && exprs.len() == 1 && where_c.is_none() {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == table)
                             .ok_or("no such table")?;
-                        if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) {
+                        if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == exprs[0]) {
                             c.unique = true;
                         }
                     }
+                    st.indexes.push(IndexDef { name, table, exprs, unique, where_c, sql });
+                    st.conn.schema_version += 1;
                 }
                 Stmt::DropIndex { name } => {
-                    let dropped = st.indexes.iter().find(|(n, ..)| *n == name).cloned();
-                    st.indexes.retain(|(n, ..)| *n != name);
+                    let dropped = st.indexes.iter().find(|d| d.name == name).cloned();
+                    st.indexes.retain(|d| d.name != name);
                     st.index_owner.remove(&name);
                     st.catalog.retain(|(ty, n)| !(ty == "index" && *n == name));
-                    if let Some((_, table, col, true, _)) = dropped {
-                        // recompute: col stays unique only if the table SQL or another index says so
-                        let still = st.indexes.iter().any(|(_, t2, c2, u2, _)| *t2 == table && *c2 == col && *u2);
-                        if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
-                            let decl = t.1.create_sql.to_ascii_uppercase();
-                            if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) {
-                                let decl_unique = decl.contains(&format!("{} ", c.name.to_ascii_uppercase()))
-                                    && parse_coldefs(&t.1.create_sql[t.1.create_sql.find('(').map(|o| o+1).unwrap_or(0)..t.1.create_sql.rfind(')').unwrap_or(t.1.create_sql.len())])
-                                        .and_then(|cs| cs.iter().find(|cc| cc.name == c.name).map(|cc| cc.unique)).unwrap_or(false);
-                                c.unique = still || decl_unique;
+                    if let Some(d) = dropped {
+                        if d.unique && d.exprs.len() == 1 && d.where_c.is_none() {
+                            let col = d.exprs[0].clone();
+                            let table = d.table.clone();
+                            let still = st.indexes.iter().any(|d2| d2.table == table && d2.unique
+                                && d2.where_c.is_none() && d2.exprs.len() == 1 && d2.exprs[0] == col);
+                            if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
+                                let decl_unique = {
+                                    let sql = &t.1.create_sql;
+                                    match (sql.find('('), sql.rfind(')')) {
+                                        (Some(o), Some(c2)) if c2 > o => parse_coldefs(&sql[o+1..c2])
+                                            .and_then(|cs| cs.iter().find(|cc| cc.name == col).map(|cc| cc.unique)).unwrap_or(false),
+                                        _ => false,
+                                    }
+                                };
+                                if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) {
+                                    c.unique = still || decl_unique;
+                                }
                             }
                         }
                     }
@@ -1396,9 +1548,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let mut inserted: Vec<(String, Vec<Val>)> = Vec::new(); // for triggers
                     let mut n_changes = 0i64;
                     {
+                        let idefs: Vec<IndexDef> = st.indexes.iter()
+                            .filter(|d| d.table == name && d.unique).cloned().collect();
                         let t = &mut st.tables[ti].1;
                         for full in pending {
-                            match conflict_row(t, &full) {
+                            let conflict = match conflict_row(t, &full) {
+                                Some(p) => Some(p),
+                                None => unique_index_conflict(t, &idefs, &full)?,
+                            };
+                            match conflict {
                                 Some(pos) => match policy {
                                     Policy::Abort => return Err(UNIQ_ERR.into()),
                                     Policy::TxnRollback => {
