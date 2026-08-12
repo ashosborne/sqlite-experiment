@@ -470,3 +470,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine_udf.rs registers matching extern "C" callbacks. anti-cheat runtime scalar/value/agg.
 - Flips: engine-udf-001/002 + engine-value-001 full; loadext-api-001 kept partial (dlopen absent).
 - Scoreboard full 79→82 / partial 50 / none 103. cargo 428/428; 390 prior goldens md5-identical.
+## Run 29 — 2026-08-12 — engine v19: UTF-16 prepare + column16 (pack v19)
+
+- Pack v18→v19 BOUND (+versions/19, ADR 0017): UTF-16 PREPARE LAW + UTF-16 COLUMN LAW.
+- lib.rs: prepare16/_v2/_v3 decode real UTF-16LE buffers (nByte in bytes, <0=to-NUL,
+  surrogate pairs) through the shared prepare core; UTF-16 pzTail = consumed prefix
+  mapped to code units into the CALLER buffer. column_text16/bytes16/name16/decltype16
+  (+ UTF-8 column_decltype) from engine values; bind_text16. store.rs: stmt_decltypes
+  parses CREATE TABLE declared types (expressions → NULL).
+- Real UTF-16 input exposed two engine bugs, fixed: find_kw_top byte-boundary panic on
+  multi-byte SQL; SELECTT mis-dispatch (keywords now word-bounded, incl. stmt_prepare_check).
+- 18 goldens (engine-utf16-001 x10 prepare16 family, engine-utf16-002 x8 column16;
+  harness /tmp/utf16_harness.c with real unsigned-short buffers). BOM/endian: native-LE
+  no-BOM pinned; BOM behaviour not claimed. Rust twin engine_utf16.rs + anti-cheat
+  runtime prepare16 / text16 round trip. 410 prior goldens md5-identical.
+- Flips: prepare-statement-api-001 partial→full (sole gap closed); engine-utf16-001/002
+  new full; util-primitives-001 codec note updated, stays partial (hash/PRNG absent).
+- Scoreboard full 82→85 / partial 49 / none 103 (237 known). cargo 449/449.
+
