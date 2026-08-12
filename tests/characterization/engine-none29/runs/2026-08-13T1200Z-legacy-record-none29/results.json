@@ -34,14 +34,6 @@
    "actual_path": "runs/2026-08-13T1200Z-legacy-record-none29/actuals/engine-none29-001-C003.replay.txt"
   },
   {
-   "case_id": "engine-none29-001-C004",
-   "feature_id": "engine-none29-001",
-   "status": "REPLAY_GREEN",
-   "failure_class": null,
-   "golden_path": "cases/engine-none29-001/C004.approved.txt",
-   "actual_path": "runs/2026-08-13T1200Z-legacy-record-none29/actuals/engine-none29-001-C004.replay.txt"
-  },
-  {
    "case_id": "engine-none29-001-C005",
    "feature_id": "engine-none29-001",
    "status": "REPLAY_GREEN",

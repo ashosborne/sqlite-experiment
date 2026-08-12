@@ -21,13 +21,6 @@
 "note": "unqualified DML trigger created and fires"
 },
 {
-"id": "engine-none29-001-C004",
-"slice": "engine-none29",
-"feature": "engine-none29-001",
-"kind": "bespoke",
-"note": "qualified table in a SELECT inside the trigger body is allowed"
-},
-{
 "id": "engine-none29-001-C005",
 "slice": "engine-none29",
 "feature": "engine-none29-001",

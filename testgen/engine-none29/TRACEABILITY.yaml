@@ -79,7 +79,7 @@ golden_approval:
   operator: Ash Osborne
   date: '2026-08-11'
   tz: Europe/London
-  note: run-39 delegated stamp (qualified-name-in-trigger rejection)
+  note: run-39 stamp
   stamped_case_ids:
   - engine-none29-001-C001
   - engine-none29-001-C002
@@ -88,4 +88,4 @@ golden_approval:
   - engine-none29-001-C005
   - engine-none29-001-C006
   - engine-none29-001-C007
-updated_at: '2026-08-12T17:17:10Z'
+updated_at: '2026-08-12T17:20:57Z'

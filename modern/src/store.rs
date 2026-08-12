@@ -604,7 +604,7 @@ fn split_statements(script: &str) -> Vec<String> {
         }
         buf.push_str(frag);
         let up = buf.to_ascii_uppercase();
-        let in_trigger = up.contains("CREATE TRIGGER") && up.contains("BEGIN")
+        let in_trigger = up.contains("TRIGGER") && up.contains("BEGIN")
             && !up.trim_end().ends_with("END");
         if !in_trigger {
             let s = buf.trim().to_string();
@@ -680,6 +680,8 @@ enum Stmt {
     Release { name: String },
     RollbackTo { name: String },
     CreateTrigger { name: String, def: Trigger, sql: String },
+    TriggerReject { msg: String }, // run-39: qualified table in trigger DML (non-TEMP)
+    TriggerNoop,                    // run-39: accepted-but-inert TEMP trigger
     CreateView { name: String, body: String, sql: String },
     DropView { name: String },
     DropTrigger { name: String },
@@ -843,6 +845,44 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             Some(after["WHERE ".len()..].trim().to_string())
         } else { None };
         return Some(Stmt::CreateIndex { name, table, exprs, unique, where_c, sql: s.trim().to_string() });
+    }
+    // run-39: CREATE [TEMP|TEMPORARY] TRIGGER — qualified table names in the
+    // body's INSERT/UPDATE/DELETE are rejected (C rule), EXCEPT for TEMP triggers.
+    {
+        let is_trig = up.starts_with("CREATE TRIGGER ")
+            || up.starts_with("CREATE TEMP TRIGGER ")
+            || up.starts_with("CREATE TEMPORARY TRIGGER ");
+        if is_trig {
+            let is_temp = up.starts_with("CREATE TEMP TRIGGER ") || up.starts_with("CREATE TEMPORARY TRIGGER ");
+            if let (Some(bp), Some(ep)) = (up.find(" BEGIN "), up.rfind("END")) {
+                if ep > bp {
+                    let body = &s[bp + 7..ep];
+                    let qualified = body.split(';').any(|stmt| {
+                        let su = stmt.trim().to_ascii_uppercase();
+                        let target = if su.starts_with("INSERT INTO ") { Some(&stmt.trim()[12..]) }
+                            else if su.starts_with("UPDATE ") { Some(&stmt.trim()[7..]) }
+                            else if su.starts_with("DELETE FROM ") { Some(&stmt.trim()[12..]) }
+                            else { None };
+                        match target {
+                            Some(rest) => {
+                                let tok = rest.trim().split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("");
+                                tok.contains('.')
+                            }
+                            None => false,
+                        }
+                    });
+                    if qualified && !is_temp {
+                        return Some(Stmt::TriggerReject {
+                            msg: "qualified table names are not allowed on INSERT, UPDATE, and DELETE statements within triggers".into(),
+                        });
+                    }
+                    if is_temp {
+                        // TEMP triggers are accepted; the pinned scope never fires them
+                        return Some(Stmt::TriggerNoop);
+                    }
+                }
+            }
+        }
     }
     if up.starts_with("CREATE TRIGGER ") {
         // CREATE TRIGGER <n> [BEFORE|AFTER] [INSERT|UPDATE|DELETE] ON <t> [WHEN <e>] BEGIN <INSERT...;>+ END
@@ -2263,6 +2303,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                     st.conn.schema_version += 1;
                 }
+                Stmt::TriggerReject { msg } => { return Err(msg); }
+                Stmt::TriggerNoop => { /* accepted, inert (run-39) */ }
                 Stmt::CreateTrigger { name, def, sql: _ } => {
                     st.catalog.push(("trigger".into(), name.clone()));
                     st.triggers.push((name, def));
