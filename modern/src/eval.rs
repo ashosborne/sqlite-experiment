@@ -78,6 +78,7 @@ pub struct Conn {
     pub page_cur: i64,         // compact page count of the current image (run-34)
     pub page_hwm: i64,         // grow-only until VACUUM resets it (freelist model, run-34)
     pub vtabs: BTreeMap<String, String>, // run-38: virtual table name -> module (wholenumber)
+    pub data_version: i64,     // run-44: bumps when a sibling's commit is picked up (PRAGMA data_version = 1 + this)
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
@@ -373,6 +374,8 @@ pub struct Ctx<'a> {
     pub probes: &'a std::cell::Cell<u64>,
     /// declared column collations (lower colname -> lower collation name)
     pub col_colls: &'a std::collections::HashMap<String, String>,
+    /// run-44: explicit index definitions (index name, table, columns) for pragma TVFs
+    pub index_defs: &'a [(String, String, Vec<String>)],
 }
 
 /// Evaluate one expression against a plain env (used by the store for CHECK
@@ -387,7 +390,7 @@ pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -
     let probes = std::cell::Cell::new(0u64);
     let mut conn = Conn::default();
     let colls = std::collections::HashMap::new();
-    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes, col_colls: &colls };
+    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes, col_colls: &colls, index_defs: &[] };
     eval_expr(&e, env, &ctx)
 }
 
@@ -1383,6 +1386,58 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                 { let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text("main".into())); rows.push(m); }
                 for a in &ctx.conn.attached { seq += 1; let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text(a.clone())); rows.push(m); }
                 return Ok((vec!["seq".into(), "name".into()], rows)); }
+            // run-44: registry/result TVFs (live data, not canned)
+            "pragma_collation_list" => {
+                let rows = crate::collation_list_names(ctx.db).into_iter().enumerate()
+                    .map(|(i, n)| { let mut m = Row::new();
+                        m.insert("seq".into(), V::Int(i as i64)); m.insert("name".into(), V::Text(n)); m })
+                    .collect();
+                return Ok((vec!["seq".into(), "name".into()], rows));
+            }
+            "pragma_compile_options" => {
+                let rows = crate::compileoption_all().into_iter()
+                    .map(|o| { let mut m = Row::new();
+                        m.insert("compile_options".into(), V::Text(o.to_string())); m })
+                    .collect();
+                return Ok((vec!["compile_options".into()], rows));
+            }
+            "pragma_table_xinfo" => {
+                // shape from the live snapshot (vtabs report their declared shape)
+                let mut rows: Vec<Row> = Vec::new();
+                let mk = |i: i64, n: String, ty: String, hidden: i64| -> Row {
+                    let mut m = Row::new();
+                    m.insert("cid".into(), V::Int(i)); m.insert("name".into(), V::Text(n));
+                    m.insert("type".into(), V::Text(ty)); m.insert("notnull".into(), V::Int(0));
+                    m.insert("dflt_value".into(), V::Null); m.insert("pk".into(), V::Int(0));
+                    m.insert("hidden".into(), V::Int(hidden)); m
+                };
+                if let Some(shape) = crate::vtab_shape(ctx.db, &arg) {
+                    for (i, (n, ty, hid)) in shape.into_iter().enumerate() {
+                        rows.push(mk(i as i64, n, ty, hid as i64));
+                    }
+                } else if let Some((cols, _)) = ctx.tables.get(&arg) {
+                    for (i, c) in cols.iter().enumerate() {
+                        rows.push(mk(i as i64, c.clone(), String::new(), 0));
+                    }
+                }
+                return Ok((vec!["cid".into(), "name".into(), "type".into(), "notnull".into(),
+                                "dflt_value".into(), "pk".into(), "hidden".into()], rows));
+            }
+            "pragma_index_info" => {
+                let mut rows: Vec<Row> = Vec::new();
+                if let Some((_, tbl, cols)) = ctx.index_defs.iter().find(|(n, _, _)| *n == arg) {
+                    let tcols: Vec<String> = ctx.tables.get(tbl).map(|(c, _)| c.clone()).unwrap_or_default();
+                    for (seq, col) in cols.iter().enumerate() {
+                        let cid = tcols.iter().position(|c| c == col).map(|p| p as i64).unwrap_or(-1);
+                        let mut m = Row::new();
+                        m.insert("seqno".into(), V::Int(seq as i64));
+                        m.insert("cid".into(), V::Int(cid));
+                        m.insert("name".into(), V::Text(col.clone()));
+                        rows.push(m);
+                    }
+                }
+                return Ok((vec!["seqno".into(), "cid".into(), "name".into()], rows));
+            }
             "completion" => {
                 let mut cands: std::collections::BTreeSet<String> = SQL_KEYWORDS.iter().map(|k| k.to_string()).collect();
                 for tn in ctx.tables.keys() { cands.insert(tn.clone()); }
@@ -1426,6 +1481,21 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         let bound = WN_BOUND.with(|c| c.get()).max(0);
         let rows = (1..=bound).map(|v| { let mut m = Row::new(); m.insert("value".into(), V::Int(v)); m }).collect();
         return Ok((vec!["value".into()], rows));
+    }
+    // run-44: bare (unparenthesized) registry TVF forms
+    if f.eq_ignore_ascii_case("pragma_collation_list") {
+        let rows = crate::collation_list_names(ctx.db).into_iter().enumerate()
+            .map(|(i, n)| { let mut m = Row::new();
+                m.insert("seq".into(), V::Int(i as i64)); m.insert("name".into(), V::Text(n)); m })
+            .collect();
+        return Ok((vec!["seq".into(), "name".into()], rows));
+    }
+    if f.eq_ignore_ascii_case("pragma_compile_options") {
+        let rows = crate::compileoption_all().into_iter()
+            .map(|o| { let mut m = Row::new();
+                m.insert("compile_options".into(), V::Text(o.to_string())); m })
+            .collect();
+        return Ok((vec!["compile_options".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_function_list") {
         let rows = FUNCTION_LIST.iter().map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n.to_string())); m }).collect();
@@ -2395,6 +2465,14 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
         }
         "schema_version" => { match val { Some(v) => { ctx.conn.schema_version = v.parse().unwrap_or(0); Ok(vec![]) }
                                           None => Ok(vec![vec![Some(ctx.conn.schema_version.to_string())]]) } }
+        // run-44: own writes do not bump; picking up a sibling's commit does (store hook)
+        "data_version" => Ok(vec![vec![Some((1 + ctx.conn.data_version).to_string())]]),
+        "freelist_count" => Ok(vec![vec![Some((ctx.conn.page_hwm - ctx.conn.page_cur).max(0).to_string())]]),
+        "collation_list" => {
+            // live registry: user registrations newest-first, then RTRIM/NOCASE/BINARY (C order)
+            Ok(crate::collation_list_names(ctx.db).into_iter().enumerate()
+                .map(|(i, n)| vec![Some(i.to_string()), Some(n)]).collect())
+        }
         "case_sensitive_like" => { if let Some(v) = val { ctx.conn.case_sensitive_like = boolval(&v) != 0; } Ok(vec![]) }
         "user_version" | "application_id" | "cache_size" | "recursive_triggers" | "defer_foreign_keys"
         | "query_only" | "temp_store" | "automatic_index" | "ignore_check_constraints" => {
@@ -2403,6 +2481,7 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
                 None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&Conn::pragma_default(&name)); Ok(vec![vec![Some(cur.to_string())]]) }
             }
         }
-        _ => Err(format!("unsupported pragma: {name}")),
+        // run-44: C silently ignores unknown pragma names (get and set forms)
+        _ => Ok(vec![]),
     }
 }

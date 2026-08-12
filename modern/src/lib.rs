@@ -972,12 +972,19 @@ unsafe fn sized_alloc(n: usize) -> *mut u8 {
     if p.is_null() { return std::ptr::null_mut(); }
     (p as *mut u64).write(n as u64);
     mem_add(n as i64);
+    let c = MEM_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+    MEM_COUNT_HI.fetch_max(c, Ordering::SeqCst);
+    MEM_BIGGEST.fetch_max(n as i64, Ordering::SeqCst);
     p.add(16)
 }
 
 // run-33: real allocator accounting (memory_used / memory_highwater)
 static MEM_USED: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 static MEM_HIGH: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+// run-44: outstanding allocation count + largest single allocation (status matrix)
+static MEM_COUNT: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static MEM_COUNT_HI: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static MEM_BIGGEST: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 fn mem_add(n: i64) {
     let cur = MEM_USED.fetch_add(n, Ordering::SeqCst) + n;
@@ -1008,6 +1015,7 @@ pub unsafe extern "C" fn sqlite3_free(p: *mut c_void) {
     let base = (p as *mut u8).sub(16);
     let n = (base as *mut u64).read() as usize;
     mem_add(-(n as i64));
+    MEM_COUNT.fetch_sub(1, Ordering::SeqCst);
     let l = std::alloc::Layout::from_size_align(n + 16, 16).unwrap();
     std::alloc::dealloc(base, l);
 }
@@ -1644,29 +1652,98 @@ pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
     (saw_begin && depth <= 0) as c_int
 }
 
-// ---------------- run-38: sqlite3_status64 / sqlite3_db_status ----------------
-/// # Safety: C ABI — MEMORY_USED wired to the real allocator counters (run-33).
+// ---------------- run-38/44: sqlite3_status(64) / sqlite3_db_status op matrix ----------------
+
+// run-44: real page-image accounting — bytes of database file images this process
+// holds/writes per connection (modern's page cache equivalent). Not fabricated:
+// updated only when store actually loads or flushes file bytes.
+thread_local! {
+    static PCACHE_BYTES: RefCell<std::collections::HashMap<usize, i64>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+static PCACHE_HI: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static PCACHE_ONE_HI: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+/// store hook: this connection currently holds `n` bytes of file-image data
+pub fn pcache_note(db: usize, n: i64) {
+    let total = PCACHE_BYTES.with(|m| { let mut m = m.borrow_mut(); m.insert(db, n); m.values().sum::<i64>() });
+    PCACHE_HI.fetch_max(total, Ordering::SeqCst);
+    PCACHE_ONE_HI.fetch_max(n, Ordering::SeqCst);
+}
+/// store hook: connection closed / image dropped
+pub fn pcache_forget(db: usize) { PCACHE_BYTES.with(|m| { m.borrow_mut().remove(&db); }); }
+fn pcache_total() -> i64 { PCACHE_BYTES.with(|m| m.borrow().values().sum()) }
+
+/// # Safety: C ABI — the frozen global op matrix: real allocator/page-image counters,
+/// honest zeros for NOT-USED ops (SCRATCH_*, PARSER_STACK, PAGECACHE_USED), MISUSE
+/// out of range. resetFlag re-arms the highwater to current for resettable ops.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_status64(op: c_int, p_cur: *mut i64, p_hi: *mut i64, reset: c_int) -> c_int {
-    if op != 0 /* SQLITE_STATUS_MEMORY_USED */ { return SQLITE_MISUSE; } // pinned: bad op -> 21
-    if !p_cur.is_null() { *p_cur = MEM_USED.load(Ordering::SeqCst); }
-    if !p_hi.is_null() { *p_hi = MEM_HIGH.load(Ordering::SeqCst); }
-    if reset != 0 { MEM_HIGH.store(MEM_USED.load(Ordering::SeqCst), Ordering::SeqCst); }
+    if !(0..=9).contains(&op) { return SQLITE_MISUSE; } // pinned: out-of-range -> 21
+    let (cur, hi): (i64, i64) = match op {
+        0 => (MEM_USED.load(Ordering::SeqCst), MEM_HIGH.load(Ordering::SeqCst)),
+        2 => (pcache_total(), PCACHE_HI.load(Ordering::SeqCst).max(pcache_total())), // PAGECACHE_OVERFLOW
+        5 => (0, MEM_BIGGEST.load(Ordering::SeqCst)),          // MALLOC_SIZE: current always 0
+        7 => (0, PCACHE_ONE_HI.load(Ordering::SeqCst)),        // PAGECACHE_SIZE: current always 0
+        9 => (MEM_COUNT.load(Ordering::SeqCst), MEM_COUNT_HI.load(Ordering::SeqCst)),
+        _ => (0, 0), // PAGECACHE_USED(1), SCRATCH_USED/OVERFLOW/SIZE(3,4,8), PARSER_STACK(6)
+    };
+    if !p_cur.is_null() { *p_cur = cur; }
+    if !p_hi.is_null() { *p_hi = hi; }
+    if reset != 0 {
+        match op {
+            0 => { MEM_HIGH.store(MEM_USED.load(Ordering::SeqCst), Ordering::SeqCst); }
+            2 => { PCACHE_HI.store(pcache_total(), Ordering::SeqCst); }
+            5 => { MEM_BIGGEST.store(0, Ordering::SeqCst); }
+            7 => { PCACHE_ONE_HI.store(0, Ordering::SeqCst); }
+            9 => { MEM_COUNT_HI.store(MEM_COUNT.load(Ordering::SeqCst), Ordering::SeqCst); }
+            _ => {}
+        }
+    }
     SQLITE_OK
 }
-/// # Safety: C ABI — per-connection counters; unknown op -> SQLITE_ERROR (pinned).
+/// # Safety: C ABI — 32-bit twin of status64 (values truncate like C's int copy).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_status(op: c_int, p_cur: *mut c_int, p_hi: *mut c_int, reset: c_int) -> c_int {
+    let (mut c64, mut h64): (i64, i64) = (0, 0);
+    let rc = sqlite3_status64(op, &mut c64, &mut h64, reset);
+    if rc == SQLITE_OK {
+        if !p_cur.is_null() { *p_cur = c64 as c_int; }
+        if !p_hi.is_null() { *p_hi = h64 as c_int; }
+    }
+    rc
+}
+
+/// real byte footprint of this connection's live prepared statements
+fn stmt_footprint(dbid: usize) -> i64 {
+    STMTS.with(|m| m.borrow().get(&dbid).map_or(0, |set| {
+        set.iter().map(|&p| unsafe {
+            let st = p as *mut Sqlite3Stmt;
+            (std::mem::size_of::<Sqlite3Stmt>() + (*st).sql.len()) as i64
+        }).sum()
+    }))
+}
+
+/// # Safety: C ABI — the frozen per-connection op matrix; unknown op -> SQLITE_ERROR
+/// (pinned). Highwater is 0 for the byte-footprint/event ops, like C.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_db_status(db: *mut Sqlite3, op: c_int, p_cur: *mut c_int, p_hi: *mut c_int, reset: c_int) -> c_int {
     if db.is_null() { return SQLITE_MISUSE; }
+    let dbid = db as usize;
     let (cur, hi): (c_int, c_int) = match op {
-        0 => (0, 0),                                   // LOOKASIDE_USED (no lookaside)
-        2 => { let n = store::schema_footprint(db as usize) as c_int; (n, n) } // SCHEMA_USED
-        1 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 => (0, 0), // other known ops: honest zero
+        0 => (0, 0),                                     // LOOKASIDE_USED: no lookaside allocator
+        1 | 11 => (store::cache_footprint(dbid) as c_int, 0), // CACHE_USED(_SHARED): real image bytes
+        2 => (store::schema_footprint(dbid) as c_int, 0),     // SCHEMA_USED: highwater 0 like C
+        3 => (stmt_footprint(dbid) as c_int, 0),              // STMT_USED: live prepared stmts
+        7 => (store::io_stats(dbid).0 as c_int, 0),           // CACHE_HIT: real memory-served reads
+        8 => (store::io_stats(dbid).1 as c_int, 0),           // CACHE_MISS: real file-image loads
+        9 => (store::io_stats(dbid).2 as c_int, 0),           // CACHE_WRITE: real file flushes
+        10 => (store::deferred_fk_violations(dbid) as c_int, 0), // DEFERRED_FKS: on-demand scan
+        4 | 5 | 6 | 12 => (0, 0),                        // LOOKASIDE_HIT/MISS_*, CACHE_SPILL
         _ => return SQLITE_ERROR,
     };
     if !p_cur.is_null() { *p_cur = cur; }
     if !p_hi.is_null() { *p_hi = hi; }
-    let _ = reset;
+    let _ = reset; // the pinned ops carry highwater 0 (nothing to reset)
     SQLITE_OK
 }
 
@@ -1886,6 +1963,21 @@ thread_local! {
     // db -> (p_arg, callback) for sqlite3_collation_needed
     static COLL_NEEDED: std::cell::RefCell<std::collections::HashMap<usize, (usize, usize)>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
+    // run-44: user collation registration order (newest first) for PRAGMA collation_list
+    static COLL_ORDER: std::cell::RefCell<std::collections::HashMap<usize, Vec<String>>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// PRAGMA collation_list contents: user registrations newest-first, then the
+/// built-ins in C's order (RTRIM, NOCASE, BINARY).
+pub fn collation_list_names(dbid: usize) -> Vec<String> {
+    let mut out = COLL_ORDER.with(|o| o.borrow().get(&dbid).cloned().unwrap_or_default());
+    out.extend(["RTRIM", "NOCASE", "BINARY"].iter().map(|s| s.to_string()));
+    out
+}
+/// pragma_compile_options TVF rows (the pinned v32 fingerprint)
+pub fn compileoption_all() -> Vec<&'static str> {
+    COMPILE_OPTS.iter().filter_map(|c| c.to_str().ok()).collect()
 }
 
 fn coll_run_destroy(e: &CollEntry) {
@@ -2058,7 +2150,8 @@ pub unsafe extern "C" fn sqlite3_create_collation_v2(
     if db.is_null() || z_name.is_null() { return SQLITE_MISUSE; }
     // pinned eTextRep matrix: UTF8(1)/UTF16LE(2)/UTF16BE(3)/UTF16(4)/UTF16_ALIGNED(8) ok; 0/99 -> MISUSE
     if !matches!(e_text_rep, 1 | 2 | 3 | 4 | 8) { return SQLITE_MISUSE; }
-    let name = CStr::from_ptr(z_name).to_string_lossy().to_ascii_lowercase();
+    let disp = CStr::from_ptr(z_name).to_string_lossy().into_owned();
+    let name = disp.to_ascii_lowercase();
     let dbid = db as usize;
     COLL_REG.with(|r| {
         let mut reg = r.borrow_mut();
@@ -2068,9 +2161,16 @@ pub unsafe extern "C" fn sqlite3_create_collation_v2(
             Some(f) => {
                 let e = CollEntry { p_arg: p_arg as usize, x_cmp: f as usize,
                                     x_destroy: x_destroy.map(|d| d as usize).unwrap_or(0) };
-                if let Some(old) = per.insert(name, e) { coll_run_destroy(&old); }
+                if let Some(old) = per.insert(name.clone(), e) { coll_run_destroy(&old); }
             }
         }
+    });
+    // run-44: registration order for PRAGMA collation_list (newest first, like C)
+    COLL_ORDER.with(|o| {
+        let mut m = o.borrow_mut();
+        let v = m.entry(dbid).or_default();
+        v.retain(|n| !n.eq_ignore_ascii_case(&disp));
+        if x_compare.is_some() { v.insert(0, disp); }
     });
     db_ok(&mut *db);
     SQLITE_OK

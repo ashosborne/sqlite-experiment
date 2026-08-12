@@ -138,6 +138,48 @@ fn val_to_ev(v: &Val) -> eval::V {
 thread_local! {
     static STORES: RefCell<HashMap<usize, Store>> = RefCell::new(HashMap::new());
     static PATHS: RefCell<HashMap<usize, PathBuf>> = RefCell::new(HashMap::new());
+    // run-44: per-connection real I/O event counters (cache hit / miss / write)
+    static IOSTATS: RefCell<HashMap<usize, (i64, i64, i64)>> = RefCell::new(HashMap::new());
+}
+
+fn io_bump(db: usize, hit: i64, miss: i64, write: i64) {
+    IOSTATS.with(|m| { let mut m = m.borrow_mut(); let e = m.entry(db).or_insert((0, 0, 0));
+        e.0 += hit; e.1 += miss; e.2 += write; });
+}
+/// (cache_hit, cache_miss, cache_write) real event counts for this connection
+pub fn io_stats(db: usize) -> (i64, i64, i64) {
+    IOSTATS.with(|m| m.borrow().get(&db).copied().unwrap_or((0, 0, 0)))
+}
+
+/// real byte footprint of this connection's database image (recomputed on demand
+/// from the actual store contents — the modern equivalent of C's page-cache bytes)
+pub fn cache_footprint(db: usize) -> i64 {
+    with_store(db, |st| dbfile::write_db_bytes(&image_of(st)).len() as i64)
+}
+
+/// run-44: on-demand deferred-FK violation scan (SQLITE_DBSTATUS_DEFERRED_FKS):
+/// inside an open transaction, count child rows whose deferred FK has no parent.
+pub fn deferred_fk_violations(db: usize) -> i64 {
+    with_store(db, |st| {
+        if st.txn.is_none() || !st.fk_on { return 0; }
+        let defer_prag = st.conn.pragmas.get("defer_foreign_keys").copied().unwrap_or(0) != 0;
+        let mut n = 0i64;
+        for (_cn, ct) in &st.tables {
+            for (ci, col) in ct.cols.iter().enumerate() {
+                if let Some((p, pc, _, _)) = &col.references {
+                    if !(col.ref_deferred || defer_prag) { continue; }
+                    let parent = match st.tables.iter().find(|(pn, _)| pn == p) { Some(t) => &t.1, None => continue };
+                    let pci = match parent.cols.iter().position(|c| c.name == *pc) { Some(i) => i, None => continue };
+                    for (_, r) in &ct.rows {
+                        if let Some(v) = r.get(ci) {
+                            if *v != Val::Null && !parent.rows.iter().any(|(_, pr)| pr.get(pci) == Some(v)) { n += 1; }
+                        }
+                    }
+                }
+            }
+        }
+        n
+    })
 }
 
 /// File-backed open: record the path and, if the file already holds a SQLite DB,
@@ -159,6 +201,8 @@ pub fn open_file(db: usize, path: &str) {
     }
     if !buf.is_empty() {
         load_image(db, dbfile::read_db_bytes(&buf));
+        io_bump(db, 0, 1, 0); // run-44: real file-image load = cache miss
+        crate::pcache_note(db, buf.len() as i64);
     }
 }
 
@@ -191,11 +235,17 @@ pub fn maybe_refresh_from_file(db: usize) {
     let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return };
     let key = path.display().to_string();
     let cur = FILE_VERSIONS.with(|m| m.borrow().get(&key).copied().unwrap_or(0));
-    let stale = with_store(db, |st| {
-        st.conn.is_file && st.txn.is_none()
-            && st.file_ver_seen != cur && st.total_changes == st.clean_changes
+    let (is_file, stale) = with_store(db, |st| {
+        (st.conn.is_file,
+         st.conn.is_file && st.txn.is_none()
+            && st.file_ver_seen != cur && st.total_changes == st.clean_changes)
     });
+    // run-44: real I/O event counters — a statement consulting the in-memory image
+    // of a file db is a cache hit; an actual reload from disk is a miss.
+    if is_file && !stale { io_bump(db, 1, 0, 0); }
     if !stale { return; }
+    io_bump(db, 0, 1, 0);
+    with_store(db, |st| { st.conn.data_version += 1; }); // sibling commit picked up
     let mut buf = std::fs::read(&path).unwrap_or_default();
     if let Some(overlay) = dbfile::read_wal_overlay(&wal_sidecar(&path, "-wal")) {
         dbfile::apply_wal_overlay(&mut buf, &overlay);
@@ -212,6 +262,7 @@ pub fn maybe_refresh_from_file(db: usize) {
     });
     if !buf.is_empty() {
         load_image(db, dbfile::read_db_bytes(&buf));
+        crate::pcache_note(db, buf.len() as i64);
     }
     with_store(db, |st| {
         st.file_ver_seen = cur;
@@ -356,6 +407,8 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
                 dbfile::set_journal_versions(&mut empty, true);
                 let _ = std::fs::write(&path, empty);
             }
+            io_bump(db, 0, 0, 1); // run-44: real flush = cache write
+            crate::pcache_note(db, dbbuf.len() as i64);
             let _ = dbfile::write_wal(&walp, &dbbuf);
             if !shmp.exists() { let _ = std::fs::write(&shmp, []); }
             bump_file_version(db, &path);
@@ -384,6 +437,8 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
         let img = build_image(db);
         let mut dbbuf = dbfile::write_db_bytes(&img);
         dbfile::set_journal_versions(&mut dbbuf, false);
+        io_bump(db, 0, 0, 1); // run-44: real flush = cache write
+        crate::pcache_note(db, dbbuf.len() as i64);
         let _ = std::fs::write(&path, dbbuf);
         bump_file_version(db, &path);
     }
@@ -434,6 +489,8 @@ pub fn load_image(db: usize, img: DbImage) {
 
 pub fn drop_store(db: usize) {
     STORES.with(|m| { m.borrow_mut().remove(&db); });
+    IOSTATS.with(|m| { m.borrow_mut().remove(&db); });
+    crate::pcache_forget(db);
 }
 
 /// Persist a file-backed connection to a real (C-readable) SQLite database file.
@@ -741,6 +798,9 @@ enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate, TxnRollback }
 
 enum Stmt {
     PragmaFkOn,
+    PragmaCheck,                                    // run-44: integrity_check / quick_check
+    PragmaTableXinfo { name: String },              // run-44
+    PragmaIndexInfo { name: String, x: bool },      // run-44: index_info / index_xinfo
     Create { name: String, cols: Vec<Col>, sql: String },
     CreateIndex { name: String, table: String, exprs: Vec<String>, unique: bool, where_c: Option<String>, sql: String },
     DropIndex { name: String },
@@ -850,6 +910,24 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     let up = s.to_ascii_uppercase();
     if up == "PRAGMA FOREIGN_KEYS=ON" || up == "PRAGMA FOREIGN_KEYS = ON" {
         return Some(Stmt::PragmaFkOn); // ONLY this pragma; all others stay recognizer territory
+    }
+    // run-44: table-shaped pragmas that need real store metadata (kitchen-owned)
+    if up == "PRAGMA INTEGRITY_CHECK" || up == "PRAGMA QUICK_CHECK" {
+        return Some(Stmt::PragmaCheck);
+    }
+    if up.starts_with("PRAGMA TABLE_XINFO(") || up.starts_with("PRAGMA TABLE_XINFO (")
+        || up.starts_with("PRAGMA INDEX_INFO(") || up.starts_with("PRAGMA INDEX_INFO (")
+        || up.starts_with("PRAGMA INDEX_XINFO(") || up.starts_with("PRAGMA INDEX_XINFO (") {
+        let rest = s["PRAGMA ".len()..].trim();
+        let op = rest.find('(')?;
+        let close = rest.rfind(')')?;
+        let kind = rest[..op].trim().to_ascii_lowercase();
+        let arg = ident(rest[op + 1..close].trim().trim_matches('\''))?;
+        return Some(match kind.as_str() {
+            "table_xinfo" => Stmt::PragmaTableXinfo { name: arg },
+            "index_info" => Stmt::PragmaIndexInfo { name: arg, x: false },
+            _ => Stmt::PragmaIndexInfo { name: arg, x: true },
+        });
     }
     if up == "BEGIN" || up.starts_with("BEGIN ") || up == "BEGIN TRANSACTION" {
         let rest = up.trim_start_matches("BEGIN").trim();
@@ -2150,11 +2228,13 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             let views = st.views.clone();
             let idxmaps = build_index_snapshot(st);
             let colls = build_coll_snapshot(st);
+            let idefs: Vec<(String, String, Vec<String>)> = st.indexes.iter()
+                .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone())).collect();
             let mut snap = snap;
             apply_read_auth(db, s, &mut snap); // run-38: authorizer READ -> IGNORE nulls columns
             PROBE_CELL.with(|c| c.set(0));
             let r = PROBE_CELL.with(|probes| {
-                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls };
+                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls, index_defs: &idefs };
                 eval::stmt_select_typed(&mut ctx, s)
             });
             r
@@ -2206,8 +2286,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let idxmaps = build_index_snapshot(st);
                     let views2 = st.views.clone();
                     let colls2 = build_coll_snapshot(st);
+                    let idefs2: Vec<(String, String, Vec<String>)> = st.indexes.iter()
+                        .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone())).collect();
                     let res = PROBE_CELL.with(|probes| {
-                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2 };
+                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2, index_defs: &idefs2 };
                         eval::run_stmt(&mut ctx, s)
                     });
                     match res {
@@ -2226,6 +2308,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 | Stmt::DropTrigger { .. } | Stmt::RenameColumn { .. } | Stmt::DropColumn { .. }
                 | Stmt::Drop { .. } | Stmt::RenameTable { .. } | Stmt::AddColumn { .. });
             if write_kind {
+                // run-44: PRAGMA query_only blocks every write with C's readonly error
+                if st.conn.pragmas.get("query_only").copied().unwrap_or(0) != 0 {
+                    return Err("attempt to write a readonly database".into());
+                }
                 // holding a txn: acquire and keep; autocommit: just verify nobody else holds it
                 acquire_file_lock(db, st.txn.is_some())?;
             }
@@ -2235,6 +2321,50 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             } else { None };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
+                Stmt::PragmaCheck => {
+                    // run-44: REAL validation — evaluate every table's CHECK constraints
+                    // over its rows (C reports "CHECK constraint failed in <table>").
+                    let mut bad: Vec<String> = Vec::new();
+                    for (tname, t) in &st.tables {
+                        let mut broken = false;
+                        for (_, r) in &t.rows {
+                            if check_row(tname, &t.cols, &t.checks, r)?.is_some() { broken = true; break; }
+                        }
+                        if broken { bad.push(tname.clone()); }
+                    }
+                    if bad.is_empty() { out.push(vec![Some("ok".into())]); }
+                    else { for t in bad { out.push(vec![Some(format!("CHECK constraint failed in {t}"))]); } }
+                }
+                Stmt::PragmaTableXinfo { name } => {
+                    // run-44: cid,name,type,notnull,dflt_value,pk,hidden from real cols
+                    if let Some((_, t)) = st.tables.iter().find(|(n, _)| *n == name) {
+                        for (i, c) in t.cols.iter().enumerate() {
+                            out.push(vec![
+                                Some(i.to_string()), Some(c.name.clone()), Some(String::new()),
+                                Some((c.not_null as i64).to_string()),
+                                c.default.as_ref().and_then(|d| d.render()),
+                                Some("0".into()), Some("0".into()),
+                            ]);
+                        }
+                    }
+                }
+                Stmt::PragmaIndexInfo { name, x } => {
+                    if let Some(d) = st.indexes.iter().find(|d| d.name == name) {
+                        let tcols: Vec<String> = st.tables.iter().find(|(n, _)| *n == d.table)
+                            .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+                        for (seq, col) in d.exprs.iter().enumerate() {
+                            let cid = tcols.iter().position(|c| c == col).map(|p| p as i64).unwrap_or(-1);
+                            let mut row = vec![Some(seq.to_string()), Some(cid.to_string()), Some(col.clone())];
+                            if x { row.extend([Some("0".into()), Some("BINARY".into()), Some("1".into())]); }
+                            out.push(row);
+                        }
+                        if x {
+                            // C appends the rowid key column: (n, -1, NULL, 0, BINARY, 0)
+                            out.push(vec![Some(d.exprs.len().to_string()), Some("-1".into()), None,
+                                          Some("0".into()), Some("BINARY".into()), Some("0".into())]);
+                        }
+                    }
+                }
                 Stmt::CreateVtab { name, module, args, sql } => {
                     // run-41: real module path — a registered module's xCreate runs with the
                     // C argv convention and must declare_vtab a shape. The run-38 wholenumber
@@ -2710,6 +2840,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     break;
                                 }
                                 if let Some(chk) = &col.check {
+                                    // run-44: PRAGMA ignore_check_constraints skips CHECK enforcement
+                                    if st.conn.pragmas.get("ignore_check_constraints").copied().unwrap_or(0) != 0 { continue; }
                                     let mut env: std::collections::HashMap<String, eval::V> = Default::default();
                                     for (cj, cc) in cols_meta.iter().enumerate() {
                                         env.insert(cc.name.clone(), val_to_ev(full.get(cj).unwrap_or(&Val::Null)));
@@ -2722,7 +2854,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     }
                                 }
                             }
-                            if viol.is_none() {
+                            if viol.is_none()
+                                && st.conn.pragmas.get("ignore_check_constraints").copied().unwrap_or(0) == 0 {
                                 // table-level CHECK(a < b) constraints on insert too
                                 let tchecks = st.tables.iter().find(|(n2, _)| *n2 == name)
                                     .map(|(_, t)| t.checks.clone()).unwrap_or_default();
@@ -3265,6 +3398,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 else if e == FK_ERR || e == UNIQ_ERR || e.contains("constraint failed") { (19, e) }
                 else if e.starts_with("unable to open database") { (14, e) } // run-34 VACUUM INTO path
                 else if e == "database is locked" { (5, e) } // run-36 busy path
+                else if e == "attempt to write a readonly database" { (8, e) } // run-44 query_only
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }
         }
