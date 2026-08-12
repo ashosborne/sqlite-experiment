@@ -502,16 +502,27 @@ pub fn drop_store(db: usize) {
 
 /// resolve + validate a blob-handle target in the pinned C order; returns the
 /// column index. rowid aliases the INTEGER PRIMARY KEY when declared.
+/// resolve a blob_open target; returns (column index, canonical store key)
 pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, write: bool)
-    -> Result<usize, String> {
+    -> Result<(usize, String), String> {
     with_store(db, |st| {
         if st.views.contains_key(table) {
             return Err(format!("cannot open view: {table}"));
         }
-        let t = match st.tables.iter().find(|(n, _)| *n == table) {
+        // run-46: honour the database-name argument (attached schemas open for real)
+        let key = if zdb.eq_ignore_ascii_case("main") || zdb.eq_ignore_ascii_case("temp") {
+            table.to_string()
+        } else {
+            format!("{zdb}.{table}")
+        };
+        let t = match st.tables.iter().find(|(n, _)| *n == key) {
             Some((_, t)) => t,
             None => return Err(format!("no such table: {zdb}.{table}")),
         };
+        // run-46: WITHOUT ROWID targets are refused like C
+        if t.create_sql.to_ascii_uppercase().contains("WITHOUT ROWID") {
+            return Err(format!("cannot open table without rowid: {table}"));
+        }
         let ci = match t.cols.iter().position(|c| c.name == col) {
             Some(ci) => ci,
             None => return Err(format!("no such column: \"{col}\"")),
@@ -521,7 +532,7 @@ pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, wri
             // UNIQUE table constraints or any explicit index touching the column
             let indexed = t.cols[ci].unique
                 || t.uniq_sets.iter().any(|s| s.iter().any(|c| c == col))
-                || st.indexes.iter().any(|d| d.table == table
+                || st.indexes.iter().any(|d| d.table == key
                     && d.exprs.iter().any(|e| e.trim().eq_ignore_ascii_case(col)));
             if indexed {
                 return Err("cannot open indexed column for writing".into());
@@ -529,7 +540,7 @@ pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, wri
         }
         let row = blob_row_of(t, rowid).ok_or(format!("no such rowid: {rowid}"))?;
         match t.rows[row].1.get(ci) {
-            Some(Val::Blob(_)) | Some(Val::Text(_)) => Ok(ci),
+            Some(Val::Blob(_)) | Some(Val::Text(_)) => Ok((ci, key.clone())),
             Some(Val::Null) | None => Err("cannot open value of type null".into()),
             Some(Val::Int(_)) => Err("cannot open value of type integer".into()),
             Some(Val::Real(_)) => Err("cannot open value of type real".into()),

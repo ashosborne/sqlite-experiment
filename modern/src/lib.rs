@@ -211,6 +211,7 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
     }
     let db = Box::new(Sqlite3 { errcode: SQLITE_OK, extended: SQLITE_OK, errmsg: None });
     *pp_db = Box::into_raw(db);
+    TOMBSTONES.with(|t| { t.borrow_mut().remove(&(*pp_db as usize)); }); // address reuse
     la_setup(*pp_db as usize, 1200, 40); // run-45: default lookaside pool (C default shape)
     run_auto_extensions(*pp_db); // run-12: pinned auto-extension invocation on open
     // run-15: file-backed open loads an on-disk SQLite DB into the in-memory store
@@ -228,6 +229,23 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
     if db.is_null() { return SQLITE_OK; } // pinned NULL no-op
+    // run-46: closing an already-freed handle answers MISUSE like C (tombstone check
+    // keeps this safe in Rust; C reaches the same rc through its magic-number guard)
+    if TOMBSTONES.with(|t| t.borrow().contains(&(db as usize))) { return SQLITE_MISUSE; }
+    let active = BK_ACTIVE.with(|m| m.borrow().get(&(db as usize)).copied().unwrap_or(0));
+    if active > 0 {
+        if BK_SRC_ROLE.with(|s| s.borrow().contains(&(db as usize))) {
+            // the SOURCE of an unfinished backup refuses to close (pinned rc 5 + errmsg)
+            (*db).errcode = 5;
+            (*db).extended = 5;
+            (*db).errmsg = Some(CString::new(
+                "unable to close due to unfinalized statements or unfinished backups").unwrap());
+            return 5;
+        }
+        // the DESTINATION defers its teardown until backup_finish (pinned rc 0)
+        BK_DEFERRED.with(|z| { z.borrow_mut().insert(db as usize); });
+        return SQLITE_OK;
+    }
     if live_handles(db as usize) > 0 {
         // pinned: won't close while statements (or blob handles) are alive
         (*db).errcode = 5;
@@ -263,6 +281,7 @@ pub(crate) unsafe fn conn_teardown(db: *mut Sqlite3) {
     coll_close(db as usize); // run-30: run pending xDestroy for registered collations
     vtab_close(db as usize); // run-41: xDisconnect live vtabs, run module _v2 destructors
     la_close(db as usize); // run-45: free the lookaside slab (or park it for zombie stmts)
+    TOMBSTONES.with(|t| { t.borrow_mut().insert(db as usize); }); // run-46: late double-close -> MISUSE
     ZOMBIES.with(|z| { z.borrow_mut().remove(&(db as usize)); });
     STMTS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
     EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
@@ -1444,19 +1463,29 @@ pub unsafe extern "C" fn sqlite3_load_extension(
 }
 
 // ---- backup (pinned on the empty :memory: pair) ----
-pub struct Sqlite3Backup { done: bool, partial: bool }
+pub struct Sqlite3Backup { done: bool, partial: bool, src: usize, dst: usize, errored: bool }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_init(
     dst: *mut Sqlite3, _d: *const c_char, src: *mut Sqlite3, _s: *const c_char,
 ) -> *mut Sqlite3Backup {
     if dst.is_null() || src.is_null() || dst == src { return std::ptr::null_mut(); }
-    Box::into_raw(Box::new(Sqlite3Backup { done: false, partial: false }))
+    // run-46: live backups couple to close (src refuses BUSY; dst defers teardown)
+    BK_ACTIVE.with(|m| { let mut m = m.borrow_mut();
+        *m.entry(src as usize).or_insert(0) += 1;
+        *m.entry(dst as usize).or_insert(0) += 1; });
+    BK_SRC_ROLE.with(|s| { s.borrow_mut().insert(src as usize); });
+    Box::into_raw(Box::new(Sqlite3Backup { done: false, partial: false, src: src as usize, dst: dst as usize, errored: false }))
 }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_step(b: *mut Sqlite3Backup, n: c_int) -> c_int {
     if b.is_null() { return SQLITE_MISUSE; }
+    // run-46: stepping after the destination's close was deferred errors (pinned)
+    if BK_DEFERRED.with(|z| z.borrow().contains(&(*b).dst)) {
+        (*b).errored = true;
+        return SQLITE_ERROR;
+    }
     if n >= 0 && !(*b).done && !(*b).partial {
         (*b).partial = true; // pinned run-12 sequence: partial step on 2-page source -> SQLITE_OK
         return SQLITE_OK;
@@ -1479,8 +1508,30 @@ pub unsafe extern "C" fn sqlite3_backup_pagecount(b: *mut Sqlite3Backup) -> c_in
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_finish(b: *mut Sqlite3Backup) -> c_int {
-    if !b.is_null() { drop(Box::from_raw(b)); }
-    SQLITE_OK
+    if b.is_null() { return SQLITE_OK; }
+    let (src, dst, errored) = ((*b).src, (*b).dst, (*b).errored);
+    drop(Box::from_raw(b));
+    let dec = |id: usize| BK_ACTIVE.with(|m| {
+        let mut m = m.borrow_mut();
+        if let Some(n) = m.get_mut(&id) { *n = n.saturating_sub(1); if *n == 0 { m.remove(&id); } }
+    });
+    dec(src); dec(dst);
+    if BK_ACTIVE.with(|m| !m.borrow().contains_key(&src)) {
+        BK_SRC_ROLE.with(|s| { s.borrow_mut().remove(&src); });
+    }
+    // a deferred destination close completes now (like C's deferred teardown)
+    if BK_DEFERRED.with(|z| z.borrow_mut().remove(&dst)) {
+        conn_teardown(dst as *mut Sqlite3);
+    }
+    if errored { SQLITE_ERROR } else { SQLITE_OK } // pinned: finish reports the step failure
+}
+
+thread_local! {
+    // run-46: dbs with live backups; destinations whose close was deferred; freed handles
+    static BK_ACTIVE: RefCell<std::collections::HashMap<usize, u32>> = RefCell::new(std::collections::HashMap::new());
+    static BK_DEFERRED: RefCell<std::collections::HashSet<usize>> = RefCell::new(std::collections::HashSet::new());
+    static BK_SRC_ROLE: RefCell<std::collections::HashSet<usize>> = RefCell::new(std::collections::HashSet::new());
+    static TOMBSTONES: RefCell<std::collections::HashSet<usize>> = RefCell::new(std::collections::HashSet::new());
 }
 
 /// # Safety: C ABI — pinned: empty :memory: serializes to a 4096-byte image.
@@ -2230,9 +2281,9 @@ pub unsafe extern "C" fn sqlite3_blob_open(
     let table = CStr::from_ptr(z_table).to_string_lossy().into_owned();
     let col = CStr::from_ptr(z_column).to_string_lossy().into_owned();
     match store::blob_target(db as usize, &zdb, &table, &col, i_row, flags != 0) {
-        Ok(ci) => {
+        Ok((ci, key)) => {
             let b = Box::new(Sqlite3Blob {
-                db, table, ci, rowid: i_row, readonly: flags == 0,
+                db, table: key, ci, rowid: i_row, readonly: flags == 0,
                 marker: store::wal_marker(db as usize), expired: false,
             });
             *pp_blob = Box::into_raw(b);
@@ -2632,14 +2683,28 @@ pub struct Sqlite3Vtab {
 pub struct Sqlite3VtabCursor {
     pub p_vtab: *mut Sqlite3Vtab,
 }
-/// xBestIndex exchange struct (v1 core fields; modern offers zero constraints = full scan).
+/// xBestIndex constraint entry (C layout: sqlite3_index_constraint)
+#[repr(C)]
+pub struct Sqlite3IndexConstraint {
+    pub i_column: c_int,
+    pub op: u8,
+    pub usable: u8,
+    pub i_term_offset: c_int,
+}
+/// xBestIndex usage entry (C layout: sqlite3_index_constraint_usage)
+#[repr(C)]
+pub struct Sqlite3IndexConstraintUsage {
+    pub argv_index: c_int,
+    pub omit: u8,
+}
+/// xBestIndex exchange struct (v1 core fields; run-46 offers real EQ constraints).
 #[repr(C)]
 pub struct Sqlite3IndexInfo {
     pub n_constraint: c_int,
-    pub a_constraint: *mut c_void,
+    pub a_constraint: *mut Sqlite3IndexConstraint,
     pub n_order_by: c_int,
     pub a_order_by: *mut c_void,
-    pub a_constraint_usage: *mut c_void,
+    pub a_constraint_usage: *mut Sqlite3IndexConstraintUsage,
     pub idx_num: c_int,
     pub idx_str: *mut c_char,
     pub need_to_free_idx_str: c_int,
@@ -2787,6 +2852,31 @@ pub unsafe extern "C" fn sqlite3_declare_vtab(db: *mut Sqlite3, z_sql: *const c_
     }
 }
 
+/// # Safety: C ABI — run-46: negotiation flags accepted inside xCreate/xConnect only
+/// (ops 1..3: CONSTRAINT_SUPPORT / INNOCUOUS / DIRECTONLY); MISUSE outside or bad op.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_vtab_config(db: *mut Sqlite3, op: c_int, _val: c_int) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    let armed = VTAB_DECLARE.with(|d| d.borrow().contains_key(&(db as usize)));
+    if !armed || !(1..=3).contains(&op) { return SQLITE_MISUSE; }
+    VTAB_CONFIG.with(|c| { c.borrow_mut().entry(db as usize).or_default().push(op); });
+    SQLITE_OK
+}
+
+thread_local! {
+    // run-46: flags negotiated during the current constructor (per db)
+    static VTAB_CONFIG: RefCell<std::collections::HashMap<usize, Vec<c_int>>> =
+        RefCell::new(std::collections::HashMap::new());
+    // run-46: one simple EQ constraint offer for the NEXT vtab scan of (table):
+    // (table name, declared column index, value)
+    static VTAB_HINT: RefCell<Option<(String, usize, eval::V)>> = const { RefCell::new(None) };
+}
+/// eval hook: offer `col = literal` on the named vtab to the next scan's xBestIndex
+pub fn vtab_set_hint(table: &str, colidx: usize, v: eval::V) {
+    VTAB_HINT.with(|h| { *h.borrow_mut() = Some((table.to_string(), colidx, v)); });
+}
+pub fn vtab_clear_hint() { VTAB_HINT.with(|h| { *h.borrow_mut() = None; }); }
+
 /// is a module of this (lowercased) name registered on the connection?
 pub fn vtab_module_registered(dbid: usize, module: &str) -> bool {
     let key = module.to_ascii_lowercase();
@@ -2813,6 +2903,7 @@ pub fn vtab_create_instance(dbid: usize, tname: &str, module_raw: &str, args: &[
         let mut pvtab: *mut Sqlite3Vtab = ptr::null_mut();
         let mut pzerr: *mut c_char = ptr::null_mut();
         VTAB_DECLARE.with(|d| { d.borrow_mut().insert(dbid, None); });
+        VTAB_CONFIG.with(|c| { c.borrow_mut().remove(&dbid); }); // fresh negotiation per constructor
         let rc = ctor(dbid as *mut Sqlite3, aux as *mut c_void, argv.len() as c_int,
                       argv.as_ptr(), &mut pvtab, &mut pzerr);
         let declared = VTAB_DECLARE.with(|d| d.borrow_mut().remove(&dbid)).flatten();
@@ -2885,22 +2976,47 @@ pub fn vtab_scan(dbid: usize, tname: &str) -> Option<Result<(Vec<String>, Vec<St
             (Some(a), Some(b), Some(c), Some(d), Some(e), Some(f)) => (a, b, c, d, e, f),
             _ => return Some(Err(format!("malformed module for table {tname}"))),
         };
-        // xBestIndex is part of the pinned contract even for the zero-constraint full scan
+        // run-46: offer a REAL EQ constraint when eval detected `col = literal` on this
+        // vtab; the module may consume it (argvIndex) and receive the value in xFilter.
+        let hint = VTAB_HINT.with(|h| h.borrow().clone())
+            .filter(|(t, _, _)| t == tname);
+        let mut idx_num: c_int = 0;
+        let mut argv_val: Option<eval::V> = None;
         if let Some(bi) = m.x_best_index {
+            let mut cons: Vec<Sqlite3IndexConstraint> = Vec::new();
+            let mut usage: Vec<Sqlite3IndexConstraintUsage> = Vec::new();
+            if let Some((_, ci, _)) = &hint {
+                cons.push(Sqlite3IndexConstraint { i_column: *ci as c_int, op: 2 /* EQ */, usable: 1, i_term_offset: 0 });
+                usage.push(Sqlite3IndexConstraintUsage { argv_index: 0, omit: 0 });
+            }
             let mut info = Sqlite3IndexInfo {
-                n_constraint: 0, a_constraint: ptr::null_mut(), n_order_by: 0, a_order_by: ptr::null_mut(),
-                a_constraint_usage: ptr::null_mut(), idx_num: 0, idx_str: ptr::null_mut(),
+                n_constraint: cons.len() as c_int,
+                a_constraint: if cons.is_empty() { ptr::null_mut() } else { cons.as_mut_ptr() },
+                n_order_by: 0, a_order_by: ptr::null_mut(),
+                a_constraint_usage: if usage.is_empty() { ptr::null_mut() } else { usage.as_mut_ptr() },
+                idx_num: 0, idx_str: ptr::null_mut(),
                 need_to_free_idx_str: 0, order_by_consumed: 0, estimated_cost: 0.0,
                 estimated_rows: 0, idx_flags: 0, col_used: u64::MAX,
             };
             let rc = bi(pv, &mut info);
             if rc != SQLITE_OK { return Some(Err(format!("xBestIndex failed for table {tname}"))); }
+            idx_num = info.idx_num;
+            if let (Some((_, _, v)), Some(u)) = (&hint, usage.first()) {
+                if u.argv_index == 1 { argv_val = Some(v.clone()); }
+            }
         }
         let mut cur: *mut Sqlite3VtabCursor = ptr::null_mut();
         let rc = xo(pv, &mut cur);
         if rc != SQLITE_OK || cur.is_null() { return Some(Err(format!("unable to open cursor on {tname}"))); }
         (*cur).p_vtab = pv;
-        let rc = xf(cur, 0, ptr::null(), 0, ptr::null_mut());
+        let rc = match &argv_val {
+            Some(v) => {
+                let mut b = mkval(v);
+                let mut argv: [*mut Sqlite3Value; 1] = [b.as_mut() as *mut Sqlite3Value];
+                xf(cur, idx_num, ptr::null(), 1, argv.as_mut_ptr())
+            }
+            None => xf(cur, idx_num, ptr::null(), 0, ptr::null_mut()),
+        };
         if rc != SQLITE_OK { xc(cur); return Some(Err(format!("xFilter failed for table {tname}"))); }
         let mut rows: Vec<Vec<eval::V>> = Vec::new();
         while xe(cur) == 0 {

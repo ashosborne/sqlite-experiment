@@ -284,6 +284,219 @@ fn complete(s: &str) -> i64 { unsafe { sqlite3_complete(CString::new(s).unwrap()
     }
     h.check(); }
 
+// ================= wave 2: intseries2 module (xBestIndex EQ-on-HIDDEN pushdown) =================
+
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Mutex;
+static VLOCK: Mutex<()> = Mutex::new(());
+fn vlock() -> std::sync::MutexGuard<'static, ()> { VLOCK.lock().unwrap_or_else(|e| e.into_inner()) }
+static G_BI_OFFERED: AtomicI64 = AtomicI64::new(0);
+static G_FILTER_ARGC: AtomicI64 = AtomicI64::new(-1);
+static G_VTC_RC: AtomicI64 = AtomicI64::new(-99);
+static G_VTC_BAD: AtomicI64 = AtomicI64::new(-99);
+
+#[repr(C)] struct S2Vtab { base: Sqlite3Vtab, dflt: i64 }
+#[repr(C)] struct S2Cur { base: Sqlite3VtabCursor, i: i64, n: i64 }
+
+unsafe extern "C" fn s2_create(db: *mut Sqlite3, _aux: *mut c_void, _argc: c_int,
+        _argv: *const *const c_char, pp: *mut *mut Sqlite3Vtab, _pz: *mut *mut c_char) -> c_int {
+    G_VTC_RC.store(sqlite3_vtab_config(db, 1 /* CONSTRAINT_SUPPORT */, 1) as i64, Ordering::SeqCst);
+    G_VTC_BAD.store(sqlite3_vtab_config(db, 999, 0) as i64, Ordering::SeqCst);
+    let rc = sqlite3_declare_vtab(db, c"CREATE TABLE x(value INTEGER, lim HIDDEN INTEGER)".as_ptr());
+    if rc != SQLITE_OK { return rc; }
+    let v = Box::new(S2Vtab { base: Sqlite3Vtab { p_module: ptr::null(), n_ref: 0, z_err_msg: ptr::null_mut() }, dflt: 3 });
+    *pp = Box::into_raw(v) as *mut Sqlite3Vtab;
+    SQLITE_OK }
+unsafe extern "C" fn s2_disc(v: *mut Sqlite3Vtab) -> c_int { drop(Box::from_raw(v as *mut S2Vtab)); SQLITE_OK }
+unsafe extern "C" fn s2_best(_v: *mut Sqlite3Vtab, info: *mut Sqlite3IndexInfo) -> c_int {
+    let n = (*info).n_constraint as usize;
+    for i in 0..n {
+        let c = &*(*info).a_constraint.add(i);
+        if c.usable != 0 && c.i_column == 1 && c.op == 2 {
+            G_BI_OFFERED.fetch_add(1, Ordering::SeqCst);
+            let u = &mut *(*info).a_constraint_usage.add(i);
+            u.argv_index = 1;
+            u.omit = 1;
+            (*info).idx_num = 1;
+            (*info).estimated_cost = 1.0;
+            return SQLITE_OK;
+        }
+    }
+    (*info).idx_num = 0;
+    SQLITE_OK }
+unsafe extern "C" fn s2_open(_v: *mut Sqlite3Vtab, pp: *mut *mut Sqlite3VtabCursor) -> c_int {
+    let c = Box::new(S2Cur { base: Sqlite3VtabCursor { p_vtab: ptr::null_mut() }, i: 0, n: 0 });
+    *pp = Box::into_raw(c) as *mut Sqlite3VtabCursor; SQLITE_OK }
+unsafe extern "C" fn s2_close(c: *mut Sqlite3VtabCursor) -> c_int { drop(Box::from_raw(c as *mut S2Cur)); SQLITE_OK }
+unsafe extern "C" fn s2_filter(cur: *mut Sqlite3VtabCursor, idx_num: c_int, _s: *const c_char,
+        argc: c_int, argv: *mut *mut Sqlite3Value) -> c_int {
+    let c = &mut *(cur as *mut S2Cur);
+    G_FILTER_ARGC.store(argc as i64, Ordering::SeqCst);
+    c.i = 1;
+    c.n = if idx_num == 1 && argc > 0 { sqlite3_value_int64(*argv) }
+          else { (*(c.base.p_vtab as *mut S2Vtab)).dflt };
+    SQLITE_OK }
+unsafe extern "C" fn s2_next(c: *mut Sqlite3VtabCursor) -> c_int { (*(c as *mut S2Cur)).i += 1; SQLITE_OK }
+unsafe extern "C" fn s2_eof(c: *mut Sqlite3VtabCursor) -> c_int {
+    let c = &*(c as *mut S2Cur); (c.i > c.n) as c_int }
+unsafe extern "C" fn s2_col(cur: *mut Sqlite3VtabCursor, ctx: *mut Sqlite3Context, i: c_int) -> c_int {
+    let c = &*(cur as *mut S2Cur);
+    if i == 0 { sqlite3_result_int64(ctx, c.i); } else { sqlite3_result_int64(ctx, c.n); }
+    SQLITE_OK }
+unsafe extern "C" fn s2_rowid(c: *mut Sqlite3VtabCursor, p: *mut i64) -> c_int { *p = (*(c as *mut S2Cur)).i; SQLITE_OK }
+
+static S2_MOD: Sqlite3Module = Sqlite3Module {
+    i_version: 1,
+    x_create: Some(s2_create), x_connect: Some(s2_create),
+    x_best_index: Some(s2_best),
+    x_disconnect: Some(s2_disc), x_destroy: Some(s2_disc),
+    x_open: Some(s2_open), x_close: Some(s2_close),
+    x_filter: Some(s2_filter), x_next: Some(s2_next), x_eof: Some(s2_eof),
+    x_column: Some(s2_col), x_rowid: Some(s2_rowid),
+    x_update: None, x_begin: None, x_sync: None, x_commit: None, x_rollback: None,
+    x_find_function: None, x_rename: None, x_savepoint: None, x_release: None,
+    x_rollback_to: None, x_shadow_name: None, x_integrity: None,
+};
+
+impl H {
+    fn reg2(&mut self) { unsafe { sqlite3_create_module(self.db, c"intseries2".as_ptr(), &S2_MOD, ptr::null_mut()); } }
+}
+
+#[test] fn h009_c001() { let _g = vlock(); let mut h = H::new("engine-harvest36-009-C001"); h.reg2();
+    h.exr("cvt", "CREATE VIRTUAL TABLE nums2 USING intseries2;");
+    h.oi("vtab_config_rc", G_VTC_RC.load(Ordering::SeqCst));
+    h.oi("vtab_config_badop_rc", G_VTC_BAD.load(Ordering::SeqCst));
+    let rc = unsafe { sqlite3_vtab_config(h.db, 1, 1) };
+    h.oi("vtab_config_outside_rc", rc as i64);
+    h.check(); }
+
+#[test] fn h009_c002() { let _g = vlock(); let mut h = H::new("engine-harvest36-009-C002"); h.reg2();
+    h.ex("CREATE VIRTUAL TABLE nums2 USING intseries2;");
+    G_BI_OFFERED.store(0, Ordering::SeqCst); G_FILTER_ARGC.store(-1, Ordering::SeqCst);
+    h.rows("default_scan", "SELECT value FROM nums2");
+    h.oi("no_constraint_offered", G_BI_OFFERED.load(Ordering::SeqCst));
+    h.oi("filter_argc", G_FILTER_ARGC.load(Ordering::SeqCst));
+    h.check(); }
+
+#[test] fn h009_c003() { let _g = vlock(); let mut h = H::new("engine-harvest36-009-C003"); h.reg2();
+    h.ex("CREATE VIRTUAL TABLE nums2 USING intseries2;");
+    G_BI_OFFERED.store(0, Ordering::SeqCst); G_FILTER_ARGC.store(-1, Ordering::SeqCst);
+    h.rows("pushdown", "SELECT value FROM nums2 WHERE lim = 5");
+    h.oi("constraint_offered", (G_BI_OFFERED.load(Ordering::SeqCst) > 0) as i64);
+    h.oi("filter_argc", G_FILTER_ARGC.load(Ordering::SeqCst));
+    G_BI_OFFERED.store(0, Ordering::SeqCst); G_FILTER_ARGC.store(-1, Ordering::SeqCst);
+    h.rows("pushdown_count", "SELECT count(*) FROM nums2 WHERE lim = 4");
+    h.oi("offered_again", (G_BI_OFFERED.load(Ordering::SeqCst) > 0) as i64);
+    h.check(); }
+
+#[test] fn h009_c004() { let _g = vlock(); let mut h = H::new("engine-harvest36-009-C004"); h.reg2();
+    h.ex("CREATE VIRTUAL TABLE nums2 USING intseries2;");
+    h.rows("visible_where", "SELECT value FROM nums2 WHERE value > 1");
+    h.rows("hidden_not_in_star", "SELECT * FROM nums2 WHERE lim = 4");
+    h.check(); }
+
+// ================= wave 2: backup-close coupling (010) =================
+
+#[test] fn h010_c001() { let mut h = H { cid: "engine-harvest36-010-C001", lines: Vec::new(), db: ptr::null_mut() }; unsafe {
+    let mut src: *mut Sqlite3 = ptr::null_mut();
+    sqlite3_open(c":memory:".as_ptr(), &mut src);
+    sqlite3_exec(src, c"CREATE TABLE t(a); INSERT INTO t VALUES(1),(2);".as_ptr(), None, ptr::null_mut(), ptr::null_mut());
+    let mut dst: *mut Sqlite3 = ptr::null_mut();
+    sqlite3_open(c":memory:".as_ptr(), &mut dst);
+    let bk = sqlite3_backup_init(dst, c"main".as_ptr(), src, c"main".as_ptr());
+    h.oi("init_ok", (!bk.is_null()) as i64);
+    let rc = sqlite3_close(src);
+    h.lines.push(format!("OBS {} close_src_rc {}", h.cid, rc));
+    h.lines.push(format!("OBS {} close_src_err {}", h.cid,
+        CStr::from_ptr(sqlite3_errmsg(src)).to_string_lossy()));
+    let rc = sqlite3_close(dst);
+    h.lines.push(format!("OBS {} close_dst_rc {}", h.cid, rc));
+    h.oi("step_rc", sqlite3_backup_step(bk, -1) as i64);
+    h.oi("finish_rc", sqlite3_backup_finish(bk) as i64);
+    h.oi("close_src2_rc", sqlite3_close(src) as i64);
+    h.oi("close_dst2_rc", sqlite3_close(dst) as i64);
+    h.check();
+} }
+
+// ================= wave 2: blob widen (011) =================
+
+#[test] fn h011_c001() { let mut h = H::new("engine-harvest36-011-C001");
+    h.ex("ATTACH ':memory:' AS aux; CREATE TABLE aux.t(b); INSERT INTO aux.t VALUES(x'0102030405');");
+    unsafe {
+        let mut bl: *mut Sqlite3Blob = ptr::null_mut();
+        let rc = sqlite3_blob_open(h.db, c"aux".as_ptr(), c"t".as_ptr(), c"b".as_ptr(), 1, 0, &mut bl);
+        h.oi("aux_open_rc", rc as i64);
+        h.oi("aux_bytes", if bl.is_null() { -1 } else { sqlite3_blob_bytes(bl) as i64 });
+        let mut buf = [0u8; 2];
+        sqlite3_blob_read(bl, buf.as_mut_ptr() as *mut c_void, 2, 1);
+        h.lines.push(format!("OBS {} aux_read {},{}", h.cid, buf[0], buf[1]));
+        sqlite3_blob_close(bl);
+        let mut bl2: *mut Sqlite3Blob = ptr::null_mut();
+        let rc = sqlite3_blob_open(h.db, c"nosuchdb".as_ptr(), c"t".as_ptr(), c"b".as_ptr(), 1, 0, &mut bl2);
+        h.lines.push(format!("OBS {} baddb_rc {} err={}", h.cid, rc,
+            CStr::from_ptr(sqlite3_errmsg(h.db)).to_string_lossy()));
+    }
+    h.check(); }
+
+#[test] fn h011_c002() { let mut h = H::new("engine-harvest36-011-C002");
+    h.ex("CREATE TABLE wr(k TEXT PRIMARY KEY, v BLOB) WITHOUT ROWID; INSERT INTO wr VALUES('a',x'01');");
+    unsafe {
+        let mut bl: *mut Sqlite3Blob = ptr::null_mut();
+        let rc = sqlite3_blob_open(h.db, c"main".as_ptr(), c"wr".as_ptr(), c"v".as_ptr(), 1, 0, &mut bl);
+        h.lines.push(format!("OBS {} worowid_rc {} err={}", h.cid, rc,
+            CStr::from_ptr(sqlite3_errmsg(h.db)).to_string_lossy()));
+    }
+    h.check(); }
+
+#[test] fn h011_c003() { let mut h = H::new("engine-harvest36-011-C003");
+    h.ex("CREATE TABLE t(b); INSERT INTO t VALUES(x'00000000');");
+    h.ex("BEGIN;");
+    unsafe {
+        let mut bl: *mut Sqlite3Blob = ptr::null_mut();
+        let rc = sqlite3_blob_open(h.db, c"main".as_ptr(), c"t".as_ptr(), c"b".as_ptr(), 1, 1, &mut bl);
+        h.oi("txn_open_rc", rc as i64);
+        let w = [0xAAu8, 0xBB];
+        h.oi("txn_write_rc", sqlite3_blob_write(bl, w.as_ptr() as *const c_void, 2, 1) as i64);
+        sqlite3_blob_close(bl);
+    }
+    h.ex("COMMIT;");
+    h.rows("after_commit", "SELECT hex(b) FROM t");
+    h.check(); }
+
+#[test] fn h011_c004() { let mut h = H::new("engine-harvest36-011-C004");
+    h.ex("CREATE TABLE \"tü\"(\"cö\"); INSERT INTO \"tü\" VALUES(x'CAFE');");
+    unsafe {
+        let mut bl: *mut Sqlite3Blob = ptr::null_mut();
+        let rc = sqlite3_blob_open(h.db, CString::new("main").unwrap().as_ptr(),
+            CString::new("tü").unwrap().as_ptr(), CString::new("cö").unwrap().as_ptr(), 1, 0, &mut bl);
+        h.oi("unicode_open_rc", rc as i64);
+        h.oi("unicode_bytes", if bl.is_null() { -1 } else { sqlite3_blob_bytes(bl) as i64 });
+        sqlite3_blob_close(bl);
+    }
+    h.check(); }
+
+#[test] fn anti_cheat_h36_pushdown_runtime() { let _g = vlock(); unsafe {
+    // runtime EQ bound must reach the module through xBestIndex/xFilter argv:
+    // the module bounds the series to the runtime value.
+    let n = (std::process::id() % 6) as i64 + 2;
+    let mut db: *mut Sqlite3 = ptr::null_mut();
+    sqlite3_open(c":memory:".as_ptr(), &mut db);
+    sqlite3_create_module(db, c"intseries2".as_ptr(), &S2_MOD, ptr::null_mut());
+    sqlite3_exec(db, c"CREATE VIRTUAL TABLE nums2 USING intseries2;".as_ptr(), None, ptr::null_mut(), ptr::null_mut());
+    G_BI_OFFERED.store(0, Ordering::SeqCst);
+    G_FILTER_ARGC.store(-1, Ordering::SeqCst);
+    let mut st: *mut Sqlite3Stmt = ptr::null_mut();
+    sqlite3_prepare_v2(db, CString::new(format!("SELECT count(*), max(value) FROM nums2 WHERE lim = {n}")).unwrap().as_ptr(),
+        -1, &mut st, ptr::null_mut());
+    assert_eq!(sqlite3_step(st), 100);
+    assert_eq!(sqlite3_column_int64(st, 0), n, "module must bound the scan to the runtime value");
+    assert_eq!(sqlite3_column_int64(st, 1), n);
+    sqlite3_finalize(st);
+    assert!(G_BI_OFFERED.load(Ordering::SeqCst) > 0, "constraint must be OFFERED to xBestIndex");
+    assert_eq!(G_FILTER_ARGC.load(Ordering::SeqCst), 1, "value must arrive in xFilter argv");
+    sqlite3_close(db);
+} }
+
 // ================= anti-cheat (wave 1) =================
 
 #[test] fn anti_cheat_h36_quoted_runtime() { unsafe {

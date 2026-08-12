@@ -1940,10 +1940,41 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
             }
         }
     }
+    // run-46: offer a simple `col = literal` predicate on a single-vtab FROM to the
+    // module's xBestIndex (EQ pushdown; the engine still applies WHERE afterwards)
+    let mut vtab_hint_set = false;
+    if src.is_none() {
+        if let (Some(f), Some(w)) = (&from_str, &where_str) {
+            let fname = unquote_ident(f);
+            if !fname.contains(char::is_whitespace) && !fname.starts_with('(') {
+                if let Some(shape) = crate::vtab_shape(ctx.db, &fname) {
+                    if let Some(eq) = w.find('=') {
+                        let (l, r) = (w[..eq].trim(), w[eq + 1..].trim());
+                        let lname = unquote_ident(l);
+                        let rv: Option<V> = if let Ok(i) = r.parse::<i64>() { Some(V::Int(i)) }
+                            else if r.len() >= 2 && r.starts_with('\'') && r.ends_with('\'') {
+                                Some(V::Text(r[1..r.len()-1].replace("''", "'")))
+                            } else { None };
+                        if let (Some(v), Some(ci)) = (rv, shape.iter().position(|(n, _, _)| n.eq_ignore_ascii_case(&lname))) {
+                            if !l.contains(|c: char| c.is_whitespace() || c == '(') {
+                                crate::vtab_set_hint(&fname, ci, v);
+                                vtab_hint_set = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     let src: Vec<Row> = match src {
         Some(s) => s,
-        None => match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] },
+        None => {
+            let r = match &from_str { Some(f) => parse_from(ctx, f, outer), None => Ok(vec![Row::new()]) };
+            if vtab_hint_set { crate::vtab_clear_hint(); }
+            r?
+        }
     };
+    if vtab_hint_set { crate::vtab_clear_hint(); }
     // eager name resolution: C reports "no such column"/"ambiguous column name" at
     // prepare time even when the source is empty. Build a schema row and probe.
     if from_str.is_some() && src.is_empty() {
