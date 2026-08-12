@@ -1,0 +1,14 @@
+slice_id: engine-utf16
+app_id: sqlite-experiment
+created_by: sqlite-engine-v19-utf16-prepare
+created_at: 2026-08-12T16:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed UTF-16 text API slice (run 29): the prepare16 family and the UTF-16 column
+  accessors, frozen on the pinned C baseline. Not a source-tree module seam — this
+  slice exists to characterize the public UTF-16 surface that prepare-statement-api-001
+  / -004 name as gaps.
+features:
+  - engine-utf16-001
+  - engine-utf16-002
