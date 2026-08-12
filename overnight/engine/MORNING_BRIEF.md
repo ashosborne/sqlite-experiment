@@ -1,80 +1,81 @@
-# MORNING BRIEF — engine v27: ANALYZE → sqlite_stat1 (run 37)
+# MORNING BRIEF — engine v28: mega harvest (run 38)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–36 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v27-analyze, no deepening of
-WAL/VACUUM/blob/conn. MAX_NEW_CASES 55 (used 17; stretch skipped — ANALYZE depth was
-the run). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–37 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v28-mega-harvest. MAX_NEW_CASES 80 (used 33
+after dropping the percentile batch). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @27 BOUND — ANALYZE law; planner load explicitly NOT claimed
+## 1. Pack @28 BOUND — mega-harvest law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v26 → **v27**
-(versions/1–27 retained; ADR `0025-engine-v27-analyze.md`; schema VALID; 33 laws).
-Plain language: run ANALYZE and real table/index scans write row-count and
-selectivity numbers into sqlite_stat1 in C's exact text format. **Writing stats is
-claimed; using them is not** — no plan-shape pin exists, so the planner-load card
-stays none rather than faking EXPLAIN QUERY PLAN changes.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v27 → **v28**
+(versions/1–28 retained; ADR `0026-engine-v28-mega-harvest.md`; schema VALID; 34 laws).
+Extension functions are honoured ONLY where the pinned baseline provides them; SCRIPT_TABLE
+stays 0; no fake vtab-core/planner. WAL/VACUUM/blob/conn unchanged.
 
-## 2. STAT4 decision
+## 2. The two-level-pin catch (why percentile was dropped)
 
-`sqlite_compileoption_used('ENABLE_STAT4')` = 0 on the pinned CLI and the bare
-amalgamation harness build. Everything claimed is sqlite_stat1 only; sqlite_stat4
-is a named residual.
+My harness force-linked ext/misc `.c` files, which hid whether a function is actually in
+the baseline. Cross-checking prior run-11 misc-* goldens settled each honestly:
+`compress/next_char/wholenumber/completion` prior goldens are **rc=0** (bundled → honest to
+implement); `misc-percentile-001` is **rc=1** (percentile/median are NOT in the pinned
+build). I implemented percentile, saw it break the prior bare-build golden, and **reverted
++ dropped the whole percentile batch** rather than greenwash a function the baseline lacks.
 
-## 3. What ANALYZE now does in modern
-
-| Behaviour | Evidence |
-| --- | --- |
-| Real selectivity text | per-index `N d1 d2…` computed from actually-evaluated key tuples (the v17 `index_key_for` machinery); multi-column prefixes pinned (`6 3 2`) |
-| **The rounding-quirk pin** | 11 rows / 10 distinct renders `11 1`, not the naive ceiling's `11 2` — C's near-1.0 collapse, ported exactly; a guessed formula fails this golden |
-| Shape rules | empty tables write no row (sqlite_stat1 still created); index-less tables get one NULL-idx row; indexed tables get one row per index and no NULL row |
-| WITHOUT ROWID | the PRIMARY KEY appears as an index named like the table (`w|w|2 1`, pinned) |
-| Scoping | `ANALYZE` / `ANALYZE main` / `ANALYZE <table>` / `ANALYZE <index>` (exactly that index's row) all pinned; re-ANALYZE replaces the scope's rows |
-| DROP maintenance | DROP INDEX / DROP TABLE clear the matching stat1 rows (pinned) |
-| Durable + interop | sqlite_stat1 is an ordinary catalog table: survives reopen (integrity ok) and VACUUM, works on WAL files, and round-trips with C **both directions** (pinned CLI reads Rust's stats; modern reads a C ANALYZE's rows) |
-
-Also fixed: a latent flake in the run-30 collation twins (the two collation_needed
-tests shared capture globals across threads) — now serialized; 8 consecutive clean runs.
-
-## 4. Flips table
+## 3. Attempted → outcome (flips table)
 
 | Card | Before | After | Residual |
 | --- | --- | --- | --- |
-| analyze-stats-001 | none (legacy_green only) | **partial** | sqlite_stat4; PRAGMA optimize history; attached-schema stats; sz=/unordered annotation tokens (never emitted by pinned data) |
-| analyze-stats-002 | none | **none (kept)** | planner cost model not claimed this pack — modern writes stats but does not load them; flipping without plan pins would be greenwash |
-| engine-analyze-001/002 | — | **new full ×2** | composed cards for exactly the frozen batches |
+| exec-convenience-api-002 (get_table) | none | **full** | — |
+| auth-callback-api-002 (column IGNORE) | none | **full** | — |
+| misc-nextchar-001 | none | **full** | — |
+| error-status-api-003 (status64/db_status) | none | **partial** | rest of the op matrix is honest-zero |
+| misc-compress-001 | none | **partial** | reversible RLE, not zlib byte-format (round-trips only) |
+| misc-wholenumber-001 | none | **partial** | bounded generator; vtab-core module system absent |
+| misc-completion-001 | none | **partial** | keyword+schema candidates; full shell phases absent |
+| parser-grammar-002 | none | **partial** | unquoted keywords-as-identifiers real; quoted reserved-word table names residual |
+| tokenizer-002 | partial | partial (tighter) | string/comment-aware complete() landed |
+| pragma-surface-002 | partial | partial (tighter) | function_list / pragma_list TVFs added |
+| misc-percentile-001 | none | **none (kept)** | percentile absent from pinned build — must not implement |
+| engine-harvest28-001..004/006/007/008 | — | **new full ×7** | composed cards for the frozen batches |
 
-## 5. Anti-cheat + C interop + cargo
+## 4. Engine holes opened (real, reused everywhere)
 
-- `anti_cheat_analyze_runtime` — a pid-seeded table with a runtime-chosen row count
-  and duplicate pattern: the stat1 row must carry the runtime table name AND the
-  correctly computed `N d` integers (quirk included). A script table cannot know them.
-- `rust_analyze_c_read` — the pinned C CLI reads Rust's sqlite_stat1 (`f|ifa|4 2`,
-  integrity ok) **and** modern reads rows a C ANALYZE wrote (`g|igz|2 1`).
+`BETWEEN` in the expression parser; **blob ≠ text** equality (a real SQLite rule this
+engine had wrong); `SELECT *` expansion over a store table; quoted-identifier `ident()`;
+`CREATE VIRTUAL TABLE` registration + bounded wholenumber generator; completion / pragma
+registry TVFs; string/comment-aware `sqlite3_complete`.
+
+## 5. Anti-cheat + cargo
+
+- `anti_cheat_harvest28` — runtime compress round-trip (cast-compared, since blob≠text)
+  and next_char over a pid-seeded table.
+- Per-surface pins demonstrate the missing behaviour (get_table NULL layout, auth IGNORE
+  nulling, status alloc-tracking, wholenumber bounds).
 - `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
-- **cargo test: 609/609 PASS** (was 589; +17 golden twins, +3 anti-cheat/interop/guard).
-  engine-conn / blob / vacuum / wal / upsert-expr / collation / utf16 / harvest23 green;
-  572 pre-run goldens md5-verified intact.
+- **cargo test: 644/644 PASS** (was 609; +33 golden twins, +2 anti-cheat/guard).
+  All prior suites green; 589 pre-run goldens md5-verified intact (incl. the bare-build
+  `misc-percentile-001` rc=1 that guarded the percentile decision).
 
 ## 6. Scoreboard (impl_in_modern) — before → after
 
-| State | Run 36 | Run 37 |
+| State | Run 37 | Run 38 |
 | --- | --- | --- |
-| **full (converted)** | 118 | **120** |
-| partial | 51 | 52 |
-| none (remaining) | 94 | **93** |
-| behaviours known | 263 | 265 |
+| **full (converted)** | 120 | **130** |
+| partial | 52 | 57 |
+| none (remaining) | 93 | **85** |
+| behaviours known | 265 | 272 |
 
-legacy_green 173 → 175. parity_green 0. Nothing `verified`. Prior claims unchanged.
++10 fulls, +5 none→partial, none down 8. legacy_green 175 → 182. parity_green 0.
 
 ## 7. Not migrated
 
-SQLite is **not migrated**. 120/265 behaviours run honestly in modern for frozen
-scope only. Stats are written, not used: there is no cost model, no STAT4, no
-planner claim. Parity UNVERIFIED everywhere (COMPARE never run).
+SQLite is **not migrated**. 130/272 behaviours run honestly in modern for frozen scope
+only. compress is an RLE stand-in (not zlib bytes); vtabs are bounded generators, not a
+module system; percentile is deliberately absent. Parity UNVERIFIED everywhere.
 
 ## 8. Next call
 
-1. **get_table / status crumbs** — exec-convenience-api-002 + error-status-api-003.
-2. **auth-callback-api-002** — column-read IGNORE → NULL.
-3. **ANALYZE deepen** — honest planner load for analyze-stats-002 (requires real
-   stats-driven index choice + EQP pins), or STAT4 if the pin build ever grows it.
+1. **vtab-core** — a real (small) module/xBestIndex surface would upgrade wholenumber /
+   completion / series / prefixes from bounded-generator partials.
+2. **analyze-stats-002 / planner** — stats-driven index choice + EQP pins (the honest
+   way to flip the planner-load card).
+3. **misc-csv-001** — only if bounded in-memory `data=` pins can avoid filesystem I/O.

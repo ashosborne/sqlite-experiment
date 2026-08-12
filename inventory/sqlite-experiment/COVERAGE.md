@@ -5,21 +5,22 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T16:27:15Z
+- Generated: 2026-08-12T17:03:13Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T08:30:00Z by `sqlite-engine-v27-analyze`
+- Manifest last_updated: 2026-08-13T10:30:00Z by `sqlite-engine-v28-mega-harvest`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 93 | Not started in modern |
-| partial | 52 | Some modern execution; gaps in notes |
-| full (converted) | 120 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 85 | Not started in modern |
+| partial | 57 | Some modern execution; gaps in notes |
+| full (converted) | 130 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
 
+- `auth-callback-api-002` — Column-read authorization (IGNORE yields NULL)
 - `builtin-scalar-agg-funcs-002` — Aggregate function family
 - `date-time-funcs-001` — Core date/time conversion functions
 - `date-time-funcs-002` — strftime formatting
@@ -32,12 +33,14 @@
 - `error-status-api-001` — Error introspection family
 - `error-status-api-002` — Runtime limits (sqlite3_limit)
 - `exec-convenience-api-001` — sqlite3_exec callback loop
+- `exec-convenience-api-002` — get_table / free_table result marshalling
 - `foreign-keys-001` — Immediate vs deferred FK checking
 - `foreign-keys-002` — Cascading referential actions
 - `loadext-api-002` — Auto-extension registry
 - `malloc-subsystem-001` — Public malloc API and memory accounting
 - `misc-basexx-001` — base64 + base85 + combined basexx encoders (one optional pack)
 - `misc-ieee754-001` — IEEE754 float decomposition functions
+- `misc-nextchar-001` — next_char() incremental completion function
 - `misc-rot13-001` — rot13() function + collation
 - `misc-sha1-001` — sha1() hash functions
 - `misc-shathree-001` — sha3() hash functions
@@ -140,6 +143,13 @@
 - `engine-conn-003` — commit/update hooks + trace_v2
 - `engine-analyze-001` — ANALYZE writes sqlite_stat1
 - `engine-analyze-002` — ANALYZE coexistence (WAL/VACUUM)
+- `engine-harvest28-001` — sqlite3_get_table / free_table
+- `engine-harvest28-002` — sqlite3_status64 / db_status
+- `engine-harvest28-003` — authorizer column-READ IGNORE
+- `engine-harvest28-004` — compress / uncompress round-trips
+- `engine-harvest28-006` — next_char incremental completion
+- `engine-harvest28-007` — wholenumber + completion vtabs
+- `engine-harvest28-008` — thin parser / complete / pragma-TVF pins
 
 ### Partial in modern
 
@@ -159,6 +169,7 @@
 - `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
 - `connection-lifecycle-api-004` — confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour unpinned; legacy sqlite3_trace/profile not implemented.
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
+- `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked.
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
@@ -171,16 +182,20 @@
 - `json-funcs-003` — json_valid/json_type real; json_valid flags argument and JSONB validation absent
 - `json-funcs-004` — json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent
 - `loadext-api-001` — shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)
+- `misc-completion-001` — confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): completion vtab not implemented in modern run-38: PARTIAL — completion(prefix) yields keyword + schema-name candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations, wildcard ranking) not claimed.
+- `misc-compress-001` — confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): zlib byte-compat not implemented in modern run-38: PARTIAL — compress/uncompress round-trip for real (reversible size-prefixed RLE; repetitive data shrinks; blobs/empty handled). RESIDUAL: not zlib byte-format, so a C-written compressed blob is not cross-decodable — round-trips only.
 - `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
 - `misc-func-packs-001` — decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent
 - `misc-prefixes-001` — prefixes() real as FROM row source; vtab constraint pushdown absent
 - `misc-regexp-001` — regexp operator real for literal/dot/anchor patterns; full NFA regex engine absent
 - `misc-series-001` — generate_series(a,b[,step]) real as FROM row source; vtab constraint pushdown absent
 - `misc-urifuncs-001` — non-URI connection answers computed from real connection state; URI parameter parsing absent
+- `misc-wholenumber-001` — confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): wholenumber vtab not implemented in modern run-38: PARTIAL — CREATE VIRTUAL TABLE ... USING wholenumber registers a bounded generator; WHERE-bounded SELECT/aggregates match C. RESIDUAL: vtab-core general module system (xBestIndex cost, unbounded scans) not implemented.
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
+- `parser-grammar-002` — confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): keyword-fallback table absent in modern; pinned error observable reproduced by honest parse failure run-38: PARTIAL — keywords usable as UNQUOTED identifiers (key/value/offset/action as columns) real. RESIDUAL: quoted reserved words as TABLE names (FROM "select") still trip the tokenizer.
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded).
-- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
+- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms).
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.
 - `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).
@@ -188,7 +203,7 @@
 - `select-codegen-003` — pinned observable executes via direct subquery evaluation; the flattening rewrite itself does not exist in modern
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
-- `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent run-33: real BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies pinned). REMAINING: string-literal-aware lexing inside complete().
+- `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent run-33: real BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies pinned). REMAINING: string-literal-aware lexing inside complete(). run-38: sqlite3_complete now strips string literals and comments (;/END inside them no longer count) and handles quoted END in trigger bodies.
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
 - `vacuum-001` — confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes. run-34: PARTIAL — the rebuild itself is real in modern (implicit rowids renumber, IPK/WITHOUT ROWID keys kept, freelist page model reclaimed, durable rewrite C reads with integrity ok, txn ban with C errmsg). RESIDUAL: pending page_size / auto_vacuum application during VACUUM and attached-schema forms (VACUUM <schema>) are not implemented — the card names them, so full would over-claim. Old vacuum-001-C001 golden (deferred since the recognizer era) now replays for real.
 - `vacuum-002` — confidence=observed-in-code; Rebuild into named URI target; source unchanged. run-34: PARTIAL — VACUUM INTO writes a fresh C-readable file (tables+indexes, integrity ok), source untouched; exists/txn/invalid-path errors match pins; :memory: export works; runtime-target anti-cheat green. RESIDUAL: URI filename target forms (file:...?...) not pinned or implemented — named in the card, so full would over-claim.
@@ -200,14 +215,11 @@
 
 - `analyze-stats-002` — analyze-stats — legacy_green no
 - `attach-detach-003` — attach-detach — legacy_green yes
-- `auth-callback-api-002` — auth-callback-api — legacy_green no
 - `btree-001` — btree — legacy_green no
 - `btree-002` — btree — legacy_green no
 - `compile-options-omit-enable-001` — compile-options-omit-enable — legacy_green no
 - `compile-options-omit-enable-002` — compile-options-omit-enable — legacy_green no
 - `compile-options-omit-enable-003` — compile-options-omit-enable — legacy_green no
-- `error-status-api-003` — error-status-api — legacy_green no
-- `exec-convenience-api-002` — exec-convenience-api — legacy_green no
 - `expert-001` — expert — legacy_green no
 - `fts3-001` — fts3 — legacy_green no
 - `fts5-001` — fts5 — legacy_green no
@@ -227,12 +239,9 @@
 - `misc-btreeinfo-001` — misc-btreeinfo — legacy_green no
 - `misc-cksumvfs-001` — misc-cksumvfs — legacy_green no
 - `misc-closure-001` — misc-closure — legacy_green no
-- `misc-completion-001` — misc-completion — legacy_green yes
-- `misc-compress-001` — misc-compress — legacy_green yes
 - `misc-csv-001` — misc-csv — legacy_green yes
 - `misc-fossildelta-001` — misc-fossildelta — legacy_green yes
 - `misc-fuzzer-001` — misc-fuzzer — legacy_green no
-- `misc-nextchar-001` — misc-nextchar — legacy_green yes
 - `misc-percentile-001` — misc-percentile — legacy_green yes
 - `misc-qpvtab-001` — misc-qpvtab — legacy_green no
 - `misc-spellfix-001` — misc-spellfix — legacy_green no
@@ -248,11 +257,9 @@
 - `misc-vtab-packs-001` — misc-vtab-packs — legacy_green no
 - `misc-vtablog-001` — misc-vtablog — legacy_green no
 - `misc-vtshim-001` — misc-vtshim — legacy_green no
-- `misc-wholenumber-001` — misc-wholenumber — legacy_green yes
 - `misc-zipfile-sqlar-001` — misc-zipfile-sqlar — legacy_green no
 - `pager-001` — pager — legacy_green no
 - `pager-002` — pager — legacy_green no
-- `parser-grammar-002` — parser-grammar — legacy_green yes
 - `pcache-001` — pcache — legacy_green no
 - `pcache-002` — pcache — legacy_green no
 - `qrf-001` — qrf — legacy_green no
@@ -296,26 +303,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 232 |
-| Behaviours known | 265 |
+| Surfaces total | 233 |
+| Behaviours known | 272 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 175 |
+| legacy_green flags | 182 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 47 |
+| accepted | 48 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 120 |
-| documented | 145 |
+| converted | 130 |
+| documented | 142 |
 
 ## Surfaces per slice
 
@@ -347,6 +354,7 @@
 | engine-fk2 | 1 |
 | engine-funcs | 1 |
 | engine-harvest23 | 1 |
+| engine-harvest28 | 1 |
 | engine-idxfile | 1 |
 | engine-idxlookup | 1 |
 | engine-indexes | 1 |

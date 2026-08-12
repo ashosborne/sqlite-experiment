@@ -1,0 +1,18 @@
+slice_id: engine-harvest28
+app_id: sqlite-experiment
+created_by: sqlite-engine-v28-mega-harvest
+created_at: 2026-08-13T10:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Mega-harvest slice (run 38): get_table, status/db_status, authorizer column IGNORE,
+  bundled misc extensions (compress/next_char/wholenumber/completion), pragma TVFs and
+  thin parser/complete pins, frozen on the pinned C baseline (pack v28 / ADR 0026).
+features:
+  - engine-harvest28-001
+  - engine-harvest28-002
+  - engine-harvest28-003
+  - engine-harvest28-004
+  - engine-harvest28-006
+  - engine-harvest28-007
+  - engine-harvest28-008

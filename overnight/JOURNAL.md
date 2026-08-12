@@ -664,3 +664,28 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   claimed"); engine-analyze-001/002 new composed full.
 - Scoreboard full 118→120 / partial 52 / none 93 (265 known). cargo 609/609.
 
+## Run 38 — 2026-08-13 — engine v28: mega harvest (pack v28)
+
+- Pack v27→v28 BOUND (+versions/28, ADR 0026): MEGA-HARVEST LAW; extension functions only
+  where the pinned baseline provides them.
+- 33 goldens (engine-harvest28-001..008 minus dropped 005; harness /tmp/hv28_harness.c).
+- TWO-LEVEL-PIN CATCH: force-linking ext .c files hid baseline membership. Prior misc-*
+  goldens decided it: compress/next_char/wholenumber/completion bundled (rc=0) → honest;
+  percentile/median absent (misc-percentile-001 rc=1) → implemented then REVERTED + batch F
+  dropped (would break the prior bare-build golden).
+- lib.rs: sqlite3_get_table/free_table (char** marshal, NULL ptrs, 0x0 empty/non-query,
+  errmsg-out); sqlite3_status64 (MEMORY_USED + bad-op MISUSE) / db_status (LOOKASIDE/
+  SCHEMA_USED + bad-op ERROR); authorizer READ helpers; string/comment-aware complete().
+- store.rs: apply_read_auth prepass (READ per referenced column in select-list order,
+  IGNORE→null the snapshot; suppressed during the prepare probe); CreateVtab; schema_footprint;
+  ident() quoted-identifier stripping; quoted FROM lookup.
+- eval.rs: BETWEEN operator; blob!=text in vnum_eq; SELECT * expansion; compress/uncompress
+  (RLE), next_char scalar; completion/pragma_function_list/pragma_pragma_list TVFs;
+  wholenumber bounded generator (WN_BOUND from max int literal).
+- Flips: get_table + auth-002 + nextchar → full; status-003/compress/wholenumber/completion/
+  parser-grammar-002 none→partial; tokenizer-002 + pragma-surface-002 tightened;
+  misc-percentile-001 kept none; +7 composed engine-harvest28 full cards.
+- Also fixed a latent flake in run-30 collation twins earlier; this run touched none.
+- Scoreboard full 120→130 / partial 52→57 / none 93→85 (272 known). cargo 644/644.
+  589 prior goldens md5-identical.
+
