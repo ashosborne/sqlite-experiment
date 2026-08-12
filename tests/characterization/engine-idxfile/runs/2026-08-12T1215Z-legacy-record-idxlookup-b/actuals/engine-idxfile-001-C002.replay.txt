@@ -1,0 +1,4 @@
+OBS engine-idxfile-001-C002 w.rc 0
+OBS engine-idxfile-001-C002 dup.rc 19
+OBS engine-idxfile-001-C002 ok.rc 0
+OBS engine-idxfile-001-C002 count 3

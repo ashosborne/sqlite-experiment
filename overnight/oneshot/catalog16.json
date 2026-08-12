@@ -1,0 +1,58 @@
+[
+{
+"id": "engine-idxfile-001-C001",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "500-row indexed table survives reopen; probe k=333"
+},
+{
+"id": "engine-idxfile-001-C002",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "multi-column UNIQUE INDEX enforces duplicates after reopen"
+},
+{
+"id": "engine-idxfile-001-C003",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "expression index lower(nm) survives reopen; lookup correct"
+},
+{
+"id": "engine-idxfile-001-C004",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "partial UNIQUE index: dups outside predicate allowed, inside -> 19, after reopen"
+},
+{
+"id": "engine-idxfile-001-C005",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "multi-leaf index (600 text keys) reopen probe + integrity_check ok"
+},
+{
+"id": "engine-idxfile-001-C006",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "DROP INDEX (multi-col) persisted across reopen"
+},
+{
+"id": "engine-idxfile-001-C007",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "EQP shows the real index probe: SEARCH t USING INDEX ik (k=?)"
+},
+{
+"id": "engine-idxfile-001-C008",
+"slice": "engine-idxfile",
+"feature": "engine-idxfile-001",
+"kind": "bespoke",
+"note": "missing key after reopen -> empty result"
+}
+]

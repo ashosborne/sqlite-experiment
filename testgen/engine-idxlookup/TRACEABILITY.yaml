@@ -1,0 +1,147 @@
+slice_id: engine-idxlookup
+source_discovery: discovery/engine-idxlookup/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-idxlookup-001
+- engine-idxlookup-002
+cases:
+- id: engine-idxlookup-001-C001
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-001.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-001-C002
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-002.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-001-C003
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-003.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-001-C004
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-004.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-001-C005
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-005.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-001-C006
+  feature_id: engine-idxlookup-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-001/CASE-006.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-001.md
+- id: engine-idxlookup-002-C001
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-001.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+- id: engine-idxlookup-002-C002
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-002.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+- id: engine-idxlookup-002-C003
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-003.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+- id: engine-idxlookup-002-C004
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-004.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+- id: engine-idxlookup-002-C005
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-005.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+- id: engine-idxlookup-002-C006
+  feature_id: engine-idxlookup-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxlookup-002/CASE-006.md
+  golden: tests/characterization/engine-idxlookup/cases/engine-idxlookup-002/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxlookup/features/engine-idxlookup-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-27 delegated stamp (index lookups)
+  stamped_case_ids:
+  - engine-idxlookup-001-C001
+  - engine-idxlookup-001-C002
+  - engine-idxlookup-001-C003
+  - engine-idxlookup-001-C004
+  - engine-idxlookup-001-C005
+  - engine-idxlookup-001-C006
+  - engine-idxlookup-002-C001
+  - engine-idxlookup-002-C002
+  - engine-idxlookup-002-C003
+  - engine-idxlookup-002-C004
+  - engine-idxlookup-002-C005
+  - engine-idxlookup-002-C006
+updated_at: '2026-08-12T09:30:38Z'

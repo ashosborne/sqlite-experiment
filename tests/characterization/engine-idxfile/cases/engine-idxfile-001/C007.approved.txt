@@ -1,0 +1,1 @@
+OBS engine-idxfile-001-C007 detail SEARCH t USING INDEX ik (k=?)

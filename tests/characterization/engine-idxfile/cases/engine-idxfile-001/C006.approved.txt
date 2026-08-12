@@ -1,0 +1,3 @@
+OBS engine-idxfile-001-C006 w.rc 0
+OBS engine-idxfile-001-C006 icount 0
+OBS engine-idxfile-001-C006 count 1

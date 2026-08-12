@@ -1,0 +1,4 @@
+OBS engine-idxfile-001-C005 w.rc 0
+OBS engine-idxfile-001-C005 n 432
+OBS engine-idxfile-001-C005 count 600
+OBS engine-idxfile-001-C005 ic ok

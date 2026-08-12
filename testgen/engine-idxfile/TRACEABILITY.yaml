@@ -1,0 +1,102 @@
+slice_id: engine-idxfile
+source_discovery: discovery/engine-idxfile/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-idxfile-001
+cases:
+- id: engine-idxfile-001-C001
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-001.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C002
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-002.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C003
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-003.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C004
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-004.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C005
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-005.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C006
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-006.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C007
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-007.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C007.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+- id: engine-idxfile-001-C008
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-idxfile-001/CASE-008.md
+  golden: tests/characterization/engine-idxfile/cases/engine-idxfile-001/C008.approved.txt
+  discovery_evidence:
+  - discovery/engine-idxfile/features/engine-idxfile-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-27 delegated stamp (index file/EQP bespoke)
+  stamped_case_ids:
+  - engine-idxfile-001-C001
+  - engine-idxfile-001-C002
+  - engine-idxfile-001-C003
+  - engine-idxfile-001-C004
+  - engine-idxfile-001-C005
+  - engine-idxfile-001-C006
+  - engine-idxfile-001-C007
+  - engine-idxfile-001-C008
+updated_at: '2026-08-12T09:30:39Z'

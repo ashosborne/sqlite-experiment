@@ -1,0 +1,61 @@
+slice_id: engine-idxfile
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-idxfile-001-C001
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C001.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C002
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C002.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C003
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C003.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C004
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C004.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C005
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C005.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C006
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C006.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C007
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C007.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+- case_id: engine-idxfile-001-C008
+  feature_id: engine-idxfile-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-idxfile-001/C008.approved.txt
+  run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-27 delegated stamp (index file/EQP bespoke)
+  stamped_case_ids:
+  - engine-idxfile-001-C001
+  - engine-idxfile-001-C002
+  - engine-idxfile-001-C003
+  - engine-idxfile-001-C004
+  - engine-idxfile-001-C005
+  - engine-idxfile-001-C006
+  - engine-idxfile-001-C007
+  - engine-idxfile-001-C008
+updated_at: '2026-08-12T09:30:39Z'
+run_id: 2026-08-12T1215Z-legacy-record-idxlookup-b

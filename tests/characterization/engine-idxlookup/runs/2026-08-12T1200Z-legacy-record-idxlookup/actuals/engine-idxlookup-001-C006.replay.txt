@@ -1,0 +1,4 @@
+OBS engine-idxlookup-001-C006 row0.col0 bob
+OBS engine-idxlookup-001-C006 row0.col1 ops
+OBS engine-idxlookup-001-C006 exec.rc 0
+OBS engine-idxlookup-001-C006 cb.rows 1

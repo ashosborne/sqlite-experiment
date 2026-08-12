@@ -5318,8 +5318,8 @@ behaviours:
   traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
   notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
     (run-26 delegated stamp)'
-last_updated: '2026-08-12T09:22:06Z'
-updated_by: sqlite-engine-v16-check-on-update
+last_updated: '2026-08-12T09:30:39Z'
+updated_by: sqlite-engine-v17-index-lookups
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

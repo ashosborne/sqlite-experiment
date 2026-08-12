@@ -1,0 +1,4 @@
+OBS engine-idxfile-001-C001 w.rc 0
+OBS engine-idxfile-001-C001 v333 v333
+OBS engine-idxfile-001-C001 count 500
+OBS engine-idxfile-001-C001 ilist 1
