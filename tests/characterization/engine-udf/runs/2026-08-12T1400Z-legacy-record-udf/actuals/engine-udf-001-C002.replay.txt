@@ -1,0 +1,2 @@
+OBS engine-udf-001-C002 prep.rc 1
+OBS engine-udf-001-C002 errmsg wrong number of arguments to function twice()

@@ -1,0 +1,170 @@
+[
+{
+"id": "engine-udf-001-C001",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "create_function scalar + SELECT twice(21)=42"
+},
+{
+"id": "engine-udf-001-C002",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "wrong arity -> prepare error \"wrong number of arguments\""
+},
+{
+"id": "engine-udf-001-C003",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "re-register same name/arity overwrites impl"
+},
+{
+"id": "engine-udf-001-C004",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "delete by NULL callbacks -> prepare error"
+},
+{
+"id": "engine-udf-001-C005",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "result_null/int/int64/double/text/blob out matrix"
+},
+{
+"id": "engine-udf-001-C006",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "result_error -> statement fails rc1 errmsg \"boom\""
+},
+{
+"id": "engine-udf-001-C007",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "user_data (pApp) reaches the callback"
+},
+{
+"id": "engine-udf-001-C008",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "UDF in WHERE + nested with builtin abs()"
+},
+{
+"id": "engine-udf-001-C009",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "create_function_v2 xDestroy on replace(1) then close(2)"
+},
+{
+"id": "engine-udf-001-C010",
+"slice": "engine-udf",
+"feature": "engine-udf-001",
+"kind": "bespoke",
+"note": "DETERMINISTIC flag accepted; call works"
+},
+{
+"id": "engine-udf-002-C001",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "aggregate xStep/xFinal mysum=10"
+},
+{
+"id": "engine-udf-002-C002",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "aggregate over empty group -> NULL"
+},
+{
+"id": "engine-udf-002-C003",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "aggregate skips NULL inputs"
+},
+{
+"id": "engine-udf-002-C004",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "aggregate UDF with GROUP BY"
+},
+{
+"id": "engine-udf-002-C005",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "overwrite aggregate with a scalar impl"
+},
+{
+"id": "engine-udf-002-C006",
+"slice": "engine-udf",
+"feature": "engine-udf-002",
+"kind": "bespoke",
+"note": "aggregate over three rows = 600"
+},
+{
+"id": "engine-value-001-C001",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "value_type/numeric_type/bytes fingerprint across 5 classes"
+},
+{
+"id": "engine-value-001-C002",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "empty text vs abc fingerprint (bytes 0 vs 3)"
+},
+{
+"id": "engine-value-001-C003",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "numeric_type of numeric-looking text (nt1/nt2)"
+},
+{
+"id": "engine-value-001-C004",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "value_int64 + result_int64 (column_int truncation observed)"
+},
+{
+"id": "engine-value-001-C005",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "blob round trip through UDF (hex DEAD)"
+},
+{
+"id": "engine-value-001-C006",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "bound parameter flows into the UDF"
+},
+{
+"id": "engine-value-001-C007",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "zeroblob(0) -> blob/by0"
+},
+{
+"id": "engine-value-001-C008",
+"slice": "engine-value",
+"feature": "engine-value-001",
+"kind": "bespoke",
+"note": "variadic registration (nArg -1) sees real argc"
+}
+]

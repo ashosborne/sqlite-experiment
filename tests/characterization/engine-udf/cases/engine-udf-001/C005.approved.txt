@@ -1,0 +1,6 @@
+OBS engine-udf-001-C005 r0 NULL
+OBS engine-udf-001-C005 r1 7
+OBS engine-udf-001-C005 r2t integer
+OBS engine-udf-001-C005 r3t real
+OBS engine-udf-001-C005 r4 hi
+OBS engine-udf-001-C005 r5 X'010203'

@@ -1,0 +1,5 @@
+OBS engine-value-001-C001 int int/nt1/by2
+OBS engine-value-001-C001 real float/nt2/by3
+OBS engine-value-001-C001 text text/nt3/by5
+OBS engine-value-001-C001 blob blob/nt4/by2
+OBS engine-value-001-C001 null null/nt5/by0

@@ -5384,8 +5384,8 @@ behaviours:
   traceability: tests/characterization/engine-idxfile/TRACEABILITY.yaml
   notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
     + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
-last_updated: '2026-08-12T09:40:04Z'
-updated_by: sqlite-engine-v17-index-lookups
+last_updated: '2026-08-12T09:50:34Z'
+updated_by: sqlite-engine-v18-udf-value
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
