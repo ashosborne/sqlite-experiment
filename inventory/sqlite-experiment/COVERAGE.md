@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T19:16:53Z
+- Generated: 2026-08-12T20:07:01Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T20:30:00Z by `sqlite-engine-v32-compile-options`
+- Manifest last_updated: 2026-08-13T22:30:00Z by `sqlite-engine-v33-attached-trigger`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 79 | Not started in modern |
 | partial | 62 | Some modern execution; gaps in notes |
-| full (converted) | 141 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 145 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -161,13 +161,17 @@
 - `engine-compile32-001` — compileoption diagnostics C + SQL
 - `engine-compile32-002` — OMIT census on the pin
 - `engine-compile32-003` — ENABLE census on the pin
+- `engine-attach33-001` — attached-trigger fire with unqualified body
+- `engine-attach33-002` — resolution and error edges
+- `engine-attach33-003` — event kinds and timing on attached tables
+- `engine-attach33-004` — DETACH teardown of attached triggers
 
 ### Partial in modern
 
 - `analyze-stats-001` — confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned data).
-- `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet run-40: attached schemas now OWN real tables (CREATE/INSERT/SELECT/UPDATE/DELETE via schema.table; qualified + unqualified resolution with main winning collisions; dup/reserved errors; file-backed attachments persist across reopen). RESIDUAL: URI/encryption attach maze, DETACH-locked edges, cross-schema transaction-join semantics.
+- `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet run-40: attached schemas now OWN real tables (CREATE/INSERT/SELECT/UPDATE/DELETE via schema.table; qualified + unqualified resolution with main winning collisions; dup/reserved errors; file-backed attachments persist across reopen). RESIDUAL: URI/encryption attach maze, DETACH-locked edges, cross-schema transaction-join semantics. run-43 pin-forced deepen: unqualified DML (INSERT/UPDATE/DELETE) now resolves main-first then attach-order into attached tables, and missing-table DML errors carry the qualified name ("no such table: aux.t"). Still partial (URI/encryption maze, cross-schema txn-join).
 - `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics run-40: DETACH now tears down the schema and ALL its objects (later qualified access fails); cannot-detach-main and no-such-database errors pinned; re-ATTACH gives a fresh empty schema. RESIDUAL: "database is locked" DETACH with an open statement not modelled.
-- `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose body targets an attached table (unqualified body resolution at trigger execution) is not implemented.
+- `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose body targets an attached table (unqualified body resolution at trigger execution) is not implemented. run-43: firing residual CLEARED — a trigger is an attached-schema object (the NAME carries the schema; unqualified names live in main and CREATE errors "trigger T cannot reference objects in database X" cross-schema); at fire time body statements resolve unqualified names STRICTLY inside the trigger schema (collision hits the trigger schema only; main-only/missing targets error "no such table: aux.X"); event/timing matrix (AFTER INSERT/UPDATE/DELETE, BEFORE, order) pinned on attached tables; DETACH tears attached triggers down; per-schema sqlite_master real. STAYS PARTIAL for named leftovers: TEMP-trigger cross-schema fire matrix (TEMP triggers accepted but not fired, run-39 scope), trigger bodies beyond INSERT..VALUES / RAISE / no-op SELECT (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.
 - `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.
 - `backup-api-001` — backup lifecycle real for empty/trivial source DBs only
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
@@ -313,25 +317,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 237 |
-| Behaviours known | 282 |
+| Surfaces total | 238 |
+| Behaviours known | 286 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 192 |
+| legacy_green flags | 196 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 52 |
+| accepted | 53 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 140 |
+| converted | 144 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -353,6 +357,7 @@
 | engine-agg-having | 1 |
 | engine-analyze | 1 |
 | engine-attach30 | 1 |
+| engine-attach33 | 1 |
 | engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |

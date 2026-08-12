@@ -770,3 +770,24 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   new composed full.
 - Scoreboard full 137->141 / partial 60->62 / none 82->79 (282 known). cargo 717/717.
 
+## Run 43 — 2026-08-13 — engine v33: attached-trigger fire (pack v33)
+
+- Pack v32→v33 BOUND (+versions/33, ADR 0031): ATTACHED-TRIGGER FIRE LAW. Probe-first:
+  bare C refused the draft form (CREATE TRIGGER trg ON aux.t) — the trigger NAME carries
+  the schema; ON + body resolve STRICTLY inside the trigger's schema, no main fallback.
+- store.rs: Trigger carries schema + explicit ON-schema; CreateTrigger exec resolves the
+  name's schema, validates ON (both C error shapes: "cannot reference objects in
+  database X", "no such table: main.t"); fire_triggers_d resolves body targets in the
+  trigger's schema ("no such table: aux.X" at fire); dml_key() resolves unqualified DML
+  main-first-then-attach-order (+ prepare check); up-front DML missing-table errors carry
+  the qualified name; per-schema sqlite_master (bare = main only) incl. multi-key ORDER;
+  DETACH tears attached triggers down; SELECT body statements compile as no-ops.
+- 20 goldens (engine-attach33-001 x8 fire, -002 x7 resolution/errors, -003 x4 events/
+  timing, -004 x1 detach; harness /tmp/atrig_harness.c + /tmp/atrig_probe.c, two-run
+  deterministic). 2 anti-cheat (runtime schema/payload fire; collision + DETACH ghost).
+  686 prior goldens untouched.
+- Flips: attach-detach-003 firing residual CLEARED (stays partial: TEMP fire matrix,
+  non-INSERT bodies, URI/lock/txn); attach-detach-001 pin-forced note (unqualified DML
+  resolution); engine-attach33-001/002/003/004 new composed full.
+- Scoreboard full 141->145 / partial 62 / none 79 (286 known). cargo 739/739.
+

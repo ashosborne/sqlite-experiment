@@ -1,75 +1,84 @@
-# MORNING BRIEF — engine v32: compile-option diagnostics (run 42)
+# MORNING BRIEF — engine v33: attached-trigger fire (run 43)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–41 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v32-compile-options, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 19). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–42 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v33-attached-trigger, REQUIRE_BASELINE_PRESENCE_CHECK.
+MAX_NEW_CASES 55 (used 20). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @32 BOUND — COMPILE-OPTIONS law
+## 1. Pack @33 BOUND — ATTACHED-TRIGGER FIRE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v31 → **v32**
-(versions/1–32 retained; ADR `0030-engine-v32-compile-options.md`; schema VALID; 38 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v32 → **v33**
+(versions/1–33 retained; ADR `0031-engine-v33-attached-trigger.md`; schema VALID; 39 laws).
 
-## 2. Presence checks (the whole point of this run)
+## 2. The pin taught the model (probe before freeze)
 
-- **compileoption diagnostics PRESENT** on the pinned bare build: `sqlite3_compileoption_get`
-  enumerates **38 options** (`ATOMIC_INTRINSICS=1` … `THREADSAFE=1`), `used()` handles
-  plain / `SQLITE_`-prefixed / `=value` / case-insensitive forms. The `COMPILER=gcc-13.3.0`
-  row is frozen as a **pin decision** (ADR 0030): the table is the pinned C baseline's
-  fingerprint, not a claim about modern's toolchain.
-- **`generate_series` ABSENT** from the bare amalgamation (it's ext/misc) — the planned SQL
-  census-count pin was dropped rather than frozen against a conflicting oracle.
-- **unlock-notify presence check FAILED**: `used("ENABLE_UNLOCK_NOTIFY")=0` on the pin →
-  `unlock-notify-api-001` stays **none**, zero cases, noted in ADR + manifest.
+The first harness draft wrote `CREATE TRIGGER trg ... ON aux.t` — and bare C refused:
+`trigger trg cannot reference objects in database aux`. The probe run mapped the real C
+rules, and the frozen batch pins them:
 
-## 3. What landed
+- **The trigger NAME carries the schema**: `CREATE TRIGGER aux.trg ... ON t` creates an
+  aux object (`aux.sqlite_master` lists it; main's counts 0). Unqualified names live in
+  main.
+- **ON resolves strictly in the trigger's schema**: `ON main.m` from `aux.trg` →
+  cross-schema error; `ON t` with `t` only in aux from a main trigger → `no such table:
+  main.t`.
+- **Body targets resolve strictly in the trigger's schema — no fallback**: collision
+  (`log` in both) hits `aux.log` only; `log` only in main → CREATE succeeds but FIRE
+  errors `no such table: aux.log`; missing → `no such table: aux.nolog`.
+
+## 3. What landed — run-40's firing residual is cleared
 
 | Behaviour | Evidence |
 | --- | --- |
-| C API | `sqlite3_compileoption_used` / `sqlite3_compileoption_get` answer from the pinned 38-entry table; unknown/empty → 0; past-end/negative → NULL |
-| Matching rule | `THREADSAFE`/`SQLITE_THREADSAFE`/`THREADSAFE=1` → 1, `THREADSAFE=0` → 0; `DEFAULT_AUTOVACUUM=1` → 0 (bare gate, `=` boundary); `threadsafe`/`ThreadSafe=1` → 1 (case-insensitive) |
-| SQL twins | `sqlite_compileoption_used` / `sqlite_compileoption_get` registered in the evaluator; typeof pins integer/text/null |
-| OMIT census | 9 probed `OMIT_*` gates all 0 (incl. charter's `OMIT_AUTORESET` and the self-gate `OMIT_COMPILEOPTION_DIAGS`); zero `OMIT_` entries enumerated |
-| ENABLE census | 8 probed `ENABLE_*` gates all 0 (incl. charter's `ENABLE_API_ARMOR`); zero `ENABLE_` entries enumerated |
-| Cross-checks | `MAX_ATTACHED=10` / `MAX_VARIABLE_NUMBER=32766` / `TEMP_STORE=1` rows agree with limits pinned in earlier runs |
+| Fire + body write | `INSERT INTO aux.t` fires `aux.trg`; unqualified body writes real `aux.log` rows (single, multi-row, expression, WHEN-gated) |
+| Collision safety | `log` in both schemas → aux trigger writes aux only; main trigger writes main only |
+| Entry paths | fire through qualified `aux.t` and through unqualified `INSERT INTO t` (DML now resolves main-first then attach-order) |
+| Event/timing | AFTER UPDATE, AFTER DELETE, BEFORE INSERT, BEFORE→AFTER order — all on attached tables |
+| Errors | both C error shapes at CREATE; fire-time `no such table: aux.X`; run-40 fixation guard (qualified body rejected) stays green |
+| Teardown | DETACH removes attached triggers (no ghost after re-ATTACH); per-schema `sqlite_master` real (bare = main only, like C) |
+| Two schemas | independent triggers fire into their own logs |
+
+Incidental honest fixes forced by pins: missing-table DML errors now carry the qualified
+name (`no such table: aux.t`); a plain `SELECT` trigger-body statement compiles as a no-op
+so ON validation happens at CREATE like C.
 
 ## 4. Flips table
 
 | Card | Before | After | Why |
 | --- | --- | --- | --- |
-| compile-options-omit-enable-001 | none | **full** | C + SQL diagnostics real against the pinned fingerprint; residual-free for the pinned seam (self-gated OMIT_COMPILEOPTION_DIAGS builds out of scope by law) |
-| compile-options-omit-enable-002 | none | **partial** | pinned OMIT census (all probes 0, zero OMIT_ entries); 77-guard per-feature census NOT claimed |
-| compile-options-omit-enable-003 | none | **partial** | pinned ENABLE census (all probes 0, zero ENABLE_ entries); 51-guard per-feature census NOT claimed |
-| unlock-notify-api-001 | none | none (note) | presence check failed on the pin |
-| engine-compile32-001/002/003 | — | **full** (composed) | exact frozen batches (11 + 4 + 4 cases) |
+| attach-detach-003 | partial (firing residual) | **partial** (residual cleared, new precise text) | firing real; leftovers named: TEMP-trigger cross-schema fire matrix, non-INSERT trigger bodies, URI/lock/txn edges |
+| attach-detach-001 | partial | partial (note) | pin-forced deepen: unqualified DML resolution into attached schemas |
+| engine-attach33-001/002/003/004 | — | **full** (composed) | exact frozen batches (8 + 7 + 4 + 1 cases) |
 
 ## 5. Anti-cheat + goldens
 
-- 19 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-compile32/`), two-run
-  deterministic; prior 667 goldens untouched.
-- 2 anti-cheat tests: runtime-generated fake option name → 0 through both C API and SQL
-  twin; C/SQL enumeration round-trip agrees entry-for-entry, terminates at the same index
-  (38), and every enumerated entry reports `used()=1`.
-- SCRIPT_TABLE.len()==0; no cheat sheet.
+- 20 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-attach33/`), two-run
+  deterministic; prior 686 goldens untouched.
+- 2 anti-cheat tests: runtime schema/table/trigger names with a runtime payload written
+  by the fired body into the attached log; collision + DETACH-ghost check with runtime
+  values.
+- SCRIPT_TABLE.len()==0; no cheat sheet — fired rows land in the real attached store.
 
 ## 6. cargo
 
-`cargo test` (modern): **717 passed / 0 failed** (was 696; +21 compile32 twins/anti-cheat).
-vtab31 / attach30 / none29 / harvest / ANALYZE / conn / blob / vacuum / WAL all green.
+`cargo test` (modern): **739 passed / 0 failed** (was 717; +22 attach33 twins/anti-cheat).
+attach30 / none29 / compile32 / vtab31 / harvest / ANALYZE / conn / blob / vacuum / WAL all green.
 
 ## 7. Scoreboard
 
-before → after: **137 full / 60 partial / 82 none of 279** → **141 full / 62 partial / 79 none of 282**.
+before → after: **141 full / 62 partial / 79 none of 282** → **145 full / 62 partial / 79 none of 286**
+(the four new composed cards are the full-count movement; attach-detach-003 stays an
+honest partial with its residual text rewritten).
 
 ## 8. Not migrated
 
-SQLite is NOT migrated. This run pinned the *diagnostics/census seam only* — the behaviour
-of gated features is untouched; no OMIT/ENABLE build variants are modelled; unlock-notify,
-planner, xBestIndex pushdown, WAL depth, wasm/jni/vfs/FTS/rtree/session all remain out.
+SQLite is NOT migrated. Left out on purpose: TEMP-trigger cross-schema fire matrix,
+trigger bodies beyond INSERT..VALUES/RAISE/no-op SELECT, URI/encryption ATTACH maze,
+DETACH-locked edges, cross-schema txn joins, xBestIndex pushdown, planner, unlock-notify
+(absent on pin), WAL depth, wasm/jni/vfs/FTS/rtree/session.
 
 ## 9. Next call (pick one)
 
 1. **xBestIndex deepen** — real constraint offers to vtab modules (EQ pushdown + HIDDEN
    argv path), cutting the vtab-core-002 residual.
-2. **attached-trigger firing** — the run-40 residual (unqualified trigger-body resolution
-   at execution inside an attached schema).
-3. **status deepen** — sqlite3_status/status64 matrix beyond what conn/malloc runs pinned.
+2. **status matrix** — sqlite3_status/status64 beyond what conn/malloc runs pinned.
+3. **another present-core none** — sweep COVERAGE for the next honest none-cutter.

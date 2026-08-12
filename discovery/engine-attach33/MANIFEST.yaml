@@ -1,0 +1,15 @@
+slice_id: engine-attach33
+app_id: sqlite-experiment
+created_by: sqlite-engine-v33-attached-trigger
+created_at: 2026-08-13T22:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed attached-trigger fire slice (run 43): schema-owned triggers, strict
+  in-schema ON/body resolution at fire time, event/timing matrix on attached tables,
+  DETACH teardown — frozen on the pinned bare C baseline (pack v33 / ADR 0031).
+features:
+  - engine-attach33-001
+  - engine-attach33-002
+  - engine-attach33-003
+  - engine-attach33-004
