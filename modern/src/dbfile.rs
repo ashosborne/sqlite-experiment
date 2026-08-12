@@ -305,6 +305,12 @@ fn chunk_leaves(cells: Vec<(i64, Vec<u8>)>) -> Vec<Vec<(i64, Vec<u8>)>> {
     leaves
 }
 
+pub fn write_db_bytes(img: &DbImage) -> Vec<u8> {
+    build_db_buffer(img)
+}
+pub fn read_db_bytes(buf: &[u8]) -> DbImage {
+    parse_db_buffer(buf)
+}
 pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
     let mut datapages: Vec<[u8; PAGE]> = Vec::new(); // page number = 2 + index
     let mut schema_cells: Vec<Vec<u8>> = Vec::new();
@@ -388,6 +394,25 @@ pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
     buf.extend_from_slice(&page1);
     for p in &datapages { buf.extend_from_slice(p); }
     std::fs::write(path, buf)
+}
+
+/// same builder, returning the raw image bytes (sqlite3_serialize)
+fn build_db_buffer(img: &DbImage) -> Vec<u8> {
+    let tmp = std::env::temp_dir().join(format!(".ser_{}_{}.db", std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0)));
+    let _ = write_db(&tmp, img);
+    let buf = std::fs::read(&tmp).unwrap_or_default();
+    let _ = std::fs::remove_file(&tmp);
+    buf
+}
+/// parse a raw image (sqlite3_deserialize)
+fn parse_db_buffer(buf: &[u8]) -> DbImage {
+    let tmp = std::env::temp_dir().join(format!(".deser_{}_{}.db", std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0)));
+    let _ = std::fs::write(&tmp, buf);
+    let img = read_db(&tmp).unwrap_or_default();
+    let _ = std::fs::remove_file(&tmp);
+    img
 }
 
 fn write_header(page1: &mut [u8; PAGE], npages: u32) {

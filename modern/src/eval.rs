@@ -746,6 +746,7 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "ieee754_to_blob" => V::Blob(a(0)?.as_f64().to_bits().to_be_bytes().to_vec()),
         "decimal" => V::Text(dec_canon(&a(0)?.as_text())),
         "decimal_pow2" => V::Text(dec_pow2(a(0)?.as_i64())),
+        "decimal_exp" => V::Text(dec_exp(&a(0)?.as_text())),
         "sha3" => { let bits = if args.len()>1 { a(1)?.as_i64() } else { 256 };
                     V::Blob(sha3_bytes(a(0)?.as_text().as_bytes(), bits as usize)) }
         "decimal_add" => V::Text(dec_add(&a(0)?.as_text(), &a(1)?.as_text())),
@@ -971,7 +972,27 @@ fn dec_pow2(n: i64) -> String {
     let d: Vec<char> = digits.chars().collect();
     let mut mant: String = d[1..].iter().collect();
     while mant.ends_with('0') { mant.pop(); }
+    if mant.is_empty() { mant.push('0'); } // C decimal keeps one fraction digit (+2.0e+00)
     format!("+{}.{}e{}{:02}", d[0], mant, if exp < 0 { '-' } else { '+' }, exp.abs())
+}
+
+/// decimal_exp(X): exponential form of a decimal string ('123.5' -> +1.235e+02)
+fn dec_exp(s: &str) -> String {
+    let t = s.trim();
+    let (neg, t) = match t.strip_prefix('-') { Some(r) => (true, r), None => (false, t.strip_prefix('+').unwrap_or(t)) };
+    let (ip, fp) = match t.split_once('.') { Some((a, b)) => (a, b), None => (t, "") };
+    let digits: String = format!("{}{}", ip.trim_start_matches('0'), fp);
+    let digits_trim = digits.trim_start_matches('0');
+    let leading_zeros = digits.len() - digits_trim.len();
+    let digits = if digits_trim.is_empty() { "0".to_string() } else { digits_trim.to_string() };
+    // exponent: weight of the first significant digit
+    let int_digits = ip.trim_start_matches('0').len() as i64;
+    let exp = if int_digits > 0 { int_digits - 1 } else { -(leading_zeros as i64) - 1 };
+    let d: Vec<char> = digits.chars().collect();
+    let mut mant: String = d[1..].iter().collect();
+    while mant.ends_with('0') { mant.pop(); }
+    if mant.is_empty() { mant.push('0'); }
+    format!("{}{}.{}e{}{:02}", if neg { '-' } else { '+' }, d[0], mant, if exp < 0 { '-' } else { '+' }, exp.abs())
 }
 fn sha1_hex(data: &[u8]) -> String {
     let mut h: [u32;5] = [0x67452301,0xEFCDAB89,0x98BADCFE,0x10325476,0xC3D2E1F0];
@@ -1064,9 +1085,9 @@ fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, Str
         let c = cs[i]; i += 1;
         if c != '%' { out.push(c); continue; }
         // flags
-        let (mut minus, mut zero, mut plus, mut space, mut alt) = (false, false, false, false, false);
+        let (mut minus, mut zero, mut plus, mut space, mut alt, mut comma) = (false, false, false, false, false, false);
         while i < cs.len() {
-            match cs[i] { '-' => minus = true, '0' => zero = true, '+' => plus = true, ' ' => space = true, '#' => alt = true, '!' | ',' => {}, _ => break }
+            match cs[i] { '-' => minus = true, '0' => zero = true, '+' => plus = true, ' ' => space = true, '#' => alt = true, ',' => comma = true, '!' => {}, _ => break }
             i += 1;
         }
         let mut width = 0usize;
@@ -1082,8 +1103,18 @@ fn do_printf(fmt: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<String, Str
         if conv == '%' { out.push('%'); continue; }
         let v = eval_expr(&args[ai], row, ctx)?; ai += 1;
         let mut body = match conv {
+            'p' => format!("{:X}", v.as_i64()), // SQLite %p: uppercase hex of the value
             'd' | 'i' => { let n = v.as_i64();
                 let mut s = n.abs().to_string();
+                if comma {
+                    let d: Vec<char> = s.chars().collect();
+                    let mut g = String::new();
+                    for (k, ch) in d.iter().enumerate() {
+                        if k > 0 && (d.len() - k) % 3 == 0 { g.push(','); }
+                        g.push(*ch);
+                    }
+                    s = g;
+                }
                 let sign = if n < 0 { "-" } else if plus { "+" } else if space { " " } else { "" };
                 if zero && !minus && width > sign.len() + s.len() { s = format!("{}{}", "0".repeat(width - sign.len() - s.len()), s); }
                 format!("{}{}", sign, s) }
@@ -1447,7 +1478,7 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
 
     // window handling (two pinned shapes)
     if items.iter().any(|(e, _)| find_kw_top(e, "OVER").is_some()) {
-        return window_select(ctx, &items, from_str.as_deref().unwrap_or(""));
+        return window_select(ctx, &items, from_str.as_deref().unwrap_or(""), outer);
     }
 
     let src: Vec<Row> = match &from_str { Some(f) => parse_from(ctx, f, outer)?, None => vec![Row::new()] };
@@ -1531,33 +1562,203 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
     Ok((colnames, out))
 }
 
-fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
-    let (_c, src) = source_rows(ctx, from)?;
-    // both pins ORDER BY x ascending
-    let base_col = items[0].0.trim(); // first item is the ordering column x
-    let ordcol = base_col.to_string();
-    let mut idx: Vec<usize> = (0..src.len()).collect();
-    idx.sort_by(|&a, &b| vcmp(src[a].get(&ordcol).unwrap_or(&V::Null), src[b].get(&ordcol).unwrap_or(&V::Null)));
-    let mut out = Vec::new();
-    for (rank, &i) in idx.iter().enumerate() {
-        let mut orow = Vec::new();
-        for (expr, _) in items {
-            let el = expr.to_ascii_lowercase();
-            if find_kw_top(expr, "OVER").is_none() {
-                orow.push(eval_expr(&P::new(expr)?.expr()?, &src[i], ctx)?);
-            } else if el.contains("row_number") {
-                orow.push(V::Int(rank as i64 + 1));
-            } else if el.starts_with("sum(") {
-                // sum over ROWS BETWEEN 1 PRECEDING AND CURRENT ROW
-                let col = &ordcol;
-                let cur = src[i].get(col).map(|v| v.as_f64()).unwrap_or(0.0);
-                let prev = if rank > 0 { src[idx[rank-1]].get(col).map(|v| v.as_f64()).unwrap_or(0.0) } else { 0.0 };
-                let s = cur + prev; orow.push(if s == s.trunc() { V::Int(s as i64) } else { V::Real(s) });
-            } else { return Err("unsupported window".into()); }
+// ---------------- window functions (pack v14: general engine) ----------------
+// row_number/rank/dense_rank/lag/lead + sum/min/max/avg/count OVER
+// ([PARTITION BY ...] [ORDER BY ...] [ROWS|GROUPS|RANGE frame]).
+// Values are computed per source row from real partitions/frames; output stays in
+// source order (the outer ORDER BY sorts afterwards; stable sorts preserve ties).
+
+struct WinSpec {
+    part: Vec<Ex>,
+    order: Vec<(Ex, bool)>, // (expr, desc)
+    frame: WinFrame,
+}
+enum WinFrame {
+    RangePeers,             // default: RANGE UNBOUNDED PRECEDING .. CURRENT ROW (peer-inclusive)
+    Rows(Option<i64>),      // ROWS BETWEEN <n|unbounded> PRECEDING AND CURRENT ROW
+    Groups(i64),            // GROUPS BETWEEN n PRECEDING AND CURRENT ROW
+}
+
+fn parse_winspec(spec: &str) -> Result<WinSpec, String> {
+    let mut rest = spec.trim().to_string();
+    let mut part = Vec::new();
+    let mut order = Vec::new();
+    let mut frame = WinFrame::RangePeers;
+    if let Some(p) = find_kw_top(&rest, "PARTITION BY") {
+        let after = rest[p + 12..].trim().to_string();
+        let stop = find_kw_top(&after, "ORDER BY")
+            .or_else(|| find_kw_top(&after, "ROWS"))
+            .or_else(|| find_kw_top(&after, "GROUPS"))
+            .or_else(|| find_kw_top(&after, "RANGE"))
+            .unwrap_or(after.len());
+        for e in split_top(&after[..stop], ',') { part.push(parse_expr_full(&e)?); }
+        rest = format!("{}{}", &rest[..p], &after[stop..]);
+    }
+    if let Some(p) = find_kw_top(&rest, "ORDER BY") {
+        let after = rest[p + 8..].trim().to_string();
+        let stop = find_kw_top(&after, "ROWS")
+            .or_else(|| find_kw_top(&after, "GROUPS"))
+            .or_else(|| find_kw_top(&after, "RANGE"))
+            .unwrap_or(after.len());
+        for term in split_top(&after[..stop], ',') {
+            let mut words = term.split_whitespace();
+            let name = words.next().unwrap_or("").to_string();
+            let desc = words.next().map_or(false, |w| w.eq_ignore_ascii_case("DESC"));
+            order.push((parse_expr_full(&name)?, desc));
         }
-        out.push(orow);
+        rest = format!("{}{}", &rest[..p], &after[stop..]);
+    }
+    let up = rest.to_ascii_uppercase();
+    if let Some(p) = up.find("ROWS BETWEEN ") {
+        let body = rest[p + 13..].trim();
+        let bu = body.to_ascii_uppercase();
+        if bu.starts_with("UNBOUNDED PRECEDING") { frame = WinFrame::Rows(None); }
+        else if let Some(n) = body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
+            frame = WinFrame::Rows(Some(n));
+        }
+    } else if let Some(p) = up.find("GROUPS BETWEEN ") {
+        let body = rest[p + 15..].trim();
+        if let Some(n) = body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
+            frame = WinFrame::Groups(n);
+        }
+    }
+    Ok(WinSpec { part, order, frame })
+}
+
+/// split "fn(args) OVER (spec)" -> (fname, args_text, spec_text)
+fn split_over(item: &str) -> Option<(String, String, String)> {
+    let p = find_kw_top(item, "OVER")?;
+    let call = item[..p].trim();
+    let spec = item[p + 4..].trim();
+    let spec = spec.strip_prefix('(')?.strip_suffix(')')?.to_string();
+    let op = call.find('(')?;
+    let fname = call[..op].trim().to_ascii_lowercase();
+    let args = call[op + 1..call.rfind(')')?].trim().to_string();
+    Some((fname, args, spec))
+}
+
+fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
+    -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    let src = parse_from(ctx, from, outer)?;
+    let n = src.len();
+    let mut out: Vec<Vec<V>> = vec![Vec::new(); n];
+    for (expr, _alias) in items {
+        if find_kw_top(expr, "OVER").is_none() {
+            let ex = parse_expr_full(expr)?;
+            for (i, r) in src.iter().enumerate() { out[i].push(eval_expr(&ex, r, ctx)?); }
+            continue;
+        }
+        let (fname, args_txt, spec_txt) = split_over(expr).ok_or("bad window expression")?;
+        let spec = parse_winspec(&spec_txt)?;
+        let arg_exs: Vec<Ex> = if args_txt.is_empty() || args_txt == "*" { Vec::new() }
+            else { split_top(&args_txt, ',').iter().map(|a| parse_expr_full(a)).collect::<Result<_,_>>()? };
+        // partition rows
+        let mut partkeys: Vec<String> = Vec::with_capacity(n);
+        for r in &src {
+            let mut kv = Vec::new();
+            for pe in &spec.part { kv.push(format!("{:?}", eval_expr(pe, r, ctx)?.render())); }
+            partkeys.push(kv.join("\u{1}"));
+        }
+        let mut parts: std::collections::HashMap<String, Vec<usize>> = std::collections::HashMap::new();
+        for i in 0..n { parts.entry(partkeys[i].clone()).or_default().push(i); }
+        let mut vals: Vec<V> = vec![V::Null; n];
+        for (_k, idxs) in parts {
+            // stable sort by window ORDER BY keys
+            let mut keys: Vec<Vec<V>> = Vec::new();
+            for &i in &idxs {
+                let mut kv = Vec::new();
+                for (oe, _) in &spec.order { kv.push(eval_expr(oe, &src[i], ctx)?); }
+                keys.push(kv);
+            }
+            let mut order: Vec<usize> = (0..idxs.len()).collect(); // positions into idxs
+            order.sort_by(|&a, &b| {
+                for (ki, (_, desc)) in spec.order.iter().enumerate() {
+                    let o = vcmp(&keys[a][ki], &keys[b][ki]);
+                    if o != std::cmp::Ordering::Equal { return if *desc { o.reverse() } else { o }; }
+                }
+                std::cmp::Ordering::Equal
+            });
+            let sorted: Vec<usize> = order.iter().map(|&p| idxs[p]).collect(); // source indices, window order
+            let m = sorted.len();
+            // peer groups (equal ORDER BY keys)
+            let mut group_of = vec![0usize; m];
+            let mut peer_end = vec![0usize; m];
+            {
+                let key_at = |p: usize| &keys[order[p]];
+                let mut g = 0;
+                let mut s = 0;
+                while s < m {
+                    let mut e = s;
+                    while e + 1 < m && vcmp_vec(key_at(e + 1), key_at(s)) == std::cmp::Ordering::Equal { e += 1; }
+                    for p in s..=e { group_of[p] = g; peer_end[p] = e; }
+                    g += 1;
+                    s = e + 1;
+                }
+            }
+            // frame aggregate helper
+            let arg_val = |p: usize| -> Result<V, String> {
+                match arg_exs.first() { Some(e) => eval_expr(e, &src[sorted[p]], ctx), None => Ok(V::Int(1)) }
+            };
+            for p in 0..m {
+                let i = sorted[p];
+                let v = match fname.as_str() {
+                    "row_number" => V::Int(p as i64 + 1),
+                    "rank" => { let first = (0..m).find(|&q| group_of[q] == group_of[p]).unwrap_or(p); V::Int(first as i64 + 1) }
+                    "dense_rank" => V::Int(group_of[p] as i64 + 1),
+                    "lag" | "lead" => {
+                        let off: i64 = arg_exs.get(1).map(|e| eval_expr(e, &src[i], ctx).map(|v| v.as_i64()))
+                            .transpose()?.unwrap_or(1);
+                        let q = if fname == "lag" { p as i64 - off } else { p as i64 + off };
+                        if q < 0 || q >= m as i64 {
+                            match arg_exs.get(2) { Some(d) => eval_expr(d, &src[i], ctx)?, None => V::Null }
+                        } else {
+                            match arg_exs.first() { Some(e) => eval_expr(e, &src[sorted[q as usize]], ctx)?, None => V::Null }
+                        }
+                    }
+                    "sum" | "min" | "max" | "avg" | "count" => {
+                        let (lo, hi) = match &spec.frame {
+                            WinFrame::RangePeers => (0usize, peer_end[p]),
+                            WinFrame::Rows(None) => (0usize, p),
+                            WinFrame::Rows(Some(k)) => ((p as i64 - k).max(0) as usize, p),
+                            WinFrame::Groups(k) => {
+                                let g0 = (group_of[p] as i64 - k).max(0);
+                                let lo = (0..m).find(|&q| group_of[q] as i64 >= g0).unwrap_or(0);
+                                (lo, peer_end[p])
+                            }
+                        };
+                        let mut acc: Vec<V> = Vec::new();
+                        let mut rows_n = 0i64;
+                        for q in lo..=hi {
+                            rows_n += 1;
+                            let av = arg_val(q)?;
+                            if !matches!(av, V::Null) { acc.push(av); }
+                        }
+                        match fname.as_str() {
+                            "count" => { if arg_exs.is_empty() { V::Int(rows_n) } else { V::Int(acc.len() as i64) } }
+                            "sum" => { if acc.is_empty() { V::Null }
+                                else if acc.iter().all(|v| matches!(v, V::Int(_))) { V::Int(acc.iter().map(|v| v.as_i64()).sum()) }
+                                else { V::Real(acc.iter().map(|v| v.as_f64()).sum()) } }
+                            "avg" => { if acc.is_empty() { V::Null } else { V::Real(acc.iter().map(|v| v.as_f64()).sum::<f64>() / acc.len() as f64) } }
+                            "min" => acc.into_iter().min_by(vcmp).unwrap_or(V::Null),
+                            _ => acc.into_iter().max_by(vcmp).unwrap_or(V::Null),
+                        }
+                    }
+                    other => return Err(format!("unsupported window function: {other}")),
+                };
+                vals[i] = v;
+            }
+        }
+        for i in 0..n { out[i].push(vals[i].clone()); }
     }
     Ok((items.iter().map(|(_, a)| a.clone()).collect(), out))
+}
+
+fn vcmp_vec(a: &Vec<V>, b: &Vec<V>) -> std::cmp::Ordering {
+    for i in 0..a.len().min(b.len()) {
+        let o = vcmp(&a[i], &b[i]);
+        if o != std::cmp::Ordering::Equal { return o; }
+    }
+    std::cmp::Ordering::Equal
 }
 
 fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {

@@ -313,7 +313,7 @@ enum Stmt {
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
-             upd_col: Option<String>, /* DO UPDATE SET c=excluded.c */
+             upd_sets: Vec<(String, String)>, /* DO UPDATE SET col=<expr>, ... */
              upd_where: Option<String> /* DO UPDATE ... WHERE <expr> */ },
     Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)> },
     Delete { name: String, wh: Option<(String, i64)> },
@@ -449,8 +449,14 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             let sup = stmt.to_ascii_uppercase();
             if sup.starts_with("SELECT RAISE(") {
                 let inner = &stmt["SELECT RAISE(".len()..stmt.rfind(')')?];
+                let verb = inner.split(',').next().unwrap_or("").trim().to_ascii_uppercase();
+                if verb == "IGNORE" {
+                    body.push(("#raise_ignore".to_string(), Vec::new()));
+                    continue;
+                }
                 let msg = inner.split_once(',').map(|(_, m)| m.trim().trim_matches('\'').to_string())
                     .unwrap_or_else(|| "RAISE".into());
+                // ABORT / FAIL / ROLLBACK all fail the statement with rc 19 here (no txn stack)
                 body.push(("#raise".to_string(), vec![format!("'{}'", msg.replace('\'', "''"))]));
                 continue;
             }
@@ -544,7 +550,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         };
         let mut vals = after[vpos + " VALUES".len()..].trim();
         let mut policy = policy0;
-        let mut upd_col = None;
+        let mut upd_sets: Vec<(String, String)> = Vec::new();
         let mut upd_where = None;
         let vup = vals.to_ascii_uppercase();
         if let Some(oc) = vup.find(" ON CONFLICT") {
@@ -559,11 +565,18 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
                     upd_where = Some(assign[wp + 7..].trim().to_string());
                     assign = assign[..wp].to_string();
                 }
-                let eq = assign.find('=')?;
-                let c = ident(&assign[..eq])?;
-                let rhs = assign[eq + 1..].trim().to_ascii_lowercase();
-                if rhs != format!("excluded.{}", c) { return None; } // only c=excluded.c
-                upd_col = Some(c);
+                let mut depth = 0; let mut cur = String::new(); let mut parts = Vec::new();
+                for ch in assign.chars() {
+                    match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                              ',' if depth == 0 => { parts.push(cur.clone()); cur.clear(); } _ => cur.push(ch) }
+                }
+                if !cur.trim().is_empty() { parts.push(cur); }
+                for p in parts {
+                    let eq = p.find('=')?;
+                    let c = ident(&p[..eq])?;
+                    upd_sets.push((c, p[eq + 1..].trim().to_string()));
+                }
+                if upd_sets.is_empty() { return None; }
             } else {
                 return None;
             }
@@ -578,7 +591,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             }
             rows.push(row);
         }
-        return Some(Stmt::Insert { name, collist, rows, policy, upd_col, upd_where });
+        return Some(Stmt::Insert { name, collist, rows, policy, upd_sets, upd_where });
     }
     if up.starts_with("UPDATE ") {
         let after = &s["UPDATE ".len()..];
@@ -694,6 +707,45 @@ fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
     None
 }
 
+/// rows of a simple single-table projection view
+fn view_rows(st: &Store, view: &str) -> Result<(Vec<Vec<Val>>, Vec<String>), String> {
+    let body = st.views.get(view).ok_or("no such view")?.clone();
+    let vcols = view_colnames(&body);
+    let up = body.to_ascii_uppercase();
+    let fpos = up.find(" FROM ").ok_or("unsupported view shape")?;
+    let base = body[fpos + 6..].trim().split_whitespace().next().unwrap_or("").to_string();
+    let t = st.tables.iter().find(|(n, _)| *n == base).ok_or("no such table")?;
+    let cis: Vec<usize> = vcols.iter()
+        .map(|c| t.1.cols.iter().position(|cc| cc.name == *c).ok_or(format!("no such column: {c}")))
+        .collect::<Result<_, _>>()?;
+    let rows = t.1.rows.iter().map(|(_, r)| cis.iter().map(|&ci| r[ci].clone()).collect()).collect();
+    Ok((rows, vcols))
+}
+
+/// execute INSTEAD OF trigger bodies against an old./new. env
+fn run_trigger_bodies(st: &mut Store, trigs: &[Trigger], env: &std::collections::HashMap<String, eval::V>) -> Result<(), String> {
+    for tg in trigs {
+        if let Some(w) = &tg.when {
+            if !ev_truthy(&eval::eval_standalone(w, env)?) { continue; }
+        }
+        for (target, exprs) in &tg.body {
+            if target == "#raise_ignore" { return Ok(()); }
+            if target == "#raise" {
+                let msg = eval::eval_standalone(&exprs[0], env)?;
+                return Err(format!("__RAISE__{}", msg.render().unwrap_or_default()));
+            }
+            let mut row = Vec::new();
+            for e in exprs { row.push(ev_to_val(eval::eval_standalone(e, env)?)); }
+            let tt = st.tables.iter_mut().find(|(n, _)| n == target).ok_or("no such table")?;
+            tt.1.next_rowid += 1;
+            let rid = tt.1.next_rowid;
+            tt.1.rows.push((rid, row));
+            st.total_changes += 1;
+        }
+    }
+    Ok(())
+}
+
 fn view_colnames(body: &str) -> Vec<String> {
     let up = body.to_ascii_uppercase();
     let start = if up.starts_with("SELECT") { 6 } else { 0 };
@@ -717,12 +769,12 @@ fn ev_to_val(v: eval::V) -> Val {
 /// Fire matching triggers for one row event. WHEN + body value expressions are
 /// evaluated for real (eval::eval_standalone) against old.*/new.* bindings.
 fn fire_triggers(st: &mut Store, table: &str, timing: u8, event: u8,
-                 old: Option<&Vec<Val>>, new: Option<&Vec<Val>>) -> Result<(), String> {
+                 old: Option<&Vec<Val>>, new: Option<&Vec<Val>>) -> Result<bool, String> {
     fire_triggers_d(st, table, timing, event, old, new, None, 0)
 }
 fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
                  old: Option<&Vec<Val>>, new: Option<&Vec<Val>>,
-                 upd_col: Option<&str>, depth: u32) -> Result<(), String> {
+                 upd_col: Option<&str>, depth: u32) -> Result<bool, String> {
     if depth > 16 { return Err("too many levels of trigger recursion".into()); }
     let trigs: Vec<Trigger> = st.triggers.iter()
         .filter(|(_, d)| d.table == table && d.timing == timing && d.event == event)
@@ -732,7 +784,7 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
             _ => true,
         })
         .map(|(_, d)| d.clone()).collect();
-    if trigs.is_empty() { return Ok(()); }
+    if trigs.is_empty() { return Ok(true); }
     let colnames: Vec<String> = st.tables.iter().find(|(n, _)| n == table)
         .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
     let mut env: std::collections::HashMap<String, eval::V> = Default::default();
@@ -743,6 +795,9 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
             if !ev_truthy(&eval::eval_standalone(w, &env)?) { continue; }
         }
         for (target, exprs) in &tg.body {
+            if target == "#raise_ignore" {
+                return Ok(false); // RAISE(IGNORE): skip this row's operation silently
+            }
             if target == "#raise" {
                 let msg = eval::eval_standalone(&exprs[0], &env)?;
                 return Err(format!("__RAISE__{}", match msg { eval::V::Text(m) => m, v => v.render().unwrap_or_default() }));
@@ -763,7 +818,7 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
             }
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 /// Typed single-statement query for the statement API (pack v13): SELECT/PRAGMA run
@@ -981,7 +1036,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     t.1.create_sql = format!("CREATE TABLE {}({})", table,
                         t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                 }
-                Stmt::Insert { name, collist, rows, policy, upd_col, upd_where } => {
+                Stmt::Insert { name, collist, rows, policy, upd_sets, upd_where } => {
                     if st.views.contains_key(&name) {
                         // INSTEAD OF INSERT triggers make views writable
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 0);
@@ -1082,8 +1137,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             pending.push(full);
                         }
                     }
-                    for full in &pending {
-                        fire_triggers(st, &name, 0, 0, None, Some(full))?; // BEFORE INSERT
+                    {
+                        let mut kept = Vec::with_capacity(pending.len());
+                        for full in pending {
+                            if fire_triggers(st, &name, 0, 0, None, Some(&full))? { kept.push(full); } // RAISE(IGNORE) drops the row
+                        }
+                        pending = kept;
                     }
                     let ti = st.tables.iter().position(|(n, _)| *n == name).ok_or("no such table")?;
                     let mut inserted: Vec<(String, Vec<Val>)> = Vec::new(); // for triggers
@@ -1104,20 +1163,20 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         inserted.push((name.clone(), full));
                                     }
                                     Policy::DoUpdate => {
-                                        let uc = upd_col.as_ref().ok_or("bad upsert")?;
-                                        let ci = t.cols.iter().position(|c| c.name == *uc)
-                                            .ok_or("no such column")?;
-                                        // optional DO UPDATE ... WHERE: evaluated with excluded.* + existing row
+                                        // env: excluded.* = incoming row, bare cols = existing row
+                                        let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+                                        for (cj, cc) in t.cols.iter().enumerate() {
+                                            env.insert(format!("excluded.{}", cc.name), val_to_ev(full.get(cj).unwrap_or(&Val::Null)));
+                                            env.insert(cc.name.clone(), val_to_ev(t.rows[pos].1.get(cj).unwrap_or(&Val::Null)));
+                                        }
                                         if let Some(w) = &upd_where {
-                                            let mut env: std::collections::HashMap<String, eval::V> = Default::default();
-                                            for (cj, cc) in t.cols.iter().enumerate() {
-                                                env.insert(format!("excluded.{}", cc.name), val_to_ev(full.get(cj).unwrap_or(&Val::Null)));
-                                                env.insert(cc.name.clone(), val_to_ev(t.rows[pos].1.get(cj).unwrap_or(&Val::Null)));
-                                            }
                                             if !ev_truthy(&eval::eval_standalone(w, &env)?) { continue; }
                                         }
-                                        let newv = full[ci].clone(); // excluded.<uc>
-                                        t.rows[pos].1[ci] = newv;
+                                        for (uc, uexpr) in &upd_sets {
+                                            let ci = t.cols.iter().position(|c| c.name == *uc)
+                                                .ok_or("no such column")?;
+                                            t.rows[pos].1[ci] = ev_to_val(eval::eval_standalone(uexpr, &env)?);
+                                        }
                                         n_changes += 1;
                                     }
                                 },
@@ -1134,12 +1193,39 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.changes = n_changes;
                     st.total_changes += n_changes;
                     for (_tn, full) in &inserted {
-                        fire_triggers(st, &name, 1, 0, None, Some(full))?; // AFTER INSERT
+                        let _ = fire_triggers(st, &name, 1, 0, None, Some(full))?; // AFTER INSERT
                     }
                 }
                 Stmt::Update { name, col, add, set, wh } => {
                     if st.views.contains_key(&name) {
-                        return Err(format!("cannot modify {name} because it is a view"));
+                        let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 1);
+                        if !has_instead {
+                            return Err(format!("cannot modify {name} because it is a view"));
+                        }
+                        let (vrows, vcols) = view_rows(st, &name)?;
+                        let trigs: Vec<Trigger> = st.triggers.iter()
+                            .filter(|(_, d)| d.table == name && d.timing == 2 && d.event == 1)
+                            .map(|(_, d)| d.clone()).collect();
+                        let ci = vcols.iter().position(|c| *c == col).ok_or("no such column")?;
+                        let wi = wh.as_ref().and_then(|(wc, _)| vcols.iter().position(|c| c == wc));
+                        for vrow in &vrows {
+                            if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
+                                if vrow[wi] != Val::Int(*wv) { continue; }
+                            }
+                            let mut newr = vrow.clone();
+                            newr[ci] = match (&add, &set) {
+                                (Some(d), _) => match &vrow[ci] { Val::Int(i) => Val::Int(i + d), v => v.clone() },
+                                (None, Some(v)) => v.clone(),
+                                _ => vrow[ci].clone(),
+                            };
+                            let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+                            for (k, c) in vcols.iter().enumerate() {
+                                env.insert(format!("old.{c}"), val_to_ev(&vrow[k]));
+                                env.insert(format!("new.{c}"), val_to_ev(&newr[k]));
+                            }
+                            run_trigger_bodies(st, &trigs, &env)?;
+                        }
+                        continue;
                     }
                     // plan updates first so BEFORE/AFTER UPDATE triggers can fire per row
                     let planned: Vec<(usize, Vec<Val>, Vec<Val>)> = {
@@ -1159,7 +1245,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             Some((ri, row.clone(), newr))
                         }).collect()
                     };
-                    for (_, o, nw) in &planned { fire_triggers_d(st, &name, 0, 1, Some(o), Some(nw), Some(&col), 0)?; }
+                    for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 0, 1, Some(o), Some(nw), Some(&col), 0)?; }
                     {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
                         for (ri, _, nw) in &planned { t.1.rows[*ri].1 = nw.clone(); }
@@ -1201,11 +1287,30 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                         }
                     }
-                    for (_, o, nw) in &planned { fire_triggers_d(st, &name, 1, 1, Some(o), Some(nw), Some(&col), 0)?; }
+                    for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 1, 1, Some(o), Some(nw), Some(&col), 0)?; }
                 }
                 Stmt::Delete { name, wh } => {
                     if st.views.contains_key(&name) {
-                        return Err(format!("cannot modify {name} because it is a view"));
+                        let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 2);
+                        if !has_instead {
+                            return Err(format!("cannot modify {name} because it is a view"));
+                        }
+                        let (vrows, vcols) = view_rows(st, &name)?;
+                        let trigs: Vec<Trigger> = st.triggers.iter()
+                            .filter(|(_, d)| d.table == name && d.timing == 2 && d.event == 2)
+                            .map(|(_, d)| d.clone()).collect();
+                        let wi = wh.as_ref().and_then(|(wc, _)| vcols.iter().position(|c| c == wc));
+                        for vrow in &vrows {
+                            if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
+                                if vrow[wi] != Val::Int(*wv) { continue; }
+                            }
+                            let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+                            for (k, c) in vcols.iter().enumerate() {
+                                env.insert(format!("old.{c}"), val_to_ev(&vrow[k]));
+                            }
+                            run_trigger_bodies(st, &trigs, &env)?;
+                        }
+                        continue;
                     }
                     // pre-compute hit rows so BEFORE DELETE triggers can fire per row
                     let hits: Vec<Vec<Val>> = {
@@ -1216,7 +1321,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             _ => true,
                         }).map(|(_, r)| r.clone()).collect()
                     };
-                    for o in &hits { fire_triggers(st, &name, 0, 2, Some(o), None)?; }
+                    for o in &hits { let _ = fire_triggers(st, &name, 0, 2, Some(o), None)?; }
                     // collect deleted parent key values for cascade
                     let (deleted_keys, n): (Vec<(String, Vec<Val>)>, i64) = {
                         let t = st.tables.iter_mut().find(|(n, _)| *n == name).ok_or("no such table")?;
@@ -1280,7 +1385,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                         }
                     }
-                    for o in &hits { fire_triggers(st, &name, 1, 2, Some(o), None)?; }
+                    for o in &hits { let _ = fire_triggers(st, &name, 1, 2, Some(o), None)?; }
                 }
                 Stmt::Select { items, target, wh, order_by } => {
                     if target == "sqlite_master" {
