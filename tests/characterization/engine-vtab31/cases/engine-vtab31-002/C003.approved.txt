@@ -1,0 +1,1 @@
+OBS engine-vtab31-002-C003 tinfo value,INTEGER

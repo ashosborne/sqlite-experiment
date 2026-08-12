@@ -1,0 +1,2 @@
+OBS engine-vtab31-002-C008 types integer,text|integer,text
+OBS engine-vtab31-002-C008 tinfo a,INTEGER|b,TEXT

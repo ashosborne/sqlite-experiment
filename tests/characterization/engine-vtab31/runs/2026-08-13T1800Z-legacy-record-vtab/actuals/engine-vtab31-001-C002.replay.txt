@@ -1,0 +1,2 @@
+OBS engine-vtab31-001-C002 unknown rc=1 err=no such module: nosuch
+OBS engine-vtab31-001-C002 master_count 0

@@ -1,0 +1,177 @@
+[
+ {
+  "id": "engine-vtab31-001-C001",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "create_module + CREATE VIRTUAL TABLE -> xCreate; sqlite_master entry with vtab sql"
+ },
+ {
+  "id": "engine-vtab31-001-C002",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "unknown module -> 'no such module: nosuch' exact; no schema entry"
+ },
+ {
+  "id": "engine-vtab31-001-C003",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "xCreate failure surfaces constructor pzErr; no schema entry"
+ },
+ {
+  "id": "engine-vtab31-001-C004",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "DROP TABLE on vtab invokes xDestroy; table gone after"
+ },
+ {
+  "id": "engine-vtab31-001-C005",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "xCreate argv convention: module/db/table/raw-args"
+ },
+ {
+  "id": "engine-vtab31-001-C006",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "create_module_v2 destructor on replace and on close"
+ },
+ {
+  "id": "engine-vtab31-001-C007",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "fresh connection has no module -> re-register required"
+ },
+ {
+  "id": "engine-vtab31-001-C008",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "two instances of one module with different args"
+ },
+ {
+  "id": "engine-vtab31-001-C009",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "CREATE VIRTUAL TABLE without args -> module default"
+ },
+ {
+  "id": "engine-vtab31-001-C010",
+  "feature": "engine-vtab31-001",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "drop + recreate same name with different arg -> new shape/values"
+ },
+ {
+  "id": "engine-vtab31-002-C001",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "declare_vtab column names visible; HIDDEN excluded from SELECT *"
+ },
+ {
+  "id": "engine-vtab31-002-C002",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "visible column by name; HIDDEN column selectable by name"
+ },
+ {
+  "id": "engine-vtab31-002-C003",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "pragma table_info reflects declared visible shape"
+ },
+ {
+  "id": "engine-vtab31-002-C004",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "SELECT * rows carry only visible columns"
+ },
+ {
+  "id": "engine-vtab31-002-C005",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "typeof through xColumn result API"
+ },
+ {
+  "id": "engine-vtab31-002-C006",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "declare_vtab outside xCreate/xConnect -> SQLITE_MISUSE 21"
+ },
+ {
+  "id": "engine-vtab31-002-C007",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "second module: two visible declared columns project"
+ },
+ {
+  "id": "engine-vtab31-002-C008",
+  "feature": "engine-vtab31-002",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "declared types via table_info; runtime typeof int/text"
+ },
+ {
+  "id": "engine-vtab31-003-C001",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "full scan through xOpen/xFilter/xEof/xColumn/xNext"
+ },
+ {
+  "id": "engine-vtab31-003-C002",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "WHERE on vtab column (zero-constraint xBestIndex, engine-side filter)"
+ },
+ {
+  "id": "engine-vtab31-003-C003",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "aggregates over vtab scan"
+ },
+ {
+  "id": "engine-vtab31-003-C004",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "JOIN vtab to a real table"
+ },
+ {
+  "id": "engine-vtab31-003-C005",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "ORDER BY over vtab scan"
+ },
+ {
+  "id": "engine-vtab31-003-C006",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "two vtab instances in one statement"
+ },
+ {
+  "id": "engine-vtab31-003-C007",
+  "feature": "engine-vtab31-003",
+  "slice": "engine-vtab31",
+  "kind": "bespoke",
+  "note": "WHERE on HIDDEN column (checked via xColumn, not pushdown)"
+ }
+]

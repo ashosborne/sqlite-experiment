@@ -1,0 +1,3 @@
+OBS engine-vtab31-001-C006 after_reg n=0
+OBS engine-vtab31-001-C006 after_replace n=1
+OBS engine-vtab31-001-C006 after_close n=2

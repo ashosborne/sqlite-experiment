@@ -1,0 +1,2 @@
+OBS engine-vtab31-001-C003 badarg rc=1 err=intseries: bad limit 'bogus'
+OBS engine-vtab31-001-C003 master_count 0

@@ -1,0 +1,3 @@
+OBS engine-vtab31-001-C001 reg rc=0
+OBS engine-vtab31-001-C001 cvt rc=0 err=-
+OBS engine-vtab31-001-C001 master table,nums,nums,0,CREATE VIRTUAL TABLE nums USING intseries(5)

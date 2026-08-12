@@ -1,0 +1,2 @@
+OBS engine-vtab31-002-C007 shape n=2 names=a,b
+OBS engine-vtab31-002-C007 both 1,one|2,two

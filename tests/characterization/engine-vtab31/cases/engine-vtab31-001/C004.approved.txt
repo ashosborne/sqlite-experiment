@@ -1,0 +1,3 @@
+OBS engine-vtab31-001-C004 drop rc=0 err=-
+OBS engine-vtab31-001-C004 destroyed n=1
+OBS engine-vtab31-001-C004 gone prep.rc=1 err=no such table: nums
