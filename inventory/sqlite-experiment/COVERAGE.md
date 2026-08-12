@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T10:35:41Z
+- Generated: 2026-08-12T11:47:09Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T16:30:00Z by `sqlite-engine-v19-utf16-prepare`
+- Manifest last_updated: 2026-08-12T18:30:00Z by `sqlite-engine-v20-create-collation`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 103 | Not started in modern |
 | partial | 49 | Some modern execution; gaps in notes |
-| full (converted) | 85 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 88 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -105,6 +105,9 @@
 - `engine-value-001` — sqlite3_value_*/sqlite3_result_* marshalling
 - `engine-utf16-001` — UTF-16 prepare family (prepare16/_v2/_v3)
 - `engine-utf16-002` — UTF-16 column/name/decltype accessors + bind_text16
+- `engine-collation-001` — create_collation[_v2] + registry-driven COMPARE/ORDER BY
+- `engine-collation-002` — column COLLATE + per-connection reopen honesty
+- `engine-collation-003` — collation_needed lazy factory
 
 ### Partial in modern
 
@@ -268,25 +271,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 224 |
-| Behaviours known | 237 |
+| Surfaces total | 225 |
+| Behaviours known | 240 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 147 |
+| legacy_green flags | 150 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 39 |
+| accepted | 40 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 85 |
+| converted | 88 |
 | documented | 152 |
 
 ## Surfaces per slice
@@ -307,6 +310,7 @@
 | dml-codegen | 2 |
 | engine-agg-having | 1 |
 | engine-checkupd | 1 |
+| engine-collation | 1 |
 | engine-constraints | 1 |
 | engine-datetime | 1 |
 | engine-ddl2 | 1 |

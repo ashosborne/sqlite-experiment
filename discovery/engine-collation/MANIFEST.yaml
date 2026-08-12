@@ -1,0 +1,14 @@
+slice_id: engine-collation
+app_id: sqlite-experiment
+created_by: sqlite-engine-v20-create-collation
+created_at: 2026-08-12T18:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed collation-registration slice (run 30): sqlite3_create_collation[_v2] +
+  sqlite3_collation_needed and the registry-driven COLLATE compare paths, frozen on
+  the pinned C baseline. Sibling of the v18 engine-udf slice.
+features:
+  - engine-collation-001
+  - engine-collation-002
+  - engine-collation-003

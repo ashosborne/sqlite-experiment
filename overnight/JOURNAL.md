@@ -488,3 +488,25 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   new full; util-primitives-001 codec note updated, stays partial (hash/PRNG absent).
 - Scoreboard full 82→85 / partial 49 / none 103 (237 known). cargo 449/449.
 
+## Run 30 — 2026-08-12 — engine v20: create_collation + registry COLLATE (pack v20)
+
+- Pack v19→v20 BOUND (+versions/20, ADR 0018): COLLATION-REGISTRATION + REGISTRY-DRIVEN
+  COMPARE laws.
+- lib.rs: COLL_REG per-connection registry (name→pArg/xCompare/xDestroy; v18 UDF shape);
+  create_collation→_v2; NULL-delete / replace / close fire xDestroy (pinned 0/1/2);
+  eTextRep 1/2/3/4/8 ok, 0/99→MISUSE; collation_needed factory on lookup miss;
+  coll_user_cmp invokes the real C callback with UTF-8 bytes.
+- eval.rs: coll_order helper — builtins (binary/nocase/rtrim + rot13/uint/decimal) then
+  registry; =/range/ORDER BY rewired; unknown → "no such collation sequence" at prepare;
+  ORDER BY resolves names up front; quoted collation names.
+- store.rs: Col.coll parsed from CREATE TABLE COLLATE (persists via create_sql, survives
+  reopen); build_coll_snapshot → Ctx.col_colls; declared collation drives bare-column
+  compares and ORDER BY (residual: by unambiguous column name).
+- 17 goldens (engine-collation-001 x10, -002 x5, -003 x2; harness /tmp/coll_harness.c).
+  rot13/uint NOT re-homed (stay built-ins; goldens untouched). Rust twin
+  engine_collation.rs + anti-cheat runtime reverse collation / invocation counter.
+  428 prior goldens md5-identical.
+- Flips: engine-collation-001/002/003 new full; expr-codegen-001 stays partial;
+  misc-rot13/uint stay full. Scoreboard full 85→88 / partial 49 / none 103 (240 known).
+  cargo 469/469.
+
