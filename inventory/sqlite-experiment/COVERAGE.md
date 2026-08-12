@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T17:22:36Z
+- Generated: 2026-08-12T18:24:31Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T12:30:00Z by `sqlite-engine-v29-none-batch`
+- Manifest last_updated: 2026-08-13T14:30:00Z by `sqlite-engine-v30-attached-schema`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 84 | Not started in modern |
 | partial | 58 | Some modern execution; gaps in notes |
-| full (converted) | 131 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 134 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -151,13 +151,16 @@
 - `engine-harvest28-007` — wholenumber + completion vtabs
 - `engine-harvest28-008` — thin parser / complete / pragma-TVF pins
 - `engine-none29-001` — qualified-name-in-trigger DML rejection
+- `engine-attach30-001` — ATTACH owns tables
+- `engine-attach30-002` — DETACH clears objects
+- `engine-attach30-003` — attached-schema cross-db fixation
 
 ### Partial in modern
 
 - `analyze-stats-001` — confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned data).
-- `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet
-- `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics
-- `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+- `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet run-40: attached schemas now OWN real tables (CREATE/INSERT/SELECT/UPDATE/DELETE via schema.table; qualified + unqualified resolution with main winning collisions; dup/reserved errors; file-backed attachments persist across reopen). RESIDUAL: URI/encryption attach maze, DETACH-locked edges, cross-schema transaction-join semantics.
+- `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics run-40: DETACH now tears down the schema and ALL its objects (later qualified access fails); cannot-detach-main and no-such-database errors pinned; re-ATTACH gives a fresh empty schema. RESIDUAL: "database is locked" DETACH with an open statement not modelled.
+- `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose body targets an attached table (unqualified body resolution at trigger execution) is not implemented.
 - `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.
 - `backup-api-001` — backup lifecycle real for empty/trivial source DBs only
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
@@ -304,25 +307,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 234 |
-| Behaviours known | 273 |
+| Surfaces total | 235 |
+| Behaviours known | 276 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 183 |
+| legacy_green flags | 186 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 49 |
+| accepted | 50 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 131 |
+| converted | 134 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -343,6 +346,7 @@
 | dml-codegen | 2 |
 | engine-agg-having | 1 |
 | engine-analyze | 1 |
+| engine-attach30 | 1 |
 | engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |

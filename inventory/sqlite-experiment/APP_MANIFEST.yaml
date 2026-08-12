@@ -2491,6 +2491,15 @@ surfaces:
   notes: composed none-batch surface slice (run 39); seam-kind=api
   discovery_evidence:
   - src/trigger.c:1
+- surface_id: sur-engine-attach30
+  kind: other
+  locator: engine-attach30 pinned sequences
+  repo_path: src/attach.c
+  status: accepted
+  slice_id: engine-attach30
+  notes: composed attached-schema surface slice (run 40); seam-kind=api
+  discovery_evidence:
+  - src/attach.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2500,11 +2509,10 @@ behaviours:
   discovery_card: discovery/analyze-stats/features/analyze-stats-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37:
-    PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0
-    rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP
-    maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on
-    the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned
+  notes: 'confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real
+    scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1");
+    whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real.
+    RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned
     data).'
   traceability: tests/characterization/analyze-stats/TRACEABILITY.yaml
   impl_in_modern: partial
@@ -2516,10 +2524,9 @@ behaviours:
   discovery_card: discovery/analyze-stats/features/analyze-stats-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; AnalysisLoad parses stat rows into Index cost fields at schema load. run-37: STAYS
-    NONE - planner cost model not claimed this pack. Modern writes sqlite_stat1 (see analyze-stats-001) but does not load
-    it into any planner; no EXPLAIN QUERY PLAN change after ANALYZE is pinned, and faking one would be greenwash. Flip only
-    when honest plan-shape pins exist.'
+  notes: 'confidence=observed-in-code; AnalysisLoad parses stat rows into Index cost fields at schema load. run-37: STAYS NONE - planner cost model not
+    claimed this pack. Modern writes sqlite_stat1 (see analyze-stats-001) but does not load it into any planner; no EXPLAIN QUERY PLAN change after ANALYZE
+    is pinned, and faking one would be greenwash. Flip only when honest plan-shape pins exist.'
   impl_in_modern: none
 - behaviour_id: attach-detach-001
   surface_id: sur-sqlite3attach
@@ -2529,9 +2536,11 @@ behaviours:
   discovery_card: discovery/attach-detach/features/attach-detach-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name
-    errors, URI handling. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet'
+  notes: 'confidence=observed-in-code; ATTACH compiles to internal function call; enforces SQLITE_LIMIT_ATTACHED, duplicate-name errors, URI handling. |
+    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: ATTACH tracked
+    as a real namespace count; attached schemas cannot own tables/DDL yet run-40: attached schemas now OWN real tables (CREATE/INSERT/SELECT/UPDATE/DELETE
+    via schema.table; qualified + unqualified resolution with main winning collisions; dup/reserved errors; file-backed attachments persist across reopen).
+    RESIDUAL: URI/encryption attach maze, DETACH-locked edges, cross-schema transaction-join semantics.'
   traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: attach-detach-002
@@ -2542,9 +2551,10 @@ behaviours:
   discovery_card: discovery/attach-detach/features/attach-detach-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Removes attached db; errors if db is locked or in use. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: DETACH updates
-    the namespace list for real; no second-schema object semantics'
+  notes: 'confidence=observed-in-code; Removes attached db; errors if db is locked or in use. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
+    delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: DETACH updates the namespace list for real; no second-schema object semantics
+    run-40: DETACH now tears down the schema and ALL its objects (later qualified access fails); cannot-detach-main and no-such-database errors pinned;
+    re-ATTACH gives a fresh empty schema. RESIDUAL: "database is locked" DETACH with an open statement not modelled.'
   traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: attach-detach-003
@@ -2555,11 +2565,12 @@ behaviours:
   discovery_card: discovery/attach-detach/features/attach-detach-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP
-    trigger body INSERT/UPDATE/DELETE are rejected with C''s exact message (trigger not created); TEMP triggers exempt; qualified
-    SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema
-    tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED'
+  notes: 'confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE
+    are rejected with C''s exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema
+    (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main
+    schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified
+    DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose
+    body targets an attached table (unqualified body resolution at trigger execution) is not implemented.'
   traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: auth-callback-api-001
@@ -2570,11 +2581,10 @@ behaviours:
   discovery_card: discovery/auth-callback-api/features/auth-callback-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Per-connection callback consulted at compile time per action code; DENY errors the
-    statement, IGNORE downgrades. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths
-    for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today),
-    SQLITE_IGNORE column semantics, remaining ~28 action codes.'
+  notes: 'confidence=observed-in-code; Per-connection callback consulted at compile time per action code; DENY errors the statement, IGNORE downgrades.
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: authorizer dispatch
+    real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object
+    callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.'
   traceability: tests/characterization/auth-callback-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: auth-callback-api-002
@@ -2585,9 +2595,9 @@ behaviours:
   discovery_card: discovery/auth-callback-api/features/auth-callback-api-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Read authorization per column; SQLITE_IGNORE causes NULL substitution in results. run-38:
-    column-read authorization real — SQLITE_IGNORE makes a column read as NULL in the select list, WHERE and aggregates; consulted
-    in select-list order; prepare dry-run does not fire the authorizer.'
+  notes: 'confidence=observed-in-code; Read authorization per column; SQLITE_IGNORE causes NULL substitution in results. run-38: column-read authorization
+    real — SQLITE_IGNORE makes a column read as NULL in the select list, WHERE and aggregates; consulted in select-list order; prepare dry-run does not
+    fire the authorizer.'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -2600,9 +2610,9 @@ behaviours:
   discovery_card: discovery/backup-api/features/backup-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns
-    first error. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: backup lifecycle real for empty/trivial source DBs only'
+  notes: 'confidence=observed-in-code; Handle-to-handle page copy in nPage batches; BUSY/LOCKED propagation; finish returns first error. | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: backup lifecycle real for empty/trivial
+    source DBs only'
   traceability: tests/characterization/backup-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: backup-api-002
@@ -2613,9 +2623,8 @@ behaviours:
   discovery_card: discovery/backup-api/features/backup-api-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; remaining()/pagecount() report progress after each step. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: remaining/pagecount
-    real for the pinned single-page sequence only'
+  notes: 'confidence=observed-in-code; remaining()/pagecount() report progress after each step. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: remaining/pagecount real for the pinned single-page sequence only'
   traceability: tests/characterization/backup-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: backup-api-003
@@ -2626,9 +2635,9 @@ behaviours:
   discovery_card: discovery/backup-api/features/backup-api-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart
-    the copy (BackupRestart). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: write-between-steps restart pinned; no general page-level coordination'
+  notes: 'confidence=observed-in-code; Writes to source db mid-backup patch pages already copied (BackupUpdate) or restart the copy (BackupRestart). | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: write-between-steps restart
+    pinned; no general page-level coordination'
   traceability: tests/characterization/backup-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: blob-io-api-001
@@ -2639,10 +2648,10 @@ behaviours:
   discovery_card: discovery/blob-io-api/features/blob-io-api-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Opens a handle on (db,table,column,rowid); reopen repositions to a new row without
-    re-resolving. run-35: PARTIAL - open/close/reopen/bytes real on the store path with the pinned C validation order and
-    error text (view/table/quoted-column/indexed-write/rowid/null-type), rowid aliasing INTEGER PRIMARY KEY, text cells readable.
-    RESIDUAL: attached-schema and UTF-16 name forms, WITHOUT ROWID targets, and open-inside-transaction interactions are unpinned.'
+  notes: 'confidence=observed-in-code; Opens a handle on (db,table,column,rowid); reopen repositions to a new row without re-resolving. run-35: PARTIAL
+    - open/close/reopen/bytes real on the store path with the pinned C validation order and error text (view/table/quoted-column/indexed-write/rowid/null-type),
+    rowid aliasing INTEGER PRIMARY KEY, text cells readable. RESIDUAL: attached-schema and UTF-16 name forms, WITHOUT ROWID targets, and open-inside-transaction
+    interactions are unpinned.'
   impl_in_modern: partial
 - behaviour_id: blob-io-api-002
   surface_id: sur-sqlite3-blob-read
@@ -2652,11 +2661,10 @@ behaviours:
   discovery_card: discovery/blob-io-api/features/blob-io-api-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
-    run-35: PARTIAL - offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob
-    preallocate + interior write, and expiry (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven.
-    RESIDUAL: expiry granularity is connection-write, not per-row like C (pins only modify the handle''s own row); TEXT-cell
-    writes via handles unpinned.'
+  notes: 'confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT). run-35: PARTIAL
+    - offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob preallocate + interior write, and expiry
+    (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven. RESIDUAL: expiry granularity is connection-write, not per-row like
+    C (pins only modify the handle''s own row); TEXT-cell writes via handles unpinned.'
   impl_in_modern: partial
 - behaviour_id: btree-001
   surface_id: sur-sqlite3btreeopen
@@ -2666,8 +2674,8 @@ behaviours:
   discovery_card: discovery/btree/features/btree-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks.
-    | touched by engine-files (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
+  notes: confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks. | touched by engine-files
+    (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
   impl_in_modern: none
 - behaviour_id: btree-002
   surface_id: sur-sqlite3btreecursor
@@ -2687,9 +2695,9 @@ behaviours:
   discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling
-    per function. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-20 sweep) — gaps: ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)'
+  notes: 'confidence=observed-in-code; ~70 scalar functions registered in aBuiltinFunc[]; NULL-propagation and UTF handling per function. | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps: ~24 of ~60 core scalars real (adds
+    round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)'
   traceability: tests/characterization/builtin-scalar-agg-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: builtin-scalar-agg-funcs-002
@@ -2700,10 +2708,9 @@ behaviours:
   discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable)
-    semantics. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21
-    harvest): count/sum/total/avg/min/max/group_concat + DISTINCT + FILTER + HAVING all real; window-inverse forms live on
-    the window cards'
+  notes: 'confidence=observed-in-code; count/sum/total/avg/min/max/group_concat with step/finalize/inverse (window-capable) semantics. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): count/sum/total/avg/min/max/group_concat + DISTINCT + FILTER
+    + HAVING all real; window-inverse forms live on the window cards'
   traceability: tests/characterization/builtin-scalar-agg-funcs/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2717,10 +2724,9 @@ behaviours:
   discovery_card: discovery/builtin-scalar-agg-funcs/features/builtin-scalar-agg-funcs-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries
-    IsLikeFunction for index use. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index
-    optimization absent'
+  notes: 'confidence=observed-in-code; like/glob implemented as functions; case_sensitive_like re-registers; optimizer queries IsLikeFunction for index
+    use. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: LIKE (ESCAPE
+    + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent'
   traceability: tests/characterization/builtin-scalar-agg-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: compile-options-omit-enable-001
@@ -2731,8 +2737,7 @@ behaviours:
   discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; compileoption_used/get in C and SQL report the active build matrix; itself gated by
-    SQLITE_OMIT_COMPILEOPTION_DIAGS.
+  notes: confidence=observed-in-code; compileoption_used/get in C and SQL report the active build matrix; itself gated by SQLITE_OMIT_COMPILEOPTION_DIAGS.
   impl_in_modern: none
 - behaviour_id: compile-options-omit-enable-002
   surface_id: sur-sqlite-omit-guards
@@ -2742,8 +2747,8 @@ behaviours:
   discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...)
-    run 1 carded as default-present.; file-only evidence
+  notes: confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as default-present.;
+    file-only evidence
   impl_in_modern: none
 - behaviour_id: compile-options-omit-enable-003
   surface_id: sur-sqlite-enable-guards
@@ -2753,8 +2758,7 @@ behaviours:
   discovery_card: discovery/compile-options-omit-enable/features/compile-options-omit-enable-003.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE,
-    ...).
+  notes: confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE, ...).
   impl_in_modern: none
 - behaviour_id: connection-lifecycle-api-001
   surface_id: sur-sqlite3-open-v2
@@ -2764,10 +2768,9 @@ behaviours:
   discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by
-    sqlite3ParseUri (vfs/mode/cache params). | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags
-    absent'
+  notes: 'confidence=observed-in-code; sqlite3_open/open16/open_v2 funnel into static openDatabase; URI filenames parsed by sqlite3ParseUri (vfs/mode/cache
+    params). | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: open/close + MISUSE ordering
+    real for :memory: and plain paths; URI parsing and open flags absent'
   traceability: tests/characterization/connection-lifecycle-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: connection-lifecycle-api-002
@@ -2778,10 +2781,10 @@ behaviours:
   discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie
-    connection). run-36: PARTIAL - close refuses (rc 5, exact errmsg) while statements or blob handles live; close_v2 zombies
-    and tears down at the last finalize/blob_close; NULL no-ops; open-txn close rolls back. RESIDUAL: unfinished sqlite3_backup
-    coupling and the post-close MISUSE matrix are unpinned (use-after-close is UB territory - deliberately not frozen).'
+  notes: 'confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie connection). run-36: PARTIAL
+    - close refuses (rc 5, exact errmsg) while statements or blob handles live; close_v2 zombies and tears down at the last finalize/blob_close; NULL no-ops;
+    open-txn close rolls back. RESIDUAL: unfinished sqlite3_backup coupling and the post-close MISUSE matrix are unpinned (use-after-close is UB territory
+    - deliberately not frozen).'
   impl_in_modern: partial
 - behaviour_id: connection-lifecycle-api-003
   surface_id: sur-sqlite3-busy-timeout
@@ -2791,11 +2794,10 @@ behaviours:
   discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-003.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler.
-    run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5
-    "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time
-    flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify
-    are NOT implemented.'
+  notes: 'confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout
+    registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN
+    IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared
+    cache and unlock-notify are NOT implemented.'
   impl_in_modern: partial
 - behaviour_id: connection-lifecycle-api-004
   surface_id: sur-sqlite3-trace-v2
@@ -2805,11 +2807,10 @@ behaviours:
   discovery_card: discovery/connection-lifecycle-api/features/connection-lifecycle-api-004.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36:
-    PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with
-    rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec
-    call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour
-    unpinned; legacy sqlite3_trace/profile not implemented.'
+  notes: 'confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased
+    rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and
+    pinned. RESIDUAL: STMT/PROFILE fire per exec call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path
+    behaviour unpinned; legacy sqlite3_trace/profile not implemented.'
   impl_in_modern: partial
 - behaviour_id: date-time-funcs-001
   surface_id: sur-datefunc-datetimefunc
@@ -2819,9 +2820,9 @@ behaviours:
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): julian-day
-    engine real (date/datetime/time/julianday/unixepoch); v8 defer cleared'
+  notes: 'confidence=observed-in-code; date/time/datetime/julianday/unixepoch over shared DateTime parse + computeJD. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): julian-day engine real (date/datetime/time/julianday/unixepoch); v8 defer
+    cleared'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2835,9 +2836,8 @@ behaviours:
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; %-directive formatter over parsed DateTime. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): strftime real (%Y%m%d%e%H%M%S%f%s%w%j%J%F%T%R);
-    week-number/%p directives absent but outside frozen scope'
+  notes: 'confidence=observed-in-code; %-directive formatter over parsed DateTime. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated
+    stamp) | impl_in_modern=full (run-20 sweep): strftime real (%Y%m%d%e%H%M%S%f%s%w%j%J%F%T%R); week-number/%p directives absent but outside frozen scope'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2851,9 +2851,9 @@ behaviours:
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep):
-    modifier grammar real (±N units, month-overflow, weekday N, start of, unixepoch); localtime deliberately errors (TZ-nondeterministic)'
+  notes: 'confidence=observed-in-code; Sequential modifier application with Julian-day arithmetic; localtime uses OS tz conversion. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): modifier grammar real (±N units, month-overflow, weekday
+    N, start of, unixepoch); localtime deliberately errors (TZ-nondeterministic)'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2867,9 +2867,8 @@ behaviours:
   discovery_card: discovery/date-time-funcs/features/date-time-funcs-004.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): timediff real (iterative year/month
-    reduction, ±YYYY-MM-DD HH:MM:SS.SSS)'
+  notes: 'confidence=observed-in-code; Returns +/-YYYY-MM-DD HH:MM:SS.SSS delta between two datetimes. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): timediff real (iterative year/month reduction, ±YYYY-MM-DD HH:MM:SS.SSS)'
   traceability: tests/characterization/date-time-funcs/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2883,9 +2882,9 @@ behaviours:
   discovery_card: discovery/ddl-schema/features/ddl-schema-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep):
-    tables (memory+durable) AND views (create/drop/expand/write-reject) real; view durability unpinned'
+  notes: 'confidence=observed-in-code; CREATE TABLE/VIEW parse-to-schema flow writing sqlite_master; IF NOT EXISTS, temp scoping. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): tables (memory+durable) AND views (create/drop/expand/write-reject)
+    real; view durability unpinned'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2899,11 +2898,10 @@ behaviours:
   discovery_card: discovery/ddl-schema/features/ddl-schema-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-27): index
-    create/drop lifecycle durable + reopen-enforced; index-DRIVEN lookups (equality/range probes, probe-counter proven), multi-column
-    + expression + partial explicit indexes, multi-leaf index b-trees (0x02/0x0a) C integrity_check accepts, honest EQP SEARCH
-    USING INDEX. All three v12 residual gaps closed'
+  notes: 'confidence=observed-in-code; CREATE INDEX incl. UNIQUE, partial (WHERE), expression indexes; backfill on creation. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-27): index create/drop lifecycle durable + reopen-enforced; index-DRIVEN
+    lookups (equality/range probes, probe-counter proven), multi-column + expression + partial explicit indexes, multi-leaf index b-trees (0x02/0x0a) C
+    integrity_check accepts, honest EQP SEARCH USING INDEX. All three v12 residual gaps closed'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2917,9 +2915,9 @@ behaviours:
   discovery_card: discovery/ddl-schema/features/ddl-schema-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Schema rewriting with cross-object reference fixup (views/triggers referencing renamed
-    entities). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21
-    harvest): ALTER family complete: RENAME TO (durable), ADD COLUMN DEFAULT (durable), RENAME COLUMN, DROP COLUMN'
+  notes: 'confidence=observed-in-code; Schema rewriting with cross-object reference fixup (views/triggers referencing renamed entities). | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): ALTER family complete: RENAME TO (durable),
+    ADD COLUMN DEFAULT (durable), RENAME COLUMN, DROP COLUMN'
   traceability: tests/characterization/ddl-schema/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2933,9 +2931,9 @@ behaviours:
   discovery_card: discovery/dml-codegen/features/dml-codegen-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast
-    path). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen'
+  notes: 'confidence=observed-in-code; INSERT (incl. SELECT-source + xfer optimization), UPDATE, DELETE (incl. truncate fast path). | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: INSERT/UPDATE/DELETE real on store + durable
+    files; WHERE expressiveness limited vs full DML codegen'
   traceability: tests/characterization/dml-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: dml-codegen-002
@@ -2946,10 +2944,9 @@ behaviours:
   discovery_card: discovery/dml-codegen/features/dml-codegen-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-26): conflict matrix
-    IGNORE/REPLACE/ABORT/FAIL/ROLLBACK + CHECK/NOT NULL/UNIQUE/FK enforced on INSERT and UPDATE (post-update row image); OR
-    ROLLBACK unwinds v15 txns; CHECK-on-UPDATE gap closed'
+  notes: 'confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-26): conflict matrix IGNORE/REPLACE/ABORT/FAIL/ROLLBACK + CHECK/NOT NULL/UNIQUE/FK enforced
+    on INSERT and UPDATE (post-update row image); OR ROLLBACK unwinds v15 txns; CHECK-on-UPDATE gap closed'
   traceability: tests/characterization/dml-codegen/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2963,12 +2960,11 @@ behaviours:
   discovery_card: discovery/error-status-api/features/error-status-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks.
-    | legacy RECORD REPLAY_GREEN 2026-08-11 (goldens HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix
-    absent run-33: errstr table (extended codes fall through to base descriptions, pinned) + extended constraint codes 2067/1299/275/787
-    on real error paths + qualified UNIQUE/CHECK messages. Extended codes are real for implemented error paths; IOERR/CANTOPEN
-    families have no modern error source to map.'
+  notes: 'confidence=observed-in-code; errcode/extended_errcode/errmsg/errstr/error_offset; UTF-8/16 variants; OOM fallbacks. | legacy RECORD REPLAY_GREEN
+    2026-08-11 (goldens HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | impl_in_modern=partial (run-19 scoreboard) — gaps: errcode/extended_errcode/errmsg real
+    for implemented error paths; errstr and full extended-code matrix absent run-33: errstr table (extended codes fall through to base descriptions, pinned)
+    + extended constraint codes 2067/1299/275/787 on real error paths + qualified UNIQUE/CHECK messages. Extended codes are real for implemented error paths;
+    IOERR/CANTOPEN families have no modern error source to map.'
   traceability: tests/characterization/error-status-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2982,10 +2978,10 @@ behaviours:
   discovery_card: discovery/error-status-api/features/error-status-api-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Get/set 12 limit categories with hard upper bounds from sqliteLimit.h. | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    sqlite3_limit get/set with prior-value semantics real for the pinned limit id only run-33: sqlite3_limit id matrix (defaults,
-    prior-value sets, compile-max clamping) + VARIABLE_NUMBER enforced at prepare with C errmsg. Named residual gone.'
+  notes: 'confidence=observed-in-code; Get/set 12 limit categories with hard upper bounds from sqliteLimit.h. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: sqlite3_limit get/set with prior-value semantics real for the
+    pinned limit id only run-33: sqlite3_limit id matrix (defaults, prior-value sets, compile-max clamping) + VARIABLE_NUMBER enforced at prepare with C
+    errmsg. Named residual gone.'
   traceability: tests/characterization/error-status-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -2999,9 +2995,9 @@ behaviours:
   discovery_card: discovery/error-status-api/features/error-status-api-003.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL
-    — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED
-    grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked.'
+  notes: 'confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED,
+    bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status
+    op matrix returns honest zero, not tracked.'
   impl_in_modern: partial
 - behaviour_id: exec-convenience-api-001
   surface_id: sur-sqlite3-exec
@@ -3011,10 +3007,9 @@ behaviours:
   discovery_card: discovery/exec-convenience-api/features/exec-convenience-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback
-    return aborts with SQLITE_ABORT; errmsg ownership rules. | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp)
-    | impl_in_modern=full (run-19 scoreboard): the sqlite3_exec callback loop (row dispatch, abort, errmsg) is fully real
-    in modern'
+  notes: 'confidence=observed-in-code; Runs zero-or-more semicolon-separated statements; per-row callback; nonzero callback return aborts with SQLITE_ABORT;
+    errmsg ownership rules. | goldens HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-19 scoreboard): the sqlite3_exec callback
+    loop (row dispatch, abort, errmsg) is fully real in modern'
   traceability: tests/characterization/exec-convenience-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3028,9 +3023,8 @@ behaviours:
   discovery_card: discovery/exec-convenience-api/features/exec-convenience-api-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table.
-    run-38: sqlite3_get_table/free_table real — header+rows char** marshalling, NULL pointers for SQL NULL, 0x0 for empty/non-query,
-    errmsg-out on failure, free_table(NULL) tolerated.'
+  notes: 'confidence=observed-in-code; Materialises full result set into a char* array with header row; caller frees via sqlite3_free_table. run-38: sqlite3_get_table/free_table
+    real — header+rows char** marshalling, NULL pointers for SQL NULL, 0x0 for empty/non-query, errmsg-out on failure, free_table(NULL) tolerated.'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -3053,9 +3047,9 @@ behaviours:
   discovery_card: discovery/expr-codegen/features/expr-codegen-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Expr tree to VDBE ops with affinity/collation propagation and constant factoring. |
-    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent'
+  notes: 'confidence=observed-in-code; Expr tree to VDBE ops with affinity/collation propagation and constant factoring. | legacy RECORD REPLAY_GREEN +
+    HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: arithmetic/concat/CAST real in a typed evaluator;
+    full affinity matrix and collation resolution absent'
   traceability: tests/characterization/expr-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: expr-codegen-002
@@ -3066,9 +3060,9 @@ behaviours:
   discovery_card: discovery/expr-codegen/features/expr-codegen-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent'
+  notes: 'confidence=observed-in-code; IfTrue/IfFalse with jumpIfNull variants implement SQL NULL semantics in control flow. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: 3-valued AND/OR/NOT with NULL propagation
+    real; broader jump-codegen surface absent'
   traceability: tests/characterization/expr-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: expr-codegen-003
@@ -3079,9 +3073,9 @@ behaviours:
   discovery_card: discovery/expr-codegen/features/expr-codegen-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Structural comparison used for indexed-expression matching and factoring. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent'
+  notes: 'confidence=observed-in-code; Structural comparison used for indexed-expression matching and factoring. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: IN/IS [NOT] semantics real for pinned shapes; expression-equivalence
+    machinery absent'
   traceability: tests/characterization/expr-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: foreign-keys-001
@@ -3092,11 +3086,10 @@ behaviours:
   discovery_card: discovery/foreign-keys/features/foreign-keys-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Per-statement vs per-transaction constraint counters; foreign_keys pragma gate. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: immediate FK enforcement real (memory + durable); deferred FKs absent run-33: deferred FKs real — DEFERRABLE INITIALLY
-    DEFERRED + PRAGMA defer_foreign_keys (resets at txn end), COMMIT-time validation, failed COMMIT keeps the transaction
-    open, immediate outside txns. Named residual gone.'
+  notes: 'confidence=observed-in-code; Per-statement vs per-transaction constraint counters; foreign_keys pragma gate. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: immediate FK enforcement real (memory + durable); deferred
+    FKs absent run-33: deferred FKs real — DEFERRABLE INITIALLY DEFERRED + PRAGMA defer_foreign_keys (resets at txn end), COMMIT-time validation, failed
+    COMMIT keeps the transaction open, immediate outside txns. Named residual gone.'
   traceability: tests/characterization/foreign-keys/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3110,9 +3103,9 @@ behaviours:
   discovery_card: discovery/foreign-keys/features/foreign-keys-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; ON DELETE/UPDATE actions implemented as synthesized triggers. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): action matrix real: CASCADE/SET
-    NULL/RESTRICT/SET DEFAULT on DELETE, CASCADE/SET NULL/SET DEFAULT on UPDATE; deferred timing lives on foreign-keys-001'
+  notes: 'confidence=observed-in-code; ON DELETE/UPDATE actions implemented as synthesized triggers. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): action matrix real: CASCADE/SET NULL/RESTRICT/SET DEFAULT on DELETE, CASCADE/SET NULL/SET
+    DEFAULT on UPDATE; deferred timing lives on foreign-keys-001'
   traceability: tests/characterization/foreign-keys/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3126,9 +3119,8 @@ behaviours:
   discovery_card: discovery/foreign-keys/features/foreign-keys-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; DROP TABLE triggers FK violation scans / deferred handling. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: DROP-parent
-    rc=19 bookkeeping real; drop-order edges beyond pins absent'
+  notes: 'confidence=observed-in-code; DROP TABLE triggers FK violation scans / deferred handling. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: DROP-parent rc=19 bookkeeping real; drop-order edges beyond pins absent'
   traceability: tests/characterization/foreign-keys/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: fts3-001
@@ -3179,8 +3171,7 @@ behaviours:
   discovery_card: discovery/geopoly/features/geopoly-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function
-    query planning.
+  notes: confidence=observed-in-code; geopoly vtab over rtree; geopoly_overlap/within/area/json etc.; overloaded-function query planning.
   impl_in_modern: none
 - behaviour_id: global-init-config-001
   surface_id: sur-sqlite3-initialize
@@ -3190,9 +3181,9 @@ behaviours:
   discovery_card: discovery/global-init-config/features/global-init-config-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open
-    paths. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: initialize/shutdown state machine real; OS/VFS init side effects absent'
+  notes: 'confidence=observed-in-code; Once-init of malloc/mutex/pcache/OS layers; shutdown ordering; auto-init from open paths. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: initialize/shutdown state machine real; OS/VFS
+    init side effects absent'
   traceability: tests/characterization/global-init-config/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: global-init-config-002
@@ -3203,9 +3194,9 @@ behaviours:
   discovery_card: discovery/global-init-config/features/global-init-config-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: pinned sqlite3_config ops real; most of the config op matrix absent'
+  notes: 'confidence=observed-in-code; sqlite3_config with ~30 ops; only LOG/PCACHE_HDRSZ legal after init; defaults in sqlite3Config. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: pinned sqlite3_config ops real; most of the
+    config op matrix absent'
   traceability: tests/characterization/global-init-config/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: global-init-config-003
@@ -3216,9 +3207,9 @@ behaviours:
   discovery_card: discovery/global-init-config/features/global-init-config-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb
-    gate... | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: pinned db_config ops real; most per-connection options absent'
+  notes: 'confidence=observed-in-code; Per-db toggles: enable_fkey/trigger/view, defensive, dqs, lookaside sizing, resetdb gate... | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: pinned db_config ops real; most per-connection
+    options absent'
   traceability: tests/characterization/global-init-config/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: icu-001
@@ -3249,10 +3240,10 @@ behaviours:
   discovery_card: discovery/introspection-vtabs/features/introspection-vtabs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE
-    programs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19
-    scoreboard): deferred (pack v8): dbstat vtab not implemented in modern run-39: baseline presence check FAILED (dbstat/sqlite_dbpage/bytecode/sqlite_stmt
-    all absent from the bare amalgamation; prior golden already rc=1). Left none.'
+  notes: 'confidence=observed-in-code; Compile-gated eponymous vtabs exposing page stats, raw pages (writable!), and VDBE programs. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): dbstat vtab not implemented in modern
+    run-39: baseline presence check FAILED (dbstat/sqlite_dbpage/bytecode/sqlite_stmt all absent from the bare amalgamation; prior golden already rc=1).
+    Left none.'
   traceability: tests/characterization/introspection-vtabs/TRACEABILITY.yaml
   impl_in_modern: none
 - behaviour_id: jni-binding-001
@@ -3263,8 +3254,8 @@ behaviours:
   discovery_card: discovery/jni-binding/features/jni-binding-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules.;
-    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; 1:1-ish JNI bridges over the C API with Java callback (UDF/hook) marshalling and thread rules.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: jni-java-surface-001
   surface_id: sur-org-sqlite-jni-capi-capi
@@ -3274,8 +3265,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.; needs-SME:
-    inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; CApi.java static methods mirror C API; ~40 callback interfaces marshal hooks/UDFs.; needs-SME: inferred-confidence card requires
+    SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: jni-java-surface-002
   surface_id: sur-org-sqlite-jni-wrapper1-sqlite
@@ -3285,8 +3276,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; Sqlite/SqliteException OO wrapper with typed function classes.; needs-SME: inferred-confidence
-    card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; Sqlite/SqliteException OO wrapper with typed function classes.; needs-SME: inferred-confidence card requires SME sign-off
+    or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: jni-java-surface-003
   surface_id: sur-org-sqlite-jni-fts5
@@ -3296,8 +3287,8 @@ behaviours:
   discovery_card: discovery/jni-java-surface/features/jni-java-surface-003.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; Java projections of fts5_api / Fts5ExtensionApi for aux functions.; needs-SME: inferred-confidence
-    card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; Java projections of fts5_api / Fts5ExtensionApi for aux functions.; needs-SME: inferred-confidence card requires SME sign-off
+    or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: json-funcs-001
   surface_id: sur-jsonextractfunc
@@ -3307,9 +3298,9 @@ behaviours:
   discovery_card: discovery/json-funcs/features/json-funcs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Path-expression extraction; text vs SQL-value return differs between -> and ->>. |
-    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: real JSON parser + json_extract/->/->>; path grammar subset (no wildcards/#), JSONB and JSON5 absent'
+  notes: 'confidence=observed-in-code; Path-expression extraction; text vs SQL-value return differs between -> and ->>. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: real JSON parser + json_extract/->/->>; path grammar subset
+    (no wildcards/#), JSONB and JSON5 absent'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: json-funcs-002
@@ -3320,9 +3311,9 @@ behaviours:
   discovery_card: discovery/json-funcs/features/json-funcs-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB. | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    json_set/insert/replace/patch/remove real on parsed trees; array-path mutation and JSONB absent'
+  notes: 'confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: json_set/insert/replace/patch/remove real on parsed trees;
+    array-path mutation and JSONB absent'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: json-funcs-003
@@ -3333,9 +3324,9 @@ behaviours:
   discovery_card: discovery/json-funcs/features/json-funcs-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; json_valid with flags argument distinguishes JSON5/JSONB acceptance. | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    json_valid/json_type real; json_valid flags argument and JSONB validation absent'
+  notes: 'confidence=observed-in-code; json_valid with flags argument distinguishes JSON5/JSONB acceptance. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: json_valid/json_type real; json_valid flags argument and JSONB
+    validation absent'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: json-funcs-004
@@ -3346,9 +3337,9 @@ behaviours:
   discovery_card: discovery/json-funcs/features/json-funcs-004.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent'
+  notes: 'confidence=observed-in-code; Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: json_each over arrays/objects real as a FROM source; json_tree
+    and full vtab columns absent'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: loadext-api-001
@@ -3359,10 +3350,9 @@ behaviours:
   discovery_card: discovery/loadext-api/features/loadext-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default
-    (enable_load_extension gate). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-28) — gaps: shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2]
-    is a DIFFERENT surface and IS done (engine-udf/engine-value)'
+  notes: 'confidence=observed-in-code; dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default (enable_load_extension gate).
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-28) — gaps: shared-library dlopen sqlite3_load_extension
+    NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)'
   traceability: tests/characterization/loadext-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: loadext-api-002
@@ -3373,10 +3363,10 @@ behaviours:
   discovery_card: discovery/loadext-api/features/loadext-api-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset
-    APIs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: auto-extension register/invoke on open real; cancel/reset entry points absent run-33: cancel + reset
-    + multi-entry ordered registry with duplicate collapse — the named residual is gone. Frozen scope only.'
+  notes: 'confidence=observed-in-code; Process-global list of init functions invoked for each new connection; cancel/reset APIs. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: auto-extension register/invoke on open real;
+    cancel/reset entry points absent run-33: cancel + reset + multi-entry ordered registry with duplicate collapse — the named residual is gone. Frozen
+    scope only.'
   traceability: tests/characterization/loadext-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3390,11 +3380,10 @@ behaviours:
   discovery_card: discovery/malloc-subsystem/features/malloc-subsystem-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; malloc/realloc/free family with soft-heap-limit accounting; alternative backends mem0..mem5
-    compile-time selected. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: malloc64/free/msize real allocator; memory accounting (memory_used/highwater) absent run-33:
-    memory_used/highwater wired to the real allocator (accounting in sized_alloc, the origin of every sqlite3_free pointer).
-    Named residual gone.'
+  notes: 'confidence=observed-in-code; malloc/realloc/free family with soft-heap-limit accounting; alternative backends mem0..mem5 compile-time selected.
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: malloc64/free/msize
+    real allocator; memory accounting (memory_used/highwater) absent run-33: memory_used/highwater wired to the real allocator (accounting in sized_alloc,
+    the origin of every sqlite3_free pointer). Named residual gone.'
   traceability: tests/characterization/malloc-subsystem/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3408,9 +3397,9 @@ behaviours:
   discovery_card: discovery/malloc-subsystem/features/malloc-subsystem-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator. run-39:
-    not honestly modellable — the real per-connection slab counters (e.g. 48 slots / 116 hits) and the variadic sqlite3_db_config(LOOKASIDE)
-    control cannot be mirrored without a real lookaside allocator. Left none rather than fake counters.'
+  notes: 'confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator. run-39: not honestly modellable — the
+    real per-connection slab counters (e.g. 48 slots / 116 hits) and the variadic sqlite3_db_config(LOOKASIDE) control cannot be mirrored without a real
+    lookaside allocator. Left none rather than fake counters.'
   impl_in_modern: none
 - behaviour_id: misc-amatch-001
   surface_id: sur-sqlite3-amatch-init
@@ -3430,8 +3419,7 @@ behaviours:
   discovery_card: discovery/misc-appendvfs/features/misc-appendvfs-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Opens a db image appended to another file (e.g. self-contained executable) with marker
-    + offset handling
+  notes: confidence=observed-in-code; Opens a db image appended to another file (e.g. self-contained executable) with marker + offset handling
   impl_in_modern: none
 - behaviour_id: misc-basexx-001
   surface_id: sur-sqlite3-basexx-init
@@ -3441,9 +3429,9 @@ behaviours:
   discovery_card: discovery/misc-basexx/features/misc-basexx-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; base64()/base85() blob<->text conversions; basexx.c registers both — kept as the one
-    genuine pack | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21
-    harvest): base64 + base85 + is_base85 real; the combined basexx pack re-exposes the same functions'
+  notes: 'confidence=observed-in-code; base64()/base85() blob<->text conversions; basexx.c registers both — kept as the one genuine pack | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): base64 + base85 + is_base85 real; the combined
+    basexx pack re-exposes the same functions'
   traceability: tests/characterization/misc-basexx/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3467,8 +3455,7 @@ behaviours:
   discovery_card: discovery/misc-cksumvfs/features/misc-cksumvfs-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; 8-byte per-page checksums in reserve bytes; verification on read — FILE-FORMAT IMPACT
-    (reserve-bytes requirement)
+  notes: confidence=observed-in-code; 8-byte per-page checksums in reserve bytes; verification on read — FILE-FORMAT IMPACT (reserve-bytes requirement)
   impl_in_modern: none
 - behaviour_id: misc-closure-001
   surface_id: sur-sqlite3-closure-init
@@ -3488,11 +3475,10 @@ behaviours:
   discovery_card: discovery/misc-completion/features/misc-completion-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell |
-    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard):
-    deferred (pack v8): completion vtab not implemented in modern run-38: PARTIAL — completion(prefix) yields keyword + schema-name
-    candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations, wildcard ranking) not
-    claimed.'
+  notes: 'confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): completion vtab not implemented in modern run-38:
+    PARTIAL — completion(prefix) yields keyword + schema-name candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations,
+    wildcard ranking) not claimed.'
   traceability: tests/characterization/misc-completion/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-compress-001
@@ -3503,11 +3489,10 @@ behaviours:
   discovery_card: discovery/misc-compress/features/misc-compress-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): zlib
-    byte-compat not implemented in modern run-38: PARTIAL — compress/uncompress round-trip for real (reversible size-prefixed
-    RLE; repetitive data shrinks; blobs/empty handled). RESIDUAL: not zlib byte-format, so a C-written compressed blob is
-    not cross-decodable — round-trips only.'
+  notes: 'confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): zlib byte-compat not implemented in modern run-38: PARTIAL —
+    compress/uncompress round-trip for real (reversible size-prefixed RLE; repetitive data shrinks; blobs/empty handled). RESIDUAL: not zlib byte-format,
+    so a C-written compressed blob is not cross-decodable — round-trips only.'
   traceability: tests/characterization/misc-compress/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-csv-001
@@ -3518,9 +3503,9 @@ behaviours:
   discovery_card: discovery/misc-csv/features/misc-csv-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Reads external CSV files as tables (filename= or data= args); filesystem access from
-    SQL — security-relevant | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none
-    (run-19 scoreboard): deferred (pack v8): csv vtab not implemented in modern'
+  notes: 'confidence=observed-in-code; Reads external CSV files as tables (filename= or data= args); filesystem access from SQL — security-relevant | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): csv vtab not
+    implemented in modern'
   traceability: tests/characterization/misc-csv/TRACEABILITY.yaml
   impl_in_modern: none
 - behaviour_id: misc-decimal-001
@@ -3531,9 +3516,9 @@ behaviours:
   discovery_card: discovery/misc-decimal/features/misc-decimal-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: add/sub/cmp/mul/decimal(X)/pow2/exp/collation
-    real (exact scaled i128); true arbitrary precision absent'
+  notes: 'confidence=observed-in-code; Exact decimal arithmetic over text representations; decimal collating sequence | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128);
+    true arbitrary precision absent'
   traceability: tests/characterization/misc-decimal/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-fossildelta-001
@@ -3544,11 +3529,10 @@ behaviours:
   discovery_card: discovery/misc-fossildelta/features/misc-fossildelta-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred
-    (pack v8): fossil delta encoder not implemented in modern run-39: baseline presence check FAILED (delta_create absent
-    from the bare amalgamation; prior rc=0 golden was force-linked). Left none — implementing an absent extension would be
-    greenwash.'
+  notes: 'confidence=observed-in-code; Fossil-format binary deltas between blobs; delta_parse TVF decodes them | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): fossil delta encoder not implemented in modern run-39:
+    baseline presence check FAILED (delta_create absent from the bare amalgamation; prior rc=0 golden was force-linked). Left none — implementing an absent
+    extension would be greenwash.'
   traceability: tests/characterization/misc-fossildelta/TRACEABILITY.yaml
   impl_in_modern: none
 - behaviour_id: misc-func-packs-001
@@ -3559,10 +3543,9 @@ behaviours:
   discovery_card: discovery/misc-func-packs/features/misc-func-packs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp,
-    spellfix, nextchar, rot13, uuid, fossildelta, compress, urifuncs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
-    (run-12 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps: decimal_mul + REGEXP of the pack execute for
-    real (v8 defer reclaimed); remaining ~16 pack functions absent'
+  notes: 'confidence=observed-in-code; base64/base85, sha1/sha3, decimal, ieee754, percentile, totype, uint collation, regexp, spellfix, nextchar, rot13,
+    uuid, fossildelta, compress, urifuncs. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-20
+    sweep) — gaps: decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent'
   traceability: tests/characterization/misc-func-packs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-fuzzer-001
@@ -3583,9 +3566,8 @@ behaviours:
   discovery_card: discovery/misc-ieee754/features/misc-ieee754-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Exact float<->(mantissa,exponent) mapping functions | legacy RECORD REPLAY_GREEN +
-    HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): full extension set real: ieee754/mantissa/exponent/2-arg
-    + from_blob/to_blob'
+  notes: 'confidence=observed-in-code; Exact float<->(mantissa,exponent) mapping functions | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
+    delegated stamp) | impl_in_modern=full (run-21 harvest): full extension set real: ieee754/mantissa/exponent/2-arg + from_blob/to_blob'
   traceability: tests/characterization/misc-ieee754/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3599,10 +3581,9 @@ behaviours:
   discovery_card: discovery/misc-nextchar/features/misc-nextchar-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred
-    (pack v8): index-probe next_char not implemented in modern run-38: next_char(prefix,table,column) computes the distinct
-    following characters from real rows.'
+  notes: 'confidence=observed-in-code; Returns the set of next characters extending a prefix within an indexed column | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): index-probe next_char not implemented in modern run-38:
+    next_char(prefix,table,column) computes the distinct following characters from real rows.'
   traceability: tests/characterization/misc-nextchar/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3616,9 +3597,9 @@ behaviours:
   discovery_card: discovery/misc-percentile/features/misc-percentile-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Order-statistics aggregates incl. percentile_cont/percentile_disc variants | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): percentile/median
-    not in modern; the frozen case pins the bare-build absence (rc=1) which modern reproduces by honest parse failure'
+  notes: 'confidence=observed-in-code; Order-statistics aggregates incl. percentile_cont/percentile_disc variants | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): percentile/median not in modern; the frozen case pins the bare-build
+    absence (rc=1) which modern reproduces by honest parse failure'
   traceability: tests/characterization/misc-percentile/TRACEABILITY.yaml
   impl_in_modern: none
 - behaviour_id: misc-prefixes-001
@@ -3629,9 +3610,8 @@ behaviours:
   discovery_card: discovery/misc-prefixes/features/misc-prefixes-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Emits all prefixes of a string as rows | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: prefixes() real as FROM row source;
-    vtab constraint pushdown absent'
+  notes: 'confidence=observed-in-code; Emits all prefixes of a string as rows | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated
+    stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: prefixes() real as FROM row source; vtab constraint pushdown absent'
   traceability: tests/characterization/misc-prefixes/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-qpvtab-001
@@ -3652,9 +3632,9 @@ behaviours:
   discovery_card: discovery/misc-regexp/features/misc-regexp-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; NFA regex engine backing the REGEXP operator; own dialect (not PCRE) | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    regexp operator real for literal/dot/anchor patterns; full NFA regex engine absent'
+  notes: 'confidence=observed-in-code; NFA regex engine backing the REGEXP operator; own dialect (not PCRE) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: regexp operator real for literal/dot/anchor patterns; full
+    NFA regex engine absent'
   traceability: tests/characterization/misc-regexp/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-rot13-001
@@ -3665,9 +3645,8 @@ behaviours:
   discovery_card: discovery/misc-rot13/features/misc-rot13-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; rot13(X) scalar + rot13 collation (demo-grade obfuscation) | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): rot13() function AND rot13
-    collating sequence real (both extension entry points)'
+  notes: 'confidence=observed-in-code; rot13(X) scalar + rot13 collation (demo-grade obfuscation) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): rot13() function AND rot13 collating sequence real (both extension entry points)'
   traceability: tests/characterization/misc-rot13/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3681,9 +3660,9 @@ behaviours:
   discovery_card: discovery/misc-series/features/misc-series-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: generate_series(a,b[,step]) real as FROM row source; vtab constraint pushdown absent'
+  notes: 'confidence=observed-in-code; Eponymous vtab producing integer sequences with start/stop/step hidden columns | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: generate_series(a,b[,step]) real as FROM row source; vtab constraint
+    pushdown absent'
   traceability: tests/characterization/misc-series/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-sha1-001
@@ -3694,9 +3673,8 @@ behaviours:
   discovery_card: discovery/misc-sha1/features/misc-sha1-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
-    (run-12 delegated stamp) | impl_in_modern=full (run-21 harvest): sha1(x) AND sha1_query(sql) real (extension row-hash
-    protocol byte-exact)'
+  notes: 'confidence=observed-in-code; sha1(X) and sha1_query(SQL) digests | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp)
+    | impl_in_modern=full (run-21 harvest): sha1(x) AND sha1_query(sql) real (extension row-hash protocol byte-exact)'
   traceability: tests/characterization/misc-sha1/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3710,9 +3688,8 @@ behaviours:
   discovery_card: discovery/misc-shathree/features/misc-shathree-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-12 delegated stamp) | impl_in_modern=full (run-21 harvest): sha3(x,bits) AND sha3_query(sql,bits) real
-    (same protocol, Keccak)'
+  notes: 'confidence=observed-in-code; sha3(X,SIZE) and sha3_query() digests (Keccak) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated
+    stamp) | impl_in_modern=full (run-21 harvest): sha3(x,bits) AND sha3_query(sql,bits) real (same protocol, Keccak)'
   traceability: tests/characterization/misc-shathree/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3766,9 +3743,8 @@ behaviours:
   discovery_card: discovery/misc-totype/features/misc-totype-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; NULL-on-failure strict conversions (unlike CAST''s clamping) | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): strict conversions real incl.
-    blob->NULL, i64-overflow->NULL, integral-real->int, fractional->NULL'
+  notes: 'confidence=observed-in-code; NULL-on-failure strict conversions (unlike CAST''s clamping) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): strict conversions real incl. blob->NULL, i64-overflow->NULL, integral-real->int, fractional->NULL'
   traceability: tests/characterization/misc-totype/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3782,9 +3758,8 @@ behaviours:
   discovery_card: discovery/misc-uint/features/misc-uint-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Collation comparing embedded unsigned integers numerically (natural sort) | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): uint
-    collation real in comparisons AND ORDER BY terms'
+  notes: 'confidence=observed-in-code; Collation comparing embedded unsigned integers numerically (natural sort) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): uint collation real in comparisons AND ORDER BY terms'
   traceability: tests/characterization/misc-uint/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3798,8 +3773,7 @@ behaviours:
   discovery_card: discovery/misc-unionvtab/features/misc-unionvtab-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Presents many identically-shaped tables (optionally lazily-attached dbs — swarmvtab)
-    as one table
+  notes: confidence=observed-in-code; Presents many identically-shaped tables (optionally lazily-attached dbs — swarmvtab) as one table
   impl_in_modern: none
 - behaviour_id: misc-urifuncs-001
   surface_id: sur-sqlite3-urifuncs-init
@@ -3809,9 +3783,9 @@ behaviours:
   discovery_card: discovery/misc-urifuncs/features/misc-urifuncs-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; SQL access to URI open-parameters of the current database file | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: non-URI connection
-    answers computed from real connection state; URI parameter parsing absent'
+  notes: 'confidence=observed-in-code; SQL access to URI open-parameters of the current database file | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: non-URI connection answers computed from real connection state; URI parameter
+    parsing absent'
   traceability: tests/characterization/misc-urifuncs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-utilities-001
@@ -3822,11 +3796,10 @@ behaviours:
   discovery_card: discovery/misc-utilities/features/misc-utilities-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused,
-    noop, randomjson, remember, stmtrand, strdup, showauth, anycollseq, normalize. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): eval() nested execution
-    not implemented in modern run-39: baseline presence check FAILED (eval() absent from the bare amalgamation). Left none
-    — the utility pack sole pin uses an absent function.'
+  notes: 'confidence=observed-in-code; fileio (fs read/write from SQL — security flag), dbdump, eval, explain, memstat, diskused, noop, randomjson, remember,
+    stmtrand, strdup, showauth, anycollseq, normalize. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none
+    (run-19 scoreboard): deferred (pack v8): eval() nested execution not implemented in modern run-39: baseline presence check FAILED (eval() absent from
+    the bare amalgamation). Left none — the utility pack sole pin uses an absent function.'
   traceability: tests/characterization/misc-utilities/TRACEABILITY.yaml
   impl_in_modern: none
 - behaviour_id: misc-uuid-001
@@ -3837,9 +3810,8 @@ behaviours:
   discovery_card: discovery/misc-uuid/features/misc-uuid-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; RFC-4122 v4 generation + text/blob conversions | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): uuid() v4 + uuid_str/uuid_blob canonicalization
-    (braces/case/dashes) real'
+  notes: 'confidence=observed-in-code; RFC-4122 v4 generation + text/blob conversions | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated
+    stamp) | impl_in_modern=full (run-21 harvest): uuid() v4 + uuid_str/uuid_blob canonicalization (braces/case/dashes) real'
   traceability: tests/characterization/misc-uuid/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3853,8 +3825,8 @@ behaviours:
   discovery_card: discovery/misc-vfs-shims/features/misc-vfs-shims-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace
-    — wrappers over a lower VFS.
+  notes: confidence=observed-in-code; appendvfs, cksumvfs, vfsstat, vfstrace, vfslog, tmstmpvfs, mmapwarm, memtrace, pcachetrace — wrappers over a lower
+    VFS.
   impl_in_modern: none
 - behaviour_id: misc-vfslog-001
   surface_id: sur-sqlite3-register-vfslog
@@ -3864,8 +3836,8 @@ behaviours:
   discovery_card: discovery/misc-vfslog/features/misc-vfslog-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog
-    (SQLITE_EXTRA_INIT hook)
+  notes: confidence=observed-in-code; Logs VFS operations to a binary file for later analysis; registered via sqlite3_register_vfslog (SQLITE_EXTRA_INIT
+    hook)
   impl_in_modern: none
 - behaviour_id: misc-vfsstat-001
   surface_id: sur-sqlite3-vfsstat-init
@@ -3885,8 +3857,7 @@ behaviours:
   discovery_card: discovery/misc-vfstrace/features/misc-vfstrace-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Wraps a VFS and prints every method call with args — debugging aid; registered via C
-    API
+  notes: confidence=observed-in-code; Wraps a VFS and prints every method call with args — debugging aid; registered via C API
   impl_in_modern: none
 - behaviour_id: misc-vtab-packs-001
   surface_id: sur-ext-misc-vtab-packs
@@ -3896,8 +3867,8 @@ behaviours:
   discovery_card: discovery/misc-vtab-packs/features/misc-vtab-packs-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure,
-    amatch, fuzzer, prefixes, wholenumber, stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
+  notes: confidence=observed-in-code; generate_series, csv, zipfile/sqlar, unionvtab/swarmvtab, qpvtab, completion, closure, amatch, fuzzer, prefixes, wholenumber,
+    stmt, templatevtab, vtablog, vtshim, btreeinfo, zorder.
   impl_in_modern: none
 - behaviour_id: misc-vtablog-001
   surface_id: sur-sqlite3-vtablog-init
@@ -3927,11 +3898,10 @@ behaviours:
   discovery_card: discovery/misc-wholenumber/features/misc-wholenumber-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series) | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): wholenumber
-    vtab not implemented in modern run-38: PARTIAL — CREATE VIRTUAL TABLE ... USING wholenumber registers a bounded generator;
-    WHERE-bounded SELECT/aggregates match C. RESIDUAL: vtab-core general module system (xBestIndex cost, unbounded scans)
-    not implemented.'
+  notes: 'confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): wholenumber vtab not implemented in modern run-38: PARTIAL —
+    CREATE VIRTUAL TABLE ... USING wholenumber registers a bounded generator; WHERE-bounded SELECT/aggregates match C. RESIDUAL: vtab-core general module
+    system (xBestIndex cost, unbounded scans) not implemented.'
   traceability: tests/characterization/misc-wholenumber/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: misc-zipfile-sqlar-001
@@ -3942,8 +3912,8 @@ behaviours:
   discovery_card: discovery/misc-zipfile-sqlar/features/misc-zipfile-sqlar-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Read/write zip archives as tables; sqlar_compress/uncompress build the SQLite-archive
-    format on it (genuinely one pack, kept clustered)
+  notes: confidence=observed-in-code; Read/write zip archives as tables; sqlar_compress/uncompress build the SQLite-archive format on it (genuinely one
+    pack, kept clustered)
   impl_in_modern: none
 - behaviour_id: misc-zorder-001
   surface_id: sur-sqlite3-zorder-init
@@ -3953,9 +3923,9 @@ behaviours:
   discovery_card: discovery/misc-zorder/features/misc-zorder-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=full (run-19 scoreboard): zorder/unzorder
-    computed by real bit interleaving (complete 2-function extension)'
+  notes: 'confidence=observed-in-code; Morton-code zorder()/unzorder() scalar functions for multi-dimensional indexing | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-12 delegated stamp) | impl_in_modern=full (run-19 scoreboard): zorder/unzorder computed by real bit interleaving (complete 2-function
+    extension)'
   traceability: tests/characterization/misc-zorder/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3969,9 +3939,9 @@ behaviours:
   discovery_card: discovery/mutex-subsystem/features/mutex-subsystem-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Method-table plugin (config-replaceable); static vs dynamic mutexes; pthread/win/noop
-    backends. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent'
+  notes: 'confidence=observed-in-code; Method-table plugin (config-replaceable); static vs dynamic mutexes; pthread/win/noop backends. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: alloc/enter/leave/free real; pluggable mutex
+    methods and static-mutex semantics absent'
   traceability: tests/characterization/mutex-subsystem/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: name-resolution-001
@@ -3982,10 +3952,9 @@ behaviours:
   discovery_card: discovery/name-resolution/features/name-resolution-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Nested-scope lookup with ''ambiguous column''/''no such column'' errors; uses tree
-    walker (src/walker.c:64). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full
-    (run-20 sweep): qualified/bare lookup + prepare-time "ambiguous column name"/"no such column" errors real (eager schema-row
-    probe)'
+  notes: 'confidence=observed-in-code; Nested-scope lookup with ''ambiguous column''/''no such column'' errors; uses tree walker (src/walker.c:64). | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): qualified/bare lookup + prepare-time
+    "ambiguous column name"/"no such column" errors real (eager schema-row probe)'
   traceability: tests/characterization/name-resolution/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -3999,9 +3968,8 @@ behaviours:
   discovery_card: discovery/name-resolution/features/name-resolution-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Result-alias and 1-based ordinal handling with compat quirks. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): alias/ordinal + COLLATE terms
-    + NULLS FIRST/LAST + GROUP BY expressions all real'
+  notes: 'confidence=observed-in-code; Result-alias and 1-based ordinal handling with compat quirks. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): alias/ordinal + COLLATE terms + NULLS FIRST/LAST + GROUP BY expressions all real'
   traceability: tests/characterization/name-resolution/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4015,8 +3983,8 @@ behaviours:
   discovery_card: discovery/pager/features/pager-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. | touched by
-    engine-files (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
+  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. | touched by engine-files (run 15) — NOT frozen/green;
+    durability is a toy single-page writer, not this card
   impl_in_modern: none
 - behaviour_id: pager-002
   surface_id: sur-sqlite3pagersetjournalmode
@@ -4036,9 +4004,9 @@ behaviours:
   discovery_card: discovery/parser-grammar/features/parser-grammar-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; 417 productions define the accepted SQL dialect; actions call into build/select/etc.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent'
+  notes: 'confidence=observed-in-code; 417 productions define the accepted SQL dialect; actions call into build/select/etc. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: grammar subset real (pinned DDL/DML/SELECT/pragma
+    catalogue); full parse.y productions absent'
   traceability: tests/characterization/parser-grammar/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: parser-grammar-002
@@ -4049,11 +4017,10 @@ behaviours:
   discovery_card: discovery/parser-grammar/features/parser-grammar-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard):
-    keyword-fallback table absent in modern; pinned error observable reproduced by honest parse failure run-38: PARTIAL —
-    keywords usable as UNQUOTED identifiers (key/value/offset/action as columns) real. RESIDUAL: quoted reserved words as
-    TABLE names (FROM "select") still trip the tokenizer.'
+  notes: 'confidence=observed-in-code; %fallback lets many keywords double as identifiers — silent dialect compatibility. | legacy RECORD REPLAY_GREEN +
+    HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): keyword-fallback table absent in modern; pinned error
+    observable reproduced by honest parse failure run-38: PARTIAL — keywords usable as UNQUOTED identifiers (key/value/offset/action as columns) real. RESIDUAL:
+    quoted reserved words as TABLE names (FROM "select") still trip the tokenizer.'
   traceability: tests/characterization/parser-grammar/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: pcache-001
@@ -4084,12 +4051,11 @@ behaviours:
   discovery_card: discovery/pragma-surface/features/pragma-surface-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path);
-    per-pragma flags control schema-load and result shape. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
-    delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial
-    (run-20 sweep) — gaps: 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store);
-    rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card
-    stays partial (dispatcher breadth still bounded).'
+  notes: 'confidence=observed-in-code; Name lookup via generated table (source: tool/mkpragmatab.tcl, out-of-scope path); per-pragma flags control schema-load
+    and result shape. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-12 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps: 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode
+    by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial
+    (dispatcher breadth still bounded).'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: pragma-surface-002
@@ -4100,11 +4066,10 @@ behaviours:
   discovery_card: discovery/pragma-surface/features/pragma-surface-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Result-returning pragmas exposed as pragma_<name>() table-valued functions. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: table_info/foreign_key_list/index_list/database_list
-    projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list
-    / pragma_pragma_list TVFs added (bare + parenthesized forms).'
+  notes: 'confidence=observed-in-code; Result-returning pragmas exposed as pragma_<name>() table-valued functions. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19
+    scoreboard) — gaps: table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries
+    deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms).'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-001
@@ -4115,10 +4080,9 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock
-    retry). run-29: UTF-16 prepare variants (prepare16/_v2/_v3) now real via shared core + real codec — the sole remaining
-    gap closed; UTF-8 prepare_v2/v3 + prepFlags/auto-reprepare/EXPLAIN landed v13/v14. Frozen scope only; legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED (runs 7/22/29)'
+  notes: 'confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock retry). run-29: UTF-16
+    prepare variants (prepare16/_v2/_v3) now real via shared core + real codec — the sole remaining gap closed; UTF-8 prepare_v2/v3 + prepFlags/auto-reprepare/EXPLAIN
+    landed v13/v14. Frozen scope only; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED (runs 7/22/29)'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4132,11 +4096,10 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; sqlite3_step drives the VDBE; ROW/DONE as implemented on this pin (autoreset after
-    DONE); BUSY only where evidenced; finalized-handle UAF/not observed. | legacy RECORD REPLAY_GREEN 2026-08-11 (goldens
-    HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | not conversion-ready while C003 BLOCKED (stamp != PACK != Convert) | impl_in_modern=full
-    (run-23): step executes real SQL via the shared engine (rows materialize on first step, nested loop — no bytecode-VDBE
-    claim); ROW/DONE/constraint codes + autoreset (OMIT_AUTORESET=off) real'
+  notes: 'confidence=observed-in-code; sqlite3_step drives the VDBE; ROW/DONE as implemented on this pin (autoreset after DONE); BUSY only where evidenced;
+    finalized-handle UAF/not observed. | legacy RECORD REPLAY_GREEN 2026-08-11 (goldens HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | not conversion-ready while
+    C003 BLOCKED (stamp != PACK != Convert) | impl_in_modern=full (run-23): step executes real SQL via the shared engine (rows materialize on first step,
+    nested loop — no bytecode-VDBE claim); ROW/DONE/constraint codes + autoreset (OMIT_AUTORESET=off) real'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4150,9 +4113,9 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings. | legacy RECORD
-    REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=full (run-23): typed binds real: null/int/int64/double/text/blob
-    (copied, TRANSIENT-safe) + parameter count/name/index + SQLITE_RANGE; runtime binds provably drive results'
+  notes: 'confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings. | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED
+    2026-08-11 (run-8 stamp) | impl_in_modern=full (run-23): typed binds real: null/int/int64/double/text/blob (copied, TRANSIENT-safe) + parameter count/name/index
+    + SQLITE_RANGE; runtime binds provably drive results'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4166,11 +4129,10 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-004.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-23): column
-    matrix real: count/name/type/int/int64/double/text/blob/bytes with real coercions (text integer-prefix, real truncation)
-    incl. before-step/after-done/out-of-range behaviour run-29: UTF-16 twins (column_text16/bytes16/name16/decltype16 + UTF-8
-    column_decltype) now real — card stays full, no second flip.'
+  notes: 'confidence=observed-in-code; column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-23): column matrix real: count/name/type/int/int64/double/text/blob/bytes
+    with real coercions (text integer-prefix, real truncation) incl. before-step/after-done/out-of-range behaviour run-29: UTF-16 twins (column_text16/bytes16/name16/decltype16
+    + UTF-8 column_decltype) now real — card stays full, no second flip.'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4184,10 +4146,9 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-005.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
-    | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=full (run-24): reset/finalize
-    + autoreset + AUTO-REPREPARE on schema change real (DDL under live stmt re-resolves; DROP -> SQLITE_ERROR no such table,
-    as pinned)'
+  notes: 'confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA. | legacy RECORD REPLAY_GREEN
+    + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=full (run-24): reset/finalize + autoreset + AUTO-REPREPARE on schema change real
+    (DDL under live stmt re-resolves; DROP -> SQLITE_ERROR no such table, as pinned)'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4201,10 +4162,9 @@ behaviours:
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-006.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: stmt_readonly/busy
-    + EXPLAIN QUERY PLAN (this engine''s honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column
-    shape real; EXPLAIN bytecode listing absent (no VDBE)'
+  notes: 'confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine''s honest nested-loop
+    SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-001
@@ -4215,10 +4175,9 @@ behaviours:
   discovery_card: discovery/printf-format/features/printf-format-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-24): SQL
-    printf complete for the frozen scope: flags (incl. thousands-separator comma), width/precision, 17 conversions incl. %w
-    and %p'
+  notes: 'confidence=observed-in-code; Formatter with SQL-argument marshalling (SQLITE_PRINTF_SQLFUNC); %q/%Q/%w quoting directives. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-24): SQL printf complete for the frozen scope: flags (incl. thousands-separator
+    comma), width/precision, 17 conversions incl. %w and %p'
   traceability: tests/characterization/printf-format/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4232,10 +4191,9 @@ behaviours:
   discovery_card: discovery/printf-format/features/printf-format-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Public C formatting entrypoints sharing the same core formatter. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: mprintf subset
-    real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf
-    requires a C va_list, which stable Rust cannot define — honest platform residual.'
+  notes: 'confidence=observed-in-code; Public C formatting entrypoints sharing the same core formatter. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11
+    (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf
+    real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.'
   traceability: tests/characterization/printf-format/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-003
@@ -4246,10 +4204,9 @@ behaviours:
   discovery_card: discovery/printf-format/features/printf-format-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps. | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: str_new/appendf/appendchar/reset/length/value/errcode/finish
-    (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING:
-    vappendf (same va_list platform residual).'
+  notes: 'confidence=observed-in-code; Dynamic string accumulator with error-state and precision/width caps. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL)
+    real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).'
   traceability: tests/characterization/printf-format/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: qrf-001
@@ -4270,8 +4227,7 @@ behaviours:
   discovery_card: discovery/rbu/features/rbu-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Applies rbu-format delta db in steps; interruptible/resumable via state db; wal-stage
-    handoff.
+  notes: confidence=observed-in-code; Applies rbu-format delta db in steps; interruptible/resumable via state db; wal-stage handoff.
   impl_in_modern: none
 - behaviour_id: rbu-002
   surface_id: sur-sqlite3rbu-vacuum
@@ -4291,8 +4247,7 @@ behaviours:
   discovery_card: discovery/recover/features/recover-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Stepped recovery using sqlite_dbdata vtab (ext/recover/dbdata.c:1014); lost-and-found
-    handling.
+  notes: confidence=observed-in-code; Stepped recovery using sqlite_dbdata vtab (ext/recover/dbdata.c:1014); lost-and-found handling.
   impl_in_modern: none
 - behaviour_id: recover-002
   surface_id: sur-sqlite3-recover-init-sql
@@ -4322,8 +4277,7 @@ behaviours:
   discovery_card: discovery/rtree/features/rtree-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; geometry_callback (legacy) and query_callback (scored traversal) create MATCH-usable
-    SQL functions.
+  notes: confidence=observed-in-code; geometry_callback (legacy) and query_callback (scored traversal) create MATCH-usable SQL functions.
   impl_in_modern: none
 - behaviour_id: select-codegen-001
   surface_id: sur-sqlite3select
@@ -4333,10 +4287,9 @@ behaviours:
   discovery_card: discovery/select-codegen/features/select-codegen-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output
-    modes. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: joins/subqueries/FROM depth run real (nested loop); full select.c orchestration, flattening and planner
-    absent'
+  notes: 'confidence=observed-in-code; Top-level SELECT compile: FROM expansion, aggregate/distinct handling, result output modes. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: joins/subqueries/FROM depth run real (nested
+    loop); full select.c orchestration, flattening and planner absent'
   traceability: tests/characterization/select-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: select-codegen-002
@@ -4347,9 +4300,9 @@ behaviours:
   discovery_card: discovery/select-codegen/features/select-codegen-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): UNION/UNION
-    ALL/INTERSECT/EXCEPT all real (left-assoc fold, distinct semantics); compound VALUES arm unpinned'
+  notes: 'confidence=observed-in-code; UNION/UNION ALL/EXCEPT/INTERSECT incl. merge strategy and LIMIT/ORDER BY rules. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-20 sweep): UNION/UNION ALL/INTERSECT/EXCEPT all real (left-assoc fold, distinct semantics);
+    compound VALUES arm unpinned'
   traceability: tests/characterization/select-codegen/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4363,10 +4316,9 @@ behaviours:
   discovery_card: discovery/select-codegen/features/select-codegen-003.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Flattening under a long restriction list; changes plans invisibly — parity-relevant
-    for corner cases. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: pinned observable executes via direct subquery evaluation; the flattening rewrite itself does
-    not exist in modern'
+  notes: 'confidence=observed-in-code; Flattening under a long restriction list; changes plans invisibly — parity-relevant for corner cases. | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: pinned observable executes via
+    direct subquery evaluation; the flattening rewrite itself does not exist in modern'
   traceability: tests/characterization/select-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: serialize-memdb-api-001
@@ -4377,10 +4329,9 @@ behaviours:
   discovery_card: discovery/serialize-memdb-api/features/serialize-memdb-api-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; serialize copies or references the db image; deserialize swaps a connection onto a
-    memory image with FREEONCLOSE/RESIZEABLE flags. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated
-    stamp) | impl_in_modern=full (run-24): populated serialize/deserialize real: live store -> real SQLite image (shared dbfile
-    writer) -> reload; all five storage classes round-trip; FREEONCLOSE honoured'
+  notes: 'confidence=observed-in-code; serialize copies or references the db image; deserialize swaps a connection onto a memory image with FREEONCLOSE/RESIZEABLE
+    flags. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-24): populated serialize/deserialize
+    real: live store -> real SQLite image (shared dbfile writer) -> reload; all five storage classes round-trip; FREEONCLOSE honoured'
   traceability: tests/characterization/serialize-memdb-api/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4394,9 +4345,9 @@ behaviours:
   discovery_card: discovery/serialize-memdb-api/features/serialize-memdb-api-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Registered VFS ''memdb'' provides byte-array file semantics incl. shared named images.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent'
+  notes: 'confidence=observed-in-code; Registered VFS ''memdb'' provides byte-array file semantics incl. shared named images. | legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: in-memory stores are real; the memdb VFS surface
+    (URI attach, shared named memdb) absent'
   traceability: tests/characterization/serialize-memdb-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: session-001
@@ -4417,8 +4368,7 @@ behaviours:
   discovery_card: discovery/session/features/session-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Apply with per-conflict callback returning OMIT/REPLACE/ABORT; foreign-key ordering
-    rules.
+  notes: confidence=observed-in-code; Apply with per-conflict callback returning OMIT/REPLACE/ABORT; foreign-key ordering rules.
   impl_in_modern: none
 - behaviour_id: session-003
   surface_id: sur-sqlite3changeset-start
@@ -4458,8 +4408,7 @@ behaviours:
   discovery_card: discovery/tcl-binding/features/tcl-binding-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Package registration creates 'sqlite3' command; each db handle becomes a TCL command
-    with ~40 subcommands.
+  notes: confidence=observed-in-code; Package registration creates 'sqlite3' command; each db handle becomes a TCL command with ~40 subcommands.
   impl_in_modern: none
 - behaviour_id: tokenizer-001
   surface_id: sur-sqlite3runparser
@@ -4469,9 +4418,9 @@ behaviours:
   discovery_card: discovery/tokenizer/features/tokenizer-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Character-class token scanner feeding Lemon parser; error token handling. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent'
+  notes: 'confidence=observed-in-code; Character-class token scanner feeding Lemon parser; error token handling. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: hex/exp/blob/bracket-ident token classes real in the eval tokenizer;
+    full tokenize.c class coverage absent'
   traceability: tests/characterization/tokenizer/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: tokenizer-002
@@ -4482,12 +4431,11 @@ behaviours:
   discovery_card: discovery/tokenizer/features/tokenizer-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Public API state machine deciding whether SQL text ends in a complete statement (trigger-aware).
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent run-33: real
-    BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies pinned). REMAINING: string-literal-aware lexing inside
-    complete(). run-38: sqlite3_complete now strips string literals and comments (;/END inside them no longer count) and handles
-    quoted END in trigger bodies.'
+  notes: 'confidence=observed-in-code; Public API state machine deciding whether SQL text ends in a complete statement (trigger-aware). | legacy RECORD
+    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: sqlite3_complete real for plain
+    statements and simple trigger bodies; full nesting grammar absent run-33: real BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies
+    pinned). REMAINING: string-literal-aware lexing inside complete(). run-38: sqlite3_complete now strips string literals and comments (;/END inside them
+    no longer count) and handles quoted END in trigger bodies.'
   traceability: tests/characterization/tokenizer/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: triggers-001
@@ -4498,10 +4446,9 @@ behaviours:
   discovery_card: discovery/triggers/features/triggers-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation. |
-    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest):
-    DDL lifecycle real: BEFORE/AFTER/INSTEAD OF x I/U/D, UPDATE OF, WHEN, DROP TRIGGER, durable persist; TEMP/IF NOT EXISTS
-    unpinned'
+  notes: 'confidence=observed-in-code; CREATE/DROP TRIGGER incl. temp-trigger scoping and INSTEAD OF-on-view validation. | legacy RECORD REPLAY_GREEN +
+    HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-21 harvest): DDL lifecycle real: BEFORE/AFTER/INSTEAD OF x I/U/D, UPDATE
+    OF, WHEN, DROP TRIGGER, durable persist; TEMP/IF NOT EXISTS unpinned'
   traceability: tests/characterization/triggers/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4515,10 +4462,9 @@ behaviours:
   discovery_card: discovery/triggers/features/triggers-002.md
   legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
-    recursive-trigger gate. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full
-    (run-25) — firing semantics complete incl. RAISE(ROLLBACK) unwinding the real transaction (v15); txn-scoped behaviour
-    now honest
+  notes: confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause; recursive-trigger gate. |
+    legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-25) — firing semantics complete incl. RAISE(ROLLBACK)
+    unwinding the real transaction (v15); txn-scoped behaviour now honest
   traceability: tests/characterization/triggers/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4532,8 +4478,8 @@ behaviours:
   discovery_card: discovery/unlock-notify-api/features/unlock-notify-api-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns
-    SQLITE_LOCKED; fire-and-forget async seam.
+  notes: confidence=observed-in-code; Registers callback fired when the blocking connection unlocks; cycle detection returns SQLITE_LOCKED; fire-and-forget
+    async seam.
   impl_in_modern: none
 - behaviour_id: upsert-001
   surface_id: sur-sqlite3upsertanalyzetarget
@@ -4543,11 +4489,10 @@ behaviours:
   discovery_card: discovery/upsert/features/upsert-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match. run-31:
-    expression conflict targets (the sole named gap) now real — ON CONFLICT (<expr-list>) [WHERE <pred>] resolves structurally
-    against expression/multi-column/partial UNIQUE indexes, PK/UNIQUE columns and UNIQUE table constraints; mismatch and non-targeted-conflict
-    errors match C pins. UNIQUE+custom-collation targets stay unpinned (v20 residual, not part of this card''s claimed gap).
-    Frozen scope only; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED (runs 11/31)'
+  notes: 'confidence=observed-in-code; ON CONFLICT target column list matched to a unique index; error if no match. run-31: expression conflict targets
+    (the sole named gap) now real — ON CONFLICT (<expr-list>) [WHERE <pred>] resolves structurally against expression/multi-column/partial UNIQUE indexes,
+    PK/UNIQUE columns and UNIQUE table constraints; mismatch and non-targeted-conflict errors match C pins. UNIQUE+custom-collation targets stay unpinned
+    (v20 residual, not part of this card''s claimed gap). Frozen scope only; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED (runs 11/31)'
   traceability: tests/characterization/upsert/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4561,9 +4506,9 @@ behaviours:
   discovery_card: discovery/upsert/features/upsert-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Generates UPDATE against conflicting row; excluded.* pseudo-table bindings. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-24): DO NOTHING /
-    DO UPDATE with real multi-assignment SET lists, expressions over excluded.* + existing row, and conditional WHERE'
+  notes: 'confidence=observed-in-code; Generates UPDATE against conflicting row; excluded.* pseudo-table bindings. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-24): DO NOTHING / DO UPDATE with real multi-assignment SET lists, expressions over excluded.*
+    + existing row, and conditional WHERE'
   traceability: tests/characterization/upsert/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4577,10 +4522,9 @@ behaviours:
   discovery_card: discovery/util-primitives/features/util-primitives-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public
-    API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16
-    surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on
-    codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED'
+  notes: 'confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29:
+    real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG
+    primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED'
   traceability: tests/characterization/util-primitives/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: vacuum-001
@@ -4591,11 +4535,10 @@ behaviours:
   discovery_card: discovery/vacuum/features/vacuum-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes. run-34:
-    PARTIAL — the rebuild itself is real in modern (implicit rowids renumber, IPK/WITHOUT ROWID keys kept, freelist page model
-    reclaimed, durable rewrite C reads with integrity ok, txn ban with C errmsg). RESIDUAL: pending page_size / auto_vacuum
-    application during VACUUM and attached-schema forms (VACUUM <schema>) are not implemented — the card names them, so full
-    would over-claim. Old vacuum-001-C001 golden (deferred since the recognizer era) now replays for real.'
+  notes: 'confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes. run-34: PARTIAL — the rebuild itself
+    is real in modern (implicit rowids renumber, IPK/WITHOUT ROWID keys kept, freelist page model reclaimed, durable rewrite C reads with integrity ok,
+    txn ban with C errmsg). RESIDUAL: pending page_size / auto_vacuum application during VACUUM and attached-schema forms (VACUUM <schema>) are not implemented
+    — the card names them, so full would over-claim. Old vacuum-001-C001 golden (deferred since the recognizer era) now replays for real.'
   traceability: tests/characterization/vacuum/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: vacuum-002
@@ -4606,10 +4549,9 @@ behaviours:
   discovery_card: discovery/vacuum/features/vacuum-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Rebuild into named URI target; source unchanged. run-34: PARTIAL — VACUUM INTO writes
-    a fresh C-readable file (tables+indexes, integrity ok), source untouched; exists/txn/invalid-path errors match pins; :memory:
-    export works; runtime-target anti-cheat green. RESIDUAL: URI filename target forms (file:...?...) not pinned or implemented
-    — named in the card, so full would over-claim.'
+  notes: 'confidence=observed-in-code; Rebuild into named URI target; source unchanged. run-34: PARTIAL — VACUUM INTO writes a fresh C-readable file (tables+indexes,
+    integrity ok), source untouched; exists/txn/invalid-path errors match pins; :memory: export works; runtime-target anti-cheat green. RESIDUAL: URI filename
+    target forms (file:...?...) not pinned or implemented — named in the card, so full would over-claim.'
   impl_in_modern: partial
 - behaviour_id: vdbe-engine-001
   surface_id: sur-sqlite3vdbeexec
@@ -4629,8 +4571,7 @@ behaviours:
   discovery_card: discovery/vdbe-engine/features/vdbe-engine-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.;
-    file-only evidence'
+  notes: 'confidence=inferred; Dynamic typing engine: numeric/text/blob conversions, encodings, zeroblob materialization.; file-only evidence'
   impl_in_modern: none
 - behaviour_id: vfs-kv-001
   surface_id: sur-sqlite3kvvfsinit
@@ -4640,8 +4581,7 @@ behaviours:
   discovery_card: discovery/vfs-kv/features/vfs-kv-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage
-    primary consumer.
+  notes: confidence=observed-in-code; VFS storing db+journal as key/value pairs with base85 page encoding; wasm/localStorage primary consumer.
   impl_in_modern: none
 - behaviour_id: vfs-kv-002
   surface_id: sur-sqlite3-kvvfs-methods
@@ -4661,8 +4601,8 @@ behaviours:
   discovery_card: discovery/vfs-os-abstraction/features/vfs-os-abstraction-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Register/find/unregister VFS list with default selection. | touched by engine-files
-    (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
+  notes: confidence=observed-in-code; Register/find/unregister VFS list with default selection. | touched by engine-files (run 15) — NOT frozen/green; durability
+    is a toy single-page writer, not this card
   impl_in_modern: none
 - behaviour_id: vfs-os-abstraction-002
   surface_id: sur-unixopen
@@ -4692,8 +4632,7 @@ behaviours:
   discovery_card: discovery/vfs-unix-variants/features/vfs-unix-variants-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Compile+runtime selection among 8 locking strategies; auto-detection per filesystem
-    when LOCKING_STYLE enabled.
+  notes: confidence=observed-in-code; Compile+runtime selection among 8 locking strategies; auto-detection per filesystem when LOCKING_STYLE enabled.
   impl_in_modern: none
 - behaviour_id: vfs-unix-variants-002
   surface_id: sur-proxyiomethods
@@ -4723,8 +4662,7 @@ behaviours:
   discovery_card: discovery/vfs-win/features/vfs-win-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines
-    run-1 vfs-os-abstraction-003.
+  notes: confidence=observed-in-code; winVfs registered at os_init; winOpen with win32 sharing/locking semantics; refines run-1 vfs-os-abstraction-003.
   impl_in_modern: none
 - behaviour_id: vfs-win-002
   surface_id: sur-winshmmap
@@ -4764,11 +4702,10 @@ behaviours:
   discovery_card: discovery/wal/features/wal-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32:
-    PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process
-    commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level
-    appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery
-    matrix. Do not flip to full on the v22 slice.'
+  notes: 'confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path
+    (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits
+    rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol;
+    no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.'
   impl_in_modern: partial
 - behaviour_id: wal-002
   surface_id: sur-sqlite3walcheckpoint
@@ -4778,10 +4715,9 @@ behaviours:
   discovery_card: discovery/wal/features/wal-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL
-    — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE
-    zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised
-    — full would greenwash that distinction. No wal_autocheckpoint.'
+  notes: 'confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form
+    pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking
+    behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.'
   impl_in_modern: partial
 - behaviour_id: wasm-binding-001
   surface_id: sur-ext-wasm-api-sqlite3-wasm-c
@@ -4791,9 +4727,8 @@ behaviours:
   discovery_card: discovery/wasm-binding/features/wasm-binding-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence;
-    fiddle UI noted as adapter, deprioritized.; needs-SME: inferred-confidence card requires SME sign-off or waive-characterization
-    before Test gen'
+  notes: 'confidence=inferred; C export glue + layered JS APIs (low-level, oo1) + OPFS-backed VFS for browser persistence; fiddle UI noted as adapter, deprioritized.;
+    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: wasm-js-api-001
   surface_id: sur-ext-wasm-api-sqlite3-api-prologue-js
@@ -4803,8 +4738,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; sqlite3.capi namespace built by prologue/glue over exported C functions.; needs-SME: inferred-confidence
-    card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; sqlite3.capi namespace built by prologue/glue over exported C functions.; needs-SME: inferred-confidence card requires SME
+    sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: wasm-js-api-002
   surface_id: sur-ext-wasm-api-sqlite3-api-oo1-c-pp-js
@@ -4814,8 +4749,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; High-level DB/Stmt wrapper with exec() config object semantics.; needs-SME: inferred-confidence
-    card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; High-level DB/Stmt wrapper with exec() config object semantics.; needs-SME: inferred-confidence card requires SME sign-off
+    or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: wasm-js-api-003
   surface_id: sur-ext-wasm-api-sqlite3-api-worker1-c-pp-js
@@ -4825,8 +4760,8 @@ behaviours:
   discovery_card: discovery/wasm-js-api/features/wasm-js-api-003.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards at bind.;
-    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; postMessage-based API for worker-thread use; promise wrapper. Async seam — split cards at bind.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: wasm-opfs-001
   surface_id: sur-sqlite3-vfs-opfs-c-pp-js
@@ -4836,8 +4771,8 @@ behaviours:
   discovery_card: discovery/wasm-opfs/features/wasm-opfs-001.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS handles.;
-    needs-SME: inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; Sync VFS calls proxied to an async OPFS worker; requires COOP/COEP; locking via OPFS handles.; needs-SME: inferred-confidence
+    card requires SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: wasm-opfs-002
   surface_id: sur-sqlite3-vfs-opfs-sahpool-c-pp-js
@@ -4847,8 +4782,8 @@ behaviours:
   discovery_card: discovery/wasm-opfs/features/wasm-opfs-002.md
   legacy_green: false
   parity_green: false
-  notes: 'confidence=inferred; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.; needs-SME:
-    inferred-confidence card requires SME sign-off or waive-characterization before Test gen'
+  notes: 'confidence=inferred; Pre-acquired SAH pool; no COOP/COEP; capacity-limited filenames; wl variant present.; needs-SME: inferred-confidence card
+    requires SME sign-off or waive-characterization before Test gen'
   impl_in_modern: none
 - behaviour_id: where-optimizer-001
   surface_id: sur-sqlite3wherebegin
@@ -4868,8 +4803,7 @@ behaviours:
   discovery_card: discovery/where-optimizer/features/where-optimizer-002.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks
-    cheapest join order.
+  notes: confidence=observed-in-code; Candidate WhereLoops per table (full scan / index / covering); wherePathSolver picks cheapest join order.
   impl_in_modern: none
 - behaviour_id: window-functions-001
   surface_id: sur-sqlite3windowfunctions
@@ -4879,11 +4813,10 @@ behaviours:
   discovery_card: discovery/window-functions/features/window-functions-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; 11 built-in window functions registered in sqlite3WindowFunctions. | legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: rank/dense_rank/lag/lead/row_number
-    + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
-    run-33: first_value/last_value/nth_value/ntile/percent_rank/cume_dist all real, plus named WINDOW clause and full-partition
-    ROWS frame. Named residual gone.'
+  notes: 'confidence=observed-in-code; 11 built-in window functions registered in sqlite3WindowFunctions. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with
+    PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent run-33: first_value/last_value/nth_value/ntile/percent_rank/cume_dist
+    all real, plus named WINDOW clause and full-partition ROWS frame. Named residual gone.'
   traceability: tests/characterization/window-functions/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4897,9 +4830,9 @@ behaviours:
   discovery_card: discovery/window-functions/features/window-functions-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls. | legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-24) — gaps: RANGE-with-peers default,
-    ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent'
+  notes: 'confidence=observed-in-code; Frame boundary codegen and per-row step/inverse calls. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11
+    delegated stamp) | impl_in_modern=partial (run-24) — gaps: RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE
+    and offset RANGE absent'
   traceability: tests/characterization/window-functions/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: engine-kitchen-001
@@ -4910,9 +4843,8 @@ behaviours:
   discovery_card: discovery/engine-kitchen/features/engine-kitchen-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; composed slice for pack v4 store law (run 13) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-13 delegated stamp) | impl_in_modern=full (run-19 scoreboard): kitchen scripts execute on the real in-memory
-    store'
+  notes: 'confidence=observed-in-code; composed slice for pack v4 store law (run 13) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-13 delegated
+    stamp) | impl_in_modern=full (run-19 scoreboard): kitchen scripts execute on the real in-memory store'
   traceability: tests/characterization/engine-kitchen/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -4927,8 +4859,8 @@ behaviours:
   traceability: tests/characterization/engine-files/TRACEABILITY.yaml
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-15 delegated stamp); C-readable SQLite file format |
-    impl_in_modern=full (run-19 scoreboard): durable round-trips execute via real SQLite file format (C-readable)'
+  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-15 delegated stamp); C-readable SQLite file format | impl_in_modern=full (run-19 scoreboard):
+    durable round-trips execute via real SQLite file format (C-readable)'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -4942,8 +4874,8 @@ behaviours:
   traceability: tests/characterization/engine-files/TRACEABILITY.yaml
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file
-    | impl_in_modern=full (run-19 scoreboard): multi-page b-trees written/read for real; C integrity_check=ok'
+  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file | impl_in_modern=full (run-19
+    scoreboard): multi-page b-trees written/read for real; C integrity_check=ok'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -4957,8 +4889,8 @@ behaviours:
   traceability: tests/characterization/engine-files/TRACEABILITY.yaml
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file
-    | impl_in_modern=full (run-19 scoreboard): FK/trigger/ALTER/IPK persist in sqlite_schema for real; C-enforceable'
+  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file | impl_in_modern=full (run-19
+    scoreboard): FK/trigger/ALTER/IPK persist in sqlite_schema for real; C-enforceable'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -4972,8 +4904,8 @@ behaviours:
   traceability: tests/characterization/engine-files/TRACEABILITY.yaml
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file
-    | impl_in_modern=full (run-19 scoreboard): catalogue file-twins execute on the durable store'
+  notes: 'confidence=observed-in-code; HUMAN_ACCEPTED 2026-08-11 (run-16 delegated stamp); C-readable multi-page SQLite file | impl_in_modern=full (run-19
+    scoreboard): catalogue file-twins execute on the durable store'
   impl_in_modern: full
   parity: UNVERIFIED
   pack_id: sqlite-experiment-c-to-rust
@@ -4986,9 +4918,8 @@ behaviours:
   discovery_card: discovery/engine-subquery/features/engine-subquery-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-18 delegated stamp) | impl_in_modern=full (run-19 scoreboard): scalar subqueries incl. LIMIT/OFFSET evaluated
-    from real row sources'
+  notes: 'confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-18
+    delegated stamp) | impl_in_modern=full (run-19 scoreboard): scalar subqueries incl. LIMIT/OFFSET evaluated from real row sources'
   traceability: tests/characterization/engine-subquery/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -5002,9 +4933,8 @@ behaviours:
   discovery_card: discovery/engine-subquery/features/engine-subquery-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-18 delegated stamp) | impl_in_modern=full (run-19 scoreboard): EXISTS + correlated subqueries evaluated
-    with outer-row binding'
+  notes: 'confidence=observed-in-code; composed slice for pack v9 subquery law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-18
+    delegated stamp) | impl_in_modern=full (run-19 scoreboard): EXISTS + correlated subqueries evaluated with outer-row binding'
   traceability: tests/characterization/engine-subquery/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -5018,9 +4948,8 @@ behaviours:
   discovery_card: discovery/engine-join/features/engine-join-001.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-18 delegated stamp) | impl_in_modern=full (run-19 scoreboard): INNER/comma joins run as real nested loops
-    over store tables'
+  notes: 'confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-18 delegated
+    stamp) | impl_in_modern=full (run-19 scoreboard): INNER/comma joins run as real nested loops over store tables'
   traceability: tests/characterization/engine-join/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -5034,9 +4963,8 @@ behaviours:
   discovery_card: discovery/engine-join/features/engine-join-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-18 delegated stamp) | impl_in_modern=full (run-19 scoreboard): 3-table/self/LEFT joins + GROUP BY run
-    as real nested loops'
+  notes: 'confidence=observed-in-code; composed slice for pack v9 join law (run 18) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-18 delegated
+    stamp) | impl_in_modern=full (run-19 scoreboard): 3-table/self/LEFT joins + GROUP BY run as real nested loops'
   traceability: tests/characterization/engine-join/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -5055,8 +4983,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-datetime/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-setops-001
   surface_id: sur-engine-setops
   name: Compound set operations INTERSECT/EXCEPT
@@ -5070,8 +4998,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-setops/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-constraints-001
   surface_id: sur-engine-constraints
   name: CHECK/NOT NULL/FK-action/name errors
@@ -5085,8 +5013,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-constraints/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-views-001
   surface_id: sur-engine-views
   name: View lifecycle + expansion
@@ -5100,8 +5028,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-views/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-triggers-001
   surface_id: sur-engine-triggers
   name: Trigger matrix BEFORE/AFTER x I/U/D + WHEN
@@ -5115,8 +5043,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-triggers/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-funcs-001
   surface_id: sur-engine-funcs
   name: printf/decimal/rot13-collation/scalar batch
@@ -5130,8 +5058,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-funcs/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-pragma-001
   surface_id: sur-engine-pragma
   name: Connection pragma get/set batch
@@ -5145,8 +5073,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 10
   traceability: tests/characterization/engine-pragma/TRACEABILITY.yaml
-  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-20 delegated stamp)'
+  notes: 'run-20 completion sweep: frozen scope executes for real via store/eval/datetime; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-20
+    delegated stamp)'
 - behaviour_id: engine-agg-having-001
   surface_id: sur-engine-agg-having
   name: DISTINCT/FILTER aggregates + HAVING
@@ -5160,8 +5088,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-agg-having/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-misc2-001
   surface_id: sur-engine-misc2
   name: Thin extension completions (sha_query/base85/ieee754-blob/decimal/uuid/printf)
@@ -5175,8 +5103,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-misc2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-order2-001
   surface_id: sur-engine-order2
   name: ORDER BY collation + NULLS placement
@@ -5190,8 +5118,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-order2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-fk2-001
   surface_id: sur-engine-fk2
   name: FK action matrix completion (ON UPDATE / SET DEFAULT)
@@ -5205,8 +5133,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-fk2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-trig2-001
   surface_id: sur-engine-trig2
   name: Trigger surface completion (INSTEAD OF/DROP/RAISE/OF/recursive)
@@ -5220,8 +5148,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-trig2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-ddl2-001
   surface_id: sur-engine-ddl2
   name: ALTER RENAME COLUMN / DROP COLUMN
@@ -5235,8 +5163,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-ddl2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-upsert2-001
   surface_id: sur-engine-upsert2
   name: Upsert DO UPDATE ... WHERE
@@ -5250,8 +5178,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 11
   traceability: tests/characterization/engine-upsert2/TRACEABILITY.yaml
-  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-11 (run-21 delegated stamp)'
+  notes: 'run-21 thin-gap harvest: frozen scope executes for real via store/eval; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-21 delegated
+    stamp)'
 - behaviour_id: engine-overflow-001
   surface_id: sur-engine-overflow
   name: Overflow page chains (durable large payloads)
@@ -5265,8 +5193,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 12
   traceability: tests/characterization/engine-overflow/TRACEABILITY.yaml
-  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate
-    rejection; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
+  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate rejection; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
 - behaviour_id: engine-indexes-001
   surface_id: sur-engine-indexes
   name: On-disk UNIQUE / secondary index b-trees
@@ -5280,8 +5208,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 12
   traceability: tests/characterization/engine-indexes/TRACEABILITY.yaml
-  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate
-    rejection; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
+  notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate rejection; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
 - behaviour_id: engine-prepare-001
   surface_id: sur-engine-prepare
   name: Prepare + step through the shared engine
@@ -5295,8 +5223,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 13
   traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
-  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-23 delegated stamp)'
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-23 delegated stamp)'
 - behaviour_id: engine-prepare-002
   surface_id: sur-engine-prepare
   name: Typed bind matrix
@@ -5310,8 +5237,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 13
   traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
-  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-23 delegated stamp)'
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-23 delegated stamp)'
 - behaviour_id: engine-prepare-003
   surface_id: sur-engine-prepare
   name: Column accessor matrix
@@ -5325,8 +5251,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 13
   traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
-  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-23 delegated stamp)'
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-23 delegated stamp)'
 - behaviour_id: engine-window2-001
   surface_id: sur-engine-window2
   name: General window-function engine
@@ -5340,8 +5265,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-window2/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-raise-001
   surface_id: sur-engine-raise
   name: RAISE family + INSTEAD OF UPDATE/DELETE
@@ -5355,8 +5279,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-raise/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-upsert3-001
   surface_id: sur-engine-upsert3
   name: Upsert multi-assignment
@@ -5370,8 +5293,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-upsert3/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-printf3-001
   surface_id: sur-engine-printf3
   name: printf comma grouping + %p
@@ -5385,8 +5307,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-printf3/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-decimal2-001
   surface_id: sur-engine-decimal2
   name: decimal_exp
@@ -5400,8 +5321,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-decimal2/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-prepare2-001
   surface_id: sur-engine-prepare2
   name: prepare_v3 / auto-reprepare / EQP
@@ -5415,8 +5335,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-prepare2/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-serialize2-001
   surface_id: sur-engine-serialize2
   name: Populated serialize/deserialize
@@ -5430,8 +5349,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-serialize2/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-str2-001
   surface_id: sur-engine-str2
   name: sqlite3_str completion
@@ -5445,8 +5363,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 14
   traceability: tests/characterization/engine-str2/TRACEABILITY.yaml
-  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-24 delegated stamp)'
+  notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-24 delegated stamp)'
 - behaviour_id: engine-txn-001
   surface_id: sur-engine-txn
   name: BEGIN/COMMIT/ROLLBACK atomicity
@@ -5460,8 +5377,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 15
   traceability: tests/characterization/engine-txn/TRACEABILITY.yaml
-  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-25 delegated stamp)'
 - behaviour_id: engine-txn-002
   surface_id: sur-engine-txn
   name: OR IGNORE inside an explicit txn
@@ -5475,8 +5392,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 15
   traceability: tests/characterization/engine-txn/TRACEABILITY.yaml
-  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-25 delegated stamp)'
 - behaviour_id: engine-savepoint-001
   surface_id: sur-engine-savepoint
   name: SAVEPOINT/RELEASE/ROLLBACK TO nesting
@@ -5490,8 +5407,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 15
   traceability: tests/characterization/engine-savepoint/TRACEABILITY.yaml
-  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-25 delegated stamp)'
 - behaviour_id: engine-orrollback-001
   surface_id: sur-engine-orrollback
   name: OR ROLLBACK conflict semantics + get_autocommit
@@ -5505,8 +5422,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 15
   traceability: tests/characterization/engine-orrollback/TRACEABILITY.yaml
-  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-25 delegated stamp)'
 - behaviour_id: engine-txnfile-001
   surface_id: sur-engine-txnfile
   name: Durable txn reopen (commit/rollback/close)
@@ -5520,8 +5437,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 15
   traceability: tests/characterization/engine-txnfile/TRACEABILITY.yaml
-  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-25 delegated stamp)'
 - behaviour_id: engine-checkupd-001
   surface_id: sur-engine-checkupd
   name: CHECK-on-UPDATE script scope
@@ -5535,8 +5452,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 16
   traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
-  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-26 delegated stamp)'
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-26 delegated stamp)'
 - behaviour_id: engine-checkupd-002
   surface_id: sur-engine-checkupd
   name: OR-mode statement semantics
@@ -5550,8 +5466,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 16
   traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
-  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-26 delegated stamp)'
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-26 delegated stamp)'
 - behaviour_id: engine-checkupd-003
   surface_id: sur-engine-checkupd
   name: Durable CHECK-on-UPDATE twins
@@ -5565,8 +5480,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 16
   traceability: tests/characterization/engine-checkupd/TRACEABILITY.yaml
-  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
-    (run-26 delegated stamp)'
+  notes: 'run-26: post-update row-image CHECKs + OR-modes execute for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-26 delegated stamp)'
 - behaviour_id: engine-idxlookup-001
   surface_id: sur-engine-idxlookup
   name: Index-driven equality/range lookups
@@ -5580,8 +5494,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 17
   traceability: tests/characterization/engine-idxlookup/TRACEABILITY.yaml
-  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-27 delegated stamp)'
 - behaviour_id: engine-idxlookup-002
   surface_id: sur-engine-idxlookup
   name: Multi-column/expression/partial explicit indexes
@@ -5595,8 +5509,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 17
   traceability: tests/characterization/engine-idxlookup/TRACEABILITY.yaml
-  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-27 delegated stamp)'
 - behaviour_id: engine-idxfile-001
   surface_id: sur-engine-idxfile
   name: Durable + multi-leaf indexes, C interop
@@ -5610,8 +5524,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 17
   traceability: tests/characterization/engine-idxfile/TRACEABILITY.yaml
-  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
+  notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-27 delegated stamp)'
 - behaviour_id: engine-udf-001
   surface_id: sur-engine-udf
   name: Scalar create_function + SQL invoke
@@ -5625,8 +5539,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 18
   traceability: tests/characterization/engine-udf/TRACEABILITY.yaml
-  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
-    delegated stamp)'
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28 delegated stamp)'
 - behaviour_id: engine-udf-002
   surface_id: sur-engine-udf
   name: Aggregate UDF xStep/xFinal
@@ -5640,8 +5553,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 18
   traceability: tests/characterization/engine-udf/TRACEABILITY.yaml
-  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
-    delegated stamp)'
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28 delegated stamp)'
 - behaviour_id: engine-value-001
   surface_id: sur-engine-value
   name: sqlite3_value_*/sqlite3_result_* marshalling
@@ -5655,8 +5567,7 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 18
   traceability: tests/characterization/engine-value/TRACEABILITY.yaml
-  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
-    delegated stamp)'
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28 delegated stamp)'
 - behaviour_id: engine-utf16-001
   surface_id: sur-engine-utf16
   name: UTF-16 prepare family (prepare16/_v2/_v3)
@@ -5670,8 +5581,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 19
   traceability: tests/characterization/engine-utf16/TRACEABILITY.yaml
-  notes: 'run-29: UTF-16LE SQL decoded through the shared prepare core; UTF-16 pzTail; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-    2026-08-12 (run-29 delegated stamp)'
+  notes: 'run-29: UTF-16LE SQL decoded through the shared prepare core; UTF-16 pzTail; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-29 delegated
+    stamp)'
 - behaviour_id: engine-utf16-002
   surface_id: sur-engine-utf16
   name: UTF-16 column/name/decltype accessors + bind_text16
@@ -5685,8 +5596,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 19
   traceability: tests/characterization/engine-utf16/TRACEABILITY.yaml
-  notes: 'run-29: text16/bytes16/name16/decltype16 from real engine values; declared-type tracking landed; legacy RECORD REPLAY_GREEN
-    + HUMAN_ACCEPTED 2026-08-12 (run-29 delegated stamp)'
+  notes: 'run-29: text16/bytes16/name16/decltype16 from real engine values; declared-type tracking landed; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-29 delegated stamp)'
 - behaviour_id: engine-collation-001
   surface_id: sur-engine-collation
   name: create_collation[_v2] + registry-driven COMPARE/ORDER BY
@@ -5700,8 +5611,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 20
   traceability: tests/characterization/engine-collation/TRACEABILITY.yaml
-  notes: 'run-30: real xCompare callbacks resolved by eval ahead of BINARY fallback; overwrite/delete/xDestroy/pArg/eTextRep
-    pinned; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated stamp)'
+  notes: 'run-30: real xCompare callbacks resolved by eval ahead of BINARY fallback; overwrite/delete/xDestroy/pArg/eTextRep pinned; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated stamp)'
 - behaviour_id: engine-collation-002
   surface_id: sur-engine-collation
   name: column COLLATE + per-connection reopen honesty
@@ -5715,10 +5626,9 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 20
   traceability: tests/characterization/engine-collation/TRACEABILITY.yaml
-  notes: 'run-30: declared column collations tracked in store (survive file reopen via create_sql); reopen-without-register
-    reproduces C error. Residual (documented, not blocking frozen scope): declared-collation resolution by unambiguous column
-    name; collation-aware UNIQUE/INDEX keys unpinned; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated
-    stamp)'
+  notes: 'run-30: declared column collations tracked in store (survive file reopen via create_sql); reopen-without-register reproduces C error. Residual
+    (documented, not blocking frozen scope): declared-collation resolution by unambiguous column name; collation-aware UNIQUE/INDEX keys unpinned; legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated stamp)'
 - behaviour_id: engine-collation-003
   surface_id: sur-engine-collation
   name: collation_needed lazy factory
@@ -5732,8 +5642,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 20
   traceability: tests/characterization/engine-collation/TRACEABILITY.yaml
-  notes: 'run-30: factory consulted on lookup miss; register-inside-callback and decline-leaves-error both pinned; collation_needed16
-    not claimed; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated stamp)'
+  notes: 'run-30: factory consulted on lookup miss; register-inside-callback and decline-leaves-error both pinned; collation_needed16 not claimed; legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-30 delegated stamp)'
 - behaviour_id: engine-upsert-expr-001
   surface_id: sur-engine-upsert-expr
   name: expression UNIQUE conflict targets
@@ -5747,8 +5657,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 21
   traceability: tests/characterization/engine-upsert-expr/TRACEABILITY.yaml
-  notes: 'run-31: structural target resolution via index_key_for (v17 machinery); mismatch + non-targeted-conflict errors
-    pinned; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-31 delegated stamp)'
+  notes: 'run-31: structural target resolution via index_key_for (v17 machinery); mismatch + non-targeted-conflict errors pinned; legacy RECORD REPLAY_GREEN
+    + HUMAN_ACCEPTED 2026-08-12 (run-31 delegated stamp)'
 - behaviour_id: engine-upsert-expr-002
   surface_id: sur-engine-upsert-expr
   name: prior conflict-target surface regression pins
@@ -5762,8 +5672,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 21
   traceability: tests/characterization/engine-upsert-expr/TRACEABILITY.yaml
-  notes: 'run-31: column/multi-column/IPK targets + DO UPDATE WHERE guard re-pinned under the new resolver; legacy RECORD
-    REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-31 delegated stamp)'
+  notes: 'run-31: column/multi-column/IPK targets + DO UPDATE WHERE guard re-pinned under the new resolver; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-31 delegated stamp)'
 - behaviour_id: engine-upsert-expr-003
   surface_id: sur-engine-upsert-expr
   name: partial UNIQUE index targets
@@ -5777,8 +5687,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 21
   traceability: tests/characterization/engine-upsert-expr/TRACEABILITY.yaml
-  notes: 'run-31: target WHERE matches partial index predicate structurally; absent/wrong WHERE -> mismatch error; legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-31 delegated stamp)'
+  notes: 'run-31: target WHERE matches partial index predicate structurally; absent/wrong WHERE -> mismatch error; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+    2026-08-12 (run-31 delegated stamp)'
 - behaviour_id: engine-wal-001
   surface_id: sur-engine-wal
   name: WAL mode + sidecars + durability + C interop (composed pins)
@@ -5792,9 +5702,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 22
   traceability: tests/characterization/engine-wal/TRACEABILITY.yaml
-  notes: 'run-32: real WAL format C recovers (frames/salts/cumulative checksums); mode persistence, clean-close semantics,
-    second-connection visibility — all pinned single-process; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-32
-    delegated stamp)'
+  notes: 'run-32: real WAL format C recovers (frames/salts/cumulative checksums); mode persistence, clean-close semantics, second-connection visibility
+    — all pinned single-process; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-32 delegated stamp)'
 - behaviour_id: engine-wal-002
   surface_id: sur-engine-wal
   name: checkpoint pragmas, single-connection regime (composed pins)
@@ -5808,8 +5717,8 @@ behaviours:
   pack_id: sqlite-experiment-c-to-rust
   pack_version: 22
   traceability: tests/characterization/engine-wal/TRACEABILITY.yaml
-  notes: 'run-32: bare/PASSIVE/FULL/RESTART/TRUNCATE pinned; backfill proven via wal-blind main-db read; TRUNCATE zeroes -wal;
-    busy/blocking semantics NOT claimed; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-32 delegated stamp)'
+  notes: 'run-32: bare/PASSIVE/FULL/RESTART/TRUNCATE pinned; backfill proven via wal-blind main-db read; TRUNCATE zeroes -wal; busy/blocking semantics NOT
+    claimed; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-32 delegated stamp)'
 - behaviour_id: engine-harvest23-001
   surface_id: sur-engine-harvest23
   name: auto-extension cancel/reset/multi-entry
@@ -6202,20 +6111,62 @@ behaviours:
   pack_version: 29
   traceability: tests/characterization/engine-none29/TRACEABILITY.yaml
   notes: run-39 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-13 (run-39 delegated stamp)
-last_updated: '2026-08-12T18:21:01Z'
+- behaviour_id: engine-attach30-001
+  surface_id: sur-engine-attach30
+  name: ATTACH owns tables
+  status: converted
+  slice_id: engine-attach30
+  discovery_card: discovery/engine-attach30/features/engine-attach30-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 30
+  traceability: tests/characterization/engine-attach30/TRACEABILITY.yaml
+  notes: run-40 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-13 (run-40 delegated stamp)
+- behaviour_id: engine-attach30-002
+  surface_id: sur-engine-attach30
+  name: DETACH clears objects
+  status: converted
+  slice_id: engine-attach30
+  discovery_card: discovery/engine-attach30/features/engine-attach30-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 30
+  traceability: tests/characterization/engine-attach30/TRACEABILITY.yaml
+  notes: run-40 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-13 (run-40 delegated stamp)
+- behaviour_id: engine-attach30-003
+  surface_id: sur-engine-attach30
+  name: attached-schema cross-db fixation
+  status: converted
+  slice_id: engine-attach30
+  discovery_card: discovery/engine-attach30/features/engine-attach30-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 30
+  traceability: tests/characterization/engine-attach30/TRACEABILITY.yaml
+  notes: run-40 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-13 (run-40 delegated stamp)
+last_updated: '2026-08-13T14:30:00Z'
 updated_by: sqlite-engine-v30-attached-schema
-notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
-  candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
-  METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
+notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still candidate (behaviours-only bind,
+  see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until METHOD_COVERAGE checklist addressed. src/test*.c harness adapters
+  skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 234
+  surfaces_total: 235
   surfaces_by_status:
     candidate: 185
-    accepted: 49
-  behaviours_known: 273
+    accepted: 50
+  behaviours_known: 276
   behaviours_by_status:
     documented: 142
-    converted: 131
+    converted: 134
   unscanned_hints: 3
-  legacy_green: 183
+  legacy_green: 186
   parity_green: 0

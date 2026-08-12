@@ -707,3 +707,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   fossildelta/utilities/introspection/malloc-002 kept none (documented).
 - Scoreboard full 130→131 / partial 57→58 / none 85→84 (273 known). cargo 652/652.
 
+## Run 40 — 2026-08-13 — engine v30: attached-schema ownership (pack v30)
+
+- Pack v29→v30 BOUND (+versions/30, ADR 0028): ATTACHED-SCHEMA LAW. ATTACH/DETACH core,
+  bare-amalgamation pins.
+- store.rs: ident() accepts schema.table (main/temp->bare); eval_snapshot with qualified+
+  unqualified aliases (main wins collision); image_of excludes dotted keys; Stmt::Attach/
+  Detach + exec arms (dup/reserved/missing errors, teardown of schema.* objects);
+  ATTACHED_PATHS + load_attached_image/attached_image + save_attached (durable file aux);
+  attached-schema VIEW cross-schema reference rejection. lib.rs: save_attached wired into
+  close. eval.rs: pragma_database_list carries seq; ORDER BY unknown/non-projected column
+  skipped instead of defaulting to col 0.
+- 14 goldens (engine-attach30-001 x8, -002 x4, -003 x2; harness /tmp/attach_harness.c).
+  Dropped C003-of-003 (trigger firing on attached table) + a sqlite_master WHERE 0 probe.
+  anti_cheat over runtime schema/table + DETACH-gone. 628 prior goldens md5-identical.
+- Flips: attach-detach-001/002/003 deepened (still partial, residuals shrank);
+  engine-attach30-001/002/003 new composed full.
+- Scoreboard full 131->134 / partial 58 / none 84 (276 known). cargo 668/668.
+

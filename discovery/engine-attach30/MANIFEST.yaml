@@ -1,0 +1,13 @@
+slice_id: engine-attach30
+app_id: sqlite-experiment
+created_by: sqlite-engine-v30-attached-schema
+created_at: 2026-08-13T14:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed attached-schema slice (run 40): ATTACH owning tables, DETACH teardown, and
+  attached-schema cross-db fixation, frozen on the pinned bare C baseline (pack v30 / ADR 0028).
+features:
+  - engine-attach30-001
+  - engine-attach30-002
+  - engine-attach30-003
