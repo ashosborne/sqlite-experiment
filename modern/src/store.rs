@@ -105,48 +105,51 @@ pub fn open_file(db: usize, path: &str) {
     let pb = PathBuf::from(path);
     PATHS.with(|m| { m.borrow_mut().insert(db, pb.clone()); });
     if let Ok(img) = dbfile::read_db(&pb) {
-        with_store(db, |st| {
-            for ti in img.tables {
-                let inner_open = ti.sql.find('(');
-                let inner_close = ti.sql.rfind(')');
-                let cols = match (inner_open, inner_close) {
-                    (Some(o), Some(c)) if c > o => parse_coldefs(&ti.sql[o + 1..c]).unwrap_or_default(),
-                    _ => ti.sql.is_empty().then(Vec::new).unwrap_or_default(),
-                };
-                let cols = if cols.is_empty() {
-                    ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
-                } else { cols };
-                let mut tab = Table { cols, uniq_sets: parse_uniq_sets(&ti.sql), create_sql: ti.sql.clone(), ..Default::default() };
-                let mut maxr = 0i64;
-                for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
-                tab.next_rowid = maxr;
-                st.catalog.push(("table".into(), ti.name.clone()));
-                st.tables.push((ti.name, tab));
-            }
-            for ix in img.indexes {
-                st.catalog.push(("index".into(), ix.name.clone()));
-                st.index_owner.insert(ix.name.clone(), ix.tbl.clone());
-                if let Some(isql) = ix.sql {
-                    // explicit index: rebuild the in-session definition (incl. UNIQUE flag)
-                    if let Some(Stmt::CreateIndex { name, table, col, unique, sql }) = parse_stmt(&isql) {
-                        st.indexes.push((name, table.clone(), col.clone(), unique, sql));
-                        if unique {
-                            if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
-                                if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) { c.unique = true; }
-                            }
+        load_image(db, img);
+    }
+}
+
+/// Load a parsed image into a connection's store (shared by open_file and deserialize).
+pub fn load_image(db: usize, img: DbImage) {
+    with_store(db, |st| {
+        for ti in img.tables {
+            let inner_open = ti.sql.find('(');
+            let inner_close = ti.sql.rfind(')');
+            let cols = match (inner_open, inner_close) {
+                (Some(o), Some(c)) if c > o => parse_coldefs(&ti.sql[o + 1..c]).unwrap_or_default(),
+                _ => ti.sql.is_empty().then(Vec::new).unwrap_or_default(),
+            };
+            let cols = if cols.is_empty() {
+                ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
+            } else { cols };
+            let mut tab = Table { cols, uniq_sets: parse_uniq_sets(&ti.sql), create_sql: ti.sql.clone(), ..Default::default() };
+            let mut maxr = 0i64;
+            for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
+            tab.next_rowid = maxr;
+            st.catalog.push(("table".into(), ti.name.clone()));
+            st.tables.push((ti.name, tab));
+        }
+        for ix in img.indexes {
+            st.catalog.push(("index".into(), ix.name.clone()));
+            st.index_owner.insert(ix.name.clone(), ix.tbl.clone());
+            if let Some(isql) = ix.sql {
+                if let Some(Stmt::CreateIndex { name, table, col, unique, sql }) = parse_stmt(&isql) {
+                    st.indexes.push((name, table.clone(), col.clone(), unique, sql));
+                    if unique {
+                        if let Some(t) = st.tables.iter_mut().find(|(n, _)| *n == table) {
+                            if let Some(c) = t.1.cols.iter_mut().find(|c| c.name == col) { c.unique = true; }
                         }
                     }
                 }
-                // autoindexes need no in-session rebuild: UNIQUE stays in the table sql
             }
-            for tg in img.triggers {
-                if let Some(Stmt::CreateTrigger { name, def, .. }) = parse_stmt(&tg.sql) {
-                    st.catalog.push(("trigger".into(), name.clone()));
-                    st.triggers.push((name, def));
-                }
+        }
+        for tg in img.triggers {
+            if let Some(Stmt::CreateTrigger { name, def, .. }) = parse_stmt(&tg.sql) {
+                st.catalog.push(("trigger".into(), name.clone()));
+                st.triggers.push((name, def));
             }
-        });
-    }
+        }
+    });
 }
 
 pub fn drop_store(db: usize) {
@@ -157,71 +160,80 @@ pub fn drop_store(db: usize) {
 /// v12: UNIQUE is KEPT in the persisted sql and backed by real on-disk index
 /// b-trees (column autoindexes, multi-column UNIQUE sets, explicit indexes), so
 /// C enforces uniqueness against Rust-written files after reopen.
+/// Build the on-disk image of a connection (shared by save_file and serialize).
+pub fn build_image(db: usize) -> DbImage {
+    with_store(db, |st| {
+        let tables: Vec<TableImage> = st.tables.iter().map(|(n, t)| {
+            let sql = if t.create_sql.is_empty() {
+                format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
+            } else { t.create_sql.clone() };
+            TableImage { name: n.clone(), sql, rows: t.rows.clone() }
+        }).collect();
+        let triggers: Vec<TriggerImage> = st.triggers.iter()
+            .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
+            .collect();
+        let mut indexes: Vec<dbfile::IndexImage> = Vec::new();
+        for (n, t) in &st.tables {
+            let ipk = dbfile::ipk_index(&t.create_sql);
+            let rowid_of = |rid: i64, vals: &Vec<Val>| -> i64 {
+                match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid }
+            };
+            let mut auto_n = 1;
+            let declared = {
+                let (o, c) = (t.create_sql.find('('), t.create_sql.rfind(')'));
+                match (o, c) { (Some(o), Some(c)) if c > o => parse_coldefs(&t.create_sql[o+1..c]).unwrap_or_default(), _ => Vec::new() }
+            };
+            for (ci, dc) in declared.iter().enumerate() {
+                if !dc.unique { continue; }
+                if ipk == Some(ci) { continue; }
+                let entries: Vec<(Vec<Val>, i64)> = t.rows.iter()
+                    .map(|(rid, vals)| (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid_of(*rid, vals))).collect();
+                indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
+                    tbl: n.clone(), sql: None, entries });
+                auto_n += 1;
+            }
+            for set in parse_uniq_sets(&t.create_sql) {
+                let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
+                if cis.len() != set.len() { continue; }
+                let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
+                    (cis.iter().map(|&ci| vals.get(ci).cloned().unwrap_or(Val::Null)).collect(), rowid_of(*rid, vals))
+                }).collect();
+                indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
+                    tbl: n.clone(), sql: None, entries });
+                auto_n += 1;
+            }
+        }
+        for (iname, itable, icol, _uniq, isql) in &st.indexes {
+            if let Some((_, t)) = st.tables.iter().find(|(n, _)| n == itable) {
+                let ipk = dbfile::ipk_index(&t.create_sql);
+                if let Some(ci) = t.cols.iter().position(|c| c.name == *icol) {
+                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
+                        let rowid = match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => *rid }, None => *rid };
+                        (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid)
+                    }).collect();
+                    indexes.push(dbfile::IndexImage { name: iname.clone(), tbl: itable.clone(),
+                        sql: Some(isql.clone()), entries });
+                }
+            }
+        }
+        DbImage { tables, triggers, indexes }
+    })
+}
+
+/// current schema-change counter (statement auto-reprepare)
+pub fn schema_version(db: usize) -> i64 {
+    with_store(db, |st| st.conn.schema_version)
+}
+/// does this connection hold any tables (serialize builds a real image then)?
+pub fn has_tables(db: usize) -> bool {
+    with_store(db, |st| !st.tables.is_empty())
+}
+
 pub fn save_file(db: usize) {
     let path = PATHS.with(|m| m.borrow().get(&db).cloned());
     if let Some(pb) = path {
-        with_store(db, |st| {
-            let tables: Vec<TableImage> = st.tables.iter().map(|(n, t)| {
-                let sql = if t.create_sql.is_empty() {
-                    format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
-                } else {
-                    t.create_sql.clone()
-                };
-                TableImage { name: n.clone(), sql, rows: t.rows.clone() }
-            }).collect();
-            let triggers: Vec<TriggerImage> = st.triggers.iter()
-                .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
-                .collect();
-            // ---- index b-tree images ----
-            let mut indexes: Vec<dbfile::IndexImage> = Vec::new();
-            for (n, t) in &st.tables {
-                let ipk = dbfile::ipk_index(&t.create_sql);
-                let rowid_of = |rid: i64, vals: &Vec<Val>| -> i64 {
-                    match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid }
-                };
-                let mut auto_n = 1;
-                // column-level UNIQUE / non-IPK PRIMARY KEY autoindexes (declaration order)
-                let declared = {
-                    let (o, c) = (t.create_sql.find('('), t.create_sql.rfind(')'));
-                    match (o, c) { (Some(o), Some(c)) if c > o => parse_coldefs(&t.create_sql[o+1..c]).unwrap_or_default(), _ => Vec::new() }
-                };
-                for (ci, dc) in declared.iter().enumerate() {
-                    if !dc.unique { continue; }
-                    if ipk == Some(ci) { continue; } // rowid alias: no autoindex
-                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter()
-                        .map(|(rid, vals)| (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid_of(*rid, vals))).collect();
-                    indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
-                        tbl: n.clone(), sql: None, entries });
-                    auto_n += 1;
-                }
-                // multi-column UNIQUE(a,b,...) table constraints
-                for set in parse_uniq_sets(&t.create_sql) {
-                    let cis: Vec<usize> = set.iter().filter_map(|c| t.cols.iter().position(|cc| cc.name == *c)).collect();
-                    if cis.len() != set.len() { continue; }
-                    let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
-                        (cis.iter().map(|&ci| vals.get(ci).cloned().unwrap_or(Val::Null)).collect(), rowid_of(*rid, vals))
-                    }).collect();
-                    indexes.push(dbfile::IndexImage { name: format!("sqlite_autoindex_{}_{}", n, auto_n),
-                        tbl: n.clone(), sql: None, entries });
-                    auto_n += 1;
-                }
-            }
-            // explicit CREATE [UNIQUE] INDEX
-            for (iname, itable, icol, _uniq, isql) in &st.indexes {
-                if let Some((_, t)) = st.tables.iter().find(|(n, _)| n == itable) {
-                    let ipk = dbfile::ipk_index(&t.create_sql);
-                    if let Some(ci) = t.cols.iter().position(|c| c.name == *icol) {
-                        let entries: Vec<(Vec<Val>, i64)> = t.rows.iter().map(|(rid, vals)| {
-                            let rowid = match ipk { Some(i) => match vals.get(i) { Some(Val::Int(v)) => *v, _ => *rid }, None => *rid };
-                            (vec![vals.get(ci).cloned().unwrap_or(Val::Null)], rowid)
-                        }).collect();
-                        indexes.push(dbfile::IndexImage { name: iname.clone(), tbl: itable.clone(),
-                            sql: Some(isql.clone()), entries });
-                    }
-                }
-            }
-            let _ = dbfile::write_db(&pb, &DbImage { tables, triggers, indexes });
-        });
+        let img = build_image(db);
+        let _ = dbfile::write_db(&pb, &img);
     }
     PATHS.with(|m| { m.borrow_mut().remove(&db); });
 }

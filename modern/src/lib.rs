@@ -49,8 +49,13 @@ enum State {
 /// engine as sqlite3_exec (bind substitution -> typed rows). No pin table, no
 /// per-golden state machine, no bytecode VDBE claim (results materialize on the
 /// first step; nested-loop eval underneath).
+#[derive(Clone, Copy, PartialEq)]
+enum StmtMode { Normal, Eqp, Explain }
+
 pub struct Sqlite3Stmt {
     db: usize,
+    mode: StmtMode,
+    schema_ver: i64,                      // auto-reprepare on schema change
     sql: String,                          // this statement's text
     params: Vec<eval::V>,                 // 1-based slots (index i -> params[i-1])
     param_names: Vec<Option<String>>,     // ":k" / "?2" spellings; None for bare ?
@@ -299,9 +304,20 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
         return SQLITE_OK;
     }
-    let stmt_text = body.trim_end().trim_end_matches(';').trim_end().to_string();
-    let up = stmt_text.to_ascii_uppercase();
-    let readonly = up.starts_with("SELECT") || up.starts_with("PRAGMA") || up.starts_with("EXPLAIN");
+    let mut stmt_text = body.trim_end().trim_end_matches(';').trim_end().to_string();
+    let mut up = stmt_text.to_ascii_uppercase();
+    // EXPLAIN [QUERY PLAN]: real introspection statements over the inner SQL
+    let mut mode = StmtMode::Normal;
+    if up.starts_with("EXPLAIN QUERY PLAN ") {
+        mode = StmtMode::Eqp;
+        stmt_text = stmt_text["EXPLAIN QUERY PLAN ".len()..].trim().to_string();
+        up = stmt_text.to_ascii_uppercase();
+    } else if up.starts_with("EXPLAIN ") {
+        mode = StmtMode::Explain;
+        stmt_text = stmt_text["EXPLAIN ".len()..].trim().to_string();
+        up = stmt_text.to_ascii_uppercase();
+    }
+    let readonly = mode != StmtMode::Normal || up.starts_with("SELECT") || up.starts_with("PRAGMA");
 
     let (param_count, param_names) = scan_params(&stmt_text);
     let dbid = db as usize;
@@ -309,7 +325,16 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     // prepare-time resolution (C compiles here): dry-run SELECTs with NULL params
     // (side-effect free); validate DML/DDL targets; classify unknown SQL as syntax.
     let mut colnames: Vec<CString> = Vec::new();
-    if up.starts_with("SELECT") {
+    match mode {
+        StmtMode::Eqp => {
+            colnames = ["id", "parent", "notused", "detail"].iter().map(|n| CString::new(*n).unwrap()).collect();
+        }
+        StmtMode::Explain => {
+            colnames = ["addr", "opcode", "p1", "p2", "p3", "p4", "p5", "comment"].iter().map(|n| CString::new(*n).unwrap()).collect();
+        }
+        StmtMode::Normal => {}
+    }
+    if mode == StmtMode::Normal && up.starts_with("SELECT") {
         let probe = bind_sql(&stmt_text, &vec![eval::V::Null; param_count]);
         match store::stmt_query_typed(dbid, &probe) {
             Ok((names, _rows)) => {
@@ -341,6 +366,8 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     db_ok(&mut *db);
     let stmt = Box::new(Sqlite3Stmt {
         db: dbid,
+        mode,
+        schema_ver: store::schema_version(dbid),
         sql: stmt_text,
         params: vec![eval::V::Null; param_count],
         param_names,
@@ -354,6 +381,20 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     *pp_stmt = Box::into_raw(stmt);
     if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
     SQLITE_OK
+}
+
+/// # Safety: C ABI — sqlite3_prepare_v3: prepFlags accepted (PERSISTENT/NO_VTAB are
+/// no-ops for this engine — no statement cache, no vtabs); same shared-engine path.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_prepare_v3(
+    db: *mut Sqlite3,
+    z_sql: *const c_char,
+    n_byte: c_int,
+    _prep_flags: u32,
+    pp_stmt: *mut *mut Sqlite3Stmt,
+    pz_tail: *mut *const c_char,
+) -> c_int {
+    sqlite3_prepare_v2(db, z_sql, n_byte, pp_stmt, pz_tail)
 }
 
 /// # Safety: C ABI — `stmt` must be live (never call after sqlite3_finalize; C003 is BLOCKED).
@@ -382,6 +423,51 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
 /// execute via the shared store/eval engine (bind substitution -> typed rows)
 unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
     s.text_cache.clear();
+    // auto-reprepare: DDL since prepare invalidates the compilation (C schema cookie)
+    let now_ver = store::schema_version(s.db);
+    if now_ver != s.schema_ver {
+        s.schema_ver = now_ver;
+        if s.mode == StmtMode::Normal && s.readonly {
+            let probe = bind_sql(&s.sql, &vec![eval::V::Null; s.params.len()]);
+            if let Err(e) = store::stmt_query_typed(s.db, &probe) {
+                let dbp = s.db as *mut Sqlite3;
+                if !dbp.is_null() {
+                    (*dbp).errcode = SQLITE_ERROR;
+                    (*dbp).extended = SQLITE_ERROR;
+                    (*dbp).errmsg = CString::new(e).ok();
+                }
+                s.state = State::Done;
+                return SQLITE_ERROR;
+            }
+        }
+    }
+    match s.mode {
+        StmtMode::Eqp => {
+            // honest plan of THIS engine: nested-loop full scans of the FROM tables.
+            // (cost-based artifacts like bloom filters were deliberately not frozen.)
+            let mut rows: Vec<Vec<eval::V>> = Vec::new();
+            if let Some(p) = s.sql.to_ascii_uppercase().find(" FROM ") {
+                let tail = s.sql[p + 6..].trim();
+                let t = tail.split(|c: char| c.is_whitespace() || c == ',' || c == ';').next().unwrap_or("");
+                if !t.is_empty() && !t.starts_with('(') {
+                    rows.push(vec![eval::V::Int(2), eval::V::Int(0), eval::V::Int(0),
+                                   eval::V::Text(format!("SCAN {t}"))]);
+                }
+            }
+            let has = !rows.is_empty();
+            s.rows = Some(rows);
+            s.cur = 0;
+            return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+        }
+        StmtMode::Explain => {
+            // column shape is real; the bytecode listing is honestly absent (no VDBE)
+            s.rows = Some(Vec::new());
+            s.cur = 0;
+            s.state = State::Done;
+            return SQLITE_DONE;
+        }
+        StmtMode::Normal => {}
+    }
     let bound = bind_sql(&s.sql, &s.params);
     if s.readonly {
         match store::stmt_query_typed(s.db, &bound) {
@@ -871,7 +957,18 @@ pub unsafe extern "C" fn sqlite3_serialize(
     db: *mut Sqlite3, _schema: *const c_char, pi_size: *mut i64, _flags: u32,
 ) -> *mut u8 {
     if db.is_null() { return std::ptr::null_mut(); }
-    let p = sized_alloc(4096);
+    if store::has_tables(db as usize) {
+        // pack v14: a REAL SQLite image of the live store (same writer as save_file)
+        let img = store::build_image(db as usize);
+        let bytes = dbfile::write_db_bytes(&img);
+        let p = sized_alloc(bytes.len());
+        if !p.is_null() {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+        }
+        if !pi_size.is_null() { *pi_size = bytes.len() as i64; }
+        return p;
+    }
+    let p = sized_alloc(4096); // pinned empty-db image size
     if !pi_size.is_null() { *pi_size = 4096; }
     p
 }
@@ -943,11 +1040,11 @@ fn mini_format(fmt: &str, a: c_int, z: Option<&str>) -> String {
 }
 
 // ---- sqlite3_str builder (pinned trio) ----
-pub struct Sqlite3Str { buf: String, err: c_int }
+pub struct Sqlite3Str { buf: String, err: c_int, val_cache: Option<CString> }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_str_new(_db: *mut Sqlite3) -> *mut Sqlite3Str {
-    Box::into_raw(Box::new(Sqlite3Str { buf: String::new(), err: SQLITE_OK }))
+    Box::into_raw(Box::new(Sqlite3Str { buf: String::new(), err: SQLITE_OK, val_cache: None }))
 }
 /// # Safety: C ABI (fixed arity for the frozen "%d/%s" case).
 #[no_mangle]
@@ -968,7 +1065,33 @@ pub unsafe extern "C" fn sqlite3_str_errcode(s: *mut Sqlite3Str) -> c_int {
 pub unsafe extern "C" fn sqlite3_str_finish(s: *mut Sqlite3Str) -> *mut c_char {
     if s.is_null() { return std::ptr::null_mut(); }
     let b = Box::from_raw(s);
+    if b.buf.is_empty() { return std::ptr::null_mut(); } // C returns NULL for an empty builder
     alloc_cstr(&b.buf)
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_appendchar(s: *mut Sqlite3Str, n: c_int, c: c_char) {
+    if s.is_null() { return; }
+    for _ in 0..n.max(0) { (*s).buf.push(c as u8 as char); }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_reset(s: *mut Sqlite3Str) -> c_int {
+    if s.is_null() { return SQLITE_MISUSE; }
+    (*s).buf.clear();
+    SQLITE_OK
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_length(s: *mut Sqlite3Str) -> c_int {
+    if s.is_null() { 0 } else { (*s).buf.len() as c_int }
+}
+/// # Safety: C ABI — pointer valid until the next append/reset/finish.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_value(s: *mut Sqlite3Str) -> *const c_char {
+    if s.is_null() || (*s).buf.is_empty() { return std::ptr::null(); }
+    (*s).val_cache = Some(CString::new((*s).buf.clone()).unwrap_or_default());
+    (*s).val_cache.as_ref().unwrap().as_ptr()
 }
 
 /// # Safety: C ABI — pinned inputs: terminated / unterminated / open trigger body.
@@ -1043,8 +1166,14 @@ pub unsafe extern "C" fn sqlite3_deserialize(
     db: *mut Sqlite3, _schema: *const c_char, data: *mut u8, sz: i64, _buf_sz: i64, flags: u32,
 ) -> c_int {
     if db.is_null() || data.is_null() || sz < 0 { return SQLITE_MISUSE; }
+    // pack v14: parse the image with the shared reader and load it into the store
+    let bytes = std::slice::from_raw_parts(data, sz as usize).to_vec();
+    let img = dbfile::read_db_bytes(&bytes);
+    if !img.tables.is_empty() || !img.triggers.is_empty() || !img.indexes.is_empty() {
+        store::load_image(db as usize, img);
+    }
     // FREEONCLOSE ownership honoured: our close doesn't track it, so free now if flagged
-    // (the pinned observables are the rcs/sizes, not retention timing).
+    // (the pinned observables are the rcs/values, not retention timing).
     const FREEONCLOSE: u32 = 1;
     if flags & FREEONCLOSE != 0 { sqlite3_free(data as *mut c_void); }
     SQLITE_OK

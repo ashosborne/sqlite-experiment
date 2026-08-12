@@ -227,3 +227,39 @@ fn anti_cheat_column_types() {
         sqlite3_close(db);
     }
 }
+
+// ---- pack v14 anti-cheat ----
+
+#[test]
+fn anti_cheat_window_runtime() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE aw(x INTEGER); INSERT INTO aw VALUES({n}),({}),({}); \
+         SELECT x, rank() OVER (ORDER BY x), sum(x) OVER (ORDER BY x) FROM aw ORDER BY x;", n + 5, n + 5));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0], vec![Some(n.to_string()), Some("1".into()), Some(n.to_string())]);
+    assert_eq!(rows[1][1].as_deref(), Some("2"));
+    assert_eq!(rows[1][2].as_deref(), Some((3 * n + 10).to_string().as_str()), "RANGE peers computed");
+}
+
+#[test]
+fn anti_cheat_upsert_expr_runtime() {
+    let n = runtime_int();
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE au(k INTEGER PRIMARY KEY, v INTEGER); INSERT INTO au VALUES(1,{n}); \
+         INSERT INTO au VALUES(1,{}) ON CONFLICT(k) DO UPDATE SET v = v + excluded.v; \
+         SELECT v FROM au;", n + 7));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0][0].as_deref(), Some((2 * n + 7).to_string().as_str()));
+}
+
+#[test]
+fn anti_cheat_printf_decimal_runtime() {
+    let n = runtime_int() % 900_000 + 1_000_000; // 7-digit
+    let (rc, rows) = exec_collect(&format!("SELECT printf('%,d', {n});"));
+    assert_eq!(rc, 0);
+    let s = rows[0][0].clone().unwrap();
+    let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+    assert_eq!(digits, n.to_string());
+    assert_eq!(s.chars().filter(|&c| c == ',').count(), 2, "grouped for real: {s}");
+}
