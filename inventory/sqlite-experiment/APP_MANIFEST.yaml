@@ -2314,6 +2314,42 @@ surfaces:
   notes: composed thin-gap-2 slice (run 24); seam-kind=api
   discovery_evidence:
   - src/printf.c:1
+- surface_id: sur-engine-txn
+  kind: other
+  locator: engine-txn pinned sequences
+  repo_path: src/vdbeaux.c
+  status: accepted
+  slice_id: engine-txn
+  notes: composed transaction slice (run 25); seam-kind=api
+  discovery_evidence:
+  - src/vdbeaux.c:1
+- surface_id: sur-engine-savepoint
+  kind: other
+  locator: engine-savepoint pinned sequences
+  repo_path: src/vdbeaux.c
+  status: accepted
+  slice_id: engine-savepoint
+  notes: composed transaction slice (run 25); seam-kind=api
+  discovery_evidence:
+  - src/vdbeaux.c:1
+- surface_id: sur-engine-orrollback
+  kind: other
+  locator: engine-orrollback pinned sequences
+  repo_path: src/insert.c
+  status: accepted
+  slice_id: engine-orrollback
+  notes: composed transaction slice (run 25); seam-kind=api
+  discovery_evidence:
+  - src/insert.c:1
+- surface_id: sur-engine-txnfile
+  kind: other
+  locator: engine-txnfile pinned sequences
+  repo_path: src/pager.c
+  status: accepted
+  slice_id: engine-txnfile
+  notes: composed transaction slice (run 25); seam-kind=api
+  discovery_evidence:
+  - src/pager.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -2734,9 +2770,10 @@ behaviours:
   discovery_card: discovery/dml-codegen/features/dml-codegen-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-20 sweep) — gaps:
-    IGNORE/REPLACE/ABORT/FAIL + CHECK/NOT NULL/UNIQUE/FK real; OR ROLLBACK absent (no transactions), CHECK-on-UPDATE unpinned'
+  notes: confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-25) — conflict
+    matrix now IGNORE/REPLACE/ABORT/FAIL/ROLLBACK (OR ROLLBACK aborts the whole txn) + CHECK/NOT NULL/UNIQUE/FK on insert;
+    CHECK-on-UPDATE still absent
   traceability: tests/characterization/dml-codegen/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: error-status-api-001
@@ -4239,10 +4276,10 @@ behaviours:
   discovery_card: discovery/triggers/features/triggers-002.md
   legacy_green: true
   parity_green: false
-  notes: 'confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
+  notes: confidence=observed-in-code; Trigger sub-programs compiled per (trigger,orconf); BEFORE/AFTER ordering; WHEN clause;
     recursive-trigger gate. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full
-    (run-24): firing semantics complete: old/new, WHEN, B/A ordering, RAISE(ABORT/IGNORE/FAIL/ROLLBACK - rc19 forms; txn-scoped
-    ROLLBACK n/a without transactions), UPDATE OF, recursive_triggers, INSTEAD OF INSERT/UPDATE/DELETE on views'
+    (run-25) — firing semantics complete incl. RAISE(ROLLBACK) unwinding the real transaction (v15); txn-scoped behaviour
+    now honest
   traceability: tests/characterization/triggers/TRACEABILITY.yaml
   impl_in_modern: full
   parity: UNVERIFIED
@@ -5149,20 +5186,95 @@ behaviours:
   traceability: tests/characterization/engine-str2/TRACEABILITY.yaml
   notes: 'run-24 thin-gap harvest 2: frozen scope executes for real; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
     (run-24 delegated stamp)'
-last_updated: '2026-08-12T09:05:25Z'
+- behaviour_id: engine-txn-001
+  surface_id: sur-engine-txn
+  name: BEGIN/COMMIT/ROLLBACK atomicity
+  status: converted
+  slice_id: engine-txn
+  discovery_card: discovery/engine-txn/features/engine-txn-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 15
+  traceability: tests/characterization/engine-txn/TRACEABILITY.yaml
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+- behaviour_id: engine-txn-002
+  surface_id: sur-engine-txn
+  name: OR IGNORE inside an explicit txn
+  status: converted
+  slice_id: engine-txn
+  discovery_card: discovery/engine-txn/features/engine-txn-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 15
+  traceability: tests/characterization/engine-txn/TRACEABILITY.yaml
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+- behaviour_id: engine-savepoint-001
+  surface_id: sur-engine-savepoint
+  name: SAVEPOINT/RELEASE/ROLLBACK TO nesting
+  status: converted
+  slice_id: engine-savepoint
+  discovery_card: discovery/engine-savepoint/features/engine-savepoint-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 15
+  traceability: tests/characterization/engine-savepoint/TRACEABILITY.yaml
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+- behaviour_id: engine-orrollback-001
+  surface_id: sur-engine-orrollback
+  name: OR ROLLBACK conflict semantics + get_autocommit
+  status: converted
+  slice_id: engine-orrollback
+  discovery_card: discovery/engine-orrollback/features/engine-orrollback-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 15
+  traceability: tests/characterization/engine-orrollback/TRACEABILITY.yaml
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+- behaviour_id: engine-txnfile-001
+  surface_id: sur-engine-txnfile
+  name: Durable txn reopen (commit/rollback/close)
+  status: converted
+  slice_id: engine-txnfile
+  discovery_card: discovery/engine-txnfile/features/engine-txnfile-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 15
+  traceability: tests/characterization/engine-txnfile/TRACEABILITY.yaml
+  notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
+last_updated: '2026-08-12T09:10:03Z'
 updated_by: sqlite-engine-v15-transactions
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 214
+  surfaces_total: 218
   surfaces_by_status:
     candidate: 185
-    accepted: 29
-  behaviours_known: 221
+    accepted: 33
+  behaviours_known: 226
   behaviours_by_status:
     documented: 155
-    converted: 66
+    converted: 71
   unscanned_hints: 3
-  legacy_green: 131
+  legacy_green: 136
   parity_green: 0

@@ -419,3 +419,17 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Flips: +5 partial→full (prepare-005, upsert-002, triggers-002, printf-001, serialize-001),
   6 tightened, +8 new fulls. Scoreboard full 53→66 / partial 52 / none 103.
 - cargo 329/329; anti-cheat 18/18; 269 prior goldens md5-identical; parity 0.
+
+## Run 25 — 2026-08-12 — engine v15: transactions (pack v15)
+
+- Pack v14→v15 BOUND (+versions/15, ADR 0013): txn/savepoint/OR ROLLBACK/durability laws.
+- Snapshot-model undo (plainly documented — not a pager journal, not WAL): BEGIN/SAVEPOINT
+  capture full store snapshots; ROLLBACK [TO] restores (named savepoint survives);
+  RELEASE outermost-implicit commits; close auto-rolls-back; counters not rolled back.
+- INSERT OR ROLLBACK aborts the whole txn (__TXNROLLBACK__ marker through the error path);
+  RAISE(ROLLBACK) unwinds the real txn; sqlite3_get_autocommit exported.
+- C truth pinned: DELETE OR ROLLBACK is a SYNTAX ERROR (DELETE has no conflict clause).
+- 27 goldens (17 script + 10 bespoke incl. 4 file-reopen), all replayed; anti-cheat 22/22;
+  cargo 360/360; 297 prior goldens md5-identical.
+- Scoreboard full 66→71 (+5 txn behaviours); dml-codegen-002 honestly kept partial
+  (CHECK-on-UPDATE); triggers-002 note aligned with real txns.

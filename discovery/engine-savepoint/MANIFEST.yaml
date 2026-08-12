@@ -1,0 +1,9 @@
+slice_id: engine-savepoint
+app_id: sqlite-experiment
+seed: composed transaction slice (run 25)
+status: accepted
+features:
+- feature_id: engine-savepoint-001
+  name: SAVEPOINT/RELEASE/ROLLBACK TO
+  status: accepted
+  evidence: [src/vdbeaux.c:1]

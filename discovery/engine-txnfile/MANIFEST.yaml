@@ -1,0 +1,9 @@
+slice_id: engine-txnfile
+app_id: sqlite-experiment
+seed: composed transaction slice (run 25)
+status: accepted
+features:
+- feature_id: engine-txnfile-001
+  name: Durable txn reopen
+  status: accepted
+  evidence: [src/pager.c:1]

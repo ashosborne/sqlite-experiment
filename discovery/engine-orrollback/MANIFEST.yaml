@@ -1,0 +1,9 @@
+slice_id: engine-orrollback
+app_id: sqlite-experiment
+seed: composed transaction slice (run 25)
+status: accepted
+features:
+- feature_id: engine-orrollback-001
+  name: OR ROLLBACK conflict semantics
+  status: accepted
+  evidence: [src/insert.c:1]

@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T08:58:17Z
+- Generated: 2026-08-12T09:10:03Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T08:58:17Z by `sqlite-engine-v14-thin-gap-2`
+- Manifest last_updated: 2026-08-12T09:10:03Z by `sqlite-engine-v15-transactions`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 103 | Not started in modern |
 | partial | 52 | Some modern execution; gaps in notes |
-| full (converted) | 66 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 71 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -86,6 +86,11 @@
 - `engine-prepare2-001` — prepare_v3 / auto-reprepare / EQP
 - `engine-serialize2-001` — Populated serialize/deserialize
 - `engine-str2-001` — sqlite3_str completion
+- `engine-txn-001` — BEGIN/COMMIT/ROLLBACK atomicity
+- `engine-txn-002` — OR IGNORE inside an explicit txn
+- `engine-savepoint-001` — SAVEPOINT/RELEASE/ROLLBACK TO nesting
+- `engine-orrollback-001` — OR ROLLBACK conflict semantics + get_autocommit
+- `engine-txnfile-001` — Durable txn reopen (commit/rollback/close)
 
 ### Partial in modern
 
@@ -100,7 +105,7 @@
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
 - `ddl-schema-002` — index lifecycle now durable for real: on-disk index b-trees (autoindex + explicit + UNIQUE(a,b)), reopen-enforced, DROP INDEX persisted, C-side duplicate rejection proven; still absent: expression/partial/multi-column EXPLICIT indexes, index-driven lookups, multi-leaf index b-trees
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
-- `dml-codegen-002` — IGNORE/REPLACE/ABORT/FAIL + CHECK/NOT NULL/UNIQUE/FK real; OR ROLLBACK absent (no transactions), CHECK-on-UPDATE unpinned
+- `dml-codegen-002` — confidence=observed-in-code; Generated checks for NOT NULL/CHECK/UNIQUE/PK with 5 conflict-resolution modes. | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-25) — conflict matrix now IGNORE/REPLACE/ABORT/FAIL/ROLLBACK (OR ROLLBACK aborts the whole txn) + CHECK/NOT NULL/UNIQUE/FK on insert; CHECK-on-UPDATE still absent
 - `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
 - `error-status-api-002` — sqlite3_limit get/set with prior-value semantics real for the pinned limit id only
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
@@ -252,25 +257,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 214 |
-| Behaviours known | 221 |
+| Surfaces total | 218 |
+| Behaviours known | 226 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 131 |
+| legacy_green flags | 136 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 29 |
+| accepted | 33 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 66 |
+| converted | 71 |
 | documented | 155 |
 
 ## Surfaces per slice
@@ -302,18 +307,22 @@
 | engine-kitchen | 1 |
 | engine-misc2 | 1 |
 | engine-order2 | 1 |
+| engine-orrollback | 1 |
 | engine-overflow | 1 |
 | engine-pragma | 1 |
 | engine-prepare | 1 |
 | engine-prepare2 | 1 |
 | engine-printf3 | 1 |
 | engine-raise | 1 |
+| engine-savepoint | 1 |
 | engine-serialize2 | 1 |
 | engine-setops | 1 |
 | engine-str2 | 1 |
 | engine-subquery | 1 |
 | engine-trig2 | 1 |
 | engine-triggers | 1 |
+| engine-txn | 1 |
+| engine-txnfile | 1 |
 | engine-upsert2 | 1 |
 | engine-upsert3 | 1 |
 | engine-views | 1 |

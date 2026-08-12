@@ -1,0 +1,9 @@
+slice_id: engine-txn
+app_id: sqlite-experiment
+seed: composed transaction slice (run 25)
+status: accepted
+features:
+- feature_id: engine-txn-001
+  name: BEGIN/COMMIT/ROLLBACK atomicity
+  status: accepted
+  evidence: [src/vdbeaux.c:1]

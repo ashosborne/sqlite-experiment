@@ -1,80 +1,71 @@
-# MORNING BRIEF — engine v14: thin-gap harvest #2 (run 24)
+# MORNING BRIEF — engine v15: transactions (run 25)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–23 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v14-thin-gap-2. MAX_NEW_CASES 40 (used 29).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–24 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v15-transactions. MAX_NEW_CASES 40 (used 27).
 REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @14 BOUND
+## 1. Pack @15 BOUND — transaction / savepoint / OR ROLLBACK laws
 
-versions/14.yaml + ADR 0012, schema-validated; all prior laws carried. One deliberate
-honesty decision recorded in the pack: the two-table **EXPLAIN QUERY PLAN join case was
-NOT frozen** — C's output exposes its cost-based planner (BLOOM FILTER, AUTOMATIC
-COVERING INDEX) and reproducing that text from a nested-loop engine would be a fake
-planner essay. EQP is pinned only where this engine's honest plan (SCAN t) is the truth.
+versions/15.yaml + ADR 0013, schema-validated. WAL stays forbidden; no locking claims.
 
-## 2. Scoreboard before → after
+## 2. How undo works — plainly
 
-| State | run 23 | **run 24** |
+**Snapshot model, not a journal.** BEGIN (and every SAVEPOINT) captures a full snapshot
+of the store's logical state (tables, rows, catalog, views, triggers, indexes, FK flag).
+ROLLBACK / ROLLBACK TO restore a snapshot — ROLLBACK TO keeps the named savepoint alive,
+exactly like C; COMMIT / RELEASE drop undo state; releasing the outermost implicit
+savepoint commits. total_changes is deliberately NOT rolled back (matches C). This is
+not a pager journal, not WAL, and makes no crash-safety or multi-connection claims.
+File connections persist the committed logical state through the shared v12 writer;
+closing with an open transaction auto-rolls-back — pinned against C.
+
+## 3. Cases: 27 frozen / 0 deferred (+ file reopen results)
+
+engine-txn-001 (8: commit/rollback/nested-begin error/no-txn errors/multi-stmt
+atomicity/DDL-in-txn rollback/DEFERRED+IMMEDIATE) · engine-txn-002 (OR IGNORE in txn) ·
+engine-savepoint-001 (8: partial undo, release-commits, nesting both directions,
+continue-after-rollback-to, unknown-name + released-name errors) ·
+engine-orrollback-001 (6, bespoke: OR ROLLBACK kills the txn — autocommit→1, COMMIT
+errors, rows gone; OR ABORT keeps it; FK orphan + explicit ROLLBACK;
+**DELETE OR ROLLBACK is a C syntax error** — pinned, not invented; get_autocommit) ·
+engine-txnfile-001 (4: reopen after COMMIT sees rows; after ROLLBACK doesn't; open txn
+at close auto-rolls-back; committed marker 777001 survives). All two-run deterministic,
+delegated HUMAN_ACCEPTED, all replaying byte-identical through exec + statement API.
+
+## 4. dml-codegen-002 verdict
+
+**Stays partial — honestly.** OR ROLLBACK is now real (the last conflict-mode hole),
+so the matrix reads IGNORE/REPLACE/ABORT/FAIL/ROLLBACK + CHECK/NOT NULL/UNIQUE/FK on
+insert — but **CHECK-on-UPDATE is still absent**, and that keeps the card partial.
+Also aligned: triggers-002's RAISE(ROLLBACK) now unwinds the real transaction (the
+run-24 note caveat is resolved rather than papered over).
+
+## 5. Anti-cheat + cargo
+
+anti-cheat **22/22** (new: runtime commit-visible/rollback-gone keys; savepoint
+partial undo with runtime values; OR ROLLBACK flips autocommit and voids COMMIT;
+file reopen commit+uncommitted-close). `cargo test` **360/360** (txn_compare 17,
+engine_txn 10, all 19 prior suites unchanged green). All 297 prior goldens
+md5-identical. SCRIPT_TABLE still 0.
+
+## 6. Scoreboard before → after
+
+| State | run 24 | **run 25** |
 |---|---|---|
-| full | 53 | **66** |
-| partial | 57 | **52** (6 notes tightened) |
+| full | 66 | **71** (+engine-txn-001/-002, savepoint, orrollback, txnfile) |
+| partial | 52 | 52 (dml-002 + triggers-002 notes updated) |
 | none | 103 | 103 |
-| behaviours | 213 | 221 (+8 harvest slices) |
-
-## 3. Prepare cards — final verdicts
-
-| Card | old → new | Why |
-|---|---|---|
-| 001 prepare family | partial → **partial** (UTF-16 only) | prepare_v3 + prepFlags real (PERSISTENT/NO_VTAB honest no-ops); UTF-16 is the sole remaining gap |
-| 005 reset/reprepare | partial → **full** | auto-reprepare on schema change real: DDL under a live stmt re-resolves; DROP → step SQLITE_ERROR "no such table" as pinned |
-| 006 introspection | partial → **partial** (tighter) | readonly/busy + honest EQP + EXPLAIN 8-column shape real; bytecode listing honestly absent (no VDBE) |
-
-## 4. Tier B verdicts
-
-**→ full (4):** printf-format-001 (comma grouping + %p close the last holes) ·
-upsert-002 (multi-assignment SET with expressions over excluded.* + WHERE) ·
-triggers-002 (RAISE(IGNORE) row-skip, FAIL/ROLLBACK rc19, INSTEAD OF UPDATE/DELETE
-with real view projections — base tables untouched exactly as C pins) ·
-serialize-memdb-api-001 (populated images via the shared dbfile writer/reader; all
-five storage classes round-trip).
-
-**stayed partial, tighter (4):** window-functions-001 (rank/dense_rank/lag/lead +
-framed aggregates + PARTITION BY real; first_value/ntile family absent) ·
-window-functions-002 (RANGE-peers/ROWS/GROUPS real; EXCLUDE + offset RANGE absent) ·
-misc-decimal-001 (decimal_exp closed; arbitrary precision still i128-bounded) ·
-printf-format-003 (appendchar/reset/length/value + empty-finish NULL; raw append +
-vappendf varargs absent). printf-format-002 unchanged (vmprintf needs a varargs ABI).
-
-**New full (8):** engine-window2 / raise / upsert3 / printf3 / decimal2 / prepare2 /
-serialize2 / str2 -001.
-
-## 5. What was implemented
-
-General window engine (partitions, stable window ordering matching C's tie behaviour,
-RANGE-with-peers default frame, ROWS/GROUPS frames, 10 functions); trigger RAISE family
-with a per-row proceed flag; INSTEAD OF UPDATE/DELETE over real view projections;
-upsert multi-assignment evaluated against excluded env; printf `,` grouping + %p;
-decimal_exp (+ one-fraction-digit rendering rule discovered from C bytes);
-sqlite3_prepare_v3; auto-reprepare via the store schema counter; EQP/EXPLAIN
-statements; populated serialize/deserialize sharing the v12 file-format writer/reader;
-sqlite3_str appendchar/reset/length/value, finish→NULL when empty.
-
-## 6. Cases / anti-cheat / cargo
-
-29 new goldens (17 script + 12 bespoke), two-run deterministic, delegated stamp, all
-replay byte-identical (script replays via exec; bespoke via the statement API).
-Anti-cheat **18/18** (new: runtime window rank/RANGE-peer sums; runtime upsert
-v=v+excluded.v; runtime printf grouping). `cargo test` **329/329**; all 269 prior
-goldens md5-identical; kitchens, file suites, interop unchanged green.
+| behaviours | 221 | 226 |
 
 ## 7. Explicit honesty line
 
-**SQLite is NOT migrated.** 66 of 221 behaviours done in modern; all parity
-UNVERIFIED; parity_green 0; nothing verified. No transactions, no VDBE, no planner.
+**SQLite is NOT migrated.** 71 of 226 behaviours done in modern; all parity
+UNVERIFIED; parity_green 0; nothing verified. No WAL, no crash recovery, no
+concurrent-connection locking, no VDBE, no planner.
 
 ## 8. Next call
 
-(a) UTF-16 prepare/text APIs (finishes prepare-001 + column UTF-16 notes),
-(b) index-driven lookups + multi-column explicit indexes (ddl-schema-002 focused loop),
-(c) transactions (BEGIN/COMMIT/ROLLBACK — unlocks OR ROLLBACK, dml-codegen-002, and
-savepoint surface). Pack v15 + goldens first.
+(a) CHECK-on-UPDATE + UPDATE OR-conflict clauses (finishes dml-codegen-002),
+(b) UTF-16 text/prepare APIs (prepare-001 + column UTF-16), or (c) index-driven
+lookups + multi-column explicit indexes (ddl-schema-002 focused loop).
+Pack v16 + goldens first.
