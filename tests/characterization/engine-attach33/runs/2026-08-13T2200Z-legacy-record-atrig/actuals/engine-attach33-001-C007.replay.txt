@@ -1,0 +1,2 @@
+OBS engine-attach33-001-C007 auxlog 1
+OBS engine-attach33-001-C007 a2log 102

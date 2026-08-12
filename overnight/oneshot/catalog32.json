@@ -1,0 +1,142 @@
+[
+ {
+  "id": "engine-attach33-001-C001",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "CREATE TRIGGER aux.trg ON t fires; unqualified body writes aux.log"
+ },
+ {
+  "id": "engine-attach33-001-C002",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "collision: log in both schemas -> aux trigger hits aux.log only"
+ },
+ {
+  "id": "engine-attach33-001-C003",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "unqualified trigger name lives in main -> cannot reference aux.t"
+ },
+ {
+  "id": "engine-attach33-001-C004",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "multi-row fire with body expression over new.*"
+ },
+ {
+  "id": "engine-attach33-001-C005",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "trigger is an aux-schema object: aux.sqlite_master lists it, main count 0"
+ },
+ {
+  "id": "engine-attach33-001-C006",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "WHEN clause gates the attached-table fire"
+ },
+ {
+  "id": "engine-attach33-001-C007",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "two attached schemas: each trigger fires into its own log"
+ },
+ {
+  "id": "engine-attach33-001-C008",
+  "feature": "engine-attach33-001",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "fire through an unqualified INSERT resolving into aux"
+ },
+ {
+  "id": "engine-attach33-002-C001",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "main trigger with collision tables -> main.log only"
+ },
+ {
+  "id": "engine-attach33-002-C002",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "run-40 fixation guard: qualified body still rejected at CREATE"
+ },
+ {
+  "id": "engine-attach33-002-C003",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "plain main-only trigger regression guard"
+ },
+ {
+  "id": "engine-attach33-002-C004",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "missing body target: CREATE ok, FIRE errors no such table: aux.nolog"
+ },
+ {
+  "id": "engine-attach33-002-C005",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "body target only in main: no fallback, fire errors no such table: aux.log"
+ },
+ {
+  "id": "engine-attach33-002-C006",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "aux trigger ON main table -> cannot reference objects in database main"
+ },
+ {
+  "id": "engine-attach33-002-C007",
+  "feature": "engine-attach33-002",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "unqualified trigger name resolves ON strictly in main -> no such table: main.t"
+ },
+ {
+  "id": "engine-attach33-003-C001",
+  "feature": "engine-attach33-003",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "AFTER UPDATE fires on an attached table"
+ },
+ {
+  "id": "engine-attach33-003-C002",
+  "feature": "engine-attach33-003",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "AFTER DELETE fires with old.* on an attached table"
+ },
+ {
+  "id": "engine-attach33-003-C003",
+  "feature": "engine-attach33-003",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "BEFORE INSERT fires before the row lands"
+ },
+ {
+  "id": "engine-attach33-003-C004",
+  "feature": "engine-attach33-003",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "BEFORE then AFTER order in the attached log"
+ },
+ {
+  "id": "engine-attach33-004-C001",
+  "feature": "engine-attach33-004",
+  "slice": "engine-attach33",
+  "kind": "bespoke",
+  "note": "DETACH tears the attached trigger down; re-ATTACH is fresh"
+ }
+]

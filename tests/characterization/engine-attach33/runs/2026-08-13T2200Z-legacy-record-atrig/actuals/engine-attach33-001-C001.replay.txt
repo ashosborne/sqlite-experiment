@@ -1,0 +1,3 @@
+OBS engine-attach33-001-C001 mktrig rc=0 err=-
+OBS engine-attach33-001-C001 fire rc=0 err=-
+OBS engine-attach33-001-C001 auxlog 41

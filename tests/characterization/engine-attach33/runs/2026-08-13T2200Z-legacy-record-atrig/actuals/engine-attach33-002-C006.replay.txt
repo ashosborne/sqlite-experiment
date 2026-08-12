@@ -1,0 +1,1 @@
+OBS engine-attach33-002-C006 xon rc=1 err=trigger trg cannot reference objects in database main

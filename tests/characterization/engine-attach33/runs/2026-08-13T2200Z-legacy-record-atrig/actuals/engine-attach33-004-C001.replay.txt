@@ -1,0 +1,2 @@
+OBS engine-attach33-004-C001 gone rc=1 err=no such table: aux.t
+OBS engine-attach33-004-C001 fresh 0

@@ -1,0 +1,3 @@
+OBS engine-attach33-002-C005 mktrig rc=0 err=-
+OBS engine-attach33-002-C005 fire rc=1 err=no such table: aux.log
+OBS engine-attach33-002-C005 mainlog 0

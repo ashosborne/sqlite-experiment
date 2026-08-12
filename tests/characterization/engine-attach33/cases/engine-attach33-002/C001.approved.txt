@@ -1,0 +1,2 @@
+OBS engine-attach33-002-C001 mainlog 1
+OBS engine-attach33-002-C001 auxlog 0

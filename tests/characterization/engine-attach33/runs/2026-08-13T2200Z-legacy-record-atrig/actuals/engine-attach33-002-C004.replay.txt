@@ -1,0 +1,2 @@
+OBS engine-attach33-002-C004 mktrig rc=0 err=-
+OBS engine-attach33-002-C004 fire rc=1 err=no such table: aux.nolog

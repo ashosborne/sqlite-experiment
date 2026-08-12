@@ -1,0 +1,2 @@
+OBS engine-attach33-001-C005 aux_master table,log|table,t|trigger,trg
+OBS engine-attach33-001-C005 main_master 0

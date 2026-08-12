@@ -1,0 +1,173 @@
+{
+ "run_id": "2026-08-13T2200Z-legacy-record-atrig",
+ "slice_id": "engine-attach33",
+ "mode": "RECORD",
+ "target": "legacy",
+ "build": {
+  "recipe": "run-5 pin reused (/tmp/sqlite-build), fingerprint re-verified 3.54.0/armor0/autoreset0",
+  "determinism_gate": "two independent runs byte-matched before freeze"
+ },
+ "scrub_profile": "none (deterministic static inputs; nondeterministic sources captured as derived booleans/shape only)",
+ "cases": [
+  {
+   "case_id": "engine-attach33-001-C001",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C001.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C001.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C002",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C002.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C002.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C003",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C003.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C003.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C004",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C004.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C004.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C005",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C005.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C005.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C006",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C006.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C006.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C007",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C007.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C007.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-001-C008",
+   "feature_id": "engine-attach33-001",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-001/C008.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-001-C008.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C001",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C001.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C001.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C002",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C002.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C002.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C003",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C003.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C003.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C004",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C004.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C004.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C005",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C005.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C005.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C006",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C006.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C006.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-002-C007",
+   "feature_id": "engine-attach33-002",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-002/C007.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-002-C007.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-003-C001",
+   "feature_id": "engine-attach33-003",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-003/C001.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-003-C001.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-003-C002",
+   "feature_id": "engine-attach33-003",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-003/C002.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-003-C002.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-003-C003",
+   "feature_id": "engine-attach33-003",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-003/C003.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-003-C003.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-003-C004",
+   "feature_id": "engine-attach33-003",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-003/C004.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-003-C004.replay.txt"
+  },
+  {
+   "case_id": "engine-attach33-004-C001",
+   "feature_id": "engine-attach33-004",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-attach33-004/C001.approved.txt",
+   "actual_path": "runs/2026-08-13T2200Z-legacy-record-atrig/actuals/engine-attach33-004-C001.replay.txt"
+  }
+ ]
+}
