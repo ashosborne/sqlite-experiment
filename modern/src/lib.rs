@@ -67,6 +67,7 @@ pub struct Sqlite3Stmt {
     state: State,
     readonly: bool,
     text_cache: Vec<Option<CString>>,     // per-column column_text pointers (current row)
+    la: bool,                             // run-45: allocated from the lookaside pool
 }
 
 impl Sqlite3Stmt {
@@ -207,6 +208,7 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
     }
     let db = Box::new(Sqlite3 { errcode: SQLITE_OK, extended: SQLITE_OK, errmsg: None });
     *pp_db = Box::into_raw(db);
+    la_setup(*pp_db as usize, 1200, 40); // run-45: default lookaside pool (C default shape)
     run_auto_extensions(*pp_db); // run-12: pinned auto-extension invocation on open
     // run-15: file-backed open loads an on-disk SQLite DB into the in-memory store
     if !_filename.is_null() {
@@ -257,6 +259,7 @@ pub(crate) unsafe fn conn_teardown(db: *mut Sqlite3) {
     udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
     coll_close(db as usize); // run-30: run pending xDestroy for registered collations
     vtab_close(db as usize); // run-41: xDisconnect live vtabs, run module _v2 destructors
+    la_close(db as usize); // run-45: free the lookaside slab (or park it for zombie stmts)
     ZOMBIES.with(|z| { z.borrow_mut().remove(&(db as usize)); });
     STMTS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
     EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
@@ -438,7 +441,10 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
     let decltypes: Vec<Option<CString>> = if mode == StmtMode::Normal && eval::kw_bound(&up, "SELECT") {
         store::stmt_decltypes(dbid, &stmt_text).into_iter().map(|o| o.map(|s| CString::new(s).unwrap_or_default())).collect()
     } else { Vec::new() };
-    let stmt = Box::new(Sqlite3Stmt {
+    // run-45: prepared-statement objects come from the real lookaside pool when a
+    // slot fits (hit) and fall back to the heap otherwise (size/full miss) — C's shape.
+    let la_slot = la_alloc(dbid, std::mem::size_of::<Sqlite3Stmt>());
+    let stmt_val = Sqlite3Stmt {
         db: dbid,
         mode,
         schema_ver: store::schema_version(dbid),
@@ -453,8 +459,12 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         state: State::Ready,
         readonly,
         text_cache: Vec::new(),
-    });
-    *pp_stmt = Box::into_raw(stmt);
+        la: la_slot.is_some(),
+    };
+    *pp_stmt = match la_slot {
+        Some(p) => { let p = p as *mut Sqlite3Stmt; std::ptr::write(p, stmt_val); p }
+        None => Box::into_raw(Box::new(stmt_val)),
+    };
     stmt_register(dbid, *pp_stmt as usize); // run-36: live-handle tracking for close
     if !pz_tail.is_null() { *pz_tail = if split >= sql.len() { end_ptr } else { tail_ptr }; }
     SQLITE_OK
@@ -923,7 +933,13 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
     if !stmt.is_null() {
         let dbid = (*stmt).db;
         STMTS.with(|m| { if let Some(s) = m.borrow_mut().get_mut(&dbid) { s.remove(&(stmt as usize)); } });
-        drop(Box::from_raw(stmt));
+        if (*stmt).la {
+            // run-45: lookaside-allocated — drop in place, return the slot to the pool
+            std::ptr::drop_in_place(stmt);
+            la_free(dbid, stmt as usize);
+        } else {
+            drop(Box::from_raw(stmt));
+        }
         handle_released(dbid);
     }
     SQLITE_OK
@@ -952,6 +968,7 @@ pub const SQLITE_AUTH: c_int = 23;
 pub const SQLITE_SELECT_ACTION: c_int = 21; // SQLITE_SELECT authorizer code
 pub const SQLITE_LIMIT_VARIABLE_NUMBER: c_int = 9;
 pub const SQLITE_DBCONFIG_ENABLE_FKEY: c_int = 1002;
+pub const SQLITE_DBCONFIG_LOOKASIDE: c_int = 1001;
 pub const SQLITE_MUTEX_FAST: c_int = 0;
 
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
@@ -1098,10 +1115,17 @@ pub unsafe extern "C" fn sqlite3_shutdown() -> c_int {
 pub unsafe extern "C" fn sqlite3_config(_op: c_int) -> c_int {
     if INITIALIZED.load(Ordering::SeqCst) { SQLITE_MISUSE } else { SQLITE_OK }
 }
-/// # Safety: C ABI (fixed arity — frozen case uses (op:int, set:int, out:*int)).
+/// # Safety: C ABI (generic fixed arity — Rust stable lacks C varargs, pack v2 note).
+/// Trailing slots are interpreted per verb: ENABLE_FKEY = (val, out*), LOOKASIDE =
+/// (buf ignored — modern always self-allocates the slab like C's pBuf==NULL, sz, cnt).
 #[no_mangle]
-pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, val: c_int, out: *mut c_int) -> c_int {
-    if db.is_null() || op != SQLITE_DBCONFIG_ENABLE_FKEY { return SQLITE_ERROR; }
+pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, a: i64, b: i64, c: i64) -> c_int {
+    if db.is_null() { return SQLITE_ERROR; }
+    if op == SQLITE_DBCONFIG_LOOKASIDE {
+        return la_setup(db as usize, b as c_int, c as c_int); // run-45
+    }
+    if op != SQLITE_DBCONFIG_ENABLE_FKEY { return SQLITE_ERROR; }
+    let (val, out) = (a as c_int, b as usize as *mut c_int);
     with_extras(db, |e| {
         if val >= 0 { e.fkey = if val > 0 { 1 } else { 0 }; }
         if !out.is_null() { unsafe { *out = e.fkey; } }
@@ -1652,6 +1676,124 @@ pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
     (saw_begin && depth <= 0) as c_int
 }
 
+// ---------------- run-45: real per-connection lookaside pool ----------------
+// A real slab (acquired through the counting allocator) carved into fixed slots.
+// Modern routes prepared-statement objects through it: prepare placement-allocates
+// Sqlite3Stmt from a slot (hit), falls back to the heap on size/full misses, and
+// finalize returns the slot. Counters move because of this pool — never invented.
+
+struct LaPool {
+    slab: usize,        // base pointer from sized_alloc (0 = disabled)
+    slot_sz: usize,     // rounded down to 8, capped 65528
+    n_slots: usize,
+    free: Vec<usize>,   // free slot indices
+    n_out: usize,
+    mx_out: usize,
+    hits: i64,
+    miss_size: i64,
+    miss_full: i64,
+}
+impl LaPool {
+    fn contains(&self, p: usize) -> bool {
+        self.slab != 0 && p >= self.slab && p < self.slab + self.slot_sz * self.n_slots
+    }
+    fn release(&mut self, p: usize) {
+        let idx = (p - self.slab) / self.slot_sz;
+        self.free.push(idx);
+        self.n_out -= 1;
+    }
+    fn drop_slab(&mut self) {
+        if self.slab != 0 { unsafe { sqlite3_free(self.slab as *mut c_void); } self.slab = 0; }
+    }
+}
+thread_local! {
+    static LA_POOLS: RefCell<std::collections::HashMap<usize, LaPool>> =
+        RefCell::new(std::collections::HashMap::new());
+    // pools of zombie-closed connections whose statements are still live
+    static LA_ORPHANS: RefCell<Vec<LaPool>> = RefCell::new(Vec::new());
+}
+
+/// (re)configure the pool: C semantics — BUSY while allocations are outstanding,
+/// size/count normalized, (0,0) disables, HIT/MISS counters survive reconfig.
+fn la_setup(dbid: usize, sz: c_int, cnt: c_int) -> c_int {
+    LA_POOLS.with(|m| {
+        let mut m = m.borrow_mut();
+        if let Some(old) = m.get(&dbid) {
+            if old.n_out > 0 { return 5; } // SQLITE_BUSY
+        }
+        let (hits, miss_size, miss_full) = m.get(&dbid)
+            .map(|p| (p.hits, p.miss_size, p.miss_full)).unwrap_or((0, 0, 0));
+        if let Some(mut old) = m.remove(&dbid) { old.drop_slab(); }
+        let slot_sz = ((sz.clamp(0, 65528) as usize) / 8) * 8;
+        let n_slots = cnt.max(0) as usize;
+        let slab = if slot_sz >= 8 && n_slots > 0 {
+            unsafe { sqlite3_malloc64((slot_sz * n_slots) as u64) as usize }
+        } else { 0 };
+        let n_slots = if slab == 0 { 0 } else { n_slots };
+        m.insert(dbid, LaPool {
+            slab, slot_sz, n_slots, free: (0..n_slots).rev().collect(),
+            n_out: 0, mx_out: 0, hits, miss_size, miss_full,
+        });
+        SQLITE_OK
+    })
+}
+fn la_alloc(dbid: usize, size: usize) -> Option<*mut u8> {
+    LA_POOLS.with(|m| {
+        let mut m = m.borrow_mut();
+        let p = m.get_mut(&dbid)?;
+        if p.slab == 0 { return None; } // disabled: plain heap, no counters
+        if size > p.slot_sz { p.miss_size += 1; return None; }
+        match p.free.pop() {
+            Some(idx) => {
+                p.hits += 1; p.n_out += 1; p.mx_out = p.mx_out.max(p.n_out);
+                Some((p.slab + idx * p.slot_sz) as *mut u8)
+            }
+            None => { p.miss_full += 1; None }
+        }
+    })
+}
+/// free a pool pointer (live pool first, then zombie orphans); false = heap pointer
+fn la_free(dbid: usize, ptr: usize) -> bool {
+    let hit = LA_POOLS.with(|m| {
+        let mut m = m.borrow_mut();
+        match m.get_mut(&dbid) { Some(p) if p.contains(ptr) => { p.release(ptr); true } _ => false }
+    });
+    if hit { return true; }
+    LA_ORPHANS.with(|o| {
+        let mut o = o.borrow_mut();
+        for i in 0..o.len() {
+            if o[i].contains(ptr) {
+                o[i].release(ptr);
+                if o[i].n_out == 0 { o[i].drop_slab(); o.remove(i); }
+                return true;
+            }
+        }
+        false
+    })
+}
+/// connection teardown: free the slab now, or park it while zombie stmts live
+fn la_close(dbid: usize) {
+    LA_POOLS.with(|m| {
+        if let Some(mut p) = m.borrow_mut().remove(&dbid) {
+            if p.n_out > 0 { LA_ORPHANS.with(|o| o.borrow_mut().push(p)); }
+            else { p.drop_slab(); }
+        }
+    });
+}
+/// db_status view: op -> (current, highwater) with C's reset semantics
+fn la_status(dbid: usize, op: c_int, reset: bool) -> (c_int, c_int) {
+    LA_POOLS.with(|m| {
+        let mut m = m.borrow_mut();
+        let p = match m.get_mut(&dbid) { Some(p) => p, None => return (0, 0) };
+        match op {
+            0 => { let r = (p.n_out as c_int, p.mx_out as c_int); if reset { p.mx_out = p.n_out; } r }
+            4 => { let r = (0, p.hits as c_int); if reset { p.hits = 0; } r }
+            5 => { let r = (0, p.miss_size as c_int); if reset { p.miss_size = 0; } r }
+            _ => { let r = (0, p.miss_full as c_int); if reset { p.miss_full = 0; } r }
+        }
+    })
+}
+
 // ---------------- run-38/44: sqlite3_status(64) / sqlite3_db_status op matrix ----------------
 
 // run-44: real page-image accounting — bytes of database file images this process
@@ -1730,7 +1872,9 @@ pub unsafe extern "C" fn sqlite3_db_status(db: *mut Sqlite3, op: c_int, p_cur: *
     if db.is_null() { return SQLITE_MISUSE; }
     let dbid = db as usize;
     let (cur, hi): (c_int, c_int) = match op {
-        0 => (0, 0),                                     // LOOKASIDE_USED: no lookaside allocator
+        // run-45: LOOKASIDE ops answer from the real pool (USED cur/hi with reset;
+        // HIT/MISS_* report (0, counter) with reset clearing — C's shape)
+        0 | 4 | 5 | 6 => la_status(dbid, op, reset != 0),
         1 | 11 => (store::cache_footprint(dbid) as c_int, 0), // CACHE_USED(_SHARED): real image bytes
         2 => (store::schema_footprint(dbid) as c_int, 0),     // SCHEMA_USED: highwater 0 like C
         3 => (stmt_footprint(dbid) as c_int, 0),              // STMT_USED: live prepared stmts
@@ -1738,12 +1882,11 @@ pub unsafe extern "C" fn sqlite3_db_status(db: *mut Sqlite3, op: c_int, p_cur: *
         8 => (store::io_stats(dbid).1 as c_int, 0),           // CACHE_MISS: real file-image loads
         9 => (store::io_stats(dbid).2 as c_int, 0),           // CACHE_WRITE: real file flushes
         10 => (store::deferred_fk_violations(dbid) as c_int, 0), // DEFERRED_FKS: on-demand scan
-        4 | 5 | 6 | 12 => (0, 0),                        // LOOKASIDE_HIT/MISS_*, CACHE_SPILL
+        12 => (0, 0),                                    // CACHE_SPILL (no spill path)
         _ => return SQLITE_ERROR,
     };
     if !p_cur.is_null() { *p_cur = cur; }
     if !p_hi.is_null() { *p_hi = hi; }
-    let _ = reset; // the pinned ops carry highwater 0 (nothing to reset)
     SQLITE_OK
 }
 

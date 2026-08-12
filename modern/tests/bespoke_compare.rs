@@ -21,9 +21,10 @@ fn global_init_config_pins() {
         assert_eq!(sqlite3_config(2 /*MULTITHREAD*/), 21);      // after init -> MISUSE
         let db = open_mem();
         let mut v: c_int = -1;
-        sqlite3_db_config(db, SQLITE_DBCONFIG_ENABLE_FKEY, -1, &mut v);
+        // run-45: db_config is a generic fixed-arity export (val, out*) for this verb
+        sqlite3_db_config(db, SQLITE_DBCONFIG_ENABLE_FKEY, -1, &mut v as *mut c_int as i64, 0);
         assert_eq!(v, 0);                                        // pinned default
-        sqlite3_db_config(db, SQLITE_DBCONFIG_ENABLE_FKEY, 1, &mut v);
+        sqlite3_db_config(db, SQLITE_DBCONFIG_ENABLE_FKEY, 1, &mut v as *mut c_int as i64, 0);
         assert_eq!(v, 1);                                        // pinned after set
         sqlite3_close(db);
     }
