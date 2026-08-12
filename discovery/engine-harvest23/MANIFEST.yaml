@@ -1,0 +1,19 @@
+slice_id: engine-harvest23
+app_id: sqlite-experiment
+created_by: sqlite-engine-v23-thin-gap-harvest
+created_at: 2026-08-13T00:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Thin-gap harvest slice (run 33): nine pinned batches, each demonstrating a
+  COVERAGE-named Partial residual (pack v23 / ADR 0021).
+features:
+  - engine-harvest23-001
+  - engine-harvest23-002
+  - engine-harvest23-003
+  - engine-harvest23-004
+  - engine-harvest23-005
+  - engine-harvest23-006
+  - engine-harvest23-007
+  - engine-harvest23-008
+  - engine-harvest23-009

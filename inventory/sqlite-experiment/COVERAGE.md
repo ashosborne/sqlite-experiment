@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T12:30:02Z
+- Generated: 2026-08-12T12:56:23Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T22:30:00Z by `sqlite-engine-v22-wal`
+- Manifest last_updated: 2026-08-13T00:30:00Z by `sqlite-engine-v23-thin-gap-harvest`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 101 | Not started in modern |
-| partial | 50 | Some modern execution; gaps in notes |
-| full (converted) | 94 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 44 | Some modern execution; gaps in notes |
+| full (converted) | 109 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -29,8 +29,13 @@
 - `ddl-schema-002` — Index create-drop lifecycle
 - `ddl-schema-003` — ALTER TABLE family (rename/add/rename-col/drop-col)
 - `dml-codegen-002` — Constraint checks + ON CONFLICT resolution matrix
+- `error-status-api-001` — Error introspection family
+- `error-status-api-002` — Runtime limits (sqlite3_limit)
 - `exec-convenience-api-001` — sqlite3_exec callback loop
+- `foreign-keys-001` — Immediate vs deferred FK checking
 - `foreign-keys-002` — Cascading referential actions
+- `loadext-api-002` — Auto-extension registry
+- `malloc-subsystem-001` — Public malloc API and memory accounting
 - `misc-basexx-001` — base64 + base85 + combined basexx encoders (one optional pack)
 - `misc-ieee754-001` — IEEE754 float decomposition functions
 - `misc-rot13-001` — rot13() function + collation
@@ -54,6 +59,7 @@
 - `triggers-002` — Row-trigger firing semantics
 - `upsert-001` — Conflict-target resolution to unique index
 - `upsert-002` — DO UPDATE / DO NOTHING execution
+- `window-functions-001` — Built-in window function family
 - `engine-kitchen-001` — Kitchen-spine row round-trip
 - `engine-files-001` — Durable file round-trip
 - `engine-files-002` — Durable multi-page tables (size/pages)
@@ -114,12 +120,21 @@
 - `engine-upsert-expr-003` — partial UNIQUE index targets
 - `engine-wal-001` — WAL mode + sidecars + durability + C interop (composed pins)
 - `engine-wal-002` — checkpoint pragmas, single-connection regime (composed pins)
+- `engine-harvest23-001` — auto-extension cancel/reset/multi-entry
+- `engine-harvest23-002` — malloc accounting APIs
+- `engine-harvest23-003` — snprintf + str_append
+- `engine-harvest23-004` — window function leftovers
+- `engine-harvest23-005` — sqlite3_limit matrix + enforcement
+- `engine-harvest23-006` — errstr + extended error codes
+- `engine-harvest23-007` — deferred foreign keys
+- `engine-harvest23-008` — authorizer statement-class codes
+- `engine-harvest23-009` — sqlite3_complete nesting
 
 ### Partial in modern
 
 - `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet
 - `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics
-- `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented
+- `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.
 - `backup-api-001` — backup lifecycle real for empty/trivial source DBs only
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
 - `backup-api-003` — write-between-steps restart pinned; no general page-level coordination
@@ -127,12 +142,9 @@
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
-- `error-status-api-001` — errcode/extended_errcode/errmsg real for implemented error paths; errstr and full extended-code matrix absent
-- `error-status-api-002` — sqlite3_limit get/set with prior-value semantics real for the pinned limit id only
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
 - `expr-codegen-002` — 3-valued AND/OR/NOT with NULL propagation real; broader jump-codegen surface absent
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
-- `foreign-keys-001` — immediate FK enforcement real (memory + durable); deferred FKs absent
 - `foreign-keys-003` — DROP-parent rc=19 bookkeeping real; drop-order edges beyond pins absent
 - `global-init-config-001` — initialize/shutdown state machine real; OS/VFS init side effects absent
 - `global-init-config-002` — pinned sqlite3_config ops real; most of the config op matrix absent
@@ -142,8 +154,6 @@
 - `json-funcs-003` — json_valid/json_type real; json_valid flags argument and JSONB validation absent
 - `json-funcs-004` — json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent
 - `loadext-api-001` — shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)
-- `loadext-api-002` — auto-extension register/invoke on open real; cancel/reset entry points absent
-- `malloc-subsystem-001` — malloc64/free/msize real allocator; memory accounting (memory_used/highwater) absent
 - `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
 - `misc-func-packs-001` — decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent
 - `misc-prefixes-001` — prefixes() real as FROM row source; vtab constraint pushdown absent
@@ -155,17 +165,16 @@
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded).
 - `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE)
-- `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent
-- `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent
+- `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.
+- `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).
 - `select-codegen-001` — joins/subqueries/FROM depth run real (nested loop); full select.c orchestration, flattening and planner absent
 - `select-codegen-003` — pinned observable executes via direct subquery evaluation; the flattening rewrite itself does not exist in modern
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
-- `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent
+- `tokenizer-002` — sqlite3_complete real for plain statements and simple trigger bodies; full nesting grammar absent run-33: real BEGIN/CASE/END nesting scan (nested + multi-statement trigger bodies pinned). REMAINING: string-literal-aware lexing inside complete().
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
-- `window-functions-001` — rank/dense_rank/lag/lead/row_number + framed sum/min/max/avg/count with PARTITION BY real; first_value/last_value/nth_value/ntile/percent_rank/cume_dist absent
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
 
 ### Remaining (impl_in_modern=none|absent, not deferred)
@@ -276,26 +285,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 227 |
-| Behaviours known | 245 |
+| Surfaces total | 228 |
+| Behaviours known | 254 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 155 |
+| legacy_green flags | 164 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 42 |
+| accepted | 43 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 94 |
-| documented | 151 |
+| converted | 109 |
+| documented | 145 |
 
 ## Surfaces per slice
 
@@ -323,6 +332,7 @@
 | engine-files | 1 |
 | engine-fk2 | 1 |
 | engine-funcs | 1 |
+| engine-harvest23 | 1 |
 | engine-idxfile | 1 |
 | engine-idxlookup | 1 |
 | engine-indexes | 1 |

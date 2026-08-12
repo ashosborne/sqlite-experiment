@@ -551,3 +551,23 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-wal-001/002 new composed full. Scoreboard full 92→94 / partial 50 / none 101
   (245 known). cargo 508/508.
 
+## Run 33 — 2026-08-13 — engine v23: thin-gap harvest (pack v23)
+
+- Pack v22→v23 BOUND (+versions/23, ADR 0021): THIN-GAP HARVEST LAW (+FpDecode parity).
+- 24 goldens / 33 case-ids in 9 batches (engine-harvest23-001..009; harness /tmp/hv_harness.c).
+- lib.rs: multi-entry auto-ext registry + reset; malloc accounting in sized_alloc;
+  snprintf + str_append; sqlite3_limit id matrix + VARIABLE_NUMBER prepare enforcement;
+  errstr + extended_for (2067/1299/275/787); auth_check_action + statement-class gate in
+  exec; complete() BEGIN/CASE/END nesting scan.
+- eval.rs: first/last/nth_value + ntile + percent_rank + cume_dist; named WINDOW clause;
+  RowsFull frame. store.rs: Col.ref_deferred + defer_foreign_keys; COMMIT-time
+  fk_violation_exists (txn stays open on failure); qualified UNIQUE/CHECK messages.
+- fpdec.rs NEW: faithful port of sqlite3FpDecode/Fp2Convert10/Fp10Convert2 + %!.17g
+  assembly — REAL rendering now matches C byte-for-byte incl. double-rounding artifacts
+  (1/3 → 0.33333333333333332). All prior REAL pins replay through it.
+- Flips: loadext-api-002, malloc-subsystem-001, window-functions-001,
+  error-status-api-001/002, foreign-keys-001 → full. Tightened: printf-002/003 (va_list
+  platform residual), auth-callback-api-001, tokenizer-002. +9 composed batch cards.
+- Scoreboard full 94→109 / partial 44 / none 101 (254 known). cargo 519/519.
+  477 prior goldens md5-identical. WAL claims untouched.
+

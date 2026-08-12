@@ -1,102 +1,95 @@
-# MORNING BRIEF — engine v22: first WAL slice (run 32)
+# MORNING BRIEF — engine v23: thin-gap harvest (run 33)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–31 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v22-wal, **ALLOW_WAL: true (first time)**.
-MAX_NEW_CASES 40 (used 16). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–32 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v23-thin-gap-harvest, DEEPEN_WAL: false.
+MAX_NEW_CASES 40 (used 24, as 33 case-ids across 9 batches). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @22 BOUND — the WAL ban is lifted, narrowly
+## 1. Pack @23 BOUND — thin-gap harvest law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v21 → **v22**
-(versions/1–22 retained; ADR `0020-engine-v22-wal.md`; schema VALID; 28 laws).
-The blanket "WAL forbidden" clauses embedded in the v6–v21 law texts are superseded by
-three new laws: **WAL-FORMAT** (real SQLite WAL the pinned C amalgamation recovers — a
-private sidecar log is a SCOPE_VIOLATION), **JOURNAL-MODE** (delete/wal on files,
-memory on :memory:, pinned transitions), **CHECKPOINT-MIN** (backfill observable
-wal-blind; single-connection regime only). SCRIPT_TABLE stays 0; `completeness: incomplete`.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v22 → **v23**
+(versions/1–23 retained; ADR `0021-engine-v23-thin-gap-harvest.md`; schema VALID; 29 laws).
+New law: harvest increments must pin the previously-MISSING behaviour, flip full only when
+the COVERAGE-named residual is honestly gone, and REAL text rendering must stay on the
+ported FpDecode pipeline. WAL claims unchanged from v22. SCRIPT_TABLE stays 0.
 
-## 2. What WAL subset landed (modern/src/{dbfile,store,eval,lib}.rs)
+## 2. Flips table (card → before → after → residual)
 
-| Piece | Semantics |
-| --- | --- |
-| WAL format | 32-byte header (magic 0x377f0682 → LE-word checksums, v3007000, psz 4096, fixed salts) + 24-byte frame headers, cumulative checksums; commit frame carries db size |
-| Commit granularity | each committed exec/step rewrites the -wal with the full committed image as ONE WAL transaction — honest C-valid format, **not** C's frame-level appends (residual) |
-| journal_mode | wal/delete get+set on files (exec **and** prepared paths), memory pinned for :memory:; mode persists via header versions=2; sidecars appear on first write, not at the pragma (pinned) |
-| Clean close | checkpoint into main db + delete -wal/-shm, mode persists — exactly C's pinned file states |
-| Open/recovery | reopen reads header versions + recovers committed frames from an existing -wal (checksum-validated scan) |
-| wal→delete | backfill, drop sidecars, persist mode 1 (pinned) |
-| Checkpoints | bare/PASSIVE/FULL/RESTART/TRUNCATE: busy=0, log==checkpointed row, TRUNCATE zeroes -wal; backfill via full-image main-db write |
+| Card | Before | After | Residual |
+| --- | --- | --- | --- |
+| loadext-api-002 | partial | **full** | — (cancel/reset/multi-entry landed) |
+| malloc-subsystem-001 | partial | **full** | — (memory_used/highwater on the real allocator) |
+| window-functions-001 | partial | **full** | — (all six leftovers + named WINDOW clause) |
+| error-status-api-002 | partial | **full** | — (limit id matrix + prepare-time enforcement) |
+| error-status-api-001 | partial | **full** | extended codes real for implemented error paths; IOERR/CANTOPEN families have no modern error source |
+| foreign-keys-001 | partial | **full** | — (deferred FKs: COMMIT check, txn stays open, pragma reset) |
+| printf-format-002 | partial | partial (tighter) | vmprintf needs C va_list — stable Rust cannot define it (platform residual) |
+| printf-format-003 | partial | partial (tighter) | vappendf: same va_list residual; str_append landed |
+| auth-callback-api-001 | partial | partial (tighter) | s1–s4 args, SQLITE_IGNORE, ~28 more action codes |
+| tokenizer-002 | partial | partial (tighter) | string-literal-aware lexing in complete() |
+| engine-harvest23-001..009 | — | **new full ×9** | composed cards for exactly the frozen batches |
 
-Two engine fixes forced by the pins: prepared statements now surface pragma result rows
-(`PRAGMA journal_mode=WAL` via prepare/step returns `wal` like C), and pragma column
-names reach `sqlite3_column_count` on the prepared path.
+## 3. What landed (modern/src/{lib,eval,store,fpdec}.rs)
 
-## 3. C interop results (the honesty gate)
+- **auto-extension**: ordered multi-entry registry, cancel (1/0), reset, duplicate collapse.
+- **malloc accounting**: counters in `sized_alloc` (origin of every `sqlite3_free` pointer);
+  sticky highwater with reset-returns-prior semantics.
+- **snprintf** (fixed-arity like the existing mprintf): truncation with NUL at n-1,
+  n<=0 no-op returning buf; **sqlite3_str_append** raw n-limited bytes.
+- **window functions**: first_value/last_value/nth_value (frame-aware, OOR→NULL),
+  ntile (front-loaded buckets), percent_rank, cume_dist; `WINDOW <name> AS (...)` named
+  windows; `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` frame.
+- **sqlite3_limit**: full id matrix (defaults pinned: LENGTH 1e9, COLUMN 2000,
+  FUNCTION_ARG 1000, ATTACHED 10, VARIABLE_NUMBER 32766), prior-value sets, compile-max
+  clamping; VARIABLE_NUMBER enforced at prepare (`variable number must be between ?1 and ?N`).
+- **errors**: sqlite3_errstr (extended codes fall through to base, pinned by e787/e2067);
+  extended constraint codes 2067/1299/275/787 on real paths; UNIQUE/CHECK messages now
+  qualified like C (`UNIQUE constraint failed: t.a`, `CHECK constraint failed: c>0`).
+- **deferred FKs**: `DEFERRABLE INITIALLY DEFERRED` + `PRAGMA defer_foreign_keys`
+  (resets at txn end); COMMIT-time whole-store validation; failed COMMIT keeps the
+  transaction open (pinned); still immediate outside transactions.
+- **authorizer**: INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA deny → rc 23 "not authorized".
+- **complete()**: real BEGIN/CASE/END nesting scan.
 
-- **`rust_write_c_read_wal`** — the copied Rust db+wal holds an *empty main db* with all
-  data only in the -wal; the pinned C CLI recovers it, returns the runtime row, and
-  reports `integrity_check = ok`. This proves frames/salts/cumulative checksums, not
-  just the main-db writer.
-- **`anti_cheat_wal_checkpoint_passive`** — a wal-blind (`immutable=1`) C read of the
-  main db lacks the row before PASSIVE and contains it after: backfill is real.
-- **`anti_cheat_wal_runtime_reopen`** — pid-seeded row survives close/reopen in WAL
-  mode; reopened connection reports `journal_mode=wal`.
+### The unplanned deep fix: `fpdec.rs`
 
-## 4. Checkpoint modes: done vs residual
+Window pins exposed that modern rendered REALs by Rust shortest-round-trip while C
+renders 1.0/3.0 as `0.33333333333333332` (SQLite's own 18-digit convert + round-to-17
+artifact). `fpdec.rs` is a **faithful port of sqlite3FpDecode / Fp2Convert10 /
+Fp10Convert2** (power-of-ten tables, 128-bit multiplies, %!.17g precision-reduction)
+plus the printf %!g assembly. Every prior REAL pin replays through the port.
 
-| Mode | Pinned | Residual |
+## 4. Anti-cheat + cargo
+
+- `anti_cheat_harvest_runtime` — pid-seeded rows through window functions, a runtime
+  VARIABLE_NUMBER limit with exact C errmsg, and a runtime deferred-FK commit cycle.
+- Per-card mandatory pins demonstrate the previously-missing behaviour (e.g. wal-blind
+  none of these — WAL untouched).
+- `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
+- **cargo test: 519/519 PASS** (was 508; +11 harvest tests). engine-wal / upsert-expr /
+  collation / utf16 / prepare / index / UDF suites all green; 477 pre-run goldens
+  md5-verified intact.
+
+## 5. Scoreboard (impl_in_modern) — before → after
+
+| State | Run 32 | Run 33 |
 | --- | --- | --- |
-| bare / PASSIVE | ✔ counts + durability + wal-blind backfill | — |
-| FULL | ✔ single-connection | busy/blocking vs readers NOT exercised |
-| RESTART | ✔ single-connection | same |
-| TRUNCATE | ✔ zeroes -wal | same |
-| wal_autocheckpoint | ✗ | not claimed |
+| **full (converted)** | 94 | **109** |
+| partial | 50 | 44 |
+| none (remaining) | 101 | 101 |
+| behaviours known | 245 | 254 |
 
-## 5. Frozen cases (16 new, two-run deterministic, delegated HUMAN_ACCEPTED)
+6 umbrella Partials flipped full; 4 tightened honestly; 9 composed batch cards added.
+legacy_green 155 → 164. parity_green 0. Nothing `verified`. WAL claim level unchanged.
 
-| Feature | Cases | Pins |
-| --- | --- | --- |
-| engine-wal-001 | C001–C010 | pragma returns wal + no sidecars until first write; -wal/-shm live during session; clean-close deletion + persistence; wal→delete; :memory: refusal; multi-commit; rollback; 60-row multi-page; second same-process connection; empty-DB mode + integrity |
-| engine-wal-002 | C001–C006 | PASSIVE / bare / FULL / RESTART / TRUNCATE (+wal zeroing), checkpoint-then-write-then-reopen |
+## 6. Not migrated
 
-RECORD run `2026-08-12T2200Z-legacy-record-wal`; catalog21.json; all 461 pre-run goldens
-md5-verified intact (rollback-path behaviour untouched).
+SQLite is **not migrated**. 109/254 behaviours run honestly in modern for frozen scope
+only. va_list ABI surfaces (vmprintf/vappendf) are platform residuals on stable Rust.
+Parity UNVERIFIED everywhere (COMPARE never run).
 
-## 6. wal-001 / wal-002 verdicts (under-claimed deliberately)
+## 7. Next call
 
-| Card | Verdict |
-| --- | --- |
-| wal-001 | **none → partial.** Real: C-valid write path, C interop, mode persistence, reopen recovery, single-process visibility. Residual: full-image commits (not frame appends), no multi-conn mxFrame snapshots, no shm locking protocol, no corruption/torn-write recovery matrix. |
-| wal-002 | **none → partial.** All four modes + bare pinned and real, but only single-connection — the modes differ precisely in cross-connection busy/blocking behaviour, which is unexercised. Flipping full would greenwash that distinction. |
-| engine-wal-001/002 | new composed cards, **full** for exactly their frozen pins. |
-| pragma-surface-001 | notes tightened (journal_mode + wal_checkpoint family); stays partial. |
-
-## 7. Cargo + regressions
-
-**cargo test: 508/508 PASS** (was 488; +16 golden twins, +4 interop/anti-cheat/guard).
-All prior file/txn/upsert/index/UTF-16/UDF/collation suites green; journal_mode
-delete/memory pins unchanged.
-
-## 8. Scoreboard (impl_in_modern) — before → after
-
-| State | Run 31 | Run 32 |
-| --- | --- | --- |
-| **full (converted)** | 92 | **94** |
-| partial | 48 | 50 |
-| none (remaining) | 103 | 101 |
-| behaviours known | 243 | 245 |
-
-legacy_green 153 → 155. parity_green 0. Nothing `verified`.
-
-## 9. Not migrated — and not "WAL complete"
-
-SQLite is **not migrated**, and this is **not** SQLite's WAL: no multi-process
-coordination, no wal-index locking, no frame-level appends, no reader snapshots
-across connections, no recovery matrix, no wal2. 94/245 behaviours run honestly in
-modern for frozen scope only. Parity UNVERIFIED everywhere (COMPARE never run).
-
-## 10. Next call
-
-1. **Frame-level WAL commits** — replace full-image rewrites with per-page appends
-   (keeps C interop, shrinks the wal-001 residual materially).
-2. **errmsg16 / create_collation16 / create_function16** — finish the UTF-16 surface.
-3. **RETURNING clause** — bounded, high-visibility DML card.
+1. **Another harvest** — auth s1–s4 args + SQLITE_IGNORE; tokenizer string-aware
+   complete(); json_valid flags; connection-lifecycle URI thin pins.
+2. **WAL deepen** — frame-level appends to shrink the wal-001 residual.
+3. **A named none** — e.g. RETURNING clause as a new bounded DML card.
