@@ -1,0 +1,4 @@
+OBS engine-checkupd-001-C006 row0.col0 1
+OBS engine-checkupd-001-C006 row0.col1 0
+OBS engine-checkupd-001-C006 exec.rc 0
+OBS engine-checkupd-001-C006 cb.rows 1

@@ -1,0 +1,6 @@
+OBS engine-checkupd-002-C002 begin.rc 0
+OBS engine-checkupd-002-C002 upd.rc 19
+OBS engine-checkupd-002-C002 autocommit 0
+OBS engine-checkupd-002-C002 commit.rc 0
+OBS engine-checkupd-002-C002 count 2
+OBS engine-checkupd-002-C002 a5 5

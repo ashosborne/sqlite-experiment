@@ -5261,8 +5261,8 @@ behaviours:
   traceability: tests/characterization/engine-txnfile/TRACEABILITY.yaml
   notes: 'run-25 transactions: frozen scope executes for real (snapshot-model undo — not a pager journal, not WAL); legacy
     RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-25 delegated stamp)'
-last_updated: '2026-08-12T09:10:03Z'
-updated_by: sqlite-engine-v15-transactions
+last_updated: '2026-08-12T09:18:11Z'
+updated_by: sqlite-engine-v16-check-on-update
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

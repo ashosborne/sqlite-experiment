@@ -1,0 +1,58 @@
+[
+{
+"id": "engine-checkupd-001-C001",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "error-script",
+"sql": "CREATE TABLE c(a INTEGER CHECK(a > 0)); INSERT INTO c VALUES(5); UPDATE c SET a = -1;"
+},
+{
+"id": "engine-checkupd-001-C002",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE c(a INTEGER CHECK(a > 0)); INSERT INTO c VALUES(5); UPDATE c SET a = 7; SELECT a FROM c;"
+},
+{
+"id": "engine-checkupd-001-C003",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE m(a INTEGER, b INTEGER, CHECK(a < b)); INSERT INTO m VALUES(1,5); UPDATE m SET a = 3; SELECT a, b FROM m;"
+},
+{
+"id": "engine-checkupd-001-C004",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "error-script",
+"sql": "CREATE TABLE m(a INTEGER, b INTEGER, CHECK(a < b)); INSERT INTO m VALUES(1,5); UPDATE m SET a = 9;"
+},
+{
+"id": "engine-checkupd-001-C005",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE c(a INTEGER CHECK(a > 0)); INSERT INTO c VALUES(5); INSERT INTO c VALUES(20); UPDATE OR IGNORE c SET a = -1 WHERE a = 5; UPDATE OR IGNORE c SET a = 15 WHERE a = 20; SELECT a FROM c ORDER BY a;"
+},
+{
+"id": "engine-checkupd-001-C006",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE c(a INTEGER CHECK(a > 0)); INSERT INTO c VALUES(5); UPDATE c SET a = NULL; SELECT count(*), count(a) FROM c;"
+},
+{
+"id": "engine-checkupd-001-C007",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE e(a INTEGER CHECK(a % 2 = 0)); INSERT INTO e VALUES(2); UPDATE e SET a = 4; SELECT a FROM e;"
+},
+{
+"id": "engine-checkupd-001-C008",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-001",
+"kind": "script",
+"sql": "CREATE TABLE c(a INTEGER CHECK(a > 0)); INSERT INTO c VALUES(5); BEGIN; UPDATE c SET a = 9; COMMIT; SELECT a FROM c;"
+}
+]

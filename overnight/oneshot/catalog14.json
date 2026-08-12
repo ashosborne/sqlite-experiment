@@ -1,0 +1,51 @@
+[
+{
+"id": "engine-checkupd-002-C001",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-002",
+"kind": "bespoke",
+"note": "failed UPDATE leaves the row unchanged (statement atomic)"
+},
+{
+"id": "engine-checkupd-002-C002",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-002",
+"kind": "bespoke",
+"note": "UPDATE OR ABORT in txn: statement fails, txn survives, COMMIT keeps prior work"
+},
+{
+"id": "engine-checkupd-002-C003",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-002",
+"kind": "bespoke",
+"note": "UPDATE OR ROLLBACK: violation kills the whole txn (autocommit 1, COMMIT errors)"
+},
+{
+"id": "engine-checkupd-002-C004",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-002",
+"kind": "bespoke",
+"note": "UPDATE OR FAIL keeps earlier row changes of the same statement (6,9)"
+},
+{
+"id": "engine-checkupd-002-C005",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-002",
+"kind": "bespoke",
+"note": "plain UPDATE (ABORT) undoes the whole statement (1,9)"
+},
+{
+"id": "engine-checkupd-003-C001",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-003",
+"kind": "bespoke",
+"note": "file: CHECK-passing UPDATE durable after reopen"
+},
+{
+"id": "engine-checkupd-003-C002",
+"slice": "engine-checkupd",
+"feature": "engine-checkupd-003",
+"kind": "bespoke",
+"note": "file: CHECK-failing UPDATE not applied after reopen"
+}
+]
