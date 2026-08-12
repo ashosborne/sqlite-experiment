@@ -1,0 +1,4 @@
+OBS engine-printf3-001-C002 row0.col0 7B
+OBS engine-printf3-001-C002 row0.col1 1
+OBS engine-printf3-001-C002 exec.rc 0
+OBS engine-printf3-001-C002 cb.rows 1

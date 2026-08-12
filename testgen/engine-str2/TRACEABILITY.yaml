@@ -1,0 +1,36 @@
+slice_id: engine-str2
+source_discovery: discovery/engine-str2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-str2-001
+cases:
+- id: engine-str2-001-C001
+  feature_id: engine-str2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-str2-001/CASE-001.md
+  golden: tests/characterization/engine-str2/cases/engine-str2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-str2/features/engine-str2-001.md
+- id: engine-str2-001-C002
+  feature_id: engine-str2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-str2-001/CASE-002.md
+  golden: tests/characterization/engine-str2/cases/engine-str2-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-str2/features/engine-str2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-24 delegated stamp (bespoke prepare2/serialize/str)
+  stamped_case_ids:
+  - engine-str2-001-C001
+  - engine-str2-001-C002
+updated_at: '2026-08-12T08:44:36Z'

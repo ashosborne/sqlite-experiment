@@ -1,0 +1,25 @@
+slice_id: engine-decimal2
+source_discovery: discovery/engine-decimal2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-decimal2-001
+cases:
+- id: engine-decimal2-001-C001
+  feature_id: engine-decimal2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-decimal2-001/CASE-001.md
+  golden: tests/characterization/engine-decimal2/cases/engine-decimal2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-decimal2/features/engine-decimal2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-24 delegated stamp (full-autonomy charter, thin-gap harvest 2)
+  stamped_case_ids:
+  - engine-decimal2-001-C001
+updated_at: '2026-08-12T08:43:49Z'

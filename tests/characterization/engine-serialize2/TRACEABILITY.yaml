@@ -1,0 +1,25 @@
+slice_id: engine-serialize2
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-serialize2-001-C001
+  feature_id: engine-serialize2-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-serialize2-001/C001.approved.txt
+  run_id: 2026-08-12T0630Z-legacy-record-thin-gap-2b
+- case_id: engine-serialize2-001-C002
+  feature_id: engine-serialize2-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-serialize2-001/C002.approved.txt
+  run_id: 2026-08-12T0630Z-legacy-record-thin-gap-2b
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-24 delegated stamp (bespoke prepare2/serialize/str)
+  stamped_case_ids:
+  - engine-serialize2-001-C001
+  - engine-serialize2-001-C002
+updated_at: '2026-08-12T08:44:36Z'
+run_id: 2026-08-12T0630Z-legacy-record-thin-gap-2b

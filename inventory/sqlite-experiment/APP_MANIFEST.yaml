@@ -4940,8 +4940,8 @@ behaviours:
   traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
   notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
     (run-23 delegated stamp)'
-last_updated: '2026-08-12T08:25:52Z'
-updated_by: sqlite-engine-v13-prepare-bind
+last_updated: '2026-08-12T08:44:36Z'
+updated_by: sqlite-engine-v14-thin-gap-2
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

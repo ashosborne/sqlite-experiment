@@ -1,0 +1,6 @@
+OBS engine-serialize2-001-C002 ser.nonempty 1
+OBS engine-serialize2-001-C002 ty integer
+OBS engine-serialize2-001-C002 ty real
+OBS engine-serialize2-001-C002 ty text
+OBS engine-serialize2-001-C002 ty blob
+OBS engine-serialize2-001-C002 ty null

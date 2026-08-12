@@ -1,0 +1,43 @@
+slice_id: engine-raise
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-raise-001-C001
+  feature_id: engine-raise-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-raise-001/C001.approved.txt
+  run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2
+- case_id: engine-raise-001-C002
+  feature_id: engine-raise-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-raise-001/C002.approved.txt
+  run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2
+- case_id: engine-raise-001-C003
+  feature_id: engine-raise-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-raise-001/C003.approved.txt
+  run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2
+- case_id: engine-raise-001-C004
+  feature_id: engine-raise-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-raise-001/C004.approved.txt
+  run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2
+- case_id: engine-raise-001-C005
+  feature_id: engine-raise-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-raise-001/C005.approved.txt
+  run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-24 delegated stamp (full-autonomy charter, thin-gap harvest 2)
+  stamped_case_ids:
+  - engine-raise-001-C001
+  - engine-raise-001-C002
+  - engine-raise-001-C003
+  - engine-raise-001-C004
+  - engine-raise-001-C005
+updated_at: '2026-08-12T08:43:49Z'
+run_id: 2026-08-12T0600Z-legacy-record-thin-gap-2

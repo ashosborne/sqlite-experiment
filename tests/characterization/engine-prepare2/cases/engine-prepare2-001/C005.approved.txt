@@ -1,0 +1,2 @@
+OBS engine-prepare2-001-C005 step.rc 1
+OBS engine-prepare2-001-C005 errmsg no such table: t

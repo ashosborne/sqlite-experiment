@@ -1,0 +1,6 @@
+OBS engine-serialize2-001-C001 ser.nonempty 1
+OBS engine-serialize2-001-C001 deser.rc 0
+OBS engine-serialize2-001-C001 a 1
+OBS engine-serialize2-001-C001 b x
+OBS engine-serialize2-001-C001 a 2
+OBS engine-serialize2-001-C001 b y

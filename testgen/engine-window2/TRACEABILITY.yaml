@@ -1,0 +1,91 @@
+slice_id: engine-window2
+source_discovery: discovery/engine-window2/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-window2-001
+cases:
+- id: engine-window2-001-C001
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-001.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C002
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-002.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C003
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-003.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C004
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-004.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C005
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-005.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C006
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-006.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+- id: engine-window2-001-C007
+  feature_id: engine-window2-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-window2-001/CASE-007.md
+  golden: tests/characterization/engine-window2/cases/engine-window2-001/C007.approved.txt
+  discovery_evidence:
+  - discovery/engine-window2/features/engine-window2-001.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-24 delegated stamp (full-autonomy charter, thin-gap harvest 2)
+  stamped_case_ids:
+  - engine-window2-001-C001
+  - engine-window2-001-C002
+  - engine-window2-001-C003
+  - engine-window2-001-C004
+  - engine-window2-001-C005
+  - engine-window2-001-C006
+  - engine-window2-001-C007
+updated_at: '2026-08-12T08:43:49Z'

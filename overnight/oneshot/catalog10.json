@@ -1,0 +1,86 @@
+[
+{
+"id": "engine-prepare2-001-C001",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "prepare_v3 flags=0 executes via the shared engine"
+},
+{
+"id": "engine-prepare2-001-C002",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "prepare_v3 SQLITE_PREPARE_PERSISTENT accepted, same results"
+},
+{
+"id": "engine-prepare2-001-C003",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "prepare_v3 SQLITE_PREPARE_NO_VTAB on a plain table"
+},
+{
+"id": "engine-prepare2-001-C004",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "schema change (CREATE) under a live stmt: auto-reprepare, step OK"
+},
+{
+"id": "engine-prepare2-001-C005",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "DROP TABLE under a live stmt: step -> SQLITE_ERROR no such table"
+},
+{
+"id": "engine-prepare2-001-C006",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "ALTER ADD COLUMN under a live stmt: auto-reprepare, step OK"
+},
+{
+"id": "engine-prepare2-001-C007",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "EXPLAIN QUERY PLAN single-table: 4 columns + SCAN t detail"
+},
+{
+"id": "engine-prepare2-001-C009",
+"slice": "engine-prepare2",
+"feature": "engine-prepare2-001",
+"kind": "bespoke",
+"note": "EXPLAIN column shape (addr..comment); listing content not pinned"
+},
+{
+"id": "engine-serialize2-001-C001",
+"slice": "engine-serialize2",
+"feature": "engine-serialize2-001",
+"kind": "bespoke",
+"note": "populated serialize -> deserialize round trip (rows preserved)"
+},
+{
+"id": "engine-serialize2-001-C002",
+"slice": "engine-serialize2",
+"feature": "engine-serialize2-001",
+"kind": "bespoke",
+"note": "serialize round trip preserves all five storage classes"
+},
+{
+"id": "engine-str2-001-C001",
+"slice": "engine-str2",
+"feature": "engine-str2-001",
+"kind": "bespoke",
+"note": "sqlite3_str_appendchar + length + value + finish"
+},
+{
+"id": "engine-str2-001-C002",
+"slice": "engine-str2",
+"feature": "engine-str2-001",
+"kind": "bespoke",
+"note": "sqlite3_str_reset empties the builder; finish -> NULL"
+}
+]

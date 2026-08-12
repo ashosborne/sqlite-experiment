@@ -1,0 +1,7 @@
+OBS engine-prepare2-001-C007 prepare.rc 0
+OBS engine-prepare2-001-C007 cols 4
+OBS engine-prepare2-001-C007 n0 id
+OBS engine-prepare2-001-C007 n1 parent
+OBS engine-prepare2-001-C007 n2 notused
+OBS engine-prepare2-001-C007 n3 detail
+OBS engine-prepare2-001-C007 detail SCAN t
