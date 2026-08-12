@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T17:03:13Z
+- Generated: 2026-08-12T17:22:36Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T10:30:00Z by `sqlite-engine-v28-mega-harvest`
+- Manifest last_updated: 2026-08-13T12:30:00Z by `sqlite-engine-v29-none-batch`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 85 | Not started in modern |
-| partial | 57 | Some modern execution; gaps in notes |
-| full (converted) | 130 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 84 | Not started in modern |
+| partial | 58 | Some modern execution; gaps in notes |
+| full (converted) | 131 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -150,12 +150,14 @@
 - `engine-harvest28-006` — next_char incremental completion
 - `engine-harvest28-007` — wholenumber + completion vtabs
 - `engine-harvest28-008` — thin parser / complete / pragma-TVF pins
+- `engine-none29-001` — qualified-name-in-trigger DML rejection
 
 ### Partial in modern
 
 - `analyze-stats-001` — confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned data).
 - `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet
 - `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics
+- `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
 - `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.
 - `backup-api-001` — backup lifecycle real for empty/trivial source DBs only
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
@@ -214,7 +216,6 @@
 ### Remaining (impl_in_modern=none|absent, not deferred)
 
 - `analyze-stats-002` — analyze-stats — legacy_green no
-- `attach-detach-003` — attach-detach — legacy_green yes
 - `btree-001` — btree — legacy_green no
 - `btree-002` — btree — legacy_green no
 - `compile-options-omit-enable-001` — compile-options-omit-enable — legacy_green no
@@ -303,25 +304,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 233 |
-| Behaviours known | 272 |
+| Surfaces total | 234 |
+| Behaviours known | 273 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 182 |
+| legacy_green flags | 183 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 48 |
+| accepted | 49 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 130 |
+| converted | 131 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -361,6 +362,7 @@
 | engine-join | 1 |
 | engine-kitchen | 1 |
 | engine-misc2 | 1 |
+| engine-none29 | 1 |
 | engine-order2 | 1 |
 | engine-orrollback | 1 |
 | engine-overflow | 1 |

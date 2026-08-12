@@ -689,3 +689,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Scoreboard full 120→130 / partial 52→57 / none 93→85 (272 known). cargo 644/644.
   589 prior goldens md5-identical.
 
+## Run 39 — 2026-08-13 — engine v29: none-batch, baseline-honest (pack v29)
+
+- Pack v28→v29 BOUND (+versions/29, ADR 0027): NONE-BATCH LAW; mandatory bare-amalgamation
+  presence checks before implementing any extension surface.
+- Presence check (no-ext compile of sqlite3.c): delta_create / eval / dbstat / sqlite_dbpage
+  / bytecode / sqlite_stmt ALL ABSENT → misc-fossildelta/utilities/introspection/stmt kept
+  none (prior rc=0 goldens were force-linked; run-38 percentile lesson generalized).
+  Lookaside slab + variadic db_config not modellable → malloc-subsystem-002 kept none.
+- Implemented attach-detach-003 core rule: qualified table names in non-TEMP trigger DML
+  rejected with C's exact message (trigger not created); TEMP exempt; qualified SELECT
+  allowed; multi-stmt body fails whole. store.rs: TriggerReject/TriggerNoop stmts + parse
+  scan; split_statements keeps TEMP/TEMPORARY TRIGGER whole.
+- 6 goldens (engine-none29-001; C004 dropped — INSERT-SELECT trigger body unsupported).
+  anti_cheat over runtime table names. 622 prior goldens md5-identical.
+- Flips: attach-detach-003 none→partial; engine-none29-001 new composed full;
+  fossildelta/utilities/introspection/malloc-002 kept none (documented).
+- Scoreboard full 130→131 / partial 57→58 / none 85→84 (273 known). cargo 652/652.
+
