@@ -1,0 +1,2 @@
+OBS engine-harvest28-004-C002 shrink 1
+OBS engine-harvest28-004-C002 rt 0

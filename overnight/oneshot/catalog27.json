@@ -1,0 +1,282 @@
+[
+{
+"id": "engine-harvest28-001-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table header + rows cell layout"
+},
+{
+"id": "engine-harvest28-001-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table NULL cells come back as NULL pointers"
+},
+{
+"id": "engine-harvest28-001-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table zero rows: 0x0, result non-null"
+},
+{
+"id": "engine-harvest28-001-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table error: result NULL, errmsg out, rc 1"
+},
+{
+"id": "engine-harvest28-001-C005",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table on non-query: 0x0, statement still runs"
+},
+{
+"id": "engine-harvest28-001-C006",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-001",
+"kind": "bespoke",
+"note": "get_table over an expression query; free_table(NULL) tolerated"
+},
+{
+"id": "engine-harvest28-002-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "status64 MEMORY_USED cur<=hi, non-negative"
+},
+{
+"id": "engine-harvest28-002-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "status64 invalid op -> MISUSE(21)"
+},
+{
+"id": "engine-harvest28-002-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "status64 MEMORY_USED tracks alloc/free; hi sticky"
+},
+{
+"id": "engine-harvest28-002-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "status64 reset flag re-arms highwater"
+},
+{
+"id": "engine-harvest28-002-C005",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "db_status LOOKASIDE_USED shape; invalid op -> ERROR(1)"
+},
+{
+"id": "engine-harvest28-002-C006",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-002",
+"kind": "bespoke",
+"note": "db_status SCHEMA_USED grows with schema"
+},
+{
+"id": "engine-harvest28-003-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "auth IGNORE column -> NULL in results; READ consulted"
+},
+{
+"id": "engine-harvest28-003-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "no IGNORE: values intact; READ args (tbl.col) logged in order"
+},
+{
+"id": "engine-harvest28-003-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "IGNOREd column in WHERE reads NULL -> row filtered out"
+},
+{
+"id": "engine-harvest28-003-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "aggregate over IGNOREd column: count 0, sum NULL"
+},
+{
+"id": "engine-harvest28-003-C005",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "unset authorizer restores values"
+},
+{
+"id": "engine-harvest28-003-C006",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-003",
+"kind": "bespoke",
+"note": "SELECT * expansion consults each column"
+},
+{
+"id": "engine-harvest28-004-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-004",
+"kind": "bespoke",
+"note": "compress/uncompress text round-trip; blob types"
+},
+{
+"id": "engine-harvest28-004-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-004",
+"kind": "bespoke",
+"note": "repetitive text shrinks and round-trips"
+},
+{
+"id": "engine-harvest28-004-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-004",
+"kind": "bespoke",
+"note": "blob round-trip via hex"
+},
+{
+"id": "engine-harvest28-004-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-004",
+"kind": "bespoke",
+"note": "empty string round-trip"
+},
+{
+"id": "engine-harvest28-005-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "percentile linear interpolation (p50/p25/p75)"
+},
+{
+"id": "engine-harvest28-005-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "median odd + even count"
+},
+{
+"id": "engine-harvest28-005-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "median ignores NULLs; empty -> NULL"
+},
+{
+"id": "engine-harvest28-005-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "percentile out-of-range fraction errors"
+},
+{
+"id": "engine-harvest28-005-C005",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "percentile_cont / percentile_disc"
+},
+{
+"id": "engine-harvest28-005-C006",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-005",
+"kind": "bespoke",
+"note": "median non-numeric input errors"
+},
+{
+"id": "engine-harvest28-006-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-006",
+"kind": "bespoke",
+"note": "next_char distinct following chars"
+},
+{
+"id": "engine-harvest28-006-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-006",
+"kind": "bespoke",
+"note": "next_char empty prefix + no match"
+},
+{
+"id": "engine-harvest28-006-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-006",
+"kind": "bespoke",
+"note": "next_char exact word yields only longer continuations"
+},
+{
+"id": "engine-harvest28-007-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-007",
+"kind": "bespoke",
+"note": "wholenumber vtab bounded by WHERE"
+},
+{
+"id": "engine-harvest28-007-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-007",
+"kind": "bespoke",
+"note": "wholenumber aggregates over a bounded range"
+},
+{
+"id": "engine-harvest28-007-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-007",
+"kind": "bespoke",
+"note": "completion() keyword candidates for a prefix"
+},
+{
+"id": "engine-harvest28-007-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-007",
+"kind": "bespoke",
+"note": "completion() includes schema names"
+},
+{
+"id": "engine-harvest28-008-C001",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-008",
+"kind": "bespoke",
+"note": "keywords usable as unquoted identifiers"
+},
+{
+"id": "engine-harvest28-008-C002",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-008",
+"kind": "bespoke",
+"note": "quoted keywords as identifiers"
+},
+{
+"id": "engine-harvest28-008-C003",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-008",
+"kind": "bespoke",
+"note": "complete() ignores ; in strings and comments"
+},
+{
+"id": "engine-harvest28-008-C004",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-008",
+"kind": "bespoke",
+"note": "complete() trigger body with quoted END/semicolons"
+},
+{
+"id": "engine-harvest28-008-C005",
+"slice": "engine-harvest28",
+"feature": "engine-harvest28-008",
+"kind": "bespoke",
+"note": "pragma_function_list / pragma_pragma_list TVFs"
+}
+]

@@ -1,0 +1,4 @@
+OBS engine-harvest28-002-C003 cur_grew 1
+OBS engine-harvest28-002-C003 hi_ge_cur 1
+OBS engine-harvest28-002-C003 cur_back 1
+OBS engine-harvest28-002-C003 hi_sticky 1

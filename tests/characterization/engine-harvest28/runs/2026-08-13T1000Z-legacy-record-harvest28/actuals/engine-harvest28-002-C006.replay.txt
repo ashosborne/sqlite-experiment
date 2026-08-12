@@ -1,0 +1,2 @@
+OBS engine-harvest28-002-C006 grew 1
+OBS engine-harvest28-002-C006 nonneg 1

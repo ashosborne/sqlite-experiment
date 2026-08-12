@@ -1,0 +1,2 @@
+OBS engine-harvest28-005-C004 bad rc=1 err=the fraction argument to percentile() is not between 0.0 and 100.0
+OBS engine-harvest28-005-C004 neg rc=1 err=the fraction argument to percentile() is not between 0.0 and 100.0

@@ -1,0 +1,13 @@
+# engine-harvest28-004-C002 — run-11 oneshot characterization
+
+Feature: `engine-harvest28-004` · Kind: characterization · Assert mode: RECORDED (was TO_BE_RECORDED)
+Matrix gate: run-11 full-autonomy charter. Determinism gate: two independent RECORD runs byte-matched.
+
+## Boundary invoke
+
+Bespoke C API sequence: repetitive text shrinks and round-trips (see harness).
+
+## Observables
+
+- `shrink` = `1`
+- `rt` = `0`

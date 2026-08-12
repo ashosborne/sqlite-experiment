@@ -1,0 +1,4 @@
+OBS engine-harvest28-002-C005 rc 0
+OBS engine-harvest28-002-C005 cur_le_hi 1
+OBS engine-harvest28-002-C005 cur_nonneg 1
+OBS engine-harvest28-002-C005 badop_rc 1

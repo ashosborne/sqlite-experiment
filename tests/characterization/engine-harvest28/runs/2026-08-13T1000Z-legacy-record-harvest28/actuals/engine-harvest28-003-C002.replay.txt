@@ -1,0 +1,2 @@
+OBS engine-harvest28-003-C002 q ann,100
+OBS engine-harvest28-003-C002 log (emp.name) (emp.salary)

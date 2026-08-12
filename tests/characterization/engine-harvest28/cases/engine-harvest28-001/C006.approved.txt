@@ -1,0 +1,4 @@
+OBS engine-harvest28-001-C006 rc 0
+OBS engine-harvest28-001-C006 nrow 1
+OBS engine-harvest28-001-C006 ncol 2
+OBS engine-harvest28-001-C006 cells s|'ok'|5|ok

@@ -1,0 +1,6 @@
+OBS engine-harvest28-001-C002 nrow 2
+OBS engine-harvest28-001-C002 ncol 2
+OBS engine-harvest28-001-C002 r1b_null 1
+OBS engine-harvest28-001-C002 r2a_null 1
+OBS engine-harvest28-001-C002 r1a 1
+OBS engine-harvest28-001-C002 r2b z
