@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T13:19:34Z
+- Generated: 2026-08-12T13:55:21Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T02:30:00Z by `sqlite-engine-v24-vacuum`
+- Manifest last_updated: 2026-08-13T04:30:00Z by `sqlite-engine-v25-blob-io`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 99 | Not started in modern |
-| partial | 46 | Some modern execution; gaps in notes |
-| full (converted) | 112 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 97 | Not started in modern |
+| partial | 48 | Some modern execution; gaps in notes |
+| full (converted) | 115 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -132,6 +132,9 @@
 - `engine-vacuum-001` — VACUUM rebuild basics
 - `engine-vacuum-002` — durable VACUUM + C interop
 - `engine-vacuum-003` — VACUUM INTO
+- `engine-blob-001` — blob handle lifecycle
+- `engine-blob-002` — incremental read/write, bounds, expiry
+- `engine-blob-003` — durable blob I/O + C interop
 
 ### Partial in modern
 
@@ -141,6 +144,8 @@
 - `backup-api-001` — backup lifecycle real for empty/trivial source DBs only
 - `backup-api-002` — remaining/pagecount real for the pinned single-page sequence only
 - `backup-api-003` — write-between-steps restart pinned; no general page-level coordination
+- `blob-io-api-001` — confidence=observed-in-code; Opens a handle on (db,table,column,rowid); reopen repositions to a new row without re-resolving. run-35: PARTIAL - open/close/reopen/bytes real on the store path with the pinned C validation order and error text (view/table/quoted-column/indexed-write/rowid/null-type), rowid aliasing INTEGER PRIMARY KEY, text cells readable. RESIDUAL: attached-schema and UTF-16 name forms, WITHOUT ROWID targets, and open-inside-transaction interactions are unpinned.
+- `blob-io-api-002` — confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT). run-35: PARTIAL - offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob preallocate + interior write, and expiry (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven. RESIDUAL: expiry granularity is connection-write, not per-row like C (pins only modify the handle's own row); TEXT-cell writes via handles unpinned.
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
@@ -188,8 +193,6 @@
 - `analyze-stats-002` — analyze-stats — legacy_green no
 - `attach-detach-003` — attach-detach — legacy_green yes
 - `auth-callback-api-002` — auth-callback-api — legacy_green no
-- `blob-io-api-001` — blob-io-api — legacy_green no
-- `blob-io-api-002` — blob-io-api — legacy_green no
 - `btree-001` — btree — legacy_green no
 - `btree-002` — btree — legacy_green no
 - `compile-options-omit-enable-001` — compile-options-omit-enable — legacy_green no
@@ -288,25 +291,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 229 |
-| Behaviours known | 257 |
+| Surfaces total | 230 |
+| Behaviours known | 260 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 167 |
+| legacy_green flags | 170 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 44 |
+| accepted | 45 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 112 |
+| converted | 115 |
 | documented | 145 |
 
 ## Surfaces per slice
@@ -326,6 +329,7 @@
 | ddl-schema | 3 |
 | dml-codegen | 2 |
 | engine-agg-having | 1 |
+| engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |
 | engine-constraints | 1 |

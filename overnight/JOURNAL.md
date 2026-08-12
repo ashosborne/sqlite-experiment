@@ -595,3 +595,25 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Scoreboard full 109→112 / partial 46 / none 99 (257 known). cargo 541/541.
   510 prior goldens md5-identical.
 
+## Run 35 — 2026-08-13 — engine v25: incremental blob I/O (pack v25)
+
+- Pack v24→v25 BOUND (+versions/25, ADR 0023): BLOB I/O LAW (live handles on real
+  cell payload; canned bytes = SCOPE_VIOLATION).
+- 22 goldens (engine-blob-001 x8 lifecycle, -002 x10 I/O+bounds+expiry, -003 x4
+  durable/interop; harness /tmp/blob_harness.c). Pinned C truths: validation order +
+  exact errmsgs; bounds rc 1 "SQL logic error" with untouched buffers; RO write rc 8;
+  expiry rc 4 "query aborted" + bytes->0; zero-length edges; text cells readable;
+  errmsg "not an error" after success.
+- lib.rs: Sqlite3Blob handle (db, table, ci, rowid, readonly, connection-write marker);
+  sqlite3_blob_open/close/reopen/bytes/read/write; expiry via wal_marker comparison
+  (residual: connection-write granular vs C per-row — documented). store.rs:
+  blob_target (pinned validation order, IPK aliasing, indexed-write refusal),
+  blob_len/read_bytes/write_bytes (writes never resize, never bump change counters —
+  a handle must not expire itself); UPDATE SET constant-expression fallback (zeroblob).
+- Anti-cheat: pid-seeded payload + runtime offset + expiry proof. Interop: C CLI reads
+  a Rust file whose bytes were written only through a handle (integrity ok).
+- Flips (under-claimed): blob-io-api-001 none→partial, blob-io-api-002 none→partial;
+  engine-blob-001/002/003 new composed full. Stretch skipped per charter.
+- Scoreboard full 112→115 / partial 48 / none 97 (260 known). cargo 565/565.
+  528 prior goldens md5-identical.
+
