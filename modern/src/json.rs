@@ -46,6 +46,8 @@ impl JP {
     fn pnum(&mut self) -> Result<J, String> {
         let start = self.i; let mut isint = true;
         if self.b.get(self.i) == Some(&'-') { self.i += 1; }
+        // run-46: strict JSON numbers need a digit before any '.' (C rejects '.5')
+        if !matches!(self.b.get(self.i), Some(c) if c.is_ascii_digit()) { return Err("bad number".into()); }
         while let Some(&c) = self.b.get(self.i) { if c.is_ascii_digit() { self.i += 1; }
             else if c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-' { isint = false; self.i += 1; } else { break; } }
         let t: String = self.b[start..self.i].iter().collect();
@@ -57,6 +59,175 @@ impl JP {
 
 pub fn parse(doc: &str) -> Result<J, String> { let mut p = JP { b: doc.chars().collect(), i: 0 }; let v = p.parse()?; p.ws(); Ok(v) }
 pub fn valid(doc: &str) -> bool { let mut p = JP { b: doc.chars().collect(), i: 0 }; match p.parse() { Ok(_) => { p.ws(); p.i >= p.b.len() } Err(_) => false } }
+
+// ---------------- run-46: JSON5 validity (json_valid flags=2) ----------------
+// A validity-only recursive-descent scanner for the JSON5 forms the pin exercises:
+// // and /* */ comments, bare identifier object keys, single-quoted strings,
+// trailing commas, hex integers, leading/trailing-dot decimals, signed Infinity/NaN.
+struct J5 { b: Vec<char>, i: usize }
+impl J5 {
+    fn ws(&mut self) {
+        loop {
+            while self.i < self.b.len() && self.b[self.i].is_whitespace() { self.i += 1; }
+            if self.i + 1 < self.b.len() && self.b[self.i] == '/' && self.b[self.i + 1] == '/' {
+                while self.i < self.b.len() && self.b[self.i] != '\n' { self.i += 1; }
+                continue;
+            }
+            if self.i + 1 < self.b.len() && self.b[self.i] == '/' && self.b[self.i + 1] == '*' {
+                self.i += 2;
+                while self.i + 1 < self.b.len() && !(self.b[self.i] == '*' && self.b[self.i + 1] == '/') { self.i += 1; }
+                if self.i + 1 >= self.b.len() { self.i = self.b.len(); return; }
+                self.i += 2;
+                continue;
+            }
+            return;
+        }
+    }
+    fn peek(&self) -> Option<char> { self.b.get(self.i).copied() }
+    fn string(&mut self, q: char) -> bool {
+        self.i += 1;
+        while let Some(c) = self.peek() {
+            if c == q { self.i += 1; return true; }
+            if c == '\\' { self.i += 1; }
+            self.i += 1;
+        }
+        false
+    }
+    fn ident_key(&mut self) -> bool {
+        let start = self.i;
+        while let Some(c) = self.peek() {
+            if c.is_alphanumeric() || c == '_' || c == '$' { self.i += 1; } else { break; }
+        }
+        self.i > start && !self.b[start].is_ascii_digit()
+    }
+    fn number(&mut self) -> bool {
+        if matches!(self.peek(), Some('+') | Some('-')) { self.i += 1; }
+        let rest: String = self.b[self.i..].iter().collect();
+        if rest.starts_with("Infinity") { self.i += 8; return true; }
+        if rest.starts_with("NaN") { self.i += 3; return true; }
+        if rest.starts_with("0x") || rest.starts_with("0X") {
+            self.i += 2;
+            let s = self.i;
+            while matches!(self.peek(), Some(c) if c.is_ascii_hexdigit()) { self.i += 1; }
+            return self.i > s;
+        }
+        let s = self.i;
+        let mut digits = false;
+        while matches!(self.peek(), Some(c) if c.is_ascii_digit()) { self.i += 1; digits = true; }
+        if self.peek() == Some('.') {
+            self.i += 1;
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) { self.i += 1; digits = true; }
+        }
+        if !digits { self.i = s; return false; }
+        if matches!(self.peek(), Some('e') | Some('E')) {
+            self.i += 1;
+            if matches!(self.peek(), Some('+') | Some('-')) { self.i += 1; }
+            let e = self.i;
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) { self.i += 1; }
+            if self.i == e { return false; }
+        }
+        true
+    }
+    fn value(&mut self) -> bool {
+        self.ws();
+        match self.peek() {
+            Some('{') => {
+                self.i += 1;
+                loop {
+                    self.ws();
+                    if self.peek() == Some('}') { self.i += 1; return true; }
+                    let ok = match self.peek() {
+                        Some('"') => self.string('"'),
+                        Some('\'') => self.string('\''),
+                        _ => self.ident_key(),
+                    };
+                    if !ok { return false; }
+                    self.ws();
+                    if self.peek() != Some(':') { return false; }
+                    self.i += 1;
+                    if !self.value() { return false; }
+                    self.ws();
+                    match self.peek() {
+                        Some(',') => { self.i += 1; }
+                        Some('}') => { self.i += 1; return true; }
+                        _ => return false,
+                    }
+                }
+            }
+            Some('[') => {
+                self.i += 1;
+                loop {
+                    self.ws();
+                    if self.peek() == Some(']') { self.i += 1; return true; }
+                    if !self.value() { return false; }
+                    self.ws();
+                    match self.peek() {
+                        Some(',') => { self.i += 1; }
+                        Some(']') => { self.i += 1; return true; }
+                        _ => return false,
+                    }
+                }
+            }
+            Some('"') => self.string('"'),
+            Some('\'') => self.string('\''),
+            Some(c) if c == '+' || c == '-' || c == '.' || c.is_ascii_digit()
+                || c == 'I' || c == 'N' => {
+                if c == '.' { // leading-dot decimal
+                    self.i += 1;
+                    let s = self.i;
+                    while matches!(self.peek(), Some(d) if d.is_ascii_digit()) { self.i += 1; }
+                    return self.i > s;
+                }
+                self.number()
+            }
+            Some('t') => { let r: String = self.b[self.i..].iter().collect();
+                if r.starts_with("true") { self.i += 4; true } else { false } }
+            Some('f') => { let r: String = self.b[self.i..].iter().collect();
+                if r.starts_with("false") { self.i += 5; true } else { false } }
+            Some('n') => { let r: String = self.b[self.i..].iter().collect();
+                if r.starts_with("null") { self.i += 4; true } else { false } }
+            _ => false,
+        }
+    }
+}
+pub fn valid5(doc: &str) -> bool {
+    let mut p = J5 { b: doc.chars().collect(), i: 0 };
+    if !p.value() { return false; }
+    p.ws();
+    p.i >= p.b.len()
+}
+
+// ---------------- run-46: JSONB byte validity (json_valid flags=4/8) ----------------
+// Walks the binary element tree per the JSONB header rules: low nibble = element
+// type (0..12), high nibble = payload size or a 12..15 marker for 1/2/4/8 size
+// bytes; containers must be exactly filled by child elements.
+fn jsonb_element(b: &[u8], pos: usize) -> Option<usize> {
+    let h = *b.get(pos)?;
+    let ty = h & 0x0f;
+    if ty > 12 { return None; }
+    let (psz, hdr) = match h >> 4 {
+        n @ 0..=11 => (n as usize, 1usize),
+        12 => (*b.get(pos + 1)? as usize, 2),
+        13 => (u16::from_be_bytes([*b.get(pos + 1)?, *b.get(pos + 2)?]) as usize, 3),
+        14 => (u32::from_be_bytes([*b.get(pos + 1)?, *b.get(pos + 2)?, *b.get(pos + 3)?, *b.get(pos + 4)?]) as usize, 5),
+        _ => return None, // 8-byte sizes exceed any pinned payload
+    };
+    let start = pos + hdr;
+    let end = start.checked_add(psz)?;
+    if end > b.len() { return None; }
+    if ty == 11 || ty == 12 {
+        // ARRAY / OBJECT: children fill the payload exactly
+        let mut p = start;
+        while p < end { p = jsonb_element(b, p)?; if p > end { return None; } }
+        if p != end { return None; }
+    }
+    if matches!(ty, 0 | 1 | 2) && psz != 0 { return None; } // NULL/TRUE/FALSE carry no payload
+    Some(end)
+}
+pub fn jsonb_valid(b: &[u8]) -> bool {
+    if b.is_empty() { return false; }
+    jsonb_element(b, 0) == Some(b.len())
+}
 
 pub fn serialize(j: &J) -> String {
     match j {

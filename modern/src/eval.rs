@@ -123,6 +123,11 @@ impl Lex {
             while let Some(c) = self.peekc() { self.i += 1; if c == '"' { return Ok(Tok::Id(out)); } out.push(c); }
             return Err("unterminated \"ident\"".into());
         }
+        if c == '`' { // run-46: backtick identifier quoting (MySQL-compat form C accepts)
+            self.i += 1; let mut out = String::new();
+            while let Some(c) = self.peekc() { self.i += 1; if c == '`' { return Ok(Tok::Id(out)); } out.push(c); }
+            return Err("unterminated `ident`".into());
+        }
         // X'..' blob
         if (c == 'x' || c == 'X') && self.s.get(self.i + 1) == Some(&'\'') {
             self.i += 2; let mut hex = String::new();
@@ -350,7 +355,16 @@ impl P {
                     let name = if distinct { format!("{id}#distinct") } else { id };
                     return Ok(Ex::Func(name, args));
                 }
-                Ok(Ex::Col(id))
+                // run-46: quoted qualifiers lex as separate tokens ("select" . x) —
+                // merge Id '.' Id chains into one qualified column reference
+                let mut full = id;
+                while self.punct(".") {
+                    let save = self.i;
+                    self.i += 1;
+                    if let Tok::Id(nxt) = self.peek().clone() { self.i += 1; full = format!("{full}.{nxt}"); }
+                    else { self.i = save; break; }
+                }
+                Ok(Ex::Col(full))
             }
             other => Err(format!("unexpected token {:?}", other)),
         }
@@ -905,7 +919,25 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "regexp" => { let ok = tiny_regexp(&a(1)?.as_text(), &a(0)?.as_text()); V::Int(ok as i64) }
         // ---- JSON ----
         "json_extract" => { let doc=a(0)?.as_text(); let v=crate::json::extract(&doc,&a(1)?.as_text())?; crate::json::to_sql_text(v) }
-        "json_valid" => V::Int(crate::json::valid(&a(0)?.as_text()) as i64),
+        "json_valid" => {
+            // run-46: optional FLAGS argument (1 strict text, 2 JSON5 text, 4/8 JSONB blob)
+            let flags = if args.len() > 1 {
+                match a(1)? { V::Null => 1, v => v.as_f64() as i64 }
+            } else { 1 };
+            if !(1..=15).contains(&flags) {
+                return Err("FLAGS parameter to json_valid() must be between 1 and 15".into());
+            }
+            match a(0)? {
+                V::Null => V::Null,
+                V::Blob(b) => V::Int(((flags & 12) != 0 && crate::json::jsonb_valid(&b)) as i64),
+                v => {
+                    let t = v.as_text();
+                    let ok = ((flags & 1) != 0 && crate::json::valid(&t))
+                        || ((flags & 2) != 0 && crate::json::valid5(&t));
+                    V::Int(ok as i64)
+                }
+            }
+        }
         "json_type" => { let doc=a(0)?.as_text(); let p = if args.len()>1 { a(1)?.as_text() } else { "$".into() };
                          match crate::json::type_at(&doc,&p) { Some(t)=>V::Text(t), None=>V::Null } }
         "json_set" | "json_insert" | "json_replace" => V::Text(crate::json::set(&a(0)?.as_text(), &a(1)?.as_text(), &a(2)?, &ln)?),
@@ -1309,7 +1341,17 @@ fn find_kw_top(s: &str, kw: &str) -> Option<usize> {
     let up = s.to_ascii_uppercase(); let kwu = kw.to_ascii_uppercase();
     let b = up.as_bytes(); let mut depth = 0i32; let mut i = 0;
     while i < b.len() {
-        match b[i] { b'(' => depth += 1, b')' => depth -= 1, _ => {} }
+        match b[i] {
+            b'(' => depth += 1, b')' => depth -= 1,
+            // run-46: keywords inside quoted identifiers / strings are not keywords
+            b'\'' | b'"' | b'`' => {
+                let q = b[i]; i += 1;
+                while i < b.len() && b[i] != q { i += 1; }
+                i += 1; continue;
+            }
+            b'[' => { while i < b.len() && b[i] != b']' { i += 1; } i += 1; continue; }
+            _ => {}
+        }
         if depth == 0 && b[i..].starts_with(kwu.as_bytes()) {
             let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
             let before = i == 0 || !word(b[i-1]);
@@ -1333,7 +1375,23 @@ fn split_top(s: &str, sep: char) -> Vec<String> {
     out
 }
 
+/// run-46: strip identifier quoting ("x", [x], `x`) so quoted reserved words reach
+/// the same store keys their unquoted spellings would.
+fn unquote_ident(s: &str) -> String {
+    let t = s.trim();
+    if t.len() >= 2 {
+        let b = t.as_bytes();
+        if (b[0] == b'"' && b[t.len()-1] == b'"') || (b[0] == b'`' && b[t.len()-1] == b'`')
+            || (b[0] == b'[' && b[t.len()-1] == b']') {
+            return t[1..t.len()-1].to_string();
+        }
+    }
+    t.to_string()
+}
+
 fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String> {
+    let from_uq = if from.trim().starts_with('(') { from.trim().to_string() } else { unquote_ident(from) };
+    let from = from_uq.as_str();
     let f = from.trim();
     if f.starts_with('(') {
         let inner = &f[1..f.rfind(')').ok_or("bad subquery")?];
@@ -1665,7 +1723,7 @@ fn item_source(ctx: &Ctx, item: &str, outer: &Row) -> Result<(String, Vec<String
     } else {
         source_rows(ctx, &base)?
     };
-    let qual = if !alias.is_empty() { alias } else { base.trim().to_string() };
+    let qual = if !alias.is_empty() { alias } else { unquote_ident(&base) };
     Ok((qual, cols, rows))
 }
 
@@ -2449,8 +2507,11 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
             Ok(vec![vec![Some(mode.into())]])
         }
         "locking_mode" => Ok(vec![vec![Some("normal".into())]]),
+        // run-46: page_size / auto_vacuum sets are PENDING until VACUUM applies them (C)
         "page_size" => { match val { Some(v) => { ctx.conn.pragmas.insert(name.clone(), boolval(&v)); Ok(vec![]) }
-            None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&4096); Ok(vec![vec![Some(cur.to_string())]]) } } }
+            None => { let cur = *ctx.conn.pragmas.get("page_size#active").unwrap_or(&4096); Ok(vec![vec![Some(cur.to_string())]]) } } }
+        "auto_vacuum" => { match val { Some(v) => { ctx.conn.pragmas.insert(name.clone(), boolval(&v)); Ok(vec![]) }
+            None => { let cur = *ctx.conn.pragmas.get("auto_vacuum#active").unwrap_or(&0); Ok(vec![vec![Some(cur.to_string())]]) } } }
         "busy_timeout" => { match val {
             Some(v) => { let n = boolval(&v); ctx.conn.pragmas.insert(name.clone(), n); Ok(vec![vec![Some(n.to_string())]]) } // set RETURNS the value
             None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&0); Ok(vec![vec![Some(cur.to_string())]]) } } }

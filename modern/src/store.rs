@@ -799,6 +799,7 @@ enum Policy { Abort, Ignore, Replace, DoNothing, DoUpdate, TxnRollback }
 enum Stmt {
     PragmaFkOn,
     PragmaCheck,                                    // run-44: integrity_check / quick_check
+    PragmaOptimize,                                 // run-46: ANALYZE indexed tables missing stats
     PragmaTableXinfo { name: String },              // run-44
     PragmaIndexInfo { name: String, x: bool },      // run-44: index_info / index_xinfo
     Create { name: String, cols: Vec<Col>, sql: String },
@@ -821,7 +822,7 @@ enum Stmt {
     Drop { name: String },
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
-    Vacuum { into: Option<String> },
+    Vacuum { into: Option<String>, schema: Option<String> },
     Analyze { target: Option<String> },
     Attach { schema: String, path: String },
     Detach { schema: String },
@@ -914,6 +915,9 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     // run-44: table-shaped pragmas that need real store metadata (kitchen-owned)
     if up == "PRAGMA INTEGRITY_CHECK" || up == "PRAGMA QUICK_CHECK" {
         return Some(Stmt::PragmaCheck);
+    }
+    if up == "PRAGMA OPTIMIZE" {
+        return Some(Stmt::PragmaOptimize);
     }
     if up.starts_with("PRAGMA TABLE_XINFO(") || up.starts_with("PRAGMA TABLE_XINFO (")
         || up.starts_with("PRAGMA INDEX_INFO(") || up.starts_with("PRAGMA INDEX_INFO (")
@@ -1297,7 +1301,12 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         return Some(Stmt::Insert { name, collist, rows, policy, target, upd_sets, upd_where });
     }
     if up == "VACUUM" {
-        return Some(Stmt::Vacuum { into: None });
+        return Some(Stmt::Vacuum { into: None, schema: None });
+    }
+    if up.starts_with("VACUUM ") && !up.starts_with("VACUUM INTO ") {
+        // run-46: VACUUM <schema> rebuilds one schema (unknown names error like C)
+        let name = ident(s["VACUUM ".len()..].trim())?;
+        return Some(Stmt::Vacuum { into: None, schema: Some(name) });
     }
     if up.starts_with("ATTACH ") {
         // ATTACH [DATABASE] '<path>' AS <schema>
@@ -1361,7 +1370,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
     if up.starts_with("VACUUM INTO ") {
         let arg = s["VACUUM INTO ".len()..].trim();
         let path = arg.strip_prefix('\'')?.strip_suffix('\'')?.to_string();
-        return Some(Stmt::Vacuum { into: Some(path) });
+        return Some(Stmt::Vacuum { into: Some(path), schema: None });
     }
     if up.starts_with("UPDATE ") {
         let (or_mode, after): (u8, &str) = if up.starts_with("UPDATE OR IGNORE ") { (1, &s["UPDATE OR IGNORE ".len()..]) }
@@ -1756,17 +1765,21 @@ fn stat1_text(cols: &[Col], idx: &IndexDef, rows: &[(i64, Vec<Val>)]) -> Result<
 }
 
 /// ensure the sqlite_stat1 catalog table exists (ANALYZE always creates it)
-fn ensure_stat1(st: &mut Store) {
-    if st.tables.iter().any(|(n, _)| n == "sqlite_stat1") { return; }
+fn ensure_stat1(st: &mut Store) { ensure_stat1_at(st, "sqlite_stat1"); }
+fn ensure_stat1_at(st: &mut Store, key: &str) {
+    if st.tables.iter().any(|(n, _)| n == key) { return; }
     let sql = "CREATE TABLE sqlite_stat1(tbl,idx,stat)";
     let cols = parse_coldefs("tbl,idx,stat").unwrap_or_default();
-    st.tables.push(("sqlite_stat1".into(), Table { cols, create_sql: sql.into(), ..Default::default() }));
-    st.catalog.push(("table".into(), "sqlite_stat1".into()));
+    st.tables.push((key.to_string(), Table { cols, create_sql: sql.into(), ..Default::default() }));
+    st.catalog.push(("table".into(), key.to_string()));
 }
 
 /// delete stat1 rows matching (tbl [, idx]) — re-ANALYZE / DROP maintenance
 fn stat1_delete(st: &mut Store, tbl: Option<&str>, idx: Option<&str>) {
-    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == "sqlite_stat1") {
+    stat1_delete_at(st, "sqlite_stat1", tbl, idx)
+}
+fn stat1_delete_at(st: &mut Store, key: &str, tbl: Option<&str>, idx: Option<&str>) {
+    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == key) {
         s.rows.retain(|(_, r)| {
             let rt = match r.first() { Some(Val::Text(t)) => t.clone(), _ => String::new() };
             let ri = match r.get(1) { Some(Val::Text(t)) => Some(t.clone()), _ => None };
@@ -1777,8 +1790,12 @@ fn stat1_delete(st: &mut Store, tbl: Option<&str>, idx: Option<&str>) {
     }
 }
 
+#[allow(dead_code)]
 fn stat1_insert(st: &mut Store, tbl: &str, idx: Option<&str>, stat: &str) {
-    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == "sqlite_stat1") {
+    stat1_insert_at(st, "sqlite_stat1", tbl, idx, stat)
+}
+fn stat1_insert_at(st: &mut Store, key: &str, tbl: &str, idx: Option<&str>, stat: &str) {
+    if let Some((_, s)) = st.tables.iter_mut().find(|(n, _)| n == key) {
         s.next_rowid += 1;
         let rid = s.next_rowid;
         s.rows.push((rid, vec![
@@ -2008,6 +2025,44 @@ fn build_index_snapshot(st: &Store)
         if !maps.is_empty() { out.insert(tname.clone(), maps); }
     }
     out
+}
+
+/// run-46: FULLSCAN_STEP estimate for one execution of a statement — the rows a
+/// simple unindexed single-table scan really visits, minus one (C's OP_Next tally).
+/// JOINs / indexed probes / expression-only statements report 0 (under-claim).
+pub fn fullscan_steps(db: usize, sql: &str) -> i64 {
+    let up = sql.trim().to_ascii_uppercase();
+    if !up.starts_with("SELECT") { return 0; }
+    let f = match up.find(" FROM ") { Some(f) => f, None => return 0 };
+    if up.contains(" JOIN ") || up[f + 6..].contains(',') { return 0; }
+    let rest = sql.trim()[f + 6..].trim();
+    let tbl_txt: String = rest.split_whitespace().next().unwrap_or("").trim_end_matches(';').to_string();
+    let name = match ident(&tbl_txt) { Some(n) => n, None => return 0 };
+    with_store(db, |st| {
+        let key = dml_key(st, &name);
+        // an indexed single-column probe would serve this scan through the index path
+        if st.indexes.iter().any(|d| d.table == key) { return 0; }
+        match st.tables.iter().find(|(n, _)| *n == key) {
+            Some((_, t)) if !t.rows.is_empty() => (t.rows.len() as i64) - 1,
+            _ => 0,
+        }
+    })
+}
+
+/// run-46: is any ACTIVE (mid-row) statement of this connection reading the given
+/// attached schema? Matches C's "database X is locked" DETACH gate for the pins:
+/// schema-qualified references or bare names that resolve into the schema.
+pub fn stmt_reads_schema(st: &Store, sql: &str, schema: &str) -> bool {
+    let low = sql.to_ascii_lowercase();
+    if low.contains(&format!("{}.", schema.to_ascii_lowercase())) { return true; }
+    let pfx = format!("{schema}.");
+    for w in low.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+        if w.is_empty() { continue; }
+        if !st.tables.iter().any(|(n, _)| n.eq_ignore_ascii_case(w)) {
+            if st.tables.iter().any(|(n, _)| n.eq_ignore_ascii_case(&format!("{pfx}{w}"))) { return true; }
+        }
+    }
+    false
 }
 
 /// run-43: unqualified DML resolution — main first, then attached schemas in attach
@@ -2381,22 +2436,28 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
                 Stmt::Analyze { target } => {
-                    // run-37: real scans -> sqlite_stat1 rows (pinned C text format)
-                    ensure_stat1(st);
-                    // resolve scope: whole db (None / schema name), one table, or one index
+                    // run-37: real scans -> sqlite_stat1 rows (pinned C text format).
+                    // run-46: attached-schema scopes write into <schema>.sqlite_stat1.
+                    let mut pfx = String::new(); // schema prefix for the stat table + name stripping
                     let mut only_index: Option<(String, String)> = None; // (table, index)
                     let mut tables: Vec<String> = Vec::new();
                     match &target {
                         None => {
                             tables = st.tables.iter().map(|(n, _)| n.clone())
-                                .filter(|n| n != "sqlite_stat1").collect();
+                                .filter(|n| n != "sqlite_stat1" && !n.contains('.')).collect();
                         }
                         Some(name) if name == "main" || name == "temp" => {
                             tables = st.tables.iter().map(|(n, _)| n.clone())
-                                .filter(|n| n != "sqlite_stat1").collect();
+                                .filter(|n| n != "sqlite_stat1" && !n.contains('.')).collect();
+                        }
+                        Some(name) if st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(name)) => {
+                            pfx = format!("{name}.");
+                            tables = st.tables.iter().map(|(n, _)| n.clone())
+                                .filter(|n| n.starts_with(&pfx) && !n.ends_with(".sqlite_stat1")).collect();
                         }
                         Some(name) => {
                             if st.tables.iter().any(|(n, _)| n == name) {
+                                if let Some((sch, _)) = name.split_once('.') { pfx = format!("{sch}."); }
                                 tables = vec![name.clone()];
                             } else if let Some(d) = st.indexes.iter().find(|d| d.name == *name) {
                                 only_index = Some((d.table.clone(), d.name.clone()));
@@ -2405,6 +2466,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                         }
                     }
+                    let stat_key = format!("{pfx}sqlite_stat1");
+                    ensure_stat1_at(st, &stat_key);
+                    let bare = |n: &str| n.strip_prefix(pfx.as_str()).unwrap_or(n).to_string();
+                    let _ = &bare;
                     if let Some((tbl, idxname)) = only_index {
                         // ANALYZE <index>: replace exactly that row (pinned C007)
                         let (cols, rows, def) = {
@@ -2412,10 +2477,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             let def = st.indexes.iter().find(|d| d.name == idxname).cloned().ok_or("no such index")?;
                             (t.1.cols.clone(), t.1.rows.clone(), def)
                         };
-                        stat1_delete(st, Some(&tbl), Some(&idxname));
+                        stat1_delete_at(st, &stat_key, Some(&tbl), Some(&idxname));
                         if !rows.is_empty() {
                             let stat = stat1_text(&cols, &def, &rows)?;
-                            stat1_insert(st, &tbl, Some(&idxname), &stat);
+                            stat1_insert_at(st, &stat_key, &tbl, Some(&idxname), &stat);
                         }
                     } else {
                         for tbl in tables {
@@ -2433,15 +2498,50 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         exprs: pks, unique: true, where_c: None, sql: String::new() });
                                 }
                             }
-                            stat1_delete(st, Some(&tbl), None);
+                            let tb = bare(&tbl);
+                            stat1_delete_at(st, &stat_key, Some(&tb), None);
                             if rows.is_empty() { continue; } // pinned: empty tables write nothing
                             if idefs.is_empty() {
-                                stat1_insert(st, &tbl, None, &rows.len().to_string());
+                                stat1_insert_at(st, &stat_key, &tb, None, &rows.len().to_string());
                             } else {
                                 for def in &idefs {
                                     let stat = stat1_text(&cols, def, &rows)?;
-                                    stat1_insert(st, &tbl, Some(&def.name), &stat);
+                                    stat1_insert_at(st, &stat_key, &tb, Some(&bare(&def.name)), &stat);
                                 }
+                            }
+                        }
+                    }
+                }
+                Stmt::PragmaOptimize => {
+                    // run-46: the pinned optimize contract — ANALYZE indexed tables whose
+                    // stats are missing (per schema; usage-gating heuristics not claimed).
+                    let scopes: Vec<String> = std::iter::once(String::new())
+                        .chain(st.conn.attached.iter().map(|a| format!("{a}."))).collect();
+                    for pfx in scopes {
+                        let stat_key = format!("{pfx}sqlite_stat1");
+                        let targets: Vec<String> = st.tables.iter().map(|(n, _)| n.clone())
+                            .filter(|n| {
+                                let in_scope = if pfx.is_empty() { !n.contains('.') } else { n.starts_with(&pfx) };
+                                in_scope && !n.ends_with("sqlite_stat1")
+                                    && st.indexes.iter().any(|d| d.table == *n)
+                            }).collect();
+                        for tbl in targets {
+                            let tb = tbl.strip_prefix(pfx.as_str()).unwrap_or(&tbl).to_string();
+                            let already = st.tables.iter().find(|(n, _)| *n == stat_key)
+                                .map(|(_, s)| s.rows.iter().any(|(_, r)| matches!(r.first(), Some(Val::Text(t)) if *t == tb)))
+                                .unwrap_or(false);
+                            if already { continue; }
+                            let (cols, rows) = {
+                                let t = st.tables.iter().find(|(n, _)| *n == tbl).ok_or("no such table")?;
+                                (t.1.cols.clone(), t.1.rows.clone())
+                            };
+                            if rows.is_empty() { continue; }
+                            ensure_stat1_at(st, &stat_key);
+                            let idefs: Vec<IndexDef> = st.indexes.iter()
+                                .filter(|d| d.table == tbl).cloned().collect();
+                            for def in &idefs {
+                                let stat = stat1_text(&cols, def, &rows)?;
+                                stat1_insert_at(st, &stat_key, &tb, Some(def.name.strip_prefix(pfx.as_str()).unwrap_or(&def.name)), &stat);
                             }
                         }
                     }
@@ -2472,6 +2572,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     if !st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(&schema)) {
                         return Err(format!("no such database: {schema}"));
                     }
+                    // run-46: an ACTIVE statement reading this schema locks the DETACH (C pin)
+                    for sql in crate::busy_stmt_sqls(db) {
+                        if stmt_reads_schema(st, &sql, &schema) {
+                            return Err(format!("database {schema} is locked"));
+                        }
+                    }
                     // persist a file-backed attachment before dropping it
                     let pb = ATTACHED_PATHS.with(|m| m.borrow().get(&db).and_then(|mm| mm.get(&schema).cloned()));
                     if let Some(pb) = pb {
@@ -2487,7 +2593,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.conn.attached.retain(|a| !a.eq_ignore_ascii_case(&schema));
                     ATTACHED_PATHS.with(|m| { if let Some(mm) = m.borrow_mut().get_mut(&db) { mm.remove(&schema); } });
                 }
-                Stmt::Vacuum { into } => {
+                Stmt::Vacuum { into, schema } => {
                     // run-34: a real rebuild — not a script answer. C refuses inside a txn.
                     if st.txn.is_some() {
                         return Err("cannot VACUUM from within a transaction".into());
@@ -2506,9 +2612,30 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             }
                         }
                         None => {
+                            // run-46: VACUUM <schema> validates the schema name like C
+                            if let Some(sch) = &schema {
+                                let known = sch.eq_ignore_ascii_case("main") || sch.eq_ignore_ascii_case("temp")
+                                    || st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(sch));
+                                if !known { return Err(format!("unknown database {sch}")); }
+                            }
+                            let scope_pfx: Option<String> = schema.as_ref()
+                                .filter(|s| !s.eq_ignore_ascii_case("main") && !s.eq_ignore_ascii_case("temp"))
+                                .map(|s| format!("{s}."));
+                            // run-46: pending PRAGMA page_size / auto_vacuum apply at (main) VACUUM
+                            if scope_pfx.is_none() {
+                                if let Some(v) = st.conn.pragmas.get("page_size").copied() {
+                                    st.conn.pragmas.insert("page_size#active".into(), v);
+                                }
+                                if let Some(v) = st.conn.pragmas.get("auto_vacuum").copied() {
+                                    st.conn.pragmas.insert("auto_vacuum#active".into(), v);
+                                }
+                            }
                             // rebuild: implicit rowids renumber 1..n (pinned 1,3,5 -> 1,2,3);
                             // INTEGER PRIMARY KEY and WITHOUT ROWID tables keep their keys
                             for (_n, tab) in st.tables.iter_mut() {
+                                if let Some(pfx) = &scope_pfx {
+                                    if !_n.starts_with(pfx.as_str()) { continue; }
+                                }
                                 let up = tab.create_sql.to_ascii_uppercase();
                                 if dbfile::ipk_index(&tab.create_sql).is_some() || up.contains("WITHOUT ROWID") {
                                     continue;
@@ -2623,6 +2750,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.conn.schema_version += 1;
                 }
                 Stmt::CreateIndex { name, table, exprs, unique, where_c, sql } => {
+                    // run-46: CREATE INDEX <schema>.<ix> ON t(...) — the table lives in
+                    // the index's schema (C resolution)
+                    let (name, table) = match name.split_once('.') {
+                        Some((sch, _bare)) if !table.contains('.') => {
+                            (name.clone(), format!("{sch}.{table}"))
+                        }
+                        _ => (name, table),
+                    };
                     st.catalog.push(("index".into(), name.clone()));
                     st.index_owner.insert(name.clone(), table.clone());
                     if unique && exprs.len() == 1 && where_c.is_none() {
@@ -2730,11 +2865,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::Drop { name } => {
                     stat1_delete(st, Some(&name), None); // run-37: C clears the table's stat1 rows
                     if st.fk_on {
-                        // DROP parent while child rows still reference it -> rc 19
+                        // DROP parent while child rows still reference it -> rc 19.
+                        // run-46: DEFERRED constraints inside a transaction allow the DROP;
+                        // the COMMIT-time scan catches the missing parent (pinned).
+                        let defer_prag = st.conn.pragmas.get("defer_foreign_keys").copied().unwrap_or(0) != 0;
                         for (cn, ct) in &st.tables {
                             if *cn == name { continue; }
                             for (ci, col) in ct.cols.iter().enumerate() {
                                 if let Some((p, _pc, _, _)) = &col.references {
+                                    if st.txn.is_some() && (col.ref_deferred || defer_prag) { continue; }
                                     if *p == name
                                         && ct.rows.iter().any(|(_, r)| r.get(ci).map_or(false, |v| *v != Val::Null))
                                     {

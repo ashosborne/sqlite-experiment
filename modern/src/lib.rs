@@ -68,6 +68,9 @@ pub struct Sqlite3Stmt {
     readonly: bool,
     text_cache: Vec<Option<CString>>,     // per-column column_text pointers (current row)
     la: bool,                             // run-45: allocated from the lookaside pool
+    cnt_fullscan: i64,                    // run-46: rows-1 per unindexed full scan (accumulates)
+    cnt_run: i64,                         // run-46: execution cycles
+    cnt_vmstep: i64,                      // run-46: step events (no VDBE — see ADR 0034)
 }
 
 impl Sqlite3Stmt {
@@ -460,6 +463,9 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         readonly,
         text_cache: Vec::new(),
         la: la_slot.is_some(),
+        cnt_fullscan: 0,
+        cnt_run: 0,
+        cnt_vmstep: 0,
     };
     *pp_stmt = match la_slot {
         Some(p) => { let p = p as *mut Sqlite3Stmt; std::ptr::write(p, stmt_val); p }
@@ -554,6 +560,8 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
         return SQLITE_MISUSE;
     }
     let s = &mut *stmt;
+    s.cnt_vmstep += 1; // run-46: real step events (no VDBE op granularity — ADR 0034)
+    let starting = !matches!(s.state, State::Row);
     let rc = match s.state {
         State::Ready => stmt_execute(s),
         State::Row => {
@@ -568,6 +576,12 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
             stmt_execute(s)
         }
     };
+    if starting && (rc == SQLITE_ROW || rc == SQLITE_DONE) {
+        // run-46: one execution cycle started; unindexed single-table scans count
+        // their really-visited rows (rows-1 like C's OP_Next tally)
+        s.cnt_run += 1;
+        s.cnt_fullscan += store::fullscan_steps(s.db, &s.sql);
+    }
     if rc == SQLITE_ROW {
         fire_trace((*stmt).db, 4 /* SQLITE_TRACE_ROW */, stmt as *mut c_void, std::ptr::null_mut());
     }
@@ -1853,6 +1867,38 @@ pub unsafe extern "C" fn sqlite3_status(op: c_int, p_cur: *mut c_int, p_hi: *mut
         if !p_hi.is_null() { *p_hi = h64 as c_int; }
     }
     rc
+}
+
+/// # Safety: C ABI — per-statement counters (run-46): FULLSCAN_STEP(1) counts really
+/// visited rows minus one per unindexed single-table scan; RUN(6) execution cycles;
+/// VM_STEP(4) step events (no VDBE — magnitudes not claimed, ADR 0034); MEMUSED(99)
+/// the statement's real byte footprint. Unknown ops report 0 like C.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_stmt_status(stmt: *mut Sqlite3Stmt, op: c_int, reset: c_int) -> c_int {
+    if stmt.is_null() { return 0; }
+    let s = &mut *stmt;
+    let v = match op {
+        1 => s.cnt_fullscan,
+        4 => s.cnt_vmstep,
+        6 => s.cnt_run,
+        99 => (std::mem::size_of::<Sqlite3Stmt>() + s.sql.len()) as i64,
+        _ => 0,
+    };
+    if reset != 0 && op != 99 {
+        match op { 1 => s.cnt_fullscan = 0, 4 => s.cnt_vmstep = 0, 6 => s.cnt_run = 0, _ => {} }
+    }
+    v as c_int
+}
+
+/// run-46: SQL text of this connection's ACTIVE (mid-row) statements — the DETACH
+/// "database is locked" gate consults these.
+pub fn busy_stmt_sqls(dbid: usize) -> Vec<String> {
+    STMTS.with(|m| m.borrow().get(&dbid).map_or(Vec::new(), |set| {
+        set.iter().filter_map(|&p| unsafe {
+            let st = p as *mut Sqlite3Stmt;
+            if matches!((*st).state, State::Row) { Some((*st).sql.clone()) } else { None }
+        }).collect()
+    }))
 }
 
 /// real byte footprint of this connection's live prepared statements
