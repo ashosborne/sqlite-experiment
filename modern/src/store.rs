@@ -63,13 +63,15 @@ struct Table {
 
 #[derive(Clone)]
 struct Trigger {
-    table: String,               // ON <table>
+    table: String,               // ON <table> (canonical store key after exec resolution)
     timing: u8,                  // 0=BEFORE 1=AFTER 2=INSTEAD OF
     event: u8,                   // 0=INSERT 1=UPDATE 2=DELETE
     of_col: Option<String>,      // UPDATE OF <col> restriction
     when: Option<String>,        // WHEN <expr> (evaluated for real)
     body: Vec<(String, Vec<String>)>, // INSERT INTO <target> VALUES(<exprs using old./new.>)
     raw: String,                 // raw CREATE TRIGGER text (for durable schema)
+    schema: String,              // run-43: owning schema ("" / "main" = main; else attached)
+    on_schema: Option<String>,   // run-43: explicit schema written in the ON clause
 }
 
 /// full-store snapshot (pack v15 transaction model: snapshot/undo, NOT a pager
@@ -985,10 +987,15 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let beg = tup.find(" BEGIN ")?;
         let head = tail[..beg].trim();
         let hup = head.to_ascii_uppercase();
-        let (table, when) = match hup.find(" WHEN ") {
-            Some(wp) => (ident(&head[..wp])?, Some(head[wp + 6..].trim().to_string())),
-            None => (ident(head)?, None),
+        let (on_raw, when) = match hup.find(" WHEN ") {
+            Some(wp) => (head[..wp].trim(), Some(head[wp + 6..].trim().to_string())),
+            None => (head, None),
         };
+        // run-43: keep the schema qualifier as written (ident canonicalizes main.x -> x,
+        // but C's cross-schema ON validation needs the raw prefix)
+        let on_schema = on_raw.split_once('.')
+            .map(|(sch, _)| sch.trim().trim_matches('"').trim_matches('`').to_string());
+        let table = ident(on_raw)?;
         let mut bodytxt = tail[beg + 7..].trim();
         bodytxt = bodytxt.strip_suffix("END").unwrap_or(bodytxt).trim_end();
         let mut body = Vec::new();
@@ -1015,6 +1022,13 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
                 body.push(("#raise".to_string(), vec![format!("'{}'", msg.replace('\'', "''"))]));
                 continue;
             }
+            if sup.starts_with("SELECT ") {
+                // run-43: a plain SELECT body statement compiles (C runs it for side
+                // effects; no observable effect in the pinned scope) — kept as a no-op
+                // so ON-clause validation still happens at CREATE like C.
+                body.push(("#noop".to_string(), Vec::new()));
+                continue;
+            }
             if !sup.starts_with("INSERT INTO ") { return None; }
             let after_kw = &stmt["INSERT INTO ".len()..];
             let vpos = after_kw.to_ascii_uppercase().find(" VALUES(").or_else(|| after_kw.to_ascii_uppercase().find(" VALUES ("))?;
@@ -1032,7 +1046,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             body.push((target, exprs));
         }
         if body.is_empty() { return None; }
-        return Some(Stmt::CreateTrigger { name, def: Trigger { table, timing, event, of_col, when, body, raw: s.trim().to_string() }, sql: s.trim().to_string() });
+        return Some(Stmt::CreateTrigger { name, def: Trigger { table, timing, event, of_col, when, body, raw: s.trim().to_string(), schema: String::new(), on_schema }, sql: s.trim().to_string() });
     }
     if up.starts_with("CREATE VIEW ") {
         let rest = &s["CREATE VIEW ".len()..];
@@ -1350,7 +1364,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             rest = rest[..w].trim().to_string();
         }
         let target = ident(&rest)?;
-        if order_raw && target != "sqlite_master" { return None; } // COLLATE/NULLS/multi-key -> evaluator
+        if order_raw && target != "sqlite_master" && !target.ends_with(".sqlite_master") { return None; } // COLLATE/NULLS/multi-key -> evaluator
         for it in &items {
             let base = it.strip_prefix(&format!("{target}.")).unwrap_or(it);
             let ok = base == "count(*)" || base == "changes()" || base == "total_changes()"
@@ -1918,6 +1932,19 @@ fn build_index_snapshot(st: &Store)
     out
 }
 
+/// run-43: unqualified DML resolution — main first, then attached schemas in attach
+/// order (C's search path). Returns the canonical store key.
+fn dml_key(st: &Store, name: &str) -> String {
+    if name.contains('.') || st.tables.iter().any(|(n, _)| n == name) || st.views.contains_key(name) {
+        return name.to_string();
+    }
+    for sch in &st.conn.attached {
+        let k = format!("{sch}.{name}");
+        if st.tables.iter().any(|(n, _)| *n == k) { return k; }
+    }
+    name.to_string()
+}
+
 fn take_snap(st: &Store) -> Snap {
     Snap {
         tables: st.tables.clone(),
@@ -1999,10 +2026,18 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
                 let msg = eval::eval_standalone(&exprs[0], &env)?;
                 return Err(format!("__RAISE__{}", match msg { eval::V::Text(m) => m, v => v.render().unwrap_or_default() }));
             }
+            if target == "#noop" { continue; } // run-43: SELECT body statement
             let mut row = Vec::new();
             for e in exprs { row.push(ev_to_val(eval::eval_standalone(e, &env)?)); }
+            // run-43: unqualified body targets resolve STRICTLY inside the trigger's own
+            // schema (no fallback to main) — a missing target errors with the qualified
+            // name at fire time, exactly as pinned C does.
+            let attached = !tg.schema.is_empty() && !tg.schema.eq_ignore_ascii_case("main");
+            let resolved = if attached { format!("{}.{}", tg.schema, target) } else { target.clone() };
             {
-                let tt = st.tables.iter_mut().find(|(n, _)| n == target).ok_or("no such table")?;
+                let tt = st.tables.iter_mut().find(|(n, _)| *n == resolved)
+                    .ok_or_else(|| if attached { format!("no such table: {resolved}") }
+                                   else { "no such table".to_string() })?;
                 tt.1.next_rowid += 1;
                 let rid = tt.1.next_rowid;
                 tt.1.rows.push((rid, row.clone()));
@@ -2010,8 +2045,8 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
             }
             // PRAGMA recursive_triggers=ON: a trigger-body INSERT re-fires INSERT triggers
             if st.conn.pragmas.get("recursive_triggers").copied().unwrap_or(0) == 1 {
-                fire_triggers_d(st, &target.clone(), 0, 0, None, Some(&row), None, depth + 1)?;
-                fire_triggers_d(st, &target.clone(), 1, 0, None, Some(&row), None, depth + 1)?;
+                fire_triggers_d(st, &resolved, 0, 0, None, Some(&row), None, depth + 1)?;
+                fire_triggers_d(st, &resolved, 1, 0, None, Some(&row), None, depth + 1)?;
             }
         }
     }
@@ -2035,7 +2070,8 @@ pub fn stmt_missing_table(db: usize, sql: &str) -> Option<String> {
     match parse_stmt(s) {
         Some(Stmt::Insert { name, .. }) | Some(Stmt::Update { name, .. }) | Some(Stmt::Delete { name, .. }) => {
             with_store(db, |st| {
-                if st.tables.iter().any(|(n, _)| *n == name) || st.views.contains_key(&name) { None }
+                let key = dml_key(st, &name); // run-43: unqualified DML may live in an attached schema
+                if st.tables.iter().any(|(n, _)| *n == key) || st.views.contains_key(&key) { None }
                 else { Some(name) }
             })
         }
@@ -2149,7 +2185,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             // otherwise (pragma_* projections, TVFs) it belongs to the evaluator
             let kitchen_ok = match &parsed {
                 Some(Stmt::Select { target, .. }) =>
-                    target == "sqlite_master" || st.tables.iter().any(|(n, _)| n == target),
+                    target == "sqlite_master" || target.ends_with(".sqlite_master")
+                        || st.tables.iter().any(|(n, _)| n == target),
                 Some(_) => true,
                 None => false,
             };
@@ -2315,6 +2352,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.tables.retain(|(n, _)| !n.starts_with(&pfx));
                     st.catalog.retain(|(_, n)| !n.starts_with(&pfx));
                     st.indexes.retain(|d| !d.table.starts_with(&pfx));
+                    // run-43: the schema's triggers go down with it
+                    st.triggers.retain(|(_, d)| !d.table.starts_with(&pfx));
                     st.conn.attached.retain(|a| !a.eq_ignore_ascii_case(&schema));
                     ATTACHED_PATHS.with(|m| { if let Some(mm) = m.borrow_mut().get_mut(&db) { mm.remove(&schema); } });
                 }
@@ -2497,9 +2536,31 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
                 Stmt::TriggerReject { msg } => { return Err(msg); }
                 Stmt::TriggerNoop => { /* accepted, inert (run-39) */ }
-                Stmt::CreateTrigger { name, def, sql: _ } => {
-                    st.catalog.push(("trigger".into(), name.clone()));
-                    st.triggers.push((name, def));
+                Stmt::CreateTrigger { name, mut def, sql: _ } => {
+                    // run-43: the trigger NAME carries the schema (C model); ON resolves
+                    // strictly inside that schema — the two C error shapes are pinned.
+                    let (tsch, bname) = match name.split_once('.') {
+                        Some((s, b)) => (s.to_string(), b.to_string()),
+                        None => ("main".to_string(), name.clone()),
+                    };
+                    if let Some(os) = &def.on_schema {
+                        if !os.eq_ignore_ascii_case(&tsch) {
+                            return Err(format!("trigger {bname} cannot reference objects in database {os}"));
+                        }
+                    }
+                    let bare_tbl = def.table.split_once('.').map(|(_, b)| b.to_string())
+                        .unwrap_or_else(|| def.table.clone());
+                    let tkey = if tsch.eq_ignore_ascii_case("main") { bare_tbl.clone() }
+                               else { format!("{tsch}.{bare_tbl}") };
+                    if !st.tables.iter().any(|(n, _)| *n == tkey) && !st.views.contains_key(&tkey) {
+                        return Err(format!("no such table: {}.{bare_tbl}", tsch.to_ascii_lowercase()));
+                    }
+                    def.schema = tsch.clone();
+                    def.table = tkey;
+                    let reg_name = if tsch.eq_ignore_ascii_case("main") { bname }
+                                   else { format!("{tsch}.{bname}") };
+                    st.catalog.push(("trigger".into(), reg_name.clone()));
+                    st.triggers.push((reg_name, def));
                 }
                 Stmt::CreateView { name, body, sql: _ } => {
                     st.views.insert(name.clone(), body);
@@ -2579,6 +2640,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                 }
                 Stmt::Insert { name, collist, rows, policy, target, upd_sets, upd_where } => {
+                    let name = dml_key(st, &name); // run-43: resolve into attached schemas
+                    if !st.views.contains_key(&name) && !st.tables.iter().any(|(n, _)| *n == name) {
+                        return Err(format!("no such table: {name}"));
+                    }
                     if st.views.contains_key(&name) {
                         // INSTEAD OF INSERT triggers make views writable
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 0);
@@ -2603,6 +2668,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         let msg = eval::eval_standalone(&exprs[0], &env)?;
                                         return Err(format!("__RAISE__{}", msg.render().unwrap_or_default()));
                                     }
+                                    if target == "#noop" { continue; } // run-43: SELECT body statement
                                     let mut row = Vec::new();
                                     for e in exprs { row.push(ev_to_val(eval::eval_standalone(e, &env)?)); }
                                     let tt = st.tables.iter_mut().find(|(n, _)| n == target).ok_or("no such table")?;
@@ -2806,6 +2872,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
                 Stmt::Update { name, col, add, set, wh, or_mode } => {
+                    let name = dml_key(st, &name); // run-43: resolve into attached schemas
+                    if !st.views.contains_key(&name) && !st.tables.iter().any(|(n, _)| *n == name) {
+                        return Err(format!("no such table: {name}"));
+                    }
                     if st.views.contains_key(&name) {
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 1);
                         if !has_instead {
@@ -2924,6 +2994,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 1, 1, Some(o), Some(nw), Some(&col), 0)?; }
                 }
                 Stmt::Delete { name, wh, whx } => {
+                    let name = dml_key(st, &name); // run-43: resolve into attached schemas
+                    if !st.views.contains_key(&name) && !st.tables.iter().any(|(n, _)| *n == name) {
+                        return Err(format!("no such table: {name}"));
+                    }
                     // per-row hit test shared by the trigger / delete passes
                     let expr_hit = |cols: &[Col], r: &Vec<Val>, rid: i64| -> Result<bool, String> {
                         match &whx {
@@ -3049,12 +3123,22 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     for o in &hits { let _ = fire_triggers(st, &name, 1, 2, Some(o), None)?; }
                 }
                 Stmt::Select { items, target, wh, order_by } => {
-                    if target == "sqlite_master" {
-                        let mut ents: Vec<(String, String)> = st.catalog.iter().filter(|(ty, n)| match &wh {
+                    if target == "sqlite_master" || target.ends_with(".sqlite_master") {
+                        // run-43: schema-qualified sqlite_master reports that schema's objects
+                        // with bare names; bare sqlite_master is main-only (C model).
+                        let schp: Option<String> = target.strip_suffix(".sqlite_master").map(|s| s.to_string());
+                        let scoped: Vec<(String, String)> = st.catalog.iter().filter(|(_, n)| match &schp {
+                            None => !n.contains('.'),
+                            Some(s) => n.starts_with(&format!("{s}.")),
+                        }).map(|(ty, n)| (ty.clone(), match &schp {
+                            Some(s) => n[s.len() + 1..].to_string(),
+                            None => n.clone(),
+                        })).collect();
+                        let mut ents: Vec<(String, String)> = scoped.into_iter().filter(|(ty, n)| match &wh {
                             Some((k, v)) if k == "name" => Some(n.clone()) == v.render(),
                             Some((k, v)) if k == "type" => Some(ty.clone()) == v.render(),
                             _ => true,
-                        }).cloned().collect();
+                        }).collect();
                         if items.iter().any(|i| i == "count(*)") {
                             out.push(vec![Some(ents.len().to_string())]);
                             continue;
