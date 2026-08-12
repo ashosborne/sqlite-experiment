@@ -1,0 +1,13 @@
+slice_id: engine-analyze
+app_id: sqlite-experiment
+created_by: sqlite-engine-v27-analyze
+created_at: 2026-08-13T08:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed ANALYZE slice (run 37): real scans writing sqlite_stat1 (pinned C
+  text format incl. the rounding quirk) plus WAL/VACUUM coexistence, frozen on
+  the pinned C baseline (pack v27 / ADR 0025). STAT4 off; planner load not claimed.
+features:
+  - engine-analyze-001
+  - engine-analyze-002

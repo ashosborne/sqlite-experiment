@@ -642,3 +642,25 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-conn-001/002/003 new composed full. Stretch skipped.
 - Scoreboard full 115→118 / partial 51 / none 94 (263 known). cargo 589/589.
 
+## Run 37 — 2026-08-13 — engine v27: ANALYZE -> sqlite_stat1 (pack v27)
+
+- Pack v26→v27 BOUND (+versions/27, ADR 0025): ANALYZE LAW; planner load explicitly
+  NOT claimed (zero plan pins); STAT4 off on the pinned build.
+- 17 goldens (engine-analyze-001 x15, -002 x2; harness /tmp/an_harness.c). C truths:
+  empty table -> stat1 exists, no rows; NULL-idx row only for index-less tables; one
+  row per index otherwise; multi-column prefixes "6 3 2"; ANALYZE <index> touches only
+  that row; DROP maintenance; WITHOUT ROWID "w|w|2 1"; the near-1.0 rounding quirk
+  "11 1" (formula from src/analyze.c statGet, ported exactly).
+- store.rs: Stmt::Analyze parse/exec; sqlite_stat1 as an ORDINARY catalog table
+  (durable via dbfile, VACUUM-safe, C-readable both directions); stat1_text over
+  index_key_for tuples; stat1_ival ceil + quirk; pk_cols for WITHOUT ROWID pseudo-
+  index; stat1_delete/insert maintenance wired into DROP INDEX / DROP TABLE arms.
+- Also: serialized the run-30 collation_needed twins (shared capture globals across
+  test threads — latent flake, 8 consecutive clean runs after).
+- Anti-cheat: pid-seeded table + runtime row count -> computed stat integers.
+  Interop: C reads Rust stats; modern reads C's. 572 prior goldens md5-identical.
+- Flips (under-claimed): analyze-stats-001 none→partial (STAT4/optimize/attached/
+  annotations residual); analyze-stats-002 KEPT none ("planner cost model not
+  claimed"); engine-analyze-001/002 new composed full.
+- Scoreboard full 118→120 / partial 52 / none 93 (265 known). cargo 609/609.
+

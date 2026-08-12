@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T16:06:24Z
+- Generated: 2026-08-12T16:27:15Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T06:30:00Z by `sqlite-engine-v26-connection-lifecycle`
+- Manifest last_updated: 2026-08-13T08:30:00Z by `sqlite-engine-v27-analyze`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 94 | Not started in modern |
-| partial | 51 | Some modern execution; gaps in notes |
-| full (converted) | 118 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 93 | Not started in modern |
+| partial | 52 | Some modern execution; gaps in notes |
+| full (converted) | 120 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -138,9 +138,12 @@
 - `engine-conn-001` — close / close_v2 handle tracking
 - `engine-conn-002` — busy handling over the file write lock
 - `engine-conn-003` — commit/update hooks + trace_v2
+- `engine-analyze-001` — ANALYZE writes sqlite_stat1
+- `engine-analyze-002` — ANALYZE coexistence (WAL/VACUUM)
 
 ### Partial in modern
 
+- `analyze-stats-001` — confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned data).
 - `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet
 - `attach-detach-002` — DETACH updates the namespace list for real; no second-schema object semantics
 - `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes.
@@ -195,7 +198,6 @@
 
 ### Remaining (impl_in_modern=none|absent, not deferred)
 
-- `analyze-stats-001` — analyze-stats — legacy_green yes
 - `analyze-stats-002` — analyze-stats — legacy_green no
 - `attach-detach-003` — attach-detach — legacy_green yes
 - `auth-callback-api-002` — auth-callback-api — legacy_green no
@@ -294,25 +296,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 231 |
-| Behaviours known | 263 |
+| Surfaces total | 232 |
+| Behaviours known | 265 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 173 |
+| legacy_green flags | 175 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 46 |
+| accepted | 47 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 118 |
+| converted | 120 |
 | documented | 145 |
 
 ## Surfaces per slice
@@ -332,6 +334,7 @@
 | ddl-schema | 3 |
 | dml-codegen | 2 |
 | engine-agg-having | 1 |
+| engine-analyze | 1 |
 | engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |

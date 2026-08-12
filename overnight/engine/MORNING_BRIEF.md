@@ -1,72 +1,80 @@
-# MORNING BRIEF — engine v26: connection lifecycle (run 36)
+# MORNING BRIEF — engine v27: ANALYZE → sqlite_stat1 (run 37)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–35 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v26-connection-lifecycle,
-DEEPEN_WAL/VACUUM/BLOB: false. MAX_NEW_CASES 60 (used 22; stretch skipped).
-REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–36 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v27-analyze, no deepening of
+WAL/VACUUM/blob/conn. MAX_NEW_CASES 55 (used 17; stretch skipped — ANALYZE depth was
+the run). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @26 BOUND — connection lifecycle law
+## 1. Pack @27 BOUND — ANALYZE law; planner load explicitly NOT claimed
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v25 → **v26**
-(versions/1–26 retained; ADR `0024-engine-v26-connection-lifecycle.md`; schema VALID;
-32 laws). Plain language: a connection won't close while statements live; close_v2
-says OK and waits; busy handlers sleep and retry against a real (in-process) write
-lock; and hooks fire on commit, row change, and trace events. WAL stays at v22,
-VACUUM at v24, blob at v25.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v26 → **v27**
+(versions/1–27 retained; ADR `0025-engine-v27-analyze.md`; schema VALID; 33 laws).
+Plain language: run ANALYZE and real table/index scans write row-count and
+selectivity numbers into sqlite_stat1 in C's exact text format. **Writing stats is
+claimed; using them is not** — no plan-shape pin exists, so the planner-load card
+stays none rather than faking EXPLAIN QUERY PLAN changes.
 
-## 2. What landed (esp. busy honesty)
+## 2. STAT4 decision
 
-| Piece | Behaviour |
+`sqlite_compileoption_used('ENABLE_STAT4')` = 0 on the pinned CLI and the bare
+amalgamation harness build. Everything claimed is sqlite_stat1 only; sqlite_stat4
+is a named residual.
+
+## 3. What ANALYZE now does in modern
+
+| Behaviour | Evidence |
 | --- | --- |
-| close | refuses (rc 5, exact C errmsg) while prepared statements **or blob handles** live; reset does not unblock; finalize/blob_close do (pinned) |
-| close_v2 | returns OK, zombies; the statement stays usable (pinned read-after-close_v2); real teardown at the last handle release |
-| open-txn close | rolls back — pinned via file reopen |
-| **busy (the honesty story)** | a NEW in-process per-file write lock: BEGIN IMMEDIATE holds it, a second connection's write consults its busy handler with increasing retry counts (1-call and 3-call shapes pinned) or sleeps under busy_timeout, then fails rc 5 "database is locked"; handler ⟷ timeout mutually exclusive (pinned); COMMIT releases and the blocked write succeeds. **C's cross-process locking is NOT claimed** — this is the single-process regime only, and the card says so |
-| cross-conn visibility | committed state now flushes to the file at COMMIT (C's durability point) and sibling connections reload before their next statement (only with no local writes / no open txn) |
-| commit_hook | fires per committed txn (2 autocommits + 1 explicit = 3, pinned); non-zero turns COMMIT into a rollback (rc 19 "constraint failed", autocommit restored, data unchanged); autocommit aborts use a pre-statement snapshot; replacement returns the prior argument |
-| update_hook | (op 18/23/9, "main", table, rowid) with IPK-aliased rowids (pinned log); unset stops fires and returns the prior argument |
-| trace_v2 | STMT sees statement text; ROW per delivered row; CLOSE once at teardown; PROFILE per completed statement (counts); mask 0 unsets |
+| Real selectivity text | per-index `N d1 d2…` computed from actually-evaluated key tuples (the v17 `index_key_for` machinery); multi-column prefixes pinned (`6 3 2`) |
+| **The rounding-quirk pin** | 11 rows / 10 distinct renders `11 1`, not the naive ceiling's `11 2` — C's near-1.0 collapse, ported exactly; a guessed formula fails this golden |
+| Shape rules | empty tables write no row (sqlite_stat1 still created); index-less tables get one NULL-idx row; indexed tables get one row per index and no NULL row |
+| WITHOUT ROWID | the PRIMARY KEY appears as an index named like the table (`w|w|2 1`, pinned) |
+| Scoping | `ANALYZE` / `ANALYZE main` / `ANALYZE <table>` / `ANALYZE <index>` (exactly that index's row) all pinned; re-ANALYZE replaces the scope's rows |
+| DROP maintenance | DROP INDEX / DROP TABLE clear the matching stat1 rows (pinned) |
+| Durable + interop | sqlite_stat1 is an ordinary catalog table: survives reopen (integrity ok) and VACUUM, works on WAL files, and round-trips with C **both directions** (pinned CLI reads Rust's stats; modern reads a C ANALYZE's rows) |
 
-## 3. Flips table
+Also fixed: a latent flake in the run-30 collation twins (the two collation_needed
+tests shared capture globals across threads) — now serialized; 8 consecutive clean runs.
+
+## 4. Flips table
 
 | Card | Before | After | Residual |
 | --- | --- | --- | --- |
-| connection-lifecycle-api-002 | none | **partial** | backup-handle close coupling; post-close MISUSE matrix (use-after-close is UB — deliberately unfrozen) |
-| connection-lifecycle-api-003 | none | **partial** | single-process lock model only; no cross-process locking / shared cache / unlock-notify |
-| connection-lifecycle-api-004 | none | **partial** | STMT/PROFILE per exec (not per prepared stmt in multi-statement scripts); WITHOUT ROWID / truncate fast-path; legacy trace/profile |
-| engine-conn-001/002/003 | — | **new full ×3** | composed cards for exactly the frozen batches |
+| analyze-stats-001 | none (legacy_green only) | **partial** | sqlite_stat4; PRAGMA optimize history; attached-schema stats; sz=/unordered annotation tokens (never emitted by pinned data) |
+| analyze-stats-002 | none | **none (kept)** | planner cost model not claimed this pack — modern writes stats but does not load them; flipping without plan pins would be greenwash |
+| engine-analyze-001/002 | — | **new full ×2** | composed cards for exactly the frozen batches |
 
-connection-lifecycle-api-001 untouched (no thin URI crumb fell out). Stretch skipped.
+## 5. Anti-cheat + C interop + cargo
 
-## 4. Anti-cheat + cargo
-
-- `anti_cheat_conn_runtime` — close-BUSY→finalize→close-OK cycle proves live
-  statement tracking; a pid-seeded table name and rowid appear in the update_hook
-  log; a runtime commit_hook abort leaves the runtime row out of the table.
+- `anti_cheat_analyze_runtime` — a pid-seeded table with a runtime-chosen row count
+  and duplicate pattern: the stat1 row must carry the runtime table name AND the
+  correctly computed `N d` integers (quirk included). A script table cannot know them.
+- `rust_analyze_c_read` — the pinned C CLI reads Rust's sqlite_stat1 (`f|ifa|4 2`,
+  integrity ok) **and** modern reads rows a C ANALYZE wrote (`g|igz|2 1`).
 - `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
-- **cargo test: 589/589 PASS** (was 565; +22 golden twins, +2 anti-cheat/guard).
-  engine-blob / engine-vacuum / engine-wal / upsert-expr / collation / utf16 /
-  harvest23 all green; 550 pre-run goldens md5-verified intact.
+- **cargo test: 609/609 PASS** (was 589; +17 golden twins, +3 anti-cheat/interop/guard).
+  engine-conn / blob / vacuum / wal / upsert-expr / collation / utf16 / harvest23 green;
+  572 pre-run goldens md5-verified intact.
 
-## 5. Scoreboard (impl_in_modern) — before → after
+## 6. Scoreboard (impl_in_modern) — before → after
 
-| State | Run 35 | Run 36 |
+| State | Run 36 | Run 37 |
 | --- | --- | --- |
-| **full (converted)** | 115 | **118** |
-| partial | 48 | 51 |
-| none (remaining) | 97 | **94** |
-| behaviours known | 260 | 263 |
+| **full (converted)** | 118 | **120** |
+| partial | 51 | 52 |
+| none (remaining) | 94 | **93** |
+| behaviours known | 263 | 265 |
 
-legacy_green 170 → 173. parity_green 0. Nothing `verified`. WAL/VACUUM/blob unchanged.
+legacy_green 173 → 175. parity_green 0. Nothing `verified`. Prior claims unchanged.
 
-## 6. Not migrated
+## 7. Not migrated
 
-SQLite is **not migrated**. 118/263 behaviours run honestly in modern for frozen
-scope only. The lock model is in-process; no shared cache, no unlock-notify, no
-cross-process coordination. Parity UNVERIFIED everywhere (COMPARE never run).
+SQLite is **not migrated**. 120/265 behaviours run honestly in modern for frozen
+scope only. Stats are written, not used: there is no cost model, no STAT4, no
+planner claim. Parity UNVERIFIED everywhere (COMPARE never run).
 
-## 7. Next call
+## 8. Next call
 
-1. **analyze-stats none** — ANALYZE + sqlite_stat1 as real store output.
-2. **get_table / status crumbs** — exec-convenience-api-002 + error-status-api-003.
-3. **auth-callback-api-002** — column-read IGNORE → NULL (builds on auth-001).
+1. **get_table / status crumbs** — exec-convenience-api-002 + error-status-api-003.
+2. **auth-callback-api-002** — column-read IGNORE → NULL.
+3. **ANALYZE deepen** — honest planner load for analyze-stats-002 (requires real
+   stats-driven index choice + EQP pins), or STAT4 if the pin build ever grows it.
