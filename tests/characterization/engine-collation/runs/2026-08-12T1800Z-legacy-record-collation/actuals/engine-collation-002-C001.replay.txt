@@ -1,0 +1,2 @@
+OBS engine-collation-002-C001 where_decl cat
+OBS engine-collation-002-C001 order_decl APE|cat|Dog

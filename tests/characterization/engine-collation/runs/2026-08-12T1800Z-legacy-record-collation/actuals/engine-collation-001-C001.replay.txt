@@ -1,0 +1,2 @@
+OBS engine-collation-001-C001 plain cob|pat|rig
+OBS engine-collation-001-C001 rev cob|rig|pat

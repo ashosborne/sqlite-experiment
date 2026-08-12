@@ -1,0 +1,3 @@
+OBS engine-collation-002-C005 rtrim_cnt 1
+OBS engine-collation-002-C005 nocase_cnt 1
+OBS engine-collation-002-C005 nocase_order AA|aa |ab

@@ -1,0 +1,3 @@
+OBS engine-collation-002-C002 first_conn A|b
+OBS engine-collation-002-C002 no_register prep.rc=1 err=no such collation sequence: caseless
+OBS engine-collation-002-C002 re_registered A|b

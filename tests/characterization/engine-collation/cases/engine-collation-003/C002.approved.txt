@@ -1,0 +1,3 @@
+OBS engine-collation-003-C002 eq prep.rc=1 err=no such collation sequence: lazy2
+OBS engine-collation-003-C002 factory_called 1
+OBS engine-collation-003-C002 factory_name lazy2

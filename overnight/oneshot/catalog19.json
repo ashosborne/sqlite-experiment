@@ -1,0 +1,121 @@
+[
+{
+"id": "engine-collation-001-C001",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "reverse collation flips ORDER BY vs BINARY"
+},
+{
+"id": "engine-collation-001-C002",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "equality + range via registered xCompare"
+},
+{
+"id": "engine-collation-001-C003",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "re-register same name replaces behaviour"
+},
+{
+"id": "engine-collation-001-C004",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "delete by NULL xCompare; later use -> no such collation"
+},
+{
+"id": "engine-collation-001-C005",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "create_collation_v2 xDestroy on replace and close"
+},
+{
+"id": "engine-collation-001-C006",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "pArg user data steers compare direction"
+},
+{
+"id": "engine-collation-001-C007",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "eTextRep matrix: UTF8/UTF16 ok, 0 and 99 -> MISUSE"
+},
+{
+"id": "engine-collation-001-C008",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "BINARY/NOCASE/RTRIM builtins unchanged after registering"
+},
+{
+"id": "engine-collation-001-C009",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "custom collation in WHERE + ORDER BY together"
+},
+{
+"id": "engine-collation-001-C010",
+"slice": "engine-collation",
+"feature": "engine-collation-001",
+"kind": "bespoke",
+"note": "xCompare invocation counter proves callback ran"
+},
+{
+"id": "engine-collation-002-C001",
+"slice": "engine-collation",
+"feature": "engine-collation-002",
+"kind": "bespoke",
+"note": "column COLLATE clause drives WHERE + ORDER BY"
+},
+{
+"id": "engine-collation-002-C002",
+"slice": "engine-collation",
+"feature": "engine-collation-002",
+"kind": "bespoke",
+"note": "per-connection: file reopen must re-register"
+},
+{
+"id": "engine-collation-002-C003",
+"slice": "engine-collation",
+"feature": "engine-collation-002",
+"kind": "bespoke",
+"note": "unknown collation error shapes (ORDER BY + equality)"
+},
+{
+"id": "engine-collation-002-C004",
+"slice": "engine-collation",
+"feature": "engine-collation-002",
+"kind": "bespoke",
+"note": "collation names case-insensitive (+quoted)"
+},
+{
+"id": "engine-collation-002-C005",
+"slice": "engine-collation",
+"feature": "engine-collation-002",
+"kind": "bespoke",
+"note": "RTRIM / NOCASE equality + order interaction"
+},
+{
+"id": "engine-collation-003-C001",
+"slice": "engine-collation",
+"feature": "engine-collation-003",
+"kind": "bespoke",
+"note": "collation_needed factory registers lazily"
+},
+{
+"id": "engine-collation-003-C002",
+"slice": "engine-collation",
+"feature": "engine-collation-003",
+"kind": "bespoke",
+"note": "factory declines -> error stands (factory still called)"
+}
+]

@@ -1,0 +1,3 @@
+OBS engine-collation-003-C001 eq 1
+OBS engine-collation-003-C001 factory_called 1
+OBS engine-collation-003-C001 factory_name lazy1

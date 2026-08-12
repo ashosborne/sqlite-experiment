@@ -1,0 +1,2 @@
+OBS engine-collation-001-C006 fwd a|b|c
+OBS engine-collation-001-C006 bwd c|b|a

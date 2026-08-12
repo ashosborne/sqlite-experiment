@@ -1,0 +1,115 @@
+slice_id: engine-collation
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-collation-001-C001
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C001.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C002
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C002.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C003
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C003.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C004
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C004.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C005
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C005.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C006
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C006.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C007
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C007.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C008
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C008.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C009
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C009.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-001-C010
+  feature_id: engine-collation-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-001/C010.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-002-C001
+  feature_id: engine-collation-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-002/C001.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-002-C002
+  feature_id: engine-collation-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-002/C002.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-002-C003
+  feature_id: engine-collation-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-002/C003.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-002-C004
+  feature_id: engine-collation-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-002/C004.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-002-C005
+  feature_id: engine-collation-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-002/C005.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-003-C001
+  feature_id: engine-collation-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-003/C001.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+- case_id: engine-collation-003-C002
+  feature_id: engine-collation-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-collation-003/C002.approved.txt
+  run_id: 2026-08-12T1800Z-legacy-record-collation
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-30 delegated stamp (create_collation + registry COLLATE)
+  stamped_case_ids:
+  - engine-collation-001-C001
+  - engine-collation-001-C002
+  - engine-collation-001-C003
+  - engine-collation-001-C004
+  - engine-collation-001-C005
+  - engine-collation-001-C006
+  - engine-collation-001-C007
+  - engine-collation-001-C008
+  - engine-collation-001-C009
+  - engine-collation-001-C010
+  - engine-collation-002-C001
+  - engine-collation-002-C002
+  - engine-collation-002-C003
+  - engine-collation-002-C004
+  - engine-collation-002-C005
+  - engine-collation-003-C001
+  - engine-collation-003-C002
+updated_at: '2026-08-12T11:40:46Z'
+run_id: 2026-08-12T1800Z-legacy-record-collation

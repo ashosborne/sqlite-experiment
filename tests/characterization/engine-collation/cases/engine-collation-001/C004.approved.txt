@@ -1,0 +1,3 @@
+OBS engine-collation-001-C004 present 1
+OBS engine-collation-001-C004 del.rc 0
+OBS engine-collation-001-C004 deleted prep.rc=1 err=no such collation sequence: gone

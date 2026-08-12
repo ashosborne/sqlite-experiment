@@ -1,0 +1,2 @@
+OBS engine-collation-002-C003 order_unknown prep.rc=1 err=no such collation sequence: nope
+OBS engine-collation-002-C003 eq_unknown prep.rc=1 err=no such collation sequence: nope

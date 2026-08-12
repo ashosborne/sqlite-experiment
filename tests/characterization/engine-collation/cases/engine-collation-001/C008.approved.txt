@@ -1,0 +1,3 @@
+OBS engine-collation-001-C008 nocase 1
+OBS engine-collation-001-C008 binary 0
+OBS engine-collation-001-C008 rtrim 1
