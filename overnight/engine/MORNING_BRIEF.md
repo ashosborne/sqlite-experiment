@@ -1,72 +1,75 @@
-# MORNING BRIEF — engine v31: vtab core (run 41)
+# MORNING BRIEF — engine v32: compile-option diagnostics (run 42)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–40 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v31-vtab-core, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 25). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–41 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v32-compile-options, REQUIRE_BASELINE_PRESENCE_CHECK.
+MAX_NEW_CASES 55 (used 19). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @31 BOUND — VTAB-CORE law
+## 1. Pack @32 BOUND — COMPILE-OPTIONS law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v30 → **v31**
-(versions/1–31 retained; ADR `0029-engine-v31-vtab-core.md`; schema VALID; 37 laws).
-Baseline honesty: `sqlite3_create_module`/`_v2`, `sqlite3_declare_vtab` and the whole
-`sqlite3_module` method table are core C API in the bare amalgamation (`src/vtab.c`) — every
-pin came from tiny **in-process test modules** (`intseries`, `pairtab`) compiled into the
-no-extension C harness. No ext/misc module was force-linked or claimed.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v31 → **v32**
+(versions/1–32 retained; ADR `0030-engine-v32-compile-options.md`; schema VALID; 38 laws).
 
-## 2. What landed — a user-registered module is now a real virtual table
+## 2. Presence checks (the whole point of this run)
 
-Module methods driven by modern: **xCreate**, xConnect (as create alias),
-**xBestIndex** (invoked, zero-constraint full scan), **xOpen / xFilter / xEof / xColumn /
-xNext / xClose**, **xDisconnect** (close), **xDestroy** (DROP), `_v2` **module destructor**
-(replace + close).
+- **compileoption diagnostics PRESENT** on the pinned bare build: `sqlite3_compileoption_get`
+  enumerates **38 options** (`ATOMIC_INTRINSICS=1` … `THREADSAFE=1`), `used()` handles
+  plain / `SQLITE_`-prefixed / `=value` / case-insensitive forms. The `COMPILER=gcc-13.3.0`
+  row is frozen as a **pin decision** (ADR 0030): the table is the pinned C baseline's
+  fingerprint, not a claim about modern's toolchain.
+- **`generate_series` ABSENT** from the bare amalgamation (it's ext/misc) — the planned SQL
+  census-count pin was dropped rather than frozen against a conflicting oracle.
+- **unlock-notify presence check FAILED**: `used("ENABLE_UNLOCK_NOTIFY")=0` on the pin →
+  `unlock-notify-api-001` stays **none**, zero cases, noted in ADR + manifest.
+
+## 3. What landed
 
 | Behaviour | Evidence |
 | --- | --- |
-| Registration | `sqlite3_create_module(_v2)` on a per-connection registry; redefine replaces + runs the old `_v2` destructor; close runs the rest (pinned counters 0→1→2) |
-| CREATE VIRTUAL TABLE | invokes xCreate with C argv convention (`intseries/main/nums/7` pinned round-trip); `sqlite_master` row = `table,nums,nums,0,CREATE VIRTUAL TABLE nums USING intseries(5)` |
-| Errors | unknown module → `no such module: nosuch` (exact); xCreate failure surfaces the module's pzErr (`intseries: bad limit 'bogus'`) and leaves **no schema entry** |
-| declare_vtab | fixes names/types from inside xCreate/xConnect; outside a constructor → SQLITE_MISUSE 21; `pragma table_info` reports the visible shape |
-| HIDDEN columns | excluded from `SELECT *` (n=1 names=value) but selectable (`SELECT lim`) and filterable (`WHERE lim = 5`) via xColumn |
-| Cursor SELECT | full scan 1..5; WHERE/aggregates/ORDER BY DESC/JOIN-to-real-table/two-instance subselects all run over the real cursor scan |
-| Lifecycle | DROP TABLE → xDestroy (pinned counter) then `no such table`; drop+recreate with a different arg yields new rows; fresh connection must re-register (pinned `no such module: intseries`) |
+| C API | `sqlite3_compileoption_used` / `sqlite3_compileoption_get` answer from the pinned 38-entry table; unknown/empty → 0; past-end/negative → NULL |
+| Matching rule | `THREADSAFE`/`SQLITE_THREADSAFE`/`THREADSAFE=1` → 1, `THREADSAFE=0` → 0; `DEFAULT_AUTOVACUUM=1` → 0 (bare gate, `=` boundary); `threadsafe`/`ThreadSafe=1` → 1 (case-insensitive) |
+| SQL twins | `sqlite_compileoption_used` / `sqlite_compileoption_get` registered in the evaluator; typeof pins integer/text/null |
+| OMIT census | 9 probed `OMIT_*` gates all 0 (incl. charter's `OMIT_AUTORESET` and the self-gate `OMIT_COMPILEOPTION_DIAGS`); zero `OMIT_` entries enumerated |
+| ENABLE census | 8 probed `ENABLE_*` gates all 0 (incl. charter's `ENABLE_API_ARMOR`); zero `ENABLE_` entries enumerated |
+| Cross-checks | `MAX_ATTACHED=10` / `MAX_VARIABLE_NUMBER=32766` / `TEMP_STORE=1` rows agree with limits pinned in earlier runs |
 
-## 3. Flips table
+## 4. Flips table
 
 | Card | Before | After | Why |
 | --- | --- | --- | --- |
-| vtab-core-001 | none | **partial** | real registry + xCreate + errors + xDestroy + destructors; residual: xConnect schema-reload, eponymous-only, drop_modules, deferred destructor |
-| vtab-core-002 | none | **partial** | declare_vtab shape + HIDDEN + MISUSE pinned; residual: vtab_config, HIDDEN constraints via xBestIndex/xFilter argv |
-| engine-vtab31-001/002/003 | — | **full** (composed) | exact frozen batches (10 + 8 + 7 cases) |
-| misc-vtab-packs-001 | none | none (notes) | umbrella not flipped; harvest28 wholenumber/completion NOT re-homed (bare baseline has no such modules to register) |
+| compile-options-omit-enable-001 | none | **full** | C + SQL diagnostics real against the pinned fingerprint; residual-free for the pinned seam (self-gated OMIT_COMPILEOPTION_DIAGS builds out of scope by law) |
+| compile-options-omit-enable-002 | none | **partial** | pinned OMIT census (all probes 0, zero OMIT_ entries); 77-guard per-feature census NOT claimed |
+| compile-options-omit-enable-003 | none | **partial** | pinned ENABLE census (all probes 0, zero ENABLE_ entries); 51-guard per-feature census NOT claimed |
+| unlock-notify-api-001 | none | none (note) | presence check failed on the pin |
+| engine-compile32-001/002/003 | — | **full** (composed) | exact frozen batches (11 + 4 + 4 cases) |
 
-## 4. Anti-cheat + goldens
+## 5. Anti-cheat + goldens
 
-- 25 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-vtab31/`), two-run
-  deterministic on the pinned bare C build; prior 642 goldens untouched.
-- 3 anti-cheat tests: runtime module/table names with runtime row count/sum
-  (`m{seed}`/`vt{seed}`, N from pid), drop+recreate reshape (intseries→pairtab shape and
-  payload change), runtime-random unknown-module exact error text.
-- SCRIPT_TABLE.len()==0; no cheat sheet; rows come from the module cursor at query time.
+- 19 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-compile32/`), two-run
+  deterministic; prior 667 goldens untouched.
+- 2 anti-cheat tests: runtime-generated fake option name → 0 through both C API and SQL
+  twin; C/SQL enumeration round-trip agrees entry-for-entry, terminates at the same index
+  (38), and every enumerated entry reports `used()=1`.
+- SCRIPT_TABLE.len()==0; no cheat sheet.
 
-## 5. cargo
+## 6. cargo
 
-`cargo test` (modern): **696 passed / 0 failed** (was 668; +28 vtab31 twins/anti-cheat).
-attach30 / none29 / harvest28 / ANALYZE / conn / blob / vacuum / WAL suites all green.
+`cargo test` (modern): **717 passed / 0 failed** (was 696; +21 compile32 twins/anti-cheat).
+vtab31 / attach30 / none29 / harvest / ANALYZE / conn / blob / vacuum / WAL all green.
 
-## 6. Scoreboard
+## 7. Scoreboard
 
-before → after: **134 full / 58 partial / 84 none of 276** → **137 full / 60 partial / 82 none of 279**.
+before → after: **137 full / 60 partial / 82 none of 279** → **141 full / 62 partial / 79 none of 282**.
 
-## 7. Not migrated
+## 8. Not migrated
 
-SQLite is NOT migrated. vtab residuals: xBestIndex constraint pushdown/cost solving,
-vtab_config, xUpdate (writes through vtabs), eponymous-only modules, xConnect on schema
-reload, shadow names. Planner, WAL depth, wasm/jni/vfs/FTS/rtree/session untouched.
+SQLite is NOT migrated. This run pinned the *diagnostics/census seam only* — the behaviour
+of gated features is untouched; no OMIT/ENABLE build variants are modelled; unlock-notify,
+planner, xBestIndex pushdown, WAL depth, wasm/jni/vfs/FTS/rtree/session all remain out.
 
-## 8. Next call (pick one)
+## 9. Next call (pick one)
 
-1. **xBestIndex deepen** — offer real constraints to the module (EQ pushdown for the test
-   module; HIDDEN-column argv path), flipping vtab-core-002 residual honestly.
+1. **xBestIndex deepen** — real constraint offers to vtab modules (EQ pushdown + HIDDEN
+   argv path), cutting the vtab-core-002 residual.
 2. **attached-trigger firing** — the run-40 residual (unqualified trigger-body resolution
-   at execution time inside an attached schema).
-3. **status/limit matrix** — sqlite3_status/limit surfaces (present core, cheap pins).
+   at execution inside an attached schema).
+3. **status deepen** — sqlite3_status/status64 matrix beyond what conn/malloc runs pinned.

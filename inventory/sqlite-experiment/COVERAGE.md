@@ -5,23 +5,24 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T19:01:31Z
+- Generated: 2026-08-12T19:16:53Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T18:30:00Z by `sqlite-engine-v31-vtab-core`
+- Manifest last_updated: 2026-08-13T20:30:00Z by `sqlite-engine-v32-compile-options`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 82 | Not started in modern |
-| partial | 60 | Some modern execution; gaps in notes |
-| full (converted) | 137 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 79 | Not started in modern |
+| partial | 62 | Some modern execution; gaps in notes |
+| full (converted) | 141 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
 
 - `auth-callback-api-002` — Column-read authorization (IGNORE yields NULL)
 - `builtin-scalar-agg-funcs-002` — Aggregate function family
+- `compile-options-omit-enable-001` — Compile-option diagnostics API (C + SQL)
 - `date-time-funcs-001` — Core date/time conversion functions
 - `date-time-funcs-002` — strftime formatting
 - `date-time-funcs-003` — Modifier grammar (localtime, +N units, weekday, start of ...)
@@ -157,6 +158,9 @@
 - `engine-vtab31-001` — module registration and vtab lifecycle
 - `engine-vtab31-002` — declare_vtab column shape
 - `engine-vtab31-003` — SELECT through the module cursor
+- `engine-compile32-001` — compileoption diagnostics C + SQL
+- `engine-compile32-002` — OMIT census on the pin
+- `engine-compile32-003` — ENABLE census on the pin
 
 ### Partial in modern
 
@@ -172,6 +176,8 @@
 - `blob-io-api-002` — confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT). run-35: PARTIAL - offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob preallocate + interior write, and expiry (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven. RESIDUAL: expiry granularity is connection-write, not per-row like C (pins only modify the handle's own row); TEXT-cell writes via handles unpinned.
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
+- `compile-options-omit-enable-002` — confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as default-present.; file-only evidence run-42: PARTIAL - pinned OMIT census via the diagnostics oracle: every probed OMIT_* gate (LOAD_EXTENSION, WAL, VIRTUALTABLE, TRIGGER, ATTACH, SUBQUERY, VIEW, AUTORESET, COMPILEOPTION_DIAGS) reports 0 and the full enumeration contains zero OMIT_-prefixed entries, matching the pin build. RESIDUAL: the 77-guard per-feature census (what each OMIT would remove) is NOT claimed; no OMIT build variants are modelled.
+- `compile-options-omit-enable-003` — confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE, ...). run-42: PARTIAL - pinned ENABLE census via the diagnostics oracle: every probed ENABLE_* gate (FTS5, FTS3, RTREE, GEOPOLY, STAT4, API_ARMOR, UNLOCK_NOTIFY, SESSION) reports 0 and the full enumeration contains zero ENABLE_-prefixed entries, matching the pin build (API_ARMOR/AUTORESET agree with the charter PIN line). RESIDUAL: the 51-guard per-feature census is NOT claimed; no ENABLE build variants are modelled.
 - `connection-lifecycle-api-001` — open/close + MISUSE ordering real for :memory: and plain paths; URI parsing and open flags absent
 - `connection-lifecycle-api-002` — confidence=observed-in-code; sqlite3_close fails with SQLITE_BUSY on unfinalized statements; close_v2 defers (zombie connection). run-36: PARTIAL - close refuses (rc 5, exact errmsg) while statements or blob handles live; close_v2 zombies and tears down at the last finalize/blob_close; NULL no-ops; open-txn close rolls back. RESIDUAL: unfinished sqlite3_backup coupling and the post-close MISUSE matrix are unpinned (use-after-close is UB territory - deliberately not frozen).
 - `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
@@ -226,9 +232,6 @@
 - `analyze-stats-002` — analyze-stats — legacy_green no
 - `btree-001` — btree — legacy_green no
 - `btree-002` — btree — legacy_green no
-- `compile-options-omit-enable-001` — compile-options-omit-enable — legacy_green no
-- `compile-options-omit-enable-002` — compile-options-omit-enable — legacy_green no
-- `compile-options-omit-enable-003` — compile-options-omit-enable — legacy_green no
 - `expert-001` — expert — legacy_green no
 - `fts3-001` — fts3 — legacy_green no
 - `fts5-001` — fts5 — legacy_green no
@@ -310,25 +313,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 236 |
-| Behaviours known | 279 |
+| Surfaces total | 237 |
+| Behaviours known | 282 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 189 |
+| legacy_green flags | 192 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 51 |
+| accepted | 52 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 137 |
+| converted | 140 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -353,6 +356,7 @@
 | engine-blob | 1 |
 | engine-checkupd | 1 |
 | engine-collation | 1 |
+| engine-compile32 | 1 |
 | engine-conn | 1 |
 | engine-constraints | 1 |
 | engine-datetime | 1 |

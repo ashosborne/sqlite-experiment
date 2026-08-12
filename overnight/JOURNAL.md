@@ -749,3 +749,24 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-vtab31-001/002/003 new composed full; misc-vtab-packs-001 stays none (notes).
 - Scoreboard full 134->137 / partial 58->60 / none 84->82 (279 known). cargo 696/696.
 
+## Run 42 — 2026-08-13 — engine v32: compile-option diagnostics (pack v32)
+
+- Pack v31→v32 BOUND (+versions/32, ADR 0030): COMPILE-OPTIONS LAW. Presence checks:
+  diagnostics API present on the pinned bare build (38-entry fingerprint, COMPILER=
+  gcc-13.3.0 row frozen as a pin decision); generate_series ABSENT from the bare
+  amalgamation (planned SQL census-count pin dropped); ENABLE_UNLOCK_NOTIFY=0 so
+  unlock-notify-api-001 stays none with zero cases.
+- lib.rs: static 38-entry COMPILE_OPTS table; sqlite3_compileoption_used (case-
+  insensitive, optional SQLITE_ prefix, '=' boundary rule, unknown/empty->0) and
+  sqlite3_compileoption_get (C order, NULL past either end) + pub helpers.
+  eval.rs: sqlite_compileoption_used / sqlite_compileoption_get SQL twins.
+- 19 goldens (engine-compile32-001 x11 diagnostics, -002 x4 OMIT census, -003 x4
+  ENABLE census; harness /tmp/copt_harness.c, two-run deterministic). 2 anti-cheat
+  tests (runtime fake option -> 0 via C+SQL; C/SQL enumeration round-trip, len 38,
+  every entry used()=1). 667 prior goldens untouched.
+- Flips: compile-options-omit-enable-001 none->full (pinned seam), -002/-003
+  none->partial (census only; 77/51-guard per-feature census NOT claimed);
+  unlock-notify-api-001 stays none (presence note); engine-compile32-001/002/003
+  new composed full.
+- Scoreboard full 137->141 / partial 60->62 / none 82->79 (282 known). cargo 717/717.
+

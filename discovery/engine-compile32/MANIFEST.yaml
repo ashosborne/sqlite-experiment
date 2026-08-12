@@ -1,0 +1,13 @@
+slice_id: engine-compile32
+app_id: sqlite-experiment
+created_by: sqlite-engine-v32-compile-options
+created_at: 2026-08-13T20:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed compile-option diagnostics slice (run 42): used/get in C and SQL against the
+  pinned bare-build 38-entry fingerprint, plus OMIT/ENABLE census pins (pack v32 / ADR 0030).
+features:
+  - engine-compile32-001
+  - engine-compile32-002
+  - engine-compile32-003
