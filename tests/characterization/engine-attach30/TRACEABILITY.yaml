@@ -1,0 +1,103 @@
+slice_id: engine-attach30
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-attach30-001-C001
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C001.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C002
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C002.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C003
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C003.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C004
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C004.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C005
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C005.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C006
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C006.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C007
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C007.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-001-C008
+  feature_id: engine-attach30-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-001/C008.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-002-C001
+  feature_id: engine-attach30-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-002/C001.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-002-C002
+  feature_id: engine-attach30-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-002/C002.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-002-C003
+  feature_id: engine-attach30-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-002/C003.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-002-C004
+  feature_id: engine-attach30-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-002/C004.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-003-C001
+  feature_id: engine-attach30-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-003/C001.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-003-C002
+  feature_id: engine-attach30-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-003/C002.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+- case_id: engine-attach30-003-C003
+  feature_id: engine-attach30-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-attach30-003/C003.approved.txt
+  run_id: 2026-08-13T1400Z-legacy-record-attach
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-40 stamp
+  stamped_case_ids:
+  - engine-attach30-001-C001
+  - engine-attach30-001-C002
+  - engine-attach30-001-C003
+  - engine-attach30-001-C004
+  - engine-attach30-001-C005
+  - engine-attach30-001-C006
+  - engine-attach30-001-C007
+  - engine-attach30-001-C008
+  - engine-attach30-002-C001
+  - engine-attach30-002-C002
+  - engine-attach30-002-C003
+  - engine-attach30-002-C004
+  - engine-attach30-003-C001
+  - engine-attach30-003-C002
+  - engine-attach30-003-C003
+updated_at: '2026-08-12T18:12:21Z'
+run_id: 2026-08-13T1400Z-legacy-record-attach

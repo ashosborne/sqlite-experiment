@@ -1,0 +1,3 @@
+OBS engine-attach30-002-C001 detach rc=0 err=-
+OBS engine-attach30-002-C001 dblist main
+OBS engine-attach30-002-C001 gone prep.rc=1 err=no such table: aux.t

@@ -1,0 +1,2 @@
+OBS engine-attach30-003-C001 xtrig rc=1 err=qualified table names are not allowed on INSERT, UPDATE, and DELETE statements within triggers
+OBS engine-attach30-003-C001 xview rc=1 err=view vv cannot reference objects in database main

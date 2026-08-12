@@ -1,0 +1,107 @@
+[
+{
+"id": "engine-attach30-001-C001",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "ATTACH shows in pragma_database_list"
+},
+{
+"id": "engine-attach30-001-C002",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "CREATE/INSERT/SELECT on aux.t via qualified name"
+},
+{
+"id": "engine-attach30-001-C003",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "unqualified resolves to aux when only aux has it; main qual/unqual"
+},
+{
+"id": "engine-attach30-001-C004",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "duplicate schema + reserved main/temp -> already in use"
+},
+{
+"id": "engine-attach30-001-C005",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "two attached schemas each own a table"
+},
+{
+"id": "engine-attach30-001-C006",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "same table name in main and aux; bare resolves to main"
+},
+{
+"id": "engine-attach30-001-C007",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "durable file aux: CREATE + reopen (re-ATTACH) still visible"
+},
+{
+"id": "engine-attach30-001-C008",
+"slice": "engine-attach30",
+"feature": "engine-attach30-001",
+"kind": "bespoke",
+"note": "UPDATE/DELETE on an attached table"
+},
+{
+"id": "engine-attach30-002-C001",
+"slice": "engine-attach30",
+"feature": "engine-attach30-002",
+"kind": "bespoke",
+"note": "DETACH removes schema + its objects; qualified select fails"
+},
+{
+"id": "engine-attach30-002-C002",
+"slice": "engine-attach30",
+"feature": "engine-attach30-002",
+"kind": "bespoke",
+"note": "cannot detach main; detach missing -> no such database"
+},
+{
+"id": "engine-attach30-002-C003",
+"slice": "engine-attach30",
+"feature": "engine-attach30-002",
+"kind": "bespoke",
+"note": "re-ATTACH same name gives a fresh empty schema"
+},
+{
+"id": "engine-attach30-002-C004",
+"slice": "engine-attach30",
+"feature": "engine-attach30-002",
+"kind": "bespoke",
+"note": "unqualified falls back to main after DETACH"
+},
+{
+"id": "engine-attach30-003-C001",
+"slice": "engine-attach30",
+"feature": "engine-attach30-003",
+"kind": "bespoke",
+"note": "aux trigger cross-db DML rejected; aux view referencing main rejected"
+},
+{
+"id": "engine-attach30-003-C002",
+"slice": "engine-attach30",
+"feature": "engine-attach30-003",
+"kind": "bespoke",
+"note": "aux trigger with qualified same-schema DML rejected"
+},
+{
+"id": "engine-attach30-003-C003",
+"slice": "engine-attach30",
+"feature": "engine-attach30-003",
+"kind": "bespoke",
+"note": "unqualified trigger on attached table fires (log written)"
+}
+]

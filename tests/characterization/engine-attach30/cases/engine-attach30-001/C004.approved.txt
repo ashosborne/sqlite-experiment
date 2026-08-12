@@ -1,0 +1,3 @@
+OBS engine-attach30-001-C004 dup rc=1 err=database aux is already in use
+OBS engine-attach30-001-C004 resv_main rc=1 err=database main is already in use
+OBS engine-attach30-001-C004 resv_temp rc=1 err=database temp is already in use

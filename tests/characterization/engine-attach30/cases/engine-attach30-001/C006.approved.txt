@@ -1,0 +1,3 @@
+OBS engine-attach30-001-C006 aux 1
+OBS engine-attach30-001-C006 main 2
+OBS engine-attach30-001-C006 bare 2

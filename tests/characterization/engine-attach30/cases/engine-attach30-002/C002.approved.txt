@@ -1,0 +1,2 @@
+OBS engine-attach30-002-C002 detach_main rc=1 err=cannot detach database main
+OBS engine-attach30-002-C002 detach_missing rc=1 err=no such database: nope

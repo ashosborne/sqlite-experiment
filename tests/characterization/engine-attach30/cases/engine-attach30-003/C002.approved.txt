@@ -1,0 +1,1 @@
+OBS engine-attach30-003-C002 qual_same rc=1 err=qualified table names are not allowed on INSERT, UPDATE, and DELETE statements within triggers

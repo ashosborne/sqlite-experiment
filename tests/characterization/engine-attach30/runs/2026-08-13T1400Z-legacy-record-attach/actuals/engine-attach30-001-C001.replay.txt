@@ -1,0 +1,2 @@
+OBS engine-attach30-001-C001 attach rc=0 err=-
+OBS engine-attach30-001-C001 dblist main|aux
