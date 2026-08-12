@@ -1,80 +1,72 @@
-# MORNING BRIEF — engine v30: attached-schema ownership (run 40)
+# MORNING BRIEF — engine v31: vtab core (run 41)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–39 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v30-attached-schema, REQUIRE_BASELINE_PRESENCE_CHECK.
-MAX_NEW_CASES 55 (used 14). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–40 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v31-vtab-core, REQUIRE_BASELINE_PRESENCE_CHECK.
+MAX_NEW_CASES 55 (used 25). REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @30 BOUND — attached-schema law
+## 1. Pack @31 BOUND — VTAB-CORE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v29 → **v30**
-(versions/1–30 retained; ADR `0028-engine-v30-attached-schema.md`; schema VALID; 36 laws).
-ATTACH/DETACH + cross-db fixation are core (bare-amalgamation) behaviour — every pin came
-from a no-extension C harness. WAL/VACUUM/blob/conn unchanged.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v30 → **v31**
+(versions/1–31 retained; ADR `0029-engine-v31-vtab-core.md`; schema VALID; 37 laws).
+Baseline honesty: `sqlite3_create_module`/`_v2`, `sqlite3_declare_vtab` and the whole
+`sqlite3_module` method table are core C API in the bare amalgamation (`src/vtab.c`) — every
+pin came from tiny **in-process test modules** (`intseries`, `pairtab`) compiled into the
+no-extension C harness. No ext/misc module was force-linked or claimed.
 
-## 2. What landed — a second schema is now a real object namespace
+## 2. What landed — a user-registered module is now a real virtual table
+
+Module methods driven by modern: **xCreate**, xConnect (as create alias),
+**xBestIndex** (invoked, zero-constraint full scan), **xOpen / xFilter / xEof / xColumn /
+xNext / xClose**, **xDisconnect** (close), **xDestroy** (DROP), `_v2` **module destructor**
+(replace + close).
 
 | Behaviour | Evidence |
 | --- | --- |
-| Ownership | `CREATE/INSERT/SELECT/UPDATE/DELETE` on `aux.t` via `schema.table` store keys; two attached schemas each own tables |
-| Resolution | qualified `aux.t` + unqualified `t` (main-first, main wins collisions), `main.m`/`m` all resolve via `eval_snapshot` aliases |
-| Errors | dup/reserved ATTACH → "database X is already in use"; DETACH main → "cannot detach database main"; DETACH missing → "no such database: X" |
-| DETACH teardown | removes the schema and all its objects; later qualified access fails; re-ATTACH is fresh |
-| Durability | file-backed aux loads on ATTACH, saves on DETACH/close; create→reopen(re-ATTACH) sees rows; main image excludes attached tables |
-| pragma_database_list | now carries `(seq, name)`, main at seq 0 |
-| attach-003 aux residual | non-TEMP trigger in an attached schema rejects qualified DML; attached-schema VIEW referencing another schema errors "view vv cannot reference objects in database main" |
-
-Incidental honest fix: `ORDER BY <non-projected column>` no longer mis-sorts by column 0
-(it's skipped) — which is what let `ORDER BY seq` over pragma_database_list order correctly.
+| Registration | `sqlite3_create_module(_v2)` on a per-connection registry; redefine replaces + runs the old `_v2` destructor; close runs the rest (pinned counters 0→1→2) |
+| CREATE VIRTUAL TABLE | invokes xCreate with C argv convention (`intseries/main/nums/7` pinned round-trip); `sqlite_master` row = `table,nums,nums,0,CREATE VIRTUAL TABLE nums USING intseries(5)` |
+| Errors | unknown module → `no such module: nosuch` (exact); xCreate failure surfaces the module's pzErr (`intseries: bad limit 'bogus'`) and leaves **no schema entry** |
+| declare_vtab | fixes names/types from inside xCreate/xConnect; outside a constructor → SQLITE_MISUSE 21; `pragma table_info` reports the visible shape |
+| HIDDEN columns | excluded from `SELECT *` (n=1 names=value) but selectable (`SELECT lim`) and filterable (`WHERE lim = 5`) via xColumn |
+| Cursor SELECT | full scan 1..5; WHERE/aggregates/ORDER BY DESC/JOIN-to-real-table/two-instance subselects all run over the real cursor scan |
+| Lifecycle | DROP TABLE → xDestroy (pinned counter) then `no such table`; drop+recreate with a different arg yields new rows; fresh connection must re-register (pinned `no such module: intseries`) |
 
 ## 3. Flips table
 
-| Card | Before | After | Residual |
+| Card | Before | After | Why |
 | --- | --- | --- | --- |
-| attach-detach-001 | partial (namespace count only) | **partial (ownership real)** | URI/encryption maze, DETACH-locked edges, cross-schema txn-join |
-| attach-detach-002 | partial (list only) | **partial (teardown real)** | "database is locked" DETACH not modelled |
-| attach-detach-003 | partial (main only) | **partial (aux reclaimed)** | firing a trigger whose body targets an attached table (unqualified body resolution) |
-| engine-attach30-001/002/003 | — | **new full ×3** | composed cards for the frozen batches |
+| vtab-core-001 | none | **partial** | real registry + xCreate + errors + xDestroy + destructors; residual: xConnect schema-reload, eponymous-only, drop_modules, deferred destructor |
+| vtab-core-002 | none | **partial** | declare_vtab shape + HIDDEN + MISUSE pinned; residual: vtab_config, HIDDEN constraints via xBestIndex/xFilter argv |
+| engine-vtab31-001/002/003 | — | **full** (composed) | exact frozen batches (10 + 8 + 7 cases) |
+| misc-vtab-packs-001 | none | none (notes) | umbrella not flipped; harvest28 wholenumber/completion NOT re-homed (bare baseline has no such modules to register) |
 
-The three attach cards stay honest partials — real ownership/teardown/fixation, with named
-residuals — rather than full, because URI/lock/txn edges and attached-trigger firing remain.
+## 4. Anti-cheat + goldens
 
-## 4. Dropped honestly
+- 25 new HUMAN_ACCEPTED goldens (`tests/characterization/engine-vtab31/`), two-run
+  deterministic on the pinned bare C build; prior 642 goldens untouched.
+- 3 anti-cheat tests: runtime module/table names with runtime row count/sum
+  (`m{seed}`/`vt{seed}`, N from pid), drop+recreate reshape (intseries→pairtab shape and
+  payload change), runtime-random unknown-module exact error text.
+- SCRIPT_TABLE.len()==0; no cheat sheet; rows come from the module cursor at query time.
 
-- `engine-attach30-003-C003`: firing an attached-schema trigger (unqualified body resolves to
-  the attached table) isn't executed by modern's trigger engine.
-- `engine-attach30-002-C003`'s `sqlite_master WHERE 0` probe: sqlite_master in the eval path
-  is a separate gap; the meaningful re-ATTACH-freshness checks were kept.
+## 5. cargo
 
-## 5. Anti-cheat + cargo
+`cargo test` (modern): **696 passed / 0 failed** (was 668; +28 vtab31 twins/anti-cheat).
+attach30 / none29 / harvest28 / ANALYZE / conn / blob / vacuum / WAL suites all green.
 
-- `anti_cheat_attach30` — runtime schema + table name: CREATE/INSERT on `auxNNN.tNNN`, a
-  runtime payload read back, then DETACH makes the qualified name disappear (rc 1).
-- `script_table_still_empty` — SCRIPT_TABLE.len() == 0.
-- **cargo test: 668/668 PASS** (was 652; +14 golden twins, +2 anti-cheat/guard). The
-  multi-schema + ORDER BY changes touched broad paths — all prior suites green; 628 pre-run
-  goldens md5-verified intact.
+## 6. Scoreboard
 
-## 6. Scoreboard (impl_in_modern) — before → after
-
-| State | Run 39 | Run 40 |
-| --- | --- | --- |
-| **full (converted)** | 131 | **134** |
-| partial | 58 | 58 |
-| none (remaining) | 84 | 84 |
-| behaviours known | 273 | 276 |
-
-+3 fulls (composed cards); the three attach partials deepened materially (residuals shrank)
-without flipping full. legacy_green 183 → 186. parity_green 0.
+before → after: **134 full / 58 partial / 84 none of 276** → **137 full / 60 partial / 82 none of 279**.
 
 ## 7. Not migrated
 
-SQLite is **not migrated**. 134/276 behaviours run honestly in modern for frozen scope only.
-Attached schemas own tables but URI/lock/txn edges and attached-trigger firing remain; no
-planner. Parity UNVERIFIED everywhere.
+SQLite is NOT migrated. vtab residuals: xBestIndex constraint pushdown/cost solving,
+vtab_config, xUpdate (writes through vtabs), eponymous-only modules, xConnect on schema
+reload, shadow names. Planner, WAL depth, wasm/jni/vfs/FTS/rtree/session untouched.
 
-## 8. Next call
+## 8. Next call (pick one)
 
-1. **attached-trigger firing** — unqualified body resolution at trigger execution would let
-   attach-detach-003 (and triggers on attached tables) go further.
-2. **vtab-core** — a real small module/xBestIndex surface.
-3. **status/limit matrix** or **savepoint RELEASE flush edges** — genuinely-present cores.
+1. **xBestIndex deepen** — offer real constraints to the module (EQ pushdown for the test
+   module; HIDDEN-column argv path), flipping vtab-core-002 residual honestly.
+2. **attached-trigger firing** — the run-40 residual (unqualified trigger-body resolution
+   at execution time inside an attached schema).
+3. **status/limit matrix** — sqlite3_status/limit surfaces (present core, cheap pins).

@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T18:24:31Z
+- Generated: 2026-08-12T19:01:31Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T14:30:00Z by `sqlite-engine-v30-attached-schema`
+- Manifest last_updated: 2026-08-13T18:30:00Z by `sqlite-engine-v31-vtab-core`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 84 | Not started in modern |
-| partial | 58 | Some modern execution; gaps in notes |
-| full (converted) | 134 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 82 | Not started in modern |
+| partial | 60 | Some modern execution; gaps in notes |
+| full (converted) | 137 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -154,6 +154,9 @@
 - `engine-attach30-001` — ATTACH owns tables
 - `engine-attach30-002` — DETACH clears objects
 - `engine-attach30-003` — attached-schema cross-db fixation
+- `engine-vtab31-001` — module registration and vtab lifecycle
+- `engine-vtab31-002` — declare_vtab column shape
+- `engine-vtab31-003` — SELECT through the module cursor
 
 ### Partial in modern
 
@@ -212,6 +215,8 @@
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
 - `vacuum-001` — confidence=observed-in-code; Rebuilds db into temp then swaps; applies pending page_size/auto_vacuum changes. run-34: PARTIAL — the rebuild itself is real in modern (implicit rowids renumber, IPK/WITHOUT ROWID keys kept, freelist page model reclaimed, durable rewrite C reads with integrity ok, txn ban with C errmsg). RESIDUAL: pending page_size / auto_vacuum application during VACUUM and attached-schema forms (VACUUM <schema>) are not implemented — the card names them, so full would over-claim. Old vacuum-001-C001 golden (deferred since the recognizer era) now replays for real.
 - `vacuum-002` — confidence=observed-in-code; Rebuild into named URI target; source unchanged. run-34: PARTIAL — VACUUM INTO writes a fresh C-readable file (tables+indexes, integrity ok), source untouched; exists/txn/invalid-path errors match pins; :memory: export works; runtime-target anti-cheat green. RESIDUAL: URI filename target forms (file:...?...) not pinned or implemented — named in the card, so full would over-claim.
+- `vtab-core-001` — confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect. run-41: PARTIAL - real per-connection module registry: sqlite3_create_module/_v2 (C-ABI sqlite3_module table; redefine replaces and runs the _v2 destructor, close runs remaining destructors); CREATE VIRTUAL TABLE invokes xCreate with the C argv convention (module/db/table/raw args); unknown module -> "no such module: X" exact; xCreate failure surfaces the constructor error and leaves no schema entry; DROP TABLE -> xDestroy; sqlite_master carries rootpage 0 + CREATE VIRTUAL TABLE sql; fresh connections must re-register (pinned). RESIDUAL: xConnect on schema reload for file DBs, eponymous-only modules (xCreate==NULL), sqlite3_drop_modules, deferred destructor while instances hold the module, xUpdate/xRename/xSavepoint family.
+- `vtab-core-002` — confidence=observed-in-code; Column-shape declaration from inside xCreate/xConnect; constraint support flags. run-41: PARTIAL - sqlite3_declare_vtab fixes the column shape from inside xCreate/xConnect (names/types visible to SELECT and pragma table_info; MISUSE outside a constructor); HIDDEN columns excluded from SELECT * but selectable/filterable by name (checked via xColumn); typeof flows through the xColumn result API. RESIDUAL: sqlite3_vtab_config negotiation (CONSTRAINT_SUPPORT/INNOCUOUS/DIRECTONLY) not claimed; HIDDEN-column constraints via xBestIndex/xFilter argv not claimed (zero-constraint full scan is the pinned v1 contract).
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 - `window-functions-002` — RANGE-with-peers default, ROWS (UNBOUNDED/N PRECEDING) and GROUPS N PRECEDING real; EXCLUDE and offset RANGE absent
@@ -292,8 +297,6 @@
 - `vfs-unix-variants-003` — vfs-unix-variants — legacy_green no
 - `vfs-win-001` — vfs-win — legacy_green no
 - `vfs-win-002` — vfs-win — legacy_green no
-- `vtab-core-001` — vtab-core — legacy_green no
-- `vtab-core-002` — vtab-core — legacy_green no
 - `wasm-binding-001` — wasm-binding — legacy_green no
 - `wasm-js-api-001` — wasm-js-api — legacy_green no
 - `wasm-js-api-002` — wasm-js-api — legacy_green no
@@ -307,25 +310,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 235 |
-| Behaviours known | 276 |
+| Surfaces total | 236 |
+| Behaviours known | 279 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 186 |
+| legacy_green flags | 189 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 50 |
+| accepted | 51 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 134 |
+| converted | 137 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -392,6 +395,7 @@
 | engine-vacuum | 1 |
 | engine-value | 1 |
 | engine-views | 1 |
+| engine-vtab31 | 1 |
 | engine-wal | 1 |
 | engine-window2 | 1 |
 | error-status-api | 3 |

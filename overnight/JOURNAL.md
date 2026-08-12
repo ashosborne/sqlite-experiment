@@ -725,3 +725,27 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   engine-attach30-001/002/003 new composed full.
 - Scoreboard full 131->134 / partial 58 / none 84 (276 known). cargo 668/668.
 
+## Run 41 — 2026-08-13 — engine v31: vtab core (pack v31)
+
+- Pack v30→v31 BOUND (+versions/31, ADR 0029): VTAB-CORE LAW. create_module/declare_vtab
+  are core C API on the bare amalgamation; pins use tiny in-process test modules
+  (intseries with HIDDEN lim, pairtab) — no ext/misc force-linking.
+- lib.rs: C-ABI Sqlite3Module/Sqlite3Vtab/Sqlite3VtabCursor/Sqlite3IndexInfo;
+  sqlite3_create_module/_v2 per-connection registry (replace + close run the _v2
+  destructor); sqlite3_declare_vtab (MISUSE outside a constructor; parses names/types/
+  HIDDEN); vtab_create_instance drives xCreate with the C argv convention (pzErr
+  surfaced, no schema entry on failure); vtab_scan drives xOpen/xBestIndex(0-constraint)/
+  xFilter/xEof/xColumn/xNext/xClose; vtab_drop_instance -> xDestroy; vtab_close wired
+  into conn_teardown.
+- store.rs: CreateVtab carries raw args + sql; exec arm: registered module -> real path,
+  wholenumber -> legacy harvest28 generator (NOT re-homed; see ADR 0029), else
+  "no such module: X"; DROP TABLE vtab arm; sqlite_master rootpage-0/sql projections for
+  vtab entries. eval.rs: source_rows vtab cursor hook (rows carry HIDDEN cols; SELECT *
+  expands to the visible declared shape); pragma_table_info reports vtab name/type.
+- 25 goldens (engine-vtab31-001 x10, -002 x8, -003 x7; harness /tmp/vtab_harness.c,
+  two-run deterministic). 3 anti-cheat tests (runtime module/table names + payload,
+  reshape on recreate, runtime unknown-module exact error). 642 prior goldens untouched.
+- Flips: vtab-core-001 none->partial, vtab-core-002 none->partial;
+  engine-vtab31-001/002/003 new composed full; misc-vtab-packs-001 stays none (notes).
+- Scoreboard full 134->137 / partial 58->60 / none 84->82 (279 known). cargo 696/696.
+

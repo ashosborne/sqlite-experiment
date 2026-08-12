@@ -1,0 +1,14 @@
+slice_id: engine-vtab31
+app_id: sqlite-experiment
+created_by: sqlite-engine-v31-vtab-core
+created_at: 2026-08-13T18:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed vtab-core slice (run 41): sqlite3_create_module(_v2) lifecycle, declare_vtab
+  column shape, and SELECT through the module cursor, frozen on the pinned bare C baseline
+  using tiny in-process test modules (pack v31 / ADR 0029).
+features:
+  - engine-vtab31-001
+  - engine-vtab31-002
+  - engine-vtab31-003
