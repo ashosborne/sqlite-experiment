@@ -44,12 +44,9 @@ impl V {
 }
 
 fn render_real(r: f64) -> String {
-    if r.is_finite() && r == r.trunc() && r.abs() < 1e15 {
-        format!("{:.1}", r) // 3.0, 100.0
-    } else {
-        let s = format!("{}", r);
-        if s.contains('.') || s.contains('e') || s.contains("inf") || s.contains("nan") { s } else { format!("{}.0", s) }
-    }
+    // run-33: REAL text via the ported SQLite FpDecode/%!.17g pipeline (fpdec.rs) —
+    // byte-identical to C including its double-rounding artifacts (1/3 → ...332)
+    crate::fpdec::render_f64_c(r)
 }
 pub fn text_to_num(t: &str) -> Option<f64> {
     let s = t.trim();
@@ -1733,6 +1730,7 @@ struct WinSpec {
 enum WinFrame {
     RangePeers,             // default: RANGE UNBOUNDED PRECEDING .. CURRENT ROW (peer-inclusive)
     Rows(Option<i64>),      // ROWS BETWEEN <n|unbounded> PRECEDING AND CURRENT ROW
+    RowsFull,               // ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING (run-33)
     Groups(i64),            // GROUPS BETWEEN n PRECEDING AND CURRENT ROW
 }
 
@@ -1769,7 +1767,9 @@ fn parse_winspec(spec: &str) -> Result<WinSpec, String> {
     if let Some(p) = up.find("ROWS BETWEEN ") {
         let body = rest[p + 13..].trim();
         let bu = body.to_ascii_uppercase();
-        if bu.starts_with("UNBOUNDED PRECEDING") { frame = WinFrame::Rows(None); }
+        if bu.starts_with("UNBOUNDED PRECEDING") {
+            frame = if bu.contains("AND UNBOUNDED FOLLOWING") { WinFrame::RowsFull } else { WinFrame::Rows(None) };
+        }
         else if let Some(n) = body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
             frame = WinFrame::Rows(Some(n));
         }
@@ -1796,6 +1796,21 @@ fn split_over(item: &str) -> Option<(String, String, String)> {
 
 fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
     -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    // run-33: WINDOW <name> AS (<spec>) [, ...] clause after FROM; OVER <name> resolves
+    let mut from = from.to_string();
+    let mut named: std::collections::HashMap<String, String> = Default::default();
+    if let Some(wp) = find_kw_top(&from, "WINDOW") {
+        let clause = from[wp + 6..].trim().to_string();
+        from = from[..wp].trim().to_string();
+        for def in split_top(&clause, ',') {
+            if let Some(ap) = find_kw_top(&def, "AS") {
+                let nm = def[..ap].trim().to_ascii_lowercase();
+                let spec = def[ap + 2..].trim().trim_start_matches('(').trim_end_matches(')').to_string();
+                named.insert(nm, spec);
+            }
+        }
+    }
+    let from = from.as_str();
     let src = parse_from(ctx, from, outer)?;
     let n = src.len();
     let mut out: Vec<Vec<V>> = vec![Vec::new(); n];
@@ -1805,7 +1820,20 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
             for (i, r) in src.iter().enumerate() { out[i].push(eval_expr(&ex, r, ctx)?); }
             continue;
         }
-        let (fname, args_txt, spec_txt) = split_over(expr).ok_or("bad window expression")?;
+        let (fname, args_txt, spec_txt) = match split_over(expr) {
+            Some(x) => x,
+            None => {
+                // OVER <name> — look up the named window
+                let p = find_kw_top(expr, "OVER").ok_or("bad window expression")?;
+                let call = expr[..p].trim();
+                let nm = expr[p + 4..].trim().trim_end_matches(')').trim().to_ascii_lowercase();
+                let spec = named.get(&nm).cloned().ok_or("bad window expression")?;
+                let op = call.find('(').ok_or("bad window expression")?;
+                let fname = call[..op].trim().to_ascii_lowercase();
+                let args = call[op + 1..call.rfind(')').ok_or("bad window expression")?].trim().to_string();
+                (fname, args, spec)
+            }
+        };
         let spec = parse_winspec(&spec_txt)?;
         let arg_exs: Vec<Ex> = if args_txt.is_empty() || args_txt == "*" { Vec::new() }
             else { split_top(&args_txt, ',').iter().map(|a| parse_expr_full(a)).collect::<Result<_,_>>()? };
@@ -1876,6 +1904,7 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
                         let (lo, hi) = match &spec.frame {
                             WinFrame::RangePeers => (0usize, peer_end[p]),
                             WinFrame::Rows(None) => (0usize, p),
+                            WinFrame::RowsFull => (0usize, m - 1),
                             WinFrame::Rows(Some(k)) => ((p as i64 - k).max(0) as usize, p),
                             WinFrame::Groups(k) => {
                                 let g0 = (group_of[p] as i64 - k).max(0);
@@ -1900,6 +1929,52 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
                             _ => acc.into_iter().max_by(vcmp).unwrap_or(V::Null),
                         }
                     }
+                    // ---- run-33 window leftovers (COVERAGE-named residuals) ----
+                    "first_value" | "last_value" | "nth_value" => {
+                        // frame end mirrors the aggregate frame rules
+                        let hi = match &spec.frame {
+                            WinFrame::RangePeers => peer_end[p],
+                            WinFrame::Rows(None) => p,
+                            WinFrame::RowsFull => m - 1,
+                            WinFrame::Rows(Some(k)) => { let _ = k; p }
+                            WinFrame::Groups(_) => peer_end[p],
+                        };
+                        let lo = match &spec.frame { WinFrame::Rows(Some(k)) => (p as i64 - k).max(0) as usize, _ => 0 };
+                        let pos: Option<usize> = match fname.as_str() {
+                            "first_value" => Some(lo),
+                            "last_value" => Some(hi),
+                            _ => {
+                                let k = arg_exs.get(1).map(|e| eval_expr(e, &src[i], ctx).map(|v| v.as_i64()))
+                                    .transpose()?.unwrap_or(1);
+                                if k >= 1 && lo as i64 + k - 1 <= hi as i64 { Some(lo + k as usize - 1) } else { None }
+                            }
+                        };
+                        match pos {
+                            Some(q) => match arg_exs.first() { Some(e) => eval_expr(e, &src[sorted[q]], ctx)?, None => V::Null },
+                            None => V::Null,
+                        }
+                    }
+                    "ntile" => {
+                        // SQLite: earlier buckets get the extra rows (size ceil then floor)
+                        let nb = arg_exs.first().map(|e| eval_expr(e, &src[i], ctx).map(|v| v.as_i64()))
+                            .transpose()?.unwrap_or(1).max(1);
+                        let (mi, nbi) = (m as i64, nb);
+                        let big = mi % nbi;              // buckets with (m/nb + 1) rows
+                        let sz_big = mi / nbi + 1;
+                        let sz_small = mi / nbi;
+                        let p64 = p as i64;
+                        let v = if p64 < big * sz_big { p64 / sz_big + 1 }
+                                else if sz_small > 0 { big + (p64 - big * sz_big) / sz_small + 1 }
+                                else { p64 + 1 };
+                        V::Int(v)
+                    }
+                    "percent_rank" => {
+                        if m <= 1 { V::Real(0.0) } else {
+                            let first = (0..m).find(|&q| group_of[q] == group_of[p]).unwrap_or(p);
+                            V::Real(first as f64 / (m - 1) as f64)
+                        }
+                    }
+                    "cume_dist" => V::Real((peer_end[p] + 1) as f64 / m as f64),
                     other => return Err(format!("unsupported window function: {other}")),
                 };
                 vals[i] = v;

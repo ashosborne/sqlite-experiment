@@ -325,6 +325,17 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
 
     let (param_count, param_names) = scan_params(&stmt_text);
     let dbid = db as usize;
+    {
+        // run-33: SQLITE_LIMIT_VARIABLE_NUMBER enforced at compile time like C
+        let lim = with_extras(db, |e| *e.limits.get(&9).unwrap_or(&32766));
+        if param_count as c_int > lim {
+            (*db).errcode = SQLITE_ERROR;
+            (*db).extended = SQLITE_ERROR;
+            (*db).errmsg = Some(CString::new(format!("variable number must be between ?1 and ?{lim}")).unwrap());
+            if !pz_tail.is_null() { *pz_tail = z_sql; }
+            return SQLITE_ERROR;
+        }
+    }
 
     // prepare-time resolution (C compiles here): dry-run SELECTs with NULL params
     // (side-effect free); validate DML/DDL targets; classify unknown SQL as syntax.
@@ -586,7 +597,7 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
                 let dbp = s.db as *mut Sqlite3;
                 if !dbp.is_null() {
                     (*dbp).errcode = rc;
-                    (*dbp).extended = rc;
+                    (*dbp).extended = extended_for(rc, err.as_deref().unwrap_or("")); // run-33
                     (*dbp).errmsg = err.and_then(|m| CString::new(m).ok());
                 }
                 s.state = State::Done;
@@ -864,6 +875,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 
 pub mod datetime;
 pub mod dbfile;
+pub mod fpdec;
 pub mod eval;
 pub mod json;
 pub mod script_table;
@@ -895,7 +907,28 @@ unsafe fn sized_alloc(n: usize) -> *mut u8 {
     let p = std::alloc::alloc_zeroed(l);
     if p.is_null() { return std::ptr::null_mut(); }
     (p as *mut u64).write(n as u64);
+    mem_add(n as i64);
     p.add(16)
+}
+
+// run-33: real allocator accounting (memory_used / memory_highwater)
+static MEM_USED: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static MEM_HIGH: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+fn mem_add(n: i64) {
+    let cur = MEM_USED.fetch_add(n, Ordering::SeqCst) + n;
+    MEM_HIGH.fetch_max(cur, Ordering::SeqCst);
+}
+
+/// # Safety: C ABI — bytes currently outstanding from this allocator.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_memory_used() -> i64 { MEM_USED.load(Ordering::SeqCst) }
+/// # Safety: C ABI — high-water mark; reset!=0 re-arms it to the current usage.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_memory_highwater(reset: c_int) -> i64 {
+    let prior = MEM_HIGH.load(Ordering::SeqCst);
+    if reset != 0 { MEM_HIGH.store(MEM_USED.load(Ordering::SeqCst), Ordering::SeqCst); }
+    prior
 }
 
 /// # Safety: C ABI.
@@ -910,6 +943,7 @@ pub unsafe extern "C" fn sqlite3_free(p: *mut c_void) {
     if p.is_null() { return; }
     let base = (p as *mut u8).sub(16);
     let n = (base as *mut u64).read() as usize;
+    mem_add(-(n as i64));
     let l = std::alloc::Layout::from_size_align(n + 16, 16).unwrap();
     std::alloc::dealloc(base, l);
 }
@@ -934,8 +968,27 @@ unsafe fn alloc_cstr(s: &str) -> *mut c_char {
 pub struct DbExtras {
     auth_cb: usize,
     auth_arg: usize,
-    limit_variable_number: Option<c_int>,
+    limits: std::collections::HashMap<c_int, c_int>, // run-33: full sqlite3_limit id matrix
     fkey: c_int,
+}
+
+// (default, compile-time max) per limit id — pinned from the C baseline defaults
+fn limit_bounds(id: c_int) -> Option<(c_int, c_int)> {
+    Some(match id {
+        0 => (1000000000, 1000000000),  // LENGTH
+        1 => (1000000000, 1000000000),  // SQL_LENGTH
+        2 => (2000, 2000),              // COLUMN
+        3 => (1000, 1000),              // EXPR_DEPTH
+        4 => (500, 500),                // COMPOUND_SELECT
+        5 => (250000000, 250000000),    // VDBE_OP
+        6 => (1000, 1000),              // FUNCTION_ARG (pinned baseline default)
+        7 => (10, 10),                  // ATTACHED (hard max 10 pinned)
+        8 => (50000, 50000),            // LIKE_PATTERN_LENGTH
+        9 => (32766, 32766),            // VARIABLE_NUMBER
+        10 => (1000, 1000),             // TRIGGER_DEPTH
+        11 => (0, 0),                   // WORKER_THREADS
+        _ => return None,
+    })
 }
 use std::cell::RefCell;
 thread_local! {
@@ -973,16 +1026,48 @@ pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, val: c_i
     });
     SQLITE_OK
 }
-/// # Safety: C ABI.
+/// # Safety: C ABI — get (-1) / set with prior-value return; sets clamp to compile max.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_limit(db: *mut Sqlite3, id: c_int, new_val: c_int) -> c_int {
-    if db.is_null() || id != SQLITE_LIMIT_VARIABLE_NUMBER { return -1; }
+    if db.is_null() { return -1; }
+    let (dflt, max) = match limit_bounds(id) { Some(b) => b, None => return -1 };
     with_extras(db, |e| {
-        let cur = e.limit_variable_number.unwrap_or(32766); // pinned default (MAX_VARIABLE_NUMBER)
-        if new_val >= 0 { e.limit_variable_number = Some(new_val.min(32766)); }
+        let cur = *e.limits.get(&id).unwrap_or(&dflt);
+        if new_val >= 0 { e.limits.insert(id, new_val.min(max)); }
         cur
     })
 }
+/// # Safety: C ABI — English-language description of a (possibly extended) result code.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_errstr(rc: c_int) -> *const c_char {
+    // extended codes fall through to their base-code description (pinned: 787/2067)
+    let base = rc & 0xff;
+    let s: &'static [u8] = match base {
+        0 => b"not an error\0",
+        1 => b"SQL logic error\0",
+        5 => b"database is locked\0",
+        14 => b"unable to open database file\0",
+        19 => b"constraint failed\0",
+        21 => b"bad parameter or other API misuse\0",
+        23 => b"authorization denied\0",
+        25 => b"column index out of range\0",
+        100 => b"another row available\0",
+        101 => b"no more rows available\0",
+        _ => b"unknown error\0",
+    };
+    s.as_ptr() as *const c_char
+}
+
+/// extended constraint code for a rc-19 message (SQLITE_CONSTRAINT_* pinned matrix)
+pub(crate) fn extended_for(rc: c_int, msg: &str) -> c_int {
+    if rc != 19 { return rc; }
+    if msg.starts_with("UNIQUE constraint failed") { 2067 }
+    else if msg.starts_with("NOT NULL constraint failed") { 1299 }
+    else if msg.starts_with("CHECK constraint failed") { 275 }
+    else if msg.starts_with("FOREIGN KEY constraint failed") { 787 }
+    else { 19 }
+}
+
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_set_authorizer(db: *mut Sqlite3, cb: AuthCallback, arg: *mut c_void) -> c_int {
@@ -994,13 +1079,13 @@ pub unsafe extern "C" fn sqlite3_set_authorizer(db: *mut Sqlite3, cb: AuthCallba
     SQLITE_OK
 }
 
-/// Consult the authorizer for a recognized SELECT; DENY -> SQLITE_AUTH (pinned).
-unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int {
+/// Consult the authorizer for one action code; DENY -> SQLITE_AUTH (pinned).
+unsafe fn auth_check_action(db: *mut Sqlite3, code: c_int) -> c_int {
     let (cb, arg) = with_extras(db, |e| (e.auth_cb, e.auth_arg));
     if cb == 0 { return SQLITE_OK; }
     let f: unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, *const c_char, *const c_char) -> c_int =
         std::mem::transmute(cb);
-    let r = f(arg as *mut c_void, SQLITE_SELECT_ACTION, std::ptr::null(), std::ptr::null(), std::ptr::null(), std::ptr::null());
+    let r = f(arg as *mut c_void, code, std::ptr::null(), std::ptr::null(), std::ptr::null(), std::ptr::null());
     if r == 1 /* SQLITE_DENY */ {
         (*db).errcode = SQLITE_AUTH;
         (*db).extended = SQLITE_AUTH;
@@ -1008,6 +1093,17 @@ unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int {
         return SQLITE_AUTH;
     }
     SQLITE_OK
+}
+unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int { auth_check_action(db, SQLITE_SELECT_ACTION) }
+/// run-33: statement-class action codes checked before execution
+unsafe fn auth_code_for(sql_up: &str) -> Option<c_int> {
+    let s = sql_up.trim_start();
+    if s.starts_with("INSERT") { Some(18) }        // SQLITE_INSERT
+    else if s.starts_with("UPDATE") { Some(23) }   // SQLITE_UPDATE
+    else if s.starts_with("DELETE") { Some(9) }    // SQLITE_DELETE
+    else if s.starts_with("CREATE TABLE") { Some(2) } // SQLITE_CREATE_TABLE
+    else if s.starts_with("PRAGMA") { Some(19) }   // SQLITE_PRAGMA
+    else { None }
 }
 
 /// # Safety: C ABI — executes SQL on the store/eval engine (abort on nonzero cb).
@@ -1019,6 +1115,18 @@ pub unsafe extern "C" fn sqlite3_exec(
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
     // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
+    {
+        // run-33: authorizer consulted for statement-class action codes (INSERT/UPDATE/
+        // DELETE/CREATE TABLE/PRAGMA) before execution; DENY -> SQLITE_AUTH (pinned)
+        let up = sql.trim_start().to_ascii_uppercase();
+        if let Some(code) = auth_code_for(&up) {
+            let rc = auth_check_action(db, code);
+            if rc != SQLITE_OK {
+                if !errmsg.is_null() { *errmsg = alloc_cstr("not authorized"); }
+                return rc;
+            }
+        }
+    }
     let wal_m0 = store::wal_marker(db as usize); // v22: WAL sidecar sync after the call
     let exec_result = store::execute_script(db as usize, sql);
     store::wal_sync(db as usize, wal_m0);
@@ -1041,7 +1149,7 @@ pub unsafe extern "C" fn sqlite3_exec(
             }
             if rc != 0 {
                 let msg = err.unwrap_or_else(|| "SQL error".into());
-                (*db).errcode = rc; (*db).extended = rc;
+                (*db).errcode = rc; (*db).extended = extended_for(rc, &msg); // run-33 pinned matrix
                 (*db).errmsg = Some(std::ffi::CString::new(msg.clone()).unwrap());
                 if !errmsg.is_null() { *errmsg = alloc_cstr(&msg); }
             } else { db_ok(&mut *db); }
@@ -1167,6 +1275,29 @@ pub unsafe extern "C" fn sqlite3_randomness(n: c_int, out: *mut c_void) {
     }
 }
 
+/// # Safety: C ABI (fixed arity like mprintf — frozen directives %d/%s/%q/%Q).
+/// Writes at most n bytes INCLUDING the NUL; n<=0 leaves the buffer untouched; returns buf.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_snprintf(n: c_int, buf: *mut c_char, fmt: *const c_char, a: c_int, z: *const c_char) -> *mut c_char {
+    if buf.is_null() || n <= 0 { return buf; }
+    let f = if fmt.is_null() { "" } else { CStr::from_ptr(fmt).to_str().unwrap_or("") };
+    let zs = if z.is_null() { None } else { CStr::from_ptr(z).to_str().ok() };
+    let out = mini_format(f, a, zs);
+    let bytes = out.as_bytes();
+    let lim = (n as usize - 1).min(bytes.len());
+    std::ptr::copy_nonoverlapping(bytes.as_ptr(), buf as *mut u8, lim);
+    *buf.add(lim) = 0;
+    buf
+}
+
+/// # Safety: C ABI — append exactly n raw bytes (run-33 pin).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_str_append(s: *mut Sqlite3Str, z: *const c_char, n: c_int) {
+    if s.is_null() || z.is_null() || n <= 0 { return; }
+    let bytes = std::slice::from_raw_parts(z as *const u8, n as usize);
+    (*s).buf.push_str(&String::from_utf8_lossy(bytes));
+}
+
 /// # Safety: C ABI (fixed arity for the frozen "%d-%Q" case).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_mprintf(fmt: *const c_char, a: c_int, z: *const c_char) -> *mut c_char {
@@ -1254,15 +1385,25 @@ pub unsafe extern "C" fn sqlite3_str_value(s: *mut Sqlite3Str) -> *const c_char 
     (*s).val_cache.as_ref().unwrap().as_ptr()
 }
 
-/// # Safety: C ABI — pinned inputs: terminated / unterminated / open trigger body.
+/// # Safety: C ABI — real token scan: after CREATE TRIGGER, BEGIN/CASE nest and END
+/// pops; complete only when the body closed and the text ends with ';' (run-33 pins).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_complete(z: *const c_char) -> c_int {
     if z.is_null() { return 0; }
     let s = match CStr::from_ptr(z).to_str() { Ok(s) => s.trim_end(), Err(_) => return 0 };
     if !s.ends_with(';') { return 0; }
     let u = s.to_ascii_uppercase();
-    if u.contains("CREATE TRIGGER") && !u.trim_end_matches(';').trim_end().ends_with("END") { return 0; }
-    1
+    if !u.contains("CREATE TRIGGER") { return 1; }
+    let mut depth = 0i32;
+    let mut saw_begin = false;
+    for w in u.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+        match w {
+            "BEGIN" | "CASE" => { depth += 1; saw_begin = true; }
+            "END" => depth -= 1,
+            _ => {}
+        }
+    }
+    (saw_begin && depth <= 0) as c_int
 }
 
 /// # Safety: C ABI.
@@ -1291,31 +1432,38 @@ pub unsafe extern "C" fn sqlite3_column_type(stmt: *mut Sqlite3Stmt, i: c_int) -
 
 // ===================== run-12 leftovers widening (pack v3) =====================
 
-static AUTO_EXT: AtomicU64 = AtomicU64::new(0); // single registered init fn (pinned registry of one)
+thread_local! {
+    // run-33: ordered multi-entry registry (duplicates collapse; C invokes each once)
+    static AUTO_EXTS: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) };
+}
 
-/// # Safety: C ABI — registry mirror for the pinned auto-extension sequence.
+/// # Safety: C ABI — register an auto-extension entry point (duplicates are no-ops).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_auto_extension(f: Option<unsafe extern "C" fn()>) -> c_int {
-    AUTO_EXT.store(f.map(|p| p as usize as u64).unwrap_or(0), Ordering::SeqCst);
+    let p = match f { Some(p) => p as usize, None => return SQLITE_OK };
+    AUTO_EXTS.with(|v| { let mut v = v.borrow_mut(); if !v.contains(&p) { v.push(p); } });
     SQLITE_OK
 }
-/// # Safety: C ABI — returns SQLITE_OK when the entry was found and removed (pinned rc=1? no: C pin recorded 1).
+/// # Safety: C ABI — returns 1 when the entry was found and removed, else 0 (pinned).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_cancel_auto_extension(f: Option<unsafe extern "C" fn()>) -> c_int {
-    let want = f.map(|p| p as usize as u64).unwrap_or(0);
-    if want != 0 && AUTO_EXT.load(Ordering::SeqCst) == want {
-        AUTO_EXT.store(0, Ordering::SeqCst);
-        1 // pinned: cancel returns 1 when the extension was found and removed
-    } else {
-        0
-    }
+    let want = match f { Some(p) => p as usize, None => return 0 };
+    AUTO_EXTS.with(|v| {
+        let mut v = v.borrow_mut();
+        match v.iter().position(|&p| p == want) { Some(i) => { v.remove(i); 1 } None => 0 }
+    })
+}
+/// # Safety: C ABI — clears the whole registry (run-33 pin).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_reset_auto_extension() {
+    AUTO_EXTS.with(|v| v.borrow_mut().clear());
 }
 pub(crate) unsafe fn run_auto_extensions(db: *mut Sqlite3) {
-    let f = AUTO_EXT.load(Ordering::SeqCst);
-    if f != 0 {
+    let entries: Vec<usize> = AUTO_EXTS.with(|v| v.borrow().clone());
+    for f in entries {
         // pinned shape: init fn invoked once per open with (db, errmsg, api) — mirrored as (db,0,0)
         let g: unsafe extern "C" fn(*mut Sqlite3, *mut *mut c_char, *const c_void) -> c_int =
-            std::mem::transmute(f as usize);
+            std::mem::transmute(f);
         let _ = g(db, std::ptr::null_mut(), std::ptr::null());
     }
 }

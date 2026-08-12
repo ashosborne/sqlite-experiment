@@ -48,6 +48,7 @@ struct Col {
     default: Option<Val>,
     references: Option<(String, String, u8, u8)>, // (parent, pcol, on-delete, on-update): 0=none 1=CASCADE 2=SET NULL 3=RESTRICT 4=SET DEFAULT
     coll: Option<String>, // declared column collation (COLLATE <name>, stored lowercase)
+    ref_deferred: bool,   // REFERENCES ... DEFERRABLE INITIALLY DEFERRED (run-33)
 }
 
 #[derive(Default, Clone)]
@@ -523,6 +524,7 @@ fn parse_coldefs(inner: &str) -> Option<Vec<Col>> {
                 col.coll = Some(w.trim_matches('"').to_ascii_lowercase());
             }
         }
+        if up.contains("DEFERRABLE INITIALLY DEFERRED") { col.ref_deferred = true; }
         cols.push(col);
     }
     Some(cols)
@@ -962,7 +964,7 @@ fn check_row(name: &str, cols: &[Col], checks: &[String], row: &[Val]) -> Result
         if let Some(chk) = &col.check {
             let r = eval::eval_standalone(chk, &env)?;
             if !matches!(r, eval::V::Null) && !ev_truthy(&r) {
-                return Ok(Some(format!("CHECK constraint failed: {}", name)));
+                return Ok(Some(format!("CHECK constraint failed: {}", chk)));
             }
         }
     }
@@ -1115,6 +1117,27 @@ fn other_conflict_msg(name: &str, t: &Table, idefs: &[IndexDef], tk: &UpsertTk, 
         }
     }
     Ok(None)
+}
+
+/// any child row whose non-NULL reference lacks a parent (deferred-FK COMMIT check)
+fn fk_violation_exists(st: &Store) -> bool {
+    for (_tn, t) in &st.tables {
+        for (ci, col) in t.cols.iter().enumerate() {
+            if let Some((p, pc, _, _)) = &col.references {
+                let parent = match st.tables.iter().find(|(n, _)| n == p) { Some(x) => &x.1, None => return true };
+                let pci = match parent.cols.iter().position(|c| c.name == *pc) { Some(x) => x, None => return true };
+                for (_rid, r) in &t.rows {
+                    match r.get(ci) {
+                        Some(Val::Null) | None => {}
+                        Some(v) => {
+                            if !parent.rows.iter().any(|(_, pr)| pr.get(pci) == Some(v)) { return true; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
@@ -1537,14 +1560,22 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.txn = Some(Txn { snap, implicit: false, savepoints: Vec::new() });
                 }
                 Stmt::Commit => {
-                    if st.txn.take().is_none() {
+                    if st.txn.is_none() {
                         return Err("cannot commit - no transaction is active".into());
                     }
+                    // run-33: deferred FK validation happens at COMMIT; a violation fails
+                    // the COMMIT and the transaction STAYS OPEN (pinned)
+                    if st.fk_on && fk_violation_exists(st) {
+                        return Err(FK_ERR.into());
+                    }
+                    st.txn = None;
+                    st.conn.pragmas.insert("defer_foreign_keys".into(), 0); // resets at txn end (pinned)
                 }
                 Stmt::Rollback => {
                     if !txn_rollback(st) {
                         return Err("cannot rollback - no transaction is active".into());
                     }
+                    st.conn.pragmas.insert("defer_foreign_keys".into(), 0);
                 }
                 Stmt::Savepoint { name } => {
                     let snap = take_snap(st);
@@ -1780,7 +1811,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     let r = eval::eval_standalone(chk, &env)?;
                                     // NULL result passes a CHECK (SQL semantics); false fails
                                     if !matches!(r, eval::V::Null) && !ev_truthy(&r) {
-                                        viol = Some(format!("CHECK constraint failed: {}", name));
+                                        viol = Some(format!("CHECK constraint failed: {}", chk));
                                         break;
                                     }
                                 }
@@ -1805,7 +1836,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     if matches!(policy, Policy::TxnRollback) { format!("__TXNROLLBACK__{e}") } else { e }
                                 };
                                 let _ = &fk_fail;
+                                // run-33: deferred constraints (or defer_foreign_keys=1) are
+                                // checked at COMMIT when inside an explicit transaction
+                                let defer_prag = st.conn.pragmas.get("defer_foreign_keys").copied().unwrap_or(0) != 0;
+                                let in_txn_now = st.txn.is_some();
                                 for (ci, col) in cols_meta.iter().enumerate() {
+                                    if in_txn_now && (col.ref_deferred || defer_prag) { continue; }
                                     if let Some((p, pc, _, _)) = &col.references {
                                         let v = full.get(ci).cloned().unwrap_or(Val::Null);
                                         if v != Val::Null {
@@ -1863,7 +1899,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             };
                             match conflict {
                                 Some(pos) => match policy {
-                                    Policy::Abort => return Err(UNIQ_ERR.into()),
+                                    Policy::Abort => {
+                                        // run-33: C names the failing constraint (pinned)
+                                        let msg = other_conflict_msg(&name, t, &idefs, &UpsertTk::Cols(Vec::new()), &full)?
+                                            .unwrap_or_else(|| UNIQ_ERR.into());
+                                        return Err(msg);
+                                    }
                                     Policy::TxnRollback => {
                                         // OR ROLLBACK: the conflict aborts the WHOLE transaction
                                         // (rolled back by execute_script's error handler via marker)
