@@ -1,0 +1,184 @@
+[
+{
+"id": "engine-prepare-001-C001",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "prepare kitchen SELECT; step rows; column_int/text; finalize"
+},
+{
+"id": "engine-prepare-001-C002",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "prepare INSERT; step DONE; effect visible to later prepared SELECT"
+},
+{
+"id": "engine-prepare-001-C003",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "pzTail across two statements; both execute"
+},
+{
+"id": "engine-prepare-001-C004",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "prepare-time error: no such table"
+},
+{
+"id": "engine-prepare-001-C005",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "prepare-time error: no such function"
+},
+{
+"id": "engine-prepare-001-C006",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "reset re-runs from the first row"
+},
+{
+"id": "engine-prepare-001-C007",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "autoreset: step after DONE re-runs (OMIT_AUTORESET=off)"
+},
+{
+"id": "engine-prepare-001-C008",
+"slice": "engine-prepare",
+"feature": "engine-prepare-001",
+"kind": "bespoke",
+"note": "stmt_readonly + stmt_busy against real statements"
+},
+{
+"id": "engine-prepare-002-C001",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "bind_parameter_count over ?1..?6"
+},
+{
+"id": "engine-prepare-002-C002",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "typed binds null/int/int64/double/text/blob -> typeof row"
+},
+{
+"id": "engine-prepare-002-C003",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "out-of-range bind index -> SQLITE_RANGE"
+},
+{
+"id": "engine-prepare-002-C004",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "rebind + reset + step re-executes with new values"
+},
+{
+"id": "engine-prepare-002-C005",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "SQLITE_TRANSIENT text copied before buffer reuse"
+},
+{
+"id": "engine-prepare-002-C006",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "unbound parameter evaluates NULL"
+},
+{
+"id": "engine-prepare-002-C007",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "bind_parameter_name / index for :k and ?2"
+},
+{
+"id": "engine-prepare-002-C008",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "bind_double into typeless column -> typeof real"
+},
+{
+"id": "engine-prepare-002-C009",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "bind without step inserts nothing"
+},
+{
+"id": "engine-prepare-002-C010",
+"slice": "engine-prepare",
+"feature": "engine-prepare-002",
+"kind": "bespoke",
+"note": "bind_int64 / column_int64 round trip"
+},
+{
+"id": "engine-prepare-003-C001",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_count + column_name (expression spelling)"
+},
+{
+"id": "engine-prepare-003-C002",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_type matrix null/int/real/text/blob"
+},
+{
+"id": "engine-prepare-003-C003",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_int coercions incl 42abc prefix"
+},
+{
+"id": "engine-prepare-003-C004",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_int64/double coercions"
+},
+{
+"id": "engine-prepare-003-C005",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_text matrix"
+},
+{
+"id": "engine-prepare-003-C006",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column_bytes text/blob/int/null"
+},
+{
+"id": "engine-prepare-003-C007",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "column access before step / after DONE"
+},
+{
+"id": "engine-prepare-003-C008",
+"slice": "engine-prepare",
+"feature": "engine-prepare-003",
+"kind": "bespoke",
+"note": "out-of-range column index"
+}
+]

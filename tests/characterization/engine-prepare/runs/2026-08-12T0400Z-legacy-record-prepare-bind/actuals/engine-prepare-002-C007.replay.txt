@@ -1,0 +1,4 @@
+OBS engine-prepare-002-C007 count 2
+OBS engine-prepare-002-C007 name1 :k
+OBS engine-prepare-002-C007 name2 ?2
+OBS engine-prepare-002-C007 idx.k 1

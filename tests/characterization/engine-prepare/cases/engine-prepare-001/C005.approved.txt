@@ -1,0 +1,3 @@
+OBS engine-prepare-001-C005 prepare.rc 1
+OBS engine-prepare-001-C005 errcode 1
+OBS engine-prepare-001-C005 errmsg no such function: frob

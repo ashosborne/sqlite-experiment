@@ -1,0 +1,6 @@
+OBS engine-prepare-003-C001 count 5
+OBS engine-prepare-003-C001 n0 NULL
+OBS engine-prepare-003-C001 n1 7
+OBS engine-prepare-003-C001 n2 2.5
+OBS engine-prepare-003-C001 n3 'txt'
+OBS engine-prepare-003-C001 n4 X'414243'

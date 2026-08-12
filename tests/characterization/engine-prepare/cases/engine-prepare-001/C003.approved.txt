@@ -1,0 +1,7 @@
+OBS engine-prepare-001-C003 prepare.rc 0
+OBS engine-prepare-001-C003 tail  SELECT 2
+OBS engine-prepare-001-C003 step.rc 100
+OBS engine-prepare-001-C003 v1 1
+OBS engine-prepare-001-C003 prepare2.rc 0
+OBS engine-prepare-001-C003 step2.rc 100
+OBS engine-prepare-001-C003 v2 2

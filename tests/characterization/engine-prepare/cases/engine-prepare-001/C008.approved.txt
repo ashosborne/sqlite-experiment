@@ -1,0 +1,5 @@
+OBS engine-prepare-001-C008 ro.select 1
+OBS engine-prepare-001-C008 busy.before 0
+OBS engine-prepare-001-C008 busy.row 1
+OBS engine-prepare-001-C008 busy.done 0
+OBS engine-prepare-001-C008 ro.insert 0

@@ -1,0 +1,3 @@
+OBS engine-prepare-001-C004 prepare.rc 1
+OBS engine-prepare-001-C004 errcode 1
+OBS engine-prepare-001-C004 errmsg no such table: nosuch
