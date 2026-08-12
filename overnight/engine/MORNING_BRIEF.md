@@ -1,83 +1,77 @@
-# MORNING BRIEF — engine v12: disk debt paid (run 22)
+# MORNING BRIEF — engine v13: prepare/bind through the real engine (run 23)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–21 stamped alongside.
-Charter: FULL_AUTONOMY overnight, COMMIT_AS sqlite-engine-v12-disk-debt.
-MAX_NEW_CASES 40 (used 20). REQUIRE_INVENTORY_BUMP honoured in-commit.
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–22 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v13-prepare-bind. MAX_NEW_CASES 40 (used 26).
+REQUIRE_INVENTORY_BUMP honoured in-commit.
 
-## 1. Pack @12 BOUND — overflow + UNIQUE durability laws
+## 1. Pack @13 BOUND — statement-API / bind / column laws
 
-versions/12.yaml + ADR 0010, schema-validated. **Overflow law** (payloads exceeding one
-leaf use real overflow chains C accepts) + **index/UNIQUE durability law** (UNIQUE and
-secondary indexes persist as on-disk index b-trees; reopen enforces as C does; stripping
-UNIQUE from persisted SQL is banned — the v7 shortcut is now illegal). WAL still
-forbidden. completeness: **incomplete**.
+versions/13.yaml + ADR 0011, schema-validated. prepare must execute via the SAME
+store/eval engine as sqlite3_exec — pin tables and per-golden state machines banned;
+typed binds must provably affect results; column accessors cover the frozen matrix
+with real coercions. completeness: **incomplete**.
 
-## 2. What was implemented (modern/src/dbfile.rs + store.rs)
+## 2. How prepare executes (plainly)
 
-- **Overflow chains:** SQLite local/spill formula (maxLocal 4061, minLocal 489, surplus
-  rule), 4-byte first-overflow pointer in cells, 4-byte next pointers per chain page;
-  reader reassembles chains incl. C-written files. `Val::Blob` (serial 12+2n) end-to-end,
-  X'…' literals.
-- **Index b-trees:** leaf 0x0a pages; records = key columns + rowid, binary-collation
-  sort with rowid tie-break; column autoindexes (`sqlite_autoindex_<t>_<n>`, NULL sql in
-  sqlite_schema — exactly C's shape), multi-column `UNIQUE(a,b)` table constraints,
-  explicit `CREATE [UNIQUE] INDEX` (sql persisted); DROP INDEX persisted.
-- **Reopen enforcement from the durable schema:** UNIQUE stays in persisted SQL; open
-  re-derives column flags + UNIQUE(a,b) sets + explicit index defs from the file. A
-  latent bug fell out: `conflict_row` treated NULL==NULL as a duplicate — the C golden
-  (two NULLs allowed in a UNIQUE column) forced the fix.
+**Shared engine, not a mini-VDBE.** prepare slices the first statement (pzTail),
+scans ?, ?N and :name parameters, and resolves names at prepare time exactly where C
+does — a side-effect-free dry run of SELECTs with NULL parameters yields
+"no such table:" / "no such function:" errors and the column-name list; DML targets
+are checked against the catalog. step substitutes typed bound values into the
+statement and runs it through the same engine as exec: SELECT/PRAGMA materialize
+typed rows at first step (nested-loop eval — **not** a bytecode VDBE), DML/DDL run
+the script engine with real constraint codes (19). Autoreset (OMIT_AUTORESET=off)
+re-executes after DONE; reset keeps bindings and discards rows. The three legacy
+recognizer pins (SELECT 1 / SELECT ? / '42abc') now pass through this real path
+byte-identically — the recognizer is gone.
 
-## 3. Interop results (mandatory honesty gates — both PASS)
+## 3. Bind / column coverage
 
-- `rust_write_c_read_overflow` — pinned C CLI on a Rust file: **PRAGMA integrity_check →
-  ok**, `length(t)=9000`, tail substr exact, and **full-payload equality** (`t='…'` → 1).
-- `rust_write_c_unique_after_reopen` — pinned C CLI **itself rejects duplicates**
-  ("UNIQUE constraint failed") against Rust-written autoindex b-trees (int + text);
-  Rust reopen gives rc 19; count stays 2.
-- Plus `anti_cheat_overflow_runtime` (runtime marker at offset 7001 of an overflow chain,
-  read back by C) and `anti_cheat_unique_runtime` (runtime key unique-enforced after
-  reopen). Prior `rust_write_c_read_large`, FK interop, memory kitchen: still PASS.
+| Family | Real now |
+|---|---|
+| binds | null, int, int64, double, text, blob (values copied — TRANSIENT-safe), parameter_count/name/index, SQLITE_RANGE on bad index |
+| columns | count, name (expression spelling), type (5/1/2/3/4), int, int64, double, text, blob, bytes — real coercions: text integer-prefix ('42abc'→42), real truncation (2.5→2), before-step/after-done → NULL/0, out-of-range → NULL/0 |
+| statement | stmt_readonly / stmt_busy real properties; prepared DML effects visible to later statements |
+| store | `Val::Real` end-to-end (literals, file serial 7) — bound doubles insert + persist |
 
-## 4. Cases: 20 frozen / 0 deferred
+## 4. prepare-statement-api-001..006 — each card
 
-engine-overflow-001 C001–C008 (long TEXT 6000, integrity_check, 6000-byte BLOB, mixed
-page, UPDATE grow/shrink, 15000-char multi-overflow, frozen marker) ·
-engine-indexes-001 C001–C012 (UNIQUE col / UNIQUE INDEX / secondary index visibility /
-OR IGNORE / upsert / IPK+UNIQUE / DROP INDEX / UNIQUE(a,b) / NULL uniqueness /
-post-reopen growth / TEXT UNIQUE / OR REPLACE). Two-run deterministic, delegated
-HUMAN_ACCEPTED, all 20 replay byte-identical through the Rust engine.
-
-## 5. Scoreboard before → after
-
-| State | run 21 | **run 22** |
+| Card | old → new | Why |
 |---|---|---|
-| full | 45 | **47** (+engine-overflow-001, +engine-indexes-001) |
-| partial | 60 | 60 (2 notes materially tightened) |
+| 001 prepare family | partial → **partial** (tighter) | v2 fully real; v1/v3 prepFlags + UTF-16 honestly absent |
+| 002 step machine | partial → **full** | real execution, ROW/DONE/19, autoreset — no VDBE claim |
+| 003 typed binding | partial → **full** | full typed matrix + names + RANGE, runtime-proven |
+| 004 column access | partial → **full** | full accessor matrix with real coercions |
+| 005 reset/finalize | partial → **partial** (tighter) | reset/finalize/autoreset real; auto-reprepare on schema change absent |
+| 006 introspection | partial → **partial** (tighter) | readonly/busy real; EXPLAIN absent |
+
+Plus 3 new full behaviours (engine-prepare-001/-002/-003).
+
+## 5. Cases / anti-cheat / cargo
+
+26 bespoke goldens frozen on pinned C (two-run determinism, delegated stamp), all
+replay byte-identical through the Rust statement path. Anti-cheat **15/15** (new:
+runtime binds drive a computed sum; prepared DML with a runtime key visible to a
+later prepared SELECT; mixed runtime column types). `cargo test` **297/297**; all 256
+prior goldens md5-identical; kitchens, file suites, interop unchanged green.
+
+## 6. Scoreboard before → after
+
+| State | run 22 | **run 23** |
+|---|---|---|
+| full | 47 | **53** |
+| partial | 57+3 | **57** (3 prepare cards tightened) |
 | none | 103 | 103 |
-| behaviours | 208 | 210 |
+| behaviours | 210 | 213 |
 
-**ddl-schema-002 stays partial — deliberately.** Its note now reads: durable index
-lifecycle real (on-disk b-trees, reopen-enforced, C-side duplicate rejection proven);
-still absent: expression/partial/multi-column *explicit* indexes, index-driven lookups,
-multi-leaf index b-trees. Flipping it full would have been greenwash.
-upsert-001 note tightened likewise (durable conflict targets real; expression targets absent).
+## 7. Explicit honesty line
 
-## 6. cargo + anti-cheat
-
-`cargo test` **268/268** (disk_debt 20, disk_debt_interop 5, all 16 prior suites
-unchanged green). SCRIPT_TABLE still 0. All 236 prior goldens md5-identical.
-
-## 7. Honest leftovers
-
-expression/partial indexes · multi-column explicit CREATE INDEX · index-driven lookups
-(scans remain) · multi-leaf index b-trees · freelist (files fully rewritten on save) ·
-WAL/crash recovery · everything in the none column (fts5, wasm/jni, vfs/pager/btree
-cards stay amber — this run implements format structures, not the btree module card).
-
-**SQLite is NOT migrated.** 47 of 210 behaviours done in modern; all parity UNVERIFIED.
+**SQLite is NOT migrated.** 53 of 213 behaviours done in modern; all parity
+UNVERIFIED; parity_green 0; nothing verified. The statement path is a shared-engine
+executor, not a bytecode VDBE.
 
 ## 8. Next call
 
-(a) index-driven lookups + multi-column explicit indexes (finishes ddl-schema-002
-honestly), (b) prepare/bind/column API widening (6 partial cards), or (c) freelist +
-incremental save (durability polish). Pack v13 + goldens first.
+(a) UTF-16 + prepFlags + auto-reprepare (finishes 001/005 honestly), (b) index-driven
+lookups + multi-column explicit indexes (ddl-schema-002), or (c) sqlite3_value / 
+user-defined function API surface. Pack v14 + goldens first.

@@ -391,3 +391,16 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   rejects duplicates against Rust autoindex b-trees; runtime marker/key anti-cheats.
 - ddl-schema-002 kept partial (expression/multi-col explicit indexes, index lookups absent).
 - Scoreboard full 45→47; cargo 268/268; 236 prior goldens md5-identical; parity 0.
+
+## Run 23 — 2026-08-12 — engine v13: prepare/bind through the real engine (pack v13)
+
+- Pack v12→v13 BOUND (+versions/13, ADR 0011): statement-API / bind / column laws.
+- lib.rs statement rewrite: recognizer DELETED; prepare slices first stmt (pzTail), scans
+  ?/?N/:name, resolves names at prepare (dry-run SELECT w/ NULL params; DML catalog check);
+  step binds typed values into SQL and executes via the shared store/eval engine; full
+  typed bind + column matrices; autoreset real; Val::Real end-to-end (file serial 7).
+- 26 bespoke goldens (engine-prepare 001/002/003) frozen on C, 2-run gate, delegated stamp,
+  all replayed byte-identical; legacy recognizer pins pass through the real path unchanged.
+- Flips: prepare-statement-api-002/003/004 → full; 001/005/006 partial tightened (UTF-16/
+  prepFlags, auto-reprepare, EXPLAIN honestly absent). +3 engine-prepare fulls.
+- Scoreboard full 47→53; cargo 297/297; anti-cheat 15/15; 256 prior goldens md5-identical.

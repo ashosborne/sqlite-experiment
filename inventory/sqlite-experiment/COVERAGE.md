@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-11T21:33:16Z
+- Generated: 2026-08-12T08:25:52Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-11T21:33:16Z by `sqlite-engine-v12-disk-debt`
+- Manifest last_updated: 2026-08-12T08:25:52Z by `sqlite-engine-v13-prepare-bind`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 103 | Not started in modern |
-| partial | 60 | Some modern execution; gaps in notes |
-| full (converted) | 47 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 57 | Some modern execution; gaps in notes |
+| full (converted) | 53 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -40,6 +40,9 @@
 - `misc-zorder-001` — z-order curve mapping functions
 - `name-resolution-001` — Column/table name lookup and ambiguity rules
 - `name-resolution-002` — ORDER BY / GROUP BY alias and ordinal resolution
+- `prepare-statement-api-002` — Step execution state machine
+- `prepare-statement-api-003` — Parameter binding (typed)
+- `prepare-statement-api-004` — Column result access (typed, with coercions)
 - `select-codegen-002` — Compound SELECT set operations
 - `triggers-001` — Trigger DDL lifecycle
 - `engine-kitchen-001` — Kitchen-spine row round-trip
@@ -67,6 +70,9 @@
 - `engine-upsert2-001` — Upsert DO UPDATE ... WHERE
 - `engine-overflow-001` — Overflow page chains (durable large payloads)
 - `engine-indexes-001` — On-disk UNIQUE / secondary index b-trees
+- `engine-prepare-001` — Prepare + step through the shared engine
+- `engine-prepare-002` — Typed bind matrix
+- `engine-prepare-003` — Column accessor matrix
 
 ### Partial in modern
 
@@ -109,12 +115,9 @@
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent
 - `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred
-- `prepare-statement-api-001` — prepare rc/error paths real; UTF-16 variants and prepFlags absent; no real SQL compilation in prepare
-- `prepare-statement-api-002` — step state machine + autoreset semantics real for pinned statements; general VDBE execution absent
-- `prepare-statement-api-003` — bind_int with range checking real; other typed binds absent
-- `prepare-statement-api-004` — column_int/text/type with pinned coercions real; full typed-access matrix absent
-- `prepare-statement-api-005` — reset/finalize + OMIT_AUTORESET=off behaviour real; auto-reprepare on schema change absent
-- `prepare-statement-api-006` — stmt_readonly/stmt_busy real; explain introspection absent
+- `prepare-statement-api-001` — prepare_v2 real (first-statement slicing, pzTail, prepare-time no-such-table/function resolution, column names); v1/v3 prepFlags and UTF-16 variants absent
+- `prepare-statement-api-005` — reset/finalize + autoreset real (bindings preserved, rows discarded); auto-reprepare on schema change absent (no schema-cookie tracking)
+- `prepare-statement-api-006` — stmt_readonly/stmt_busy real statement properties; EXPLAIN introspection absent
 - `printf-format-001` — flags/width/precision + 16 conversions incl. %w and # real; thousands-separator comma flag and %p absent
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent
 - `printf-format-003` — str_new/appendf/errcode/finish real; appendchar/reset and grow edges absent
@@ -241,26 +244,26 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 205 |
-| Behaviours known | 210 |
+| Surfaces total | 206 |
+| Behaviours known | 213 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 120 |
+| legacy_green flags | 123 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 20 |
+| accepted | 21 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 47 |
-| documented | 163 |
+| converted | 53 |
+| documented | 160 |
 
 ## Surfaces per slice
 
@@ -292,6 +295,7 @@
 | engine-order2 | 1 |
 | engine-overflow | 1 |
 | engine-pragma | 1 |
+| engine-prepare | 1 |
 | engine-setops | 1 |
 | engine-subquery | 1 |
 | engine-trig2 | 1 |

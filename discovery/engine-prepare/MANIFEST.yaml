@@ -1,0 +1,17 @@
+slice_id: engine-prepare
+app_id: sqlite-experiment
+seed: composed statement-API slice (run 23)
+status: accepted
+features:
+- feature_id: engine-prepare-001
+  name: Prepare + step through the shared engine (tail, errors, autoreset, readonly/busy)
+  status: accepted
+  evidence: [src/prepare.c:1, src/vdbeapi.c:1]
+- feature_id: engine-prepare-002
+  name: Typed bind matrix (null/int/int64/double/text/blob, names, RANGE, TRANSIENT)
+  status: accepted
+  evidence: [src/prepare.c:1, src/vdbeapi.c:1]
+- feature_id: engine-prepare-003
+  name: Column accessor matrix (count/name/type/int/int64/double/text/blob/bytes)
+  status: accepted
+  evidence: [src/prepare.c:1, src/vdbeapi.c:1]

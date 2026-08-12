@@ -2232,6 +2232,16 @@ surfaces:
   notes: composed disk-debt slice (run 22); seam-kind=api
   discovery_evidence:
   - src/btree.c:80
+- surface_id: sur-engine-prepare
+  kind: other
+  locator: sqlite3_prepare_v2/bind/step/column sequences
+  repo_path: src/prepare.c
+  status: accepted
+  slice_id: engine-prepare
+  notes: composed statement-API slice (run 23); seam-kind=api
+  discovery_evidence:
+  - src/prepare.c:1
+  - src/vdbeapi.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -3767,51 +3777,62 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; Six public prepare variants funnel to sqlite3Prepare via sqlite3LockAndPrepare (schema-lock
-    retry). | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=partial (run-19
-    scoreboard) — gaps: prepare rc/error paths real; UTF-16 variants and prepFlags absent; no real SQL compilation in prepare'
+    retry). | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=partial (run-23)
+    — gaps: prepare_v2 real (first-statement slicing, pzTail, prepare-time no-such-table/function resolution, column names);
+    v1/v3 prepFlags and UTF-16 variants absent'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-002
   surface_id: sur-sqlite3-step
   name: Step execution state machine
-  status: documented
+  status: converted
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-002.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; sqlite3_step drives the VDBE; ROW/DONE as implemented on this pin (autoreset after
     DONE); BUSY only where evidenced; finalized-handle UAF/not observed. | legacy RECORD REPLAY_GREEN 2026-08-11 (goldens
-    HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | not conversion-ready while C003 BLOCKED (stamp != PACK != Convert) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: step state machine + autoreset semantics real for pinned statements; general VDBE execution
-    absent'
+    HUMAN_ACCEPTED 2026-08-11 Ash Osborne) | not conversion-ready while C003 BLOCKED (stamp != PACK != Convert) | impl_in_modern=full
+    (run-23): step executes real SQL via the shared engine (rows materialize on first step, nested loop — no bytecode-VDBE
+    claim); ROW/DONE/constraint codes + autoreset (OMIT_AUTORESET=off) real'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
 - behaviour_id: prepare-statement-api-003
   surface_id: sur-sqlite3-bind-text
   name: Parameter binding (typed)
-  status: documented
+  status: converted
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-003.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; bind_blob/double/int/int64/null/text/value/zeroblob + clear_bindings. | legacy RECORD
-    REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps: bind_int
-    with range checking real; other typed binds absent'
+    REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=full (run-23): typed binds real: null/int/int64/double/text/blob
+    (copied, TRANSIENT-safe) + parameter count/name/index + SQLITE_RANGE; runtime binds provably drive results'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
 - behaviour_id: prepare-statement-api-004
   surface_id: sur-sqlite3-column-text
   name: Column result access (typed, with coercions)
-  status: documented
+  status: converted
   slice_id: prepare-statement-api
   discovery_card: discovery/prepare-statement-api/features/prepare-statement-api-004.md
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; column_blob/bytes/double/int/int64/text accessors with implicit type conversion rules.
-    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: column_int/text/type with pinned coercions real; full typed-access matrix absent'
+    | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=full (run-23): column
+    matrix real: count/name/type/int/int64/double/text/blob/bytes with real coercions (text integer-prefix, real truncation)
+    incl. before-step/after-done/out-of-range behaviour'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
+  parity: UNVERIFIED
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
 - behaviour_id: prepare-statement-api-005
   surface_id: sur-sqlite3-finalize
   name: Reset / finalize / auto-reprepare on schema change
@@ -3821,8 +3842,9 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; reset preserves bindings; finalize frees; sqlite3Reprepare retries after SQLITE_SCHEMA.
-    | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: reset/finalize + OMIT_AUTORESET=off behaviour real; auto-reprepare on schema change absent'
+    | legacy RECORD REPLAY_GREEN + goldens HUMAN_ACCEPTED 2026-08-11 (run-8 stamp) | impl_in_modern=partial (run-23) — gaps:
+    reset/finalize + autoreset real (bindings preserved, rows discarded); auto-reprepare on schema change absent (no schema-cookie
+    tracking)'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-006
@@ -3834,8 +3856,8 @@ behaviours:
   legacy_green: true
   parity_green: false
   notes: 'confidence=observed-in-code; stmt_readonly/stmt_busy/stmt_explain expose statement state without executing. | legacy
-    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: stmt_readonly/stmt_busy real; explain introspection absent'
+    RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-23) — gaps: stmt_readonly/stmt_busy
+    real statement properties; EXPLAIN introspection absent'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-001
@@ -4873,20 +4895,65 @@ behaviours:
   traceability: tests/characterization/engine-indexes/TRACEABILITY.yaml
   notes: 'run-22 disk debt: frozen scope executes for real via store/dbfile; C interop integrity_check=ok + C-side duplicate
     rejection; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-22 delegated stamp)'
-last_updated: '2026-08-12T08:17:25Z'
+- behaviour_id: engine-prepare-001
+  surface_id: sur-engine-prepare
+  name: Prepare + step through the shared engine
+  status: converted
+  slice_id: engine-prepare
+  discovery_card: discovery/engine-prepare/features/engine-prepare-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
+  traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-23 delegated stamp)'
+- behaviour_id: engine-prepare-002
+  surface_id: sur-engine-prepare
+  name: Typed bind matrix
+  status: converted
+  slice_id: engine-prepare
+  discovery_card: discovery/engine-prepare/features/engine-prepare-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
+  traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-23 delegated stamp)'
+- behaviour_id: engine-prepare-003
+  surface_id: sur-engine-prepare
+  name: Column accessor matrix
+  status: converted
+  slice_id: engine-prepare
+  discovery_card: discovery/engine-prepare/features/engine-prepare-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 13
+  traceability: tests/characterization/engine-prepare/TRACEABILITY.yaml
+  notes: 'run-23: statement API executes via the shared store/eval engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12
+    (run-23 delegated stamp)'
+last_updated: '2026-08-12T08:25:52Z'
 updated_by: sqlite-engine-v13-prepare-bind
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 205
+  surfaces_total: 206
   surfaces_by_status:
     candidate: 185
-    accepted: 20
-  behaviours_known: 210
+    accepted: 21
+  behaviours_known: 213
   behaviours_by_status:
-    documented: 163
-    converted: 47
+    documented: 160
+    converted: 53
   unscanned_hints: 3
-  legacy_green: 120
+  legacy_green: 123
   parity_green: 0
