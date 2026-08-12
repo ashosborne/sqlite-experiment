@@ -75,6 +75,8 @@ pub struct Conn {
     pub attached: Vec<String>, // extra schema names beyond 'main'
     pub journal: String,       // "" = default (delete for files, memory for :memory:); "wal" / "delete"
     pub pending_ckpt: Option<String>, // wal_checkpoint mode awaiting the post-exec file sync
+    pub page_cur: i64,         // compact page count of the current image (run-34)
+    pub page_hwm: i64,         // grow-only until VACUUM resets it (freelist model, run-34)
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
@@ -2162,6 +2164,11 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
             let nf = crate::store::wal_frame_count(ctx.db);
             ctx.conn.pending_ckpt = Some(mode);
             Ok(vec![vec![Some("0".into()), Some(nf.to_string()), Some(nf.to_string())]])
+        }
+        "page_count" => {
+            // freelist model: deleted pages stay counted until VACUUM rebuilds (run-34)
+            let v = ctx.conn.page_hwm.max(ctx.conn.page_cur).max(1);
+            Ok(vec![vec![Some(v.to_string())]])
         }
         "integrity_check" | "quick_check" => Ok(vec![vec![Some("ok".into())]]),
         "encoding" => Ok(if val.is_none() { vec![vec![Some("UTF-8".into())]] } else { vec![] }),

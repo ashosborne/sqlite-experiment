@@ -274,8 +274,20 @@ pub fn drop_store(db: usize) {
 /// b-trees (column autoindexes, multi-column UNIQUE sets, explicit indexes), so
 /// C enforces uniqueness against Rust-written files after reopen.
 /// Build the on-disk image of a connection (shared by save_file and serialize).
+/// refresh the freelist-model page counters after a mutation (run-34)
+fn refresh_pages(st: &mut Store) {
+    let pages = (dbfile::write_db_bytes(&image_of(st)).len() / 4096).max(1) as i64;
+    st.conn.page_cur = pages;
+    if pages > st.conn.page_hwm { st.conn.page_hwm = pages; }
+}
+
 pub fn build_image(db: usize) -> DbImage {
-    with_store(db, |st| {
+    with_store(db, |st| image_of(st))
+}
+/// image builder usable from INSIDE a with_store borrow (run-34: VACUUM / page counts)
+fn image_of(st: &Store) -> DbImage {
+    {
+        let st = &*st;
         let tables: Vec<TableImage> = st.tables.iter().map(|(n, t)| {
             let sql = if t.create_sql.is_empty() {
                 format!("CREATE TABLE {}({})", n, t.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","))
@@ -331,7 +343,7 @@ pub fn build_image(db: usize) -> DbImage {
             }
         }
         DbImage { tables, triggers, indexes }
-    })
+    }
 }
 
 /// current schema-change counter (statement auto-reprepare)
@@ -457,12 +469,14 @@ enum Stmt {
     Drop { name: String },
     RenameTable { from: String, to: String },
     AddColumn { table: String, col: String, default: Option<Val> },
+    Vacuum { into: Option<String> },
+    // whx: raw WHERE expression fallback (evaluated per row via eval_standalone, run-34)
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
              target: Option<(Vec<String>, Option<String>)>, // ON CONFLICT (<expr-list>) [WHERE <pred>]
              upd_sets: Vec<(String, String)>, /* DO UPDATE SET col=<expr>, ... */
              upd_where: Option<String> /* DO UPDATE ... WHERE <expr> */ },
     Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)>, or_mode: u8 /* 0=abort 1=ignore 2=fail 3=rollback */ },
-    Delete { name: String, wh: Option<(String, i64)> },
+    Delete { name: String, wh: Option<(String, i64)>, whx: Option<String> },
     Select { items: Vec<String>, target: String, wh: Option<(String, Val)>, order_by: Option<String> },
 }
 
@@ -822,14 +836,31 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         }
         let mut rows = Vec::new();
         for grp in vals.split("),") {
-            let grp = grp.trim().trim_start_matches('(').trim_end_matches(')');
+            let grp = grp.trim();
+            let grp = grp.strip_prefix('(').unwrap_or(grp);
+            let grp = grp.strip_suffix(')').unwrap_or(grp);
             let mut row = Vec::new();
             for tok in grp.split(',') {
-                row.push(parse_literal(tok)?);
+                match parse_literal(tok) {
+                    Some(v) => row.push(v),
+                    // constant expression (zeroblob(1000), 1+2, ...) — computed for real
+                    None => {
+                        let env = std::collections::HashMap::new();
+                        row.push(ev_to_val(eval::eval_standalone(tok.trim(), &env).ok()?));
+                    }
+                }
             }
             rows.push(row);
         }
         return Some(Stmt::Insert { name, collist, rows, policy, target, upd_sets, upd_where });
+    }
+    if up == "VACUUM" {
+        return Some(Stmt::Vacuum { into: None });
+    }
+    if up.starts_with("VACUUM INTO ") {
+        let arg = s["VACUUM INTO ".len()..].trim();
+        let path = arg.strip_prefix('\'')?.strip_suffix('\'')?.to_string();
+        return Some(Stmt::Vacuum { into: Some(path) });
     }
     if up.starts_with("UPDATE ") {
         let (or_mode, after): (u8, &str) = if up.starts_with("UPDATE OR IGNORE ") { (1, &s["UPDATE OR IGNORE ".len()..]) }
@@ -864,8 +895,16 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             Some(w) => (&after[..w], Some(&after[w + 7..])),
             None => (after, None),
         };
-        let wh = match wh_txt { Some(w) => Some(parse_where_int(w)?), None => None };
-        return Some(Stmt::Delete { name: ident(nm)?, wh });
+        // typed col=int filter when possible; otherwise keep the raw expression and
+        // evaluate it per row (run-34: DELETE ... WHERE n > 5 / v % 2 = 0 / IN (...))
+        let (wh, whx) = match wh_txt {
+            Some(w) => match parse_where_int(w) {
+                Some(p) => (Some(p), None),
+                None => (None, Some(w.trim().to_string())),
+            },
+            None => (None, None),
+        };
+        return Some(Stmt::Delete { name: ident(nm)?, wh, whx });
     }
     if up.starts_with("SELECT ") {
         let after = &s["SELECT ".len()..];
@@ -873,9 +912,15 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let items: Vec<String> = after[..fpos].split(',').map(|i| i.trim().to_string()).collect();
         let mut rest = after[fpos + 6..].trim().to_string();
         let mut order_by = None;
+        let mut order_raw = false;
         if let Some(o) = rest.to_ascii_uppercase().find(" ORDER BY ") {
-            order_by = ident(&rest[o + 10..].to_string());
-            if order_by.is_none() { return None; } // COLLATE/NULLS/multi-key ORDER BY -> evaluator
+            let raw = rest[o + 10..].trim().to_string();
+            order_by = ident(&raw);
+            if order_by.is_none() {
+                // multi-key stays kitchen ONLY for sqlite_master (run-34); else evaluator
+                order_by = Some(raw);
+                order_raw = true;
+            }
             rest = rest[..o].trim().to_string();
         }
         let mut wh = None;
@@ -888,6 +933,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             rest = rest[..w].trim().to_string();
         }
         let target = ident(&rest)?;
+        if order_raw && target != "sqlite_master" { return None; } // COLLATE/NULLS/multi-key -> evaluator
         for it in &items {
             let base = it.strip_prefix(&format!("{target}.")).unwrap_or(it);
             let ok = base == "count(*)" || base == "changes()" || base == "total_changes()"
@@ -1467,7 +1513,9 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
     let s = sql.trim().trim_end_matches(';').trim();
     let up = s.to_ascii_uppercase();
     let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA");
-    if up.starts_with("SELECT") && !master {
+    // run-34: simple rowid projections/sorts go to the kitchen (eval rows carry no rowids)
+    let rowid_kitchen = up.contains("ROWID") && matches!(parse_stmt(s), Some(Stmt::Select { .. }));
+    if up.starts_with("SELECT") && !master && !rowid_kitchen {
         return with_store(db, |st| {
             let snap: std::collections::HashMap<String, (Vec<String>, Vec<Vec<eval::V>>)> =
                 st.tables.iter().map(|(n, t)| (n.clone(),
@@ -1552,6 +1600,57 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             };
             match stmt {
                 Stmt::PragmaFkOn => { st.fk_on = true; st.conn.pragmas.insert("foreign_keys".into(), 1); }
+                Stmt::Vacuum { into } => {
+                    // run-34: a real rebuild — not a script answer. C refuses inside a txn.
+                    if st.txn.is_some() {
+                        return Err("cannot VACUUM from within a transaction".into());
+                    }
+                    match into {
+                        Some(target) => {
+                            // VACUUM INTO: write a fresh compact C-readable db at target;
+                            // source is untouched. Errors match the pinned C shapes.
+                            if std::path::Path::new(&target).exists() {
+                                return Err("output file already exists".into());
+                            }
+                            let mut buf = dbfile::write_db_bytes(&image_of(st));
+                            dbfile::set_journal_versions(&mut buf, false);
+                            if std::fs::write(&target, buf).is_err() {
+                                return Err(format!("unable to open database: {target}"));
+                            }
+                        }
+                        None => {
+                            // rebuild: implicit rowids renumber 1..n (pinned 1,3,5 -> 1,2,3);
+                            // INTEGER PRIMARY KEY and WITHOUT ROWID tables keep their keys
+                            for (_n, tab) in st.tables.iter_mut() {
+                                let up = tab.create_sql.to_ascii_uppercase();
+                                if dbfile::ipk_index(&tab.create_sql).is_some() || up.contains("WITHOUT ROWID") {
+                                    continue;
+                                }
+                                let mut rid = 0i64;
+                                for row in tab.rows.iter_mut() {
+                                    rid += 1;
+                                    row.0 = rid;
+                                }
+                                tab.next_rowid = rid;
+                            }
+                            // freelist model: the rebuild reclaims free pages
+                            refresh_pages(st);
+                            st.conn.page_hwm = st.conn.page_cur;
+                            // file-backed: rewrite the main db now (and the -wal in WAL
+                            // mode, so stale pre-rebuild frames cannot resurrect old rowids)
+                            let path = PATHS.with(|m| m.borrow().get(&db).cloned());
+                            if let Some(pb) = path {
+                                let wal = st.conn.journal == "wal";
+                                let mut buf = dbfile::write_db_bytes(&image_of(st));
+                                dbfile::set_journal_versions(&mut buf, wal);
+                                let _ = std::fs::write(&pb, &buf);
+                                if wal {
+                                    let _ = dbfile::write_wal(&wal_sidecar(&pb, "-wal"), &buf);
+                                }
+                            }
+                        }
+                    }
+                }
                 Stmt::Begin => {
                     if st.txn.is_some() {
                         return Err("cannot start a transaction within a transaction".into());
@@ -1949,6 +2048,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                     st.changes = n_changes;
                     st.total_changes += n_changes;
+                    refresh_pages(st);
                     for (_tn, full) in &inserted {
                         let _ = fire_triggers(st, &name, 1, 0, None, Some(full))?; // AFTER INSERT
                     }
@@ -2025,6 +2125,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let n = planned.len() as i64;
                     st.changes = n;
                     st.total_changes += n;
+                    refresh_pages(st);
                     if let Some(msg) = check_err {
                         return Err(msg); // OR FAIL: earlier row changes stay applied
                     }
@@ -2064,7 +2165,21 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                     for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 1, 1, Some(o), Some(nw), Some(&col), 0)?; }
                 }
-                Stmt::Delete { name, wh } => {
+                Stmt::Delete { name, wh, whx } => {
+                    // per-row hit test shared by the trigger / delete passes
+                    let expr_hit = |cols: &[Col], r: &Vec<Val>, rid: i64| -> Result<bool, String> {
+                        match &whx {
+                            None => Ok(true),
+                            Some(w) => {
+                                let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+                                for (cj, cc) in cols.iter().enumerate() {
+                                    env.insert(cc.name.clone(), val_to_ev(r.get(cj).unwrap_or(&Val::Null)));
+                                }
+                                env.insert("rowid".into(), eval::V::Int(rid));
+                                Ok(ev_truthy(&eval::eval_standalone(w, &env)?))
+                            }
+                        }
+                    };
                     if st.views.contains_key(&name) {
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 2);
                         if !has_instead {
@@ -2091,10 +2206,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let hits: Vec<Vec<Val>> = {
                         let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
                         let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
-                        t.1.rows.iter().filter(|(_, r)| match (&wh, wi) {
-                            (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
-                            _ => true,
-                        }).map(|(_, r)| r.clone()).collect()
+                        let mut out = Vec::new();
+                        for (rid, r) in &t.1.rows {
+                            let hit = match (&wh, wi) {
+                                (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
+                                _ => expr_hit(&t.1.cols, r, *rid)?,
+                            };
+                            if hit { out.push(r.clone()); }
+                        }
+                        out
                     };
                     for o in &hits { let _ = fire_triggers(st, &name, 0, 2, Some(o), None)?; }
                     // collect deleted parent key values for cascade
@@ -2103,20 +2223,23 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
                         let before = t.1.rows.len();
                         let mut deleted: Vec<Vec<Val>> = Vec::new();
-                        t.1.rows.retain(|(_, r)| {
+                        let cols_c = t.1.cols.clone();
+                        let mut keep: Vec<(i64, Vec<Val>)> = Vec::new();
+                        for (rid, r) in std::mem::take(&mut t.1.rows) {
                             let hit = match (&wh, wi) {
                                 (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
-                                _ => true,
+                                _ => expr_hit(&cols_c, &r, rid)?,
                             };
-                            if hit { deleted.push(r.clone()); }
-                            !hit
-                        });
+                            if hit { deleted.push(r); } else { keep.push((rid, r)); }
+                        }
+                        t.1.rows = keep;
                         let cols: Vec<String> = t.1.cols.iter().map(|c| c.name.clone()).collect();
                         (deleted.into_iter().map(|r| (cols.join(","), r)).collect(),
                          (before - t.1.rows.len()) as i64)
                     };
                     st.changes = n;
                     st.total_changes += n;
+                    refresh_pages(st);
                     if st.fk_on && n > 0 {
                         // ON DELETE CASCADE (toy): remove child rows whose fk value matched a deleted parent key
                         let parent_cols: Vec<String> = deleted_keys.first()
@@ -2164,12 +2287,42 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
                 Stmt::Select { items, target, wh, order_by } => {
                     if target == "sqlite_master" {
-                        let cnt = st.catalog.iter().filter(|(ty, n)| match &wh {
+                        let mut ents: Vec<(String, String)> = st.catalog.iter().filter(|(ty, n)| match &wh {
                             Some((k, v)) if k == "name" => Some(n.clone()) == v.render(),
                             Some((k, v)) if k == "type" => Some(ty.clone()) == v.render(),
                             _ => true,
-                        }).count();
-                        out.push(vec![Some(cnt.to_string())]);
+                        }).cloned().collect();
+                        if items.iter().any(|i| i == "count(*)") {
+                            out.push(vec![Some(ents.len().to_string())]);
+                            continue;
+                        }
+                        // run-34: type/name projections with (multi-key) ORDER BY
+                        if let Some(ob) = &order_by {
+                            let keys: Vec<String> = ob.split(',').map(|k| k.trim().to_ascii_lowercase()).collect();
+                            ents.sort_by(|a, b| {
+                                for k in &keys {
+                                    let o = match k.as_str() {
+                                        "type" => a.0.cmp(&b.0),
+                                        "name" => a.1.cmp(&b.1),
+                                        _ => std::cmp::Ordering::Equal,
+                                    };
+                                    if o != std::cmp::Ordering::Equal { return o; }
+                                }
+                                std::cmp::Ordering::Equal
+                            });
+                        }
+                        for (ty, n) in &ents {
+                            let mut row = Vec::new();
+                            for it in &items {
+                                match it.as_str() {
+                                    "type" => row.push(Some(ty.clone())),
+                                    "name" => row.push(Some(n.clone())),
+                                    "tbl_name" => row.push(Some(st.index_owner.get(n).cloned().unwrap_or_else(|| n.clone()))),
+                                    _ => return Err(format!("no such column: {it}")),
+                                }
+                            }
+                            out.push(row);
+                        }
                         continue;
                     }
                     let t = st.tables.iter().find(|(n, _)| *n == target).ok_or("no such table")?;
@@ -2190,8 +2343,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         match (&wh, wh_ci) { (Some((_, v)), Some(ci)) => &r[ci] == v, _ => true }
                     }).collect();
                     if let Some(ob) = &order_by {
-                        let oi = t.1.cols.iter().position(|c| c.name == *ob).ok_or("no such column")?;
-                        rows.sort_by_key(|(_, r)| match &r[oi] { Val::Int(i) => *i, _ => 0 });
+                        if ob == "rowid" {
+                            match dbfile::ipk_index(&t.1.create_sql) {
+                                Some(ipk) => rows.sort_by_key(|(_, r)| match r.get(ipk) { Some(Val::Int(i)) => *i, _ => 0 }),
+                                None => rows.sort_by_key(|(rid, _)| *rid), // run-34: VACUUM renumbering pins
+                            }
+                        } else {
+                            let oi = t.1.cols.iter().position(|c| c.name == *ob).ok_or("no such column")?;
+                            rows.sort_by_key(|(_, r)| match &r[oi] { Val::Int(i) => *i, _ => 0 });
+                        }
                     }
                     let aggregate = items.iter().any(|i| i == "count(*)");
                     let render_item = |it: &str, rid: i64, r: &Vec<Val>| -> Result<Option<String>, String> {
@@ -2199,7 +2359,13 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         if base == "changes()" { return Ok(Some(st.changes.to_string())); }
                         if base == "total_changes()" { return Ok(Some(st.total_changes.to_string())); }
                         if base == "count(*)" { return Ok(Some(t.1.rows.len().to_string())); }
-                        if base == "rowid" { return Ok(Some(rid.to_string())); }
+                        if base == "rowid" {
+                            // rowid aliases INTEGER PRIMARY KEY when declared (run-34 pin)
+                            if let Some(ipk) = dbfile::ipk_index(&t.1.create_sql) {
+                                return Ok(r.get(ipk).and_then(|v| v.render()));
+                            }
+                            return Ok(Some(rid.to_string()));
+                        }
                         let ci = t.1.cols.iter().position(|c| c.name == base)
                             .ok_or("no such column".to_string())?;
                         Ok(r[ci].render())
@@ -2232,6 +2398,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
                 else if let Some(m) = e.strip_prefix("__RAISE__") { (19, m.to_string()) }
                 else if e == FK_ERR || e == UNIQ_ERR || e.contains("constraint failed") { (19, e) }
+                else if e.starts_with("unable to open database") { (14, e) } // run-34 VACUUM INTO path
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }
         }
