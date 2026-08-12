@@ -1,0 +1,2 @@
+OBS engine-status34-002-C001 valid_rcs 0,0,0,0,0,0,0,0,0,0,0,0,0
+OBS engine-status34-002-C001 badop_rc 1

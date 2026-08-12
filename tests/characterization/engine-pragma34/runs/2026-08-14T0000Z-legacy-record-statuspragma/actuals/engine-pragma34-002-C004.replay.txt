@@ -1,0 +1,2 @@
+OBS engine-pragma34-002-C004 tvf_copt_count 38
+OBS engine-pragma34-002-C004 tvf_copt_first ATOMIC_INTRINSICS=1|COMPILER=gcc-13.3.0

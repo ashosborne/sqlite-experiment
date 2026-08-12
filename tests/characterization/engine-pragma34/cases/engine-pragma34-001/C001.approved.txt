@@ -1,0 +1,6 @@
+OBS engine-pragma34-001-C001 uv0 0
+OBS engine-pragma34-001-C001 uv_set rc=0 err=-
+OBS engine-pragma34-001-C001 uv1 42
+OBS engine-pragma34-001-C001 app0 0
+OBS engine-pragma34-001-C001 app_set rc=0 err=-
+OBS engine-pragma34-001-C001 app1 1234

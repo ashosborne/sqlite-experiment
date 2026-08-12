@@ -1,0 +1,3 @@
+OBS engine-status34-001-C001 valid_rcs 0,0,0,0,0,0,0,0,0,0
+OBS engine-status34-001-C001 op10_rc 21
+OBS engine-status34-001-C001 neg_rc 21

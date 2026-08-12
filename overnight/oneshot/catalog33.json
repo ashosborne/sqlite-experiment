@@ -1,0 +1,191 @@
+[
+ {
+  "id": "engine-status34-001-C001",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "global ops 0..9 rc OK; op 10 / -1 -> MISUSE 21"
+ },
+ {
+  "id": "engine-status34-001-C002",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "PAGECACHE_USED + SCRATCH_* (NOT USED) + PARSER_STACK exactly (0,0)"
+ },
+ {
+  "id": "engine-status34-001-C003",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "MALLOC_SIZE/PAGECACHE_SIZE cur==0 hi>0; MALLOC_COUNT positive with hi>=cur"
+ },
+ {
+  "id": "engine-status34-001-C004",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "PAGECACHE_OVERFLOW positive once a file connection holds pages"
+ },
+ {
+  "id": "engine-status34-001-C005",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "resetFlag pulls MALLOC_COUNT highwater down to current"
+ },
+ {
+  "id": "engine-status34-001-C006",
+  "feature": "engine-status34-001",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "sqlite3_status 32-bit twin agrees with status64"
+ },
+ {
+  "id": "engine-status34-002-C001",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "db ops 0..12 rc OK; bad op -> ERROR 1"
+ },
+ {
+  "id": "engine-status34-002-C002",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "SCHEMA_USED positive, grows with DDL, highwater always 0"
+ },
+ {
+  "id": "engine-status34-002-C003",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "CACHE_USED positive on a file db, hi 0; CACHE_USED_SHARED equals it"
+ },
+ {
+  "id": "engine-status34-002-C004",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "STMT_USED 0 -> positive with a live stmt -> 0 after finalize; hi 0"
+ },
+ {
+  "id": "engine-status34-002-C005",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "CACHE_WRITE positive after inserts; CACHE_HIT positive after reads; hi 0"
+ },
+ {
+  "id": "engine-status34-002-C006",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "cold reopen: CACHE_MISS positive on first read; hi 0"
+ },
+ {
+  "id": "engine-status34-002-C007",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "DEFERRED_FKS exact: 0 before, 1 inside deferred-violation txn, 0 after ROLLBACK"
+ },
+ {
+  "id": "engine-status34-002-C008",
+  "feature": "engine-status34-002",
+  "slice": "engine-status34",
+  "kind": "bespoke",
+  "note": "LOOKASIDE_MISS_SIZE/FULL + CACHE_SPILL zeros on the pinned workload"
+ },
+ {
+  "id": "engine-pragma34-001-C001",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "user_version / application_id get-set round-trips"
+ },
+ {
+  "id": "engine-pragma34-001-C002",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "data_version: own write does not bump, sibling commit does"
+ },
+ {
+  "id": "engine-pragma34-001-C003",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "schema_version bumps by one per DDL (delta pinned)"
+ },
+ {
+  "id": "engine-pragma34-001-C004",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "unknown pragma silently ignored (get + set forms)"
+ },
+ {
+  "id": "engine-pragma34-001-C005",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "query_only enforced: write -> readonly rc 8, off -> ok"
+ },
+ {
+  "id": "engine-pragma34-001-C006",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "ignore_check_constraints enforced on/off around CHECK"
+ },
+ {
+  "id": "engine-pragma34-001-C007",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "freelist_count 0 fresh; quick_check reports the smuggled CHECK violation"
+ },
+ {
+  "id": "engine-pragma34-001-C008",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "collation_list rows 0,RTRIM|1,NOCASE|2,BINARY"
+ },
+ {
+  "id": "engine-pragma34-001-C009",
+  "feature": "engine-pragma34-001",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "table_xinfo / index_info / index_xinfo row shapes"
+ },
+ {
+  "id": "engine-pragma34-002-C001",
+  "feature": "engine-pragma34-002",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "pragma_collation_list TVF (name-ordered)"
+ },
+ {
+  "id": "engine-pragma34-002-C002",
+  "feature": "engine-pragma34-002",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "pragma_table_xinfo TVF for a runtime table"
+ },
+ {
+  "id": "engine-pragma34-002-C003",
+  "feature": "engine-pragma34-002",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "pragma_index_info TVF for a runtime index"
+ },
+ {
+  "id": "engine-pragma34-002-C004",
+  "feature": "engine-pragma34-002",
+  "slice": "engine-pragma34",
+  "kind": "bespoke",
+  "note": "pragma_compile_options TVF = v32 38-entry fingerprint"
+ }
+]

@@ -1,0 +1,2 @@
+OBS engine-pragma34-001-C007 freelist 0
+OBS engine-pragma34-001-C007 quick_check CHECK constraint failed in u

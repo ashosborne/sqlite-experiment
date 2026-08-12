@@ -1,0 +1,91 @@
+slice_id: engine-pragma34
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-pragma34-001-C001
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C001.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C002
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C002.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C003
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C003.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C004
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C004.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C005
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C005.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C006
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C006.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C007
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C007.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C008
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C008.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-001-C009
+  feature_id: engine-pragma34-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-001/C009.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-002-C001
+  feature_id: engine-pragma34-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-002/C001.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-002-C002
+  feature_id: engine-pragma34-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-002/C002.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-002-C003
+  feature_id: engine-pragma34-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-002/C003.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+- case_id: engine-pragma34-002-C004
+  feature_id: engine-pragma34-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pragma34-002/C004.approved.txt
+  run_id: 2026-08-14T0000Z-legacy-record-statuspragma
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-44 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-pragma34-001-C001
+  - engine-pragma34-001-C002
+  - engine-pragma34-001-C003
+  - engine-pragma34-001-C004
+  - engine-pragma34-001-C005
+  - engine-pragma34-001-C006
+  - engine-pragma34-001-C007
+  - engine-pragma34-001-C008
+  - engine-pragma34-001-C009
+  - engine-pragma34-002-C001
+  - engine-pragma34-002-C002
+  - engine-pragma34-002-C003
+  - engine-pragma34-002-C004
+updated_at: '2026-08-12T20:24:31Z'
+run_id: 2026-08-14T0000Z-legacy-record-statuspragma

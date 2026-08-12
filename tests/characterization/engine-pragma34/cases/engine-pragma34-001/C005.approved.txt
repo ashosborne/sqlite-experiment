@@ -1,0 +1,5 @@
+OBS engine-pragma34-001-C005 qo0 0
+OBS engine-pragma34-001-C005 qo_on rc=0 err=-
+OBS engine-pragma34-001-C005 write_blocked rc=8 err=attempt to write a readonly database
+OBS engine-pragma34-001-C005 qo_off rc=0 err=-
+OBS engine-pragma34-001-C005 write_ok rc=0 err=-

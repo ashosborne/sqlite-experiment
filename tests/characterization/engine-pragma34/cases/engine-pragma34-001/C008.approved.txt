@@ -1,0 +1,1 @@
+OBS engine-pragma34-001-C008 collations 0,RTRIM|1,NOCASE|2,BINARY

@@ -1,0 +1,4 @@
+OBS engine-status34-002-C004 none_zero 1
+OBS engine-status34-002-C004 live_pos 1
+OBS engine-status34-002-C004 finalized_zero 1
+OBS engine-status34-002-C004 hi_zero 1

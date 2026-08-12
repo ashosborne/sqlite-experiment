@@ -1,0 +1,5 @@
+OBS engine-status34-002-C007 deferred_before 0
+OBS engine-status34-002-C007 def_ins rc=0 err=-
+OBS engine-status34-002-C007 deferred_in_txn 1
+OBS engine-status34-002-C007 deferred_hi_zero 1
+OBS engine-status34-002-C007 deferred_after_rb 0

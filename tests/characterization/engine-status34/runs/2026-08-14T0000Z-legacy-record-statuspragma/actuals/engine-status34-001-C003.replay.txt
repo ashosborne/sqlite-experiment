@@ -1,0 +1,5 @@
+OBS engine-status34-001-C003 malloc_size_cur0 1
+OBS engine-status34-001-C003 malloc_size_hi_pos 1
+OBS engine-status34-001-C003 pagecache_size_cur0 1
+OBS engine-status34-001-C003 malloc_count_pos 1
+OBS engine-status34-001-C003 malloc_count_hi_ge_cur 1

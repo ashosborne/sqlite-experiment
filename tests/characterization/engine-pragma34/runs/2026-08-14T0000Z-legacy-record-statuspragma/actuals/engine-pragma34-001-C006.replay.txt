@@ -1,0 +1,6 @@
+OBS engine-pragma34-001-C006 chk_violate rc=19 err=CHECK constraint failed: c > 0
+OBS engine-pragma34-001-C006 icc_on rc=0 err=-
+OBS engine-pragma34-001-C006 chk_pass rc=0 err=-
+OBS engine-pragma34-001-C006 u_rows -5
+OBS engine-pragma34-001-C006 icc_off rc=0 err=-
+OBS engine-pragma34-001-C006 chk_violate2 rc=19 err=CHECK constraint failed: c > 0
