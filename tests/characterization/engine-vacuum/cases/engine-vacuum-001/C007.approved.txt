@@ -1,0 +1,3 @@
+OBS engine-vacuum-001-C007 vac rc=0 err=-
+OBS engine-vacuum-001-C007 ids 10,x|30,z
+OBS engine-vacuum-001-C007 rowids 10|30

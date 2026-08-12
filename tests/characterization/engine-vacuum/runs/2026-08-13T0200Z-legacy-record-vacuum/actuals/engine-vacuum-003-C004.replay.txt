@@ -1,0 +1,2 @@
+OBS engine-vacuum-003-C004 into rc=1 err=cannot VACUUM from within a transaction
+OBS engine-vacuum-003-C004 commit rc=0 err=-

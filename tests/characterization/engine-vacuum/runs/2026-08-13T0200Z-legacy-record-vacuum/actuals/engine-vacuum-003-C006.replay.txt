@@ -1,0 +1,2 @@
+OBS engine-vacuum-003-C006 into rc=0 err=-
+OBS engine-vacuum-003-C006 target mem1|mem2

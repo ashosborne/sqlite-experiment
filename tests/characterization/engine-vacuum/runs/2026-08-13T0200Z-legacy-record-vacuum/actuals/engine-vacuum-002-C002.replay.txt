@@ -1,0 +1,3 @@
+OBS engine-vacuum-002-C002 vac rc=0 err=-
+OBS engine-vacuum-002-C002 mode delete
+OBS engine-vacuum-002-C002 integ ok

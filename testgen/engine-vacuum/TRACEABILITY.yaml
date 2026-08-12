@@ -1,0 +1,214 @@
+slice_id: engine-vacuum
+source_discovery: discovery/engine-vacuum/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-vacuum-001
+- engine-vacuum-002
+- engine-vacuum-003
+cases:
+- id: engine-vacuum-001-C001
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-001.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C002
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-002.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C003
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-003.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C004
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-004.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C005
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-005.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C006
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-006.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C007
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-007.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C007.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-001-C008
+  feature_id: engine-vacuum-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-001/CASE-008.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-001/C008.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-001.md
+- id: engine-vacuum-002-C001
+  feature_id: engine-vacuum-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-002/CASE-001.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-002.md
+- id: engine-vacuum-002-C002
+  feature_id: engine-vacuum-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-002/CASE-002.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-002/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-002.md
+- id: engine-vacuum-002-C003
+  feature_id: engine-vacuum-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-002/CASE-003.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-002/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-002.md
+- id: engine-vacuum-002-C004
+  feature_id: engine-vacuum-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-002/CASE-004.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-002/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-002.md
+- id: engine-vacuum-003-C001
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-001.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+- id: engine-vacuum-003-C002
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-002.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+- id: engine-vacuum-003-C003
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-003.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+- id: engine-vacuum-003-C004
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-004.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+- id: engine-vacuum-003-C005
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-005.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+- id: engine-vacuum-003-C006
+  feature_id: engine-vacuum-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vacuum-003/CASE-006.md
+  golden: tests/characterization/engine-vacuum/cases/engine-vacuum-003/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-vacuum/features/engine-vacuum-003.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-34 delegated stamp (VACUUM + VACUUM INTO)
+  stamped_case_ids:
+  - engine-vacuum-001-C001
+  - engine-vacuum-001-C002
+  - engine-vacuum-001-C003
+  - engine-vacuum-001-C004
+  - engine-vacuum-001-C005
+  - engine-vacuum-001-C006
+  - engine-vacuum-001-C007
+  - engine-vacuum-001-C008
+  - engine-vacuum-002-C001
+  - engine-vacuum-002-C002
+  - engine-vacuum-002-C003
+  - engine-vacuum-002-C004
+  - engine-vacuum-003-C001
+  - engine-vacuum-003-C002
+  - engine-vacuum-003-C003
+  - engine-vacuum-003-C004
+  - engine-vacuum-003-C005
+  - engine-vacuum-003-C006
+updated_at: '2026-08-12T13:10:20Z'

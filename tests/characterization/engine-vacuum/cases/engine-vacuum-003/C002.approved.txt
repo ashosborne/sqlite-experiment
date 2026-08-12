@@ -1,0 +1,4 @@
+OBS engine-vacuum-003-C002 into rc=0 err=-
+OBS engine-vacuum-003-C002 objs index,iu|table,t|table,u
+OBS engine-vacuum-003-C002 t 9
+OBS engine-vacuum-003-C002 u q

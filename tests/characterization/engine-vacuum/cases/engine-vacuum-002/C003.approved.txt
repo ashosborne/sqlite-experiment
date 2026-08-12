@@ -1,0 +1,4 @@
+OBS engine-vacuum-002-C003 vac rc=0 err=-
+OBS engine-vacuum-002-C003 mode wal
+OBS engine-vacuum-002-C003 data 83
+OBS engine-vacuum-002-C003 reopen 83

@@ -1,0 +1,6 @@
+OBS engine-vacuum-001-C004 begin rc=0 err=-
+OBS engine-vacuum-001-C004 vac rc=1 err=cannot VACUUM from within a transaction
+OBS engine-vacuum-001-C004 in_txn 1
+OBS engine-vacuum-001-C004 ins rc=0 err=-
+OBS engine-vacuum-001-C004 commit rc=0 err=-
+OBS engine-vacuum-001-C004 cnt 2

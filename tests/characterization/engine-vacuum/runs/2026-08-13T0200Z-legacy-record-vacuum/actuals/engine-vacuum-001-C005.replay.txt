@@ -1,0 +1,4 @@
+OBS engine-vacuum-001-C005 vac rc=0 err=-
+OBS engine-vacuum-001-C005 shrunk 1
+OBS engine-vacuum-001-C005 after_small 1
+OBS engine-vacuum-001-C005 left 5,1,5

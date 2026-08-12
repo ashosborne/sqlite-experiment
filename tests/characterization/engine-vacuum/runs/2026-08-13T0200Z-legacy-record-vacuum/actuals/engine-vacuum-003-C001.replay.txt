@@ -1,0 +1,4 @@
+OBS engine-vacuum-003-C001 into rc=0 err=-
+OBS engine-vacuum-003-C001 src 1,one|2,two
+OBS engine-vacuum-003-C001 target 1,one|2,two
+OBS engine-vacuum-003-C001 integ ok
