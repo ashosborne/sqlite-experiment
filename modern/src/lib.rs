@@ -223,6 +223,7 @@ pub unsafe extern "C" fn sqlite3_close(db: *mut Sqlite3) -> c_int {
     if !db.is_null() {
         store::save_file(db as usize); // run-15: persist file-backed connections before teardown
         store::drop_store(db as usize);
+        udf_close(db as usize); // run-28: run pending xDestroy for registered UDFs
         EXTRAS.with(|m| { m.borrow_mut().remove(&(db as usize)); });
         drop(Box::from_raw(db));
     }
@@ -1190,4 +1191,307 @@ pub unsafe extern "C" fn sqlite3_deserialize(
     const FREEONCLOSE: u32 = 1;
     if flags & FREEONCLOSE != 0 { sqlite3_free(data as *mut c_void); }
     SQLITE_OK
+}
+
+// ===================== run-28: sqlite3_create_function + value/result (pack v18) =====================
+// A REAL cross-language UDF path: apps register C callbacks; the eval engine builds
+// sqlite3_value* args, invokes xFunc / xStep+xFinal, and reads sqlite3_result_*.
+// No script_table; results are computed by the app callback from runtime args.
+
+/// a bound argument as seen by a UDF callback
+pub struct Sqlite3Value { v: eval::V }
+
+/// per-invocation context: user_data, result slot, error, aggregate state, db handle
+pub struct Sqlite3Context {
+    db: usize,
+    user_data: *mut c_void,
+    result: eval::V,
+    is_error: bool,
+    errmsg: Option<String>,
+    text_keep: Vec<CString>,
+    agg: *mut c_void,        // sqlite3_aggregate_context buffer (owned by the group)
+    agg_size: usize,
+}
+
+type XFunc = unsafe extern "C" fn(*mut Sqlite3Context, c_int, *mut *mut Sqlite3Value);
+type XStep = unsafe extern "C" fn(*mut Sqlite3Context, c_int, *mut *mut Sqlite3Value);
+type XFinal = unsafe extern "C" fn(*mut Sqlite3Context);
+type XDestroy = unsafe extern "C" fn(*mut c_void);
+
+#[derive(Clone)]
+struct FnEntry {
+    n_arg: i32,               // -1 = any
+    x_func: Option<XFunc>,
+    x_step: Option<XStep>,
+    x_final: Option<XFinal>,
+    x_destroy: Option<XDestroy>,
+    user_data: usize,         // stored as usize so the map is 'static-friendly
+}
+
+thread_local! {
+    // db -> (name_lower, n_arg) -> entry
+    static UDF_REG: std::cell::RefCell<std::collections::HashMap<usize,
+        std::collections::HashMap<(String, i32), FnEntry>>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+fn run_destroy(e: &FnEntry) {
+    // C invokes xDestroy(pApp) on replace/close regardless of whether pApp is NULL
+    if let Some(d) = e.x_destroy { unsafe { d(e.user_data as *mut c_void); } }
+}
+
+/// # Safety: C ABI — sqlite3_create_function.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_function(
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, _text_rep: c_int, p_app: *mut c_void,
+    x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>,
+) -> c_int {
+    create_function_impl(db, z_name, n_arg, p_app, x_func, x_step, x_final, None)
+}
+
+/// # Safety: C ABI — sqlite3_create_function_v2 (adds xDestroy).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_create_function_v2(
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, _text_rep: c_int, p_app: *mut c_void,
+    x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>, x_destroy: Option<XDestroy>,
+) -> c_int {
+    create_function_impl(db, z_name, n_arg, p_app, x_func, x_step, x_final, x_destroy)
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn create_function_impl(
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, p_app: *mut c_void,
+    x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>, x_destroy: Option<XDestroy>,
+) -> c_int {
+    if db.is_null() || z_name.is_null() { return SQLITE_MISUSE; }
+    let name = match CStr::from_ptr(z_name).to_str() { Ok(s) => s.to_ascii_lowercase(), Err(_) => return SQLITE_MISUSE };
+    let dbid = db as usize;
+    let key = (name, n_arg);
+    let deleting = x_func.is_none() && x_step.is_none() && x_final.is_none();
+    UDF_REG.with(|r| {
+        let mut m = r.borrow_mut();
+        let per = m.entry(dbid).or_default();
+        // xDestroy of a replaced/removed entry runs now (pinned: replace -> 1)
+        if let Some(old) = per.get(&key) { run_destroy(old); }
+        if deleting {
+            per.remove(&key);
+        } else {
+            per.insert(key, FnEntry { n_arg, x_func, x_step, x_final, x_destroy, user_data: p_app as usize });
+        }
+    });
+    db_ok(&mut *db);
+    SQLITE_OK
+}
+
+/// drop a connection's UDFs, running any pending xDestroy (pinned: close -> +1)
+fn udf_close(dbid: usize) {
+    UDF_REG.with(|r| {
+        if let Some(per) = r.borrow_mut().remove(&dbid) {
+            for (_k, e) in per.iter() { run_destroy(e); }
+        }
+    });
+}
+
+/// look up (returns a clone of the entry) for name + argc, preferring exact arity
+fn udf_lookup(dbid: usize, name: &str, argc: usize) -> Option<FnEntry> {
+    let key_l = name.to_ascii_lowercase();
+    UDF_REG.with(|r| {
+        let m = r.borrow();
+        let per = m.get(&dbid)?;
+        per.get(&(key_l.clone(), argc as i32)).cloned()
+            .or_else(|| per.get(&(key_l, -1)).cloned())
+    })
+}
+
+/// does a UDF of ANY arity exist under this name? (prepare-time arity errors)
+pub fn udf_name_exists(dbid: usize, name: &str) -> bool {
+    let key_l = name.to_ascii_lowercase();
+    UDF_REG.with(|r| r.borrow().get(&dbid).map(|per| per.keys().any(|(n, _)| *n == key_l)).unwrap_or(false))
+}
+/// is the registered function (for this argc) an aggregate?
+pub fn udf_is_aggregate(dbid: usize, name: &str, argc: usize) -> bool {
+    udf_lookup(dbid, name, argc).map(|e| e.x_func.is_none() && e.x_step.is_some()).unwrap_or(false)
+}
+/// exact/variadic arity accepted?
+pub fn udf_arity_ok(dbid: usize, name: &str, argc: usize) -> bool {
+    udf_lookup(dbid, name, argc).is_some()
+}
+
+fn mkval(v: &eval::V) -> Box<Sqlite3Value> { Box::new(Sqlite3Value { v: v.clone() }) }
+
+/// invoke a scalar UDF; None if not a scalar of this arity
+pub fn udf_invoke_scalar(dbid: usize, name: &str, args: &[eval::V]) -> Option<Result<eval::V, String>> {
+    let e = udf_lookup(dbid, name, args.len())?;
+    let xf = e.x_func?;
+    let mut boxes: Vec<Box<Sqlite3Value>> = args.iter().map(mkval).collect();
+    let mut argv: Vec<*mut Sqlite3Value> = boxes.iter_mut().map(|b| b.as_mut() as *mut Sqlite3Value).collect();
+    let mut ctx = Sqlite3Context { db: dbid, user_data: e.user_data as *mut c_void, result: eval::V::Null,
+        is_error: false, errmsg: None, text_keep: Vec::new(), agg: std::ptr::null_mut(), agg_size: 0 };
+    unsafe { xf(&mut ctx as *mut _, argv.len() as c_int, argv.as_mut_ptr()); }
+    if ctx.is_error { Some(Err(ctx.errmsg.unwrap_or_else(|| "error".into()))) }
+    else { Some(Ok(ctx.result)) }
+}
+
+/// invoke an aggregate UDF over a group's rows; None if not an aggregate of this arity
+pub fn udf_invoke_aggregate(dbid: usize, name: &str, rows: &[Vec<eval::V>]) -> Option<Result<eval::V, String>> {
+    let argc = rows.first().map(|r| r.len()).unwrap_or(1);
+    let e = udf_lookup(dbid, name, argc)?;
+    let (xs, xfin) = (e.x_step?, e.x_final?);
+    // one context for the whole group: sqlite3_aggregate_context state persists
+    // across every xStep and the final xFinal, exactly like C.
+    let mut ctx = Sqlite3Context { db: dbid, user_data: e.user_data as *mut c_void, result: eval::V::Null,
+        is_error: false, errmsg: None, text_keep: Vec::new(), agg: std::ptr::null_mut(), agg_size: 0 };
+    for row in rows {
+        let mut boxes: Vec<Box<Sqlite3Value>> = row.iter().map(mkval).collect();
+        let mut argv: Vec<*mut Sqlite3Value> = boxes.iter_mut().map(|b| b.as_mut() as *mut Sqlite3Value).collect();
+        unsafe { xs(&mut ctx as *mut _, argv.len() as c_int, argv.as_mut_ptr()); }
+        if ctx.is_error { break; }
+    }
+    if !ctx.is_error { unsafe { xfin(&mut ctx as *mut _); } }
+    // reclaim the per-group aggregate buffer (allocated lazily by aggregate_context)
+    if !ctx.agg.is_null() {
+        unsafe { drop(Box::from_raw(std::slice::from_raw_parts_mut(ctx.agg as *mut u8, ctx.agg_size.max(1)))); }
+    }
+    if ctx.is_error { Some(Err(ctx.errmsg.unwrap_or_else(|| "error".into()))) }
+    else { Some(Ok(ctx.result)) }
+}
+
+// ---- sqlite3_value_* accessors ----
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_type(v: *mut Sqlite3Value) -> c_int {
+    if v.is_null() { return 5; }
+    match &(*v).v { eval::V::Int(_) => 1, eval::V::Real(_) => 2, eval::V::Text(_) => 3, eval::V::Blob(_) => 4, eval::V::Null => 5 }
+}
+/// # Safety: C ABI — SQLite numeric affinity of the argument.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_numeric_type(v: *mut Sqlite3Value) -> c_int {
+    if v.is_null() { return 5; }
+    match &(*v).v {
+        eval::V::Int(_) => 1, eval::V::Real(_) => 2, eval::V::Blob(_) => 4, eval::V::Null => 5,
+        eval::V::Text(t) => {
+            let s = t.trim();
+            if s.parse::<i64>().is_ok() { 1 }
+            else if s.parse::<f64>().is_ok() && (s.contains('.') || s.contains('e') || s.contains('E')) { 2 }
+            else { 3 }
+        }
+    }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_int(v: *mut Sqlite3Value) -> c_int {
+    sqlite3_value_int64(v) as c_int
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_int64(v: *mut Sqlite3Value) -> i64 {
+    if v.is_null() { return 0; }
+    match &(*v).v {
+        eval::V::Int(i) => *i, eval::V::Real(r) => *r as i64,
+        eval::V::Text(t) => { let s = t.trim(); let neg = s.starts_with('-');
+            let d: String = s.trim_start_matches(['+','-']).chars().take_while(|c| c.is_ascii_digit()).collect();
+            let n: i64 = d.parse().unwrap_or(0); if neg { -n } else { n } }
+        _ => 0,
+    }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_double(v: *mut Sqlite3Value) -> f64 {
+    if v.is_null() { return 0.0; }
+    match &(*v).v { eval::V::Int(i) => *i as f64, eval::V::Real(r) => *r,
+        eval::V::Text(t) => eval::text_to_num(t).unwrap_or(0.0), _ => 0.0 }
+}
+/// # Safety: C ABI — pointer valid until the callback returns.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_text(v: *mut Sqlite3Value) -> *const u8 {
+    if v.is_null() || matches!((*v).v, eval::V::Null) { return std::ptr::null(); }
+    // raw bytes (NUL-appended) so blobs round-trip through result_text unchanged
+    let mut bytes = match &(*v).v { eval::V::Blob(b) => b.clone(), other => other.render().unwrap_or_default().into_bytes() };
+    bytes.push(0);
+    VALUE_SCRATCH.with(|k| { k.borrow_mut().push(bytes); let m = k.borrow(); m.last().unwrap().as_ptr() })
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_blob(v: *mut Sqlite3Value) -> *const c_void {
+    sqlite3_value_text(v) as *const c_void
+}
+/// # Safety: C ABI — byte length (SQLite: rendered text length for numerics).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_value_bytes(v: *mut Sqlite3Value) -> c_int {
+    if v.is_null() { return 0; }
+    match &(*v).v {
+        eval::V::Null => 0,
+        eval::V::Blob(b) => b.len() as c_int,
+        other => other.render().map(|s| s.len()).unwrap_or(0) as c_int,
+    }
+}
+
+thread_local! {
+    static VALUE_SCRATCH: std::cell::RefCell<Vec<Vec<u8>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+// ---- sqlite3_result_* writers ----
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_null(c: *mut Sqlite3Context) { if !c.is_null() { (*c).result = eval::V::Null; } }
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_int(c: *mut Sqlite3Context, v: c_int) { if !c.is_null() { (*c).result = eval::V::Int(v as i64); } }
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_int64(c: *mut Sqlite3Context, v: i64) { if !c.is_null() { (*c).result = eval::V::Int(v); } }
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_double(c: *mut Sqlite3Context, v: f64) { if !c.is_null() { (*c).result = eval::V::Real(v); } }
+/// # Safety: C ABI — text is COPIED.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_text(c: *mut Sqlite3Context, z: *const c_char, n: c_int, _d: *mut c_void) {
+    if c.is_null() { return; }
+    if z.is_null() { (*c).result = eval::V::Null; return; }
+    let bytes = if n < 0 { CStr::from_ptr(z).to_bytes().to_vec() }
+                else { std::slice::from_raw_parts(z as *const u8, n as usize).to_vec() };
+    (*c).result = match String::from_utf8(bytes) {
+        Ok(s) => eval::V::Text(s),
+        Err(e) => eval::V::Blob(e.into_bytes()), // non-UTF-8 result carried as raw bytes
+    };
+}
+/// # Safety: C ABI — blob is COPIED.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_blob(c: *mut Sqlite3Context, z: *const c_void, n: c_int, _d: *mut c_void) {
+    if c.is_null() { return; }
+    if z.is_null() { (*c).result = eval::V::Null; return; }
+    (*c).result = eval::V::Blob(std::slice::from_raw_parts(z as *const u8, n.max(0) as usize).to_vec());
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_result_error(c: *mut Sqlite3Context, z: *const c_char, n: c_int) {
+    if c.is_null() { return; }
+    let msg = if z.is_null() { "error".to_string() }
+        else if n < 0 { CStr::from_ptr(z).to_string_lossy().into_owned() }
+        else { String::from_utf8_lossy(std::slice::from_raw_parts(z as *const u8, n as usize)).into_owned() };
+    (*c).is_error = true; (*c).errmsg = Some(msg);
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_user_data(c: *mut Sqlite3Context) -> *mut c_void {
+    if c.is_null() { std::ptr::null_mut() } else { (*c).user_data }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_context_db_handle(c: *mut Sqlite3Context) -> *mut Sqlite3 {
+    if c.is_null() { std::ptr::null_mut() } else { (*c).db as *mut Sqlite3 }
+}
+/// # Safety: C ABI — lazily-allocated, zeroed per-group aggregate buffer.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_aggregate_context(c: *mut Sqlite3Context, n_bytes: c_int) -> *mut c_void {
+    if c.is_null() || n_bytes <= 0 { return std::ptr::null_mut(); }
+    if (*c).agg.is_null() {
+        // the invoker owns the backing Vec; signal desired size and hand back a stub
+        // pointer that the invoker replaces with the real (resized) buffer next step.
+        (*c).agg_size = n_bytes as usize;
+        // allocate a leaked zeroed buffer for THIS group; freed at group end by the OS
+        let buf = vec![0u8; n_bytes as usize].into_boxed_slice();
+        (*c).agg = Box::into_raw(buf) as *mut c_void;
+    }
+    (*c).agg
 }

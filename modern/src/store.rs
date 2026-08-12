@@ -1178,7 +1178,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             let idxmaps = build_index_snapshot(st);
             PROBE_CELL.with(|c| c.set(0));
             let r = PROBE_CELL.with(|probes| {
-                let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes };
+                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes };
                 eval::stmt_select_typed(&mut ctx, s)
             });
             r
@@ -1231,7 +1231,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let idxmaps = build_index_snapshot(st);
                     let views2 = st.views.clone();
                     let res = PROBE_CELL.with(|probes| {
-                        let mut ctx = eval::Ctx { conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes };
+                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes };
                         eval::run_stmt(&mut ctx, s)
                     });
                     match res {

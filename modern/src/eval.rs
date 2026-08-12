@@ -342,6 +342,7 @@ impl P {
 type Row = std::collections::HashMap<String, V>;
 
 pub struct Ctx<'a> {
+    pub db: usize,
     pub conn: &'a mut Conn,
     pub tables: &'a std::collections::HashMap<String, (Vec<String>, Vec<Vec<V>>)>,
     pub fk_counts: &'a std::collections::HashMap<String, usize>,
@@ -365,7 +366,7 @@ pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -
     let indexes = std::collections::HashMap::new();
     let probes = std::cell::Cell::new(0u64);
     let mut conn = Conn::default();
-    let ctx = Ctx { conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes };
+    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes };
     eval_expr(&e, env, &ctx)
 }
 
@@ -658,7 +659,10 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         }
         "hex" => { let b = match a(0)? { V::Blob(b)=>b, v=>v.as_text().into_bytes() };
                    V::Text(b.iter().map(|x| format!("{:02X}", x)).collect()) }
-        "quote" => match a(0)? { V::Null=>V::Text("NULL".into()), V::Text(t)=>V::Text(format!("'{}'", t.replace('\'',"''"))), v=>V::Text(v.as_text()) },
+        "quote" => match a(0)? { V::Null=>V::Text("NULL".into()),
+            V::Text(t)=>V::Text(format!("'{}'", t.replace('\'',"''"))),
+            V::Blob(b)=>V::Text(format!("X'{}'", b.iter().map(|x| format!("{:02X}", x)).collect::<String>())),
+            v=>V::Text(v.as_text()) },
         "printf" | "format" => V::Text(do_printf(&a(0)?.as_text(), &args[1..], row, ctx)?),
         "round" => {
             let v = a(0)?; if matches!(v, V::Null) { return Ok(V::Null); }
@@ -700,6 +704,7 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
             for e in &args[1..] { let v = eval_expr(e, row, ctx)?; if !matches!(v, V::Null) { parts.push(v.as_text()); } }
             V::Text(parts.join(&sep)) }
         "octet_length" => match a(0)? { V::Null => V::Null, V::Blob(b) => V::Int(b.len() as i64), v => V::Int(v.as_text().len() as i64) },
+        "zeroblob" => V::Blob(vec![0u8; a(0)?.as_i64().max(0) as usize]),
         "unicode" => { let s = a(0)?.as_text(); match s.chars().next() { Some(c) => V::Int(c as i64), None => V::Null } }
         // ---- date/time engine (datetime.rs, real julian-day math) ----
         "date" | "time" | "datetime" | "julianday" | "unixepoch" => {
@@ -778,7 +783,22 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         "json_set" | "json_insert" | "json_replace" => V::Text(crate::json::set(&a(0)?.as_text(), &a(1)?.as_text(), &a(2)?, &ln)?),
         "json_remove" => V::Text(crate::json::remove(&a(0)?.as_text(), &a(1)?.as_text())?),
         "json_patch" => V::Text(crate::json::patch(&a(0)?.as_text(), &a(1)?.as_text())?),
-        _ => return Err(format!("no such function: {name}")),
+        _ => {
+            // registered UDF name? (only then evaluate args — avoids choking on the
+            // '*' pseudo-column of aggregates like count(*), which eval_agg handles)
+            if ctx.db != 0 && crate::udf_name_exists(ctx.db, &ln) {
+                if crate::udf_is_aggregate(ctx.db, &ln, args.len()) {
+                    return Err(format!("misuse of aggregate function {ln}()"));
+                }
+                let mut argvals = Vec::with_capacity(args.len());
+                for e in args { argvals.push(eval_expr(e, row, ctx)?); }
+                if let Some(r) = crate::udf_invoke_scalar(ctx.db, &ln, &argvals) {
+                    return r;
+                }
+                return Err(format!("wrong number of arguments to function {ln}()"));
+            }
+            return Err(format!("no such function: {name}"));
+        }
     })
 }
 
@@ -1255,7 +1275,38 @@ fn expr_has_agg(e: &Ex) -> bool {
         Ex::Filtered(f, _) => expr_has_agg(f),
         _ => false }
 }
+fn expr_has_udf_agg(e: &Ex, ctx: &Ctx) -> bool {
+    if ctx.db == 0 { return false; }
+    match e {
+        Ex::Func(n, a) => crate::udf_is_aggregate(ctx.db, &n.to_ascii_lowercase(), a.len())
+            || a.iter().any(|x| expr_has_udf_agg(x, ctx)),
+        Ex::Bin(_, x, y) | Ex::Is(x, y, _) => expr_has_udf_agg(x, ctx) || expr_has_udf_agg(y, ctx),
+        Ex::Unary(_, x) | Ex::IsNull(x, _) | Ex::Cast(x, _) | Ex::Collate(x, _) => expr_has_udf_agg(x, ctx),
+        Ex::InList(x, xs) => expr_has_udf_agg(x, ctx) || xs.iter().any(|y| expr_has_udf_agg(y, ctx)),
+        Ex::Like(x, y, _, _) => expr_has_udf_agg(x, ctx) || expr_has_udf_agg(y, ctx),
+        Ex::Case(w, el) => w.iter().any(|(a,b)| expr_has_udf_agg(a, ctx)||expr_has_udf_agg(b, ctx))
+            || el.as_ref().map_or(false, |e| expr_has_udf_agg(e, ctx)),
+        Ex::Filtered(f, _) => expr_has_udf_agg(f, ctx),
+        _ => false,
+    }
+}
+
 fn eval_agg(e: &Ex, rows: &[Row], ctx: &Ctx) -> Result<V, String> {
+    // registered aggregate UDF: run xStep over the group then xFinal (run-28)
+    if let Ex::Func(name, args) = e {
+        let ln = name.to_ascii_lowercase();
+        if ctx.db != 0 && crate::udf_is_aggregate(ctx.db, &ln, args.len()) {
+            let mut arg_rows: Vec<Vec<V>> = Vec::with_capacity(rows.len());
+            for r in rows {
+                let mut vals = Vec::with_capacity(args.len());
+                for a in args { vals.push(eval_expr(a, r, ctx)?); }
+                arg_rows.push(vals);
+            }
+            if let Some(res) = crate::udf_invoke_aggregate(ctx.db, &ln, &arg_rows) {
+                return res;
+            }
+        }
+    }
     if let Ex::Filtered(f, w) = e {
         // aggregate FILTER (WHERE ...): restrict the input rows for real
         let mut keep = Vec::new();
@@ -1601,6 +1652,7 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
 
     let colnames: Vec<String> = items.iter().map(|(_, a)| a.clone()).collect();
     let exprs: Vec<Ex> = items.iter().map(|(e, _)| parse_expr_full(e)).collect::<Result<_,_>>()?;
+    let has_agg = exprs.iter().any(expr_has_agg) || exprs.iter().any(|e| expr_has_udf_agg(e, ctx));
     let mut out = Vec::new();
     if let Some(g) = group_str {
         // real grouping: key exprs evaluated per row, groups in first-seen order
@@ -1619,23 +1671,20 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
         for key in order {
             let rows = &groups[&key];
             if let Some(h) = &having_ex {
-                // HAVING is evaluated over the group (aggregates allowed)
                 if eval_agg(h, rows, ctx)?.truthy() != Some(true) { continue; }
             }
             let mut orow = Vec::new();
             for e in &exprs { orow.push(eval_agg(e, rows, ctx)?); }
             out.push(orow);
         }
-    } else {
+    } else if has_agg {
         let env_rows: Vec<Row> = src.iter().map(|r| with_outer(r)).collect();
-        let has_agg = exprs.iter().any(expr_has_agg);
-        if has_agg {
-            let mut row = Vec::new();
-            for e in &exprs { row.push(eval_agg(e, &env_rows, ctx)?); }
-            out.push(row);
-        } else {
-            for r in &env_rows { let mut orow = Vec::new(); for e in &exprs { orow.push(eval_expr(e, r, ctx)?); } out.push(orow); }
-        }
+        let mut row = Vec::new();
+        for e in &exprs { row.push(eval_agg(e, &env_rows, ctx)?); }
+        out.push(row);
+    } else {
+        for r in &src { let env = with_outer(r); let mut orow = Vec::new();
+            for e in &exprs { orow.push(eval_expr(e, &env, ctx)?); } out.push(orow); }
     }
     Ok((colnames, out))
 }
