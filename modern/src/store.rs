@@ -53,6 +53,7 @@ struct Col {
 struct Table {
     cols: Vec<Col>,
     uniq_sets: Vec<Vec<String>>, // table-constraint UNIQUE(a,b,...) column lists
+    checks: Vec<String>,         // table-constraint CHECK(<expr>) expressions
     rows: Vec<(i64, Vec<Val>)>, // (rowid, values)
     next_rowid: i64,
     create_sql: String, // raw CREATE TABLE text (for durable schema)
@@ -143,7 +144,7 @@ pub fn load_image(db: usize, img: DbImage) {
             let cols = if cols.is_empty() {
                 ti.rows.first().map(|(_, r)| (0..r.len()).map(|i| Col { name: format!("c{i}"), ..Default::default() }).collect()).unwrap_or_default()
             } else { cols };
-            let mut tab = Table { cols, uniq_sets: parse_uniq_sets(&ti.sql), create_sql: ti.sql.clone(), ..Default::default() };
+            let mut tab = Table { cols, uniq_sets: parse_uniq_sets(&ti.sql), checks: parse_table_checks(&ti.sql), create_sql: ti.sql.clone(), ..Default::default() };
             let mut maxr = 0i64;
             for (rid, vals) in ti.rows { if rid > maxr { maxr = rid; } tab.rows.push((rid, vals)); }
             tab.next_rowid = maxr;
@@ -355,7 +356,7 @@ enum Stmt {
     Insert { name: String, collist: Option<Vec<String>>, rows: Vec<Vec<Val>>, policy: Policy,
              upd_sets: Vec<(String, String)>, /* DO UPDATE SET col=<expr>, ... */
              upd_where: Option<String> /* DO UPDATE ... WHERE <expr> */ },
-    Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)> },
+    Update { name: String, col: String, add: Option<i64>, set: Option<Val>, wh: Option<(String, i64)>, or_mode: u8 /* 0=abort 1=ignore 2=fail 3=rollback */ },
     Delete { name: String, wh: Option<(String, i64)> },
     Select { items: Vec<String>, target: String, wh: Option<(String, Val)>, order_by: Option<String> },
 }
@@ -673,7 +674,12 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         return Some(Stmt::Insert { name, collist, rows, policy, upd_sets, upd_where });
     }
     if up.starts_with("UPDATE ") {
-        let after = &s["UPDATE ".len()..];
+        let (or_mode, after): (u8, &str) = if up.starts_with("UPDATE OR IGNORE ") { (1, &s["UPDATE OR IGNORE ".len()..]) }
+            else if up.starts_with("UPDATE OR FAIL ") { (2, &s["UPDATE OR FAIL ".len()..]) }
+            else if up.starts_with("UPDATE OR ROLLBACK ") { (3, &s["UPDATE OR ROLLBACK ".len()..]) }
+            else if up.starts_with("UPDATE OR ABORT ") { (0, &s["UPDATE OR ABORT ".len()..]) }
+            else { (0, &s["UPDATE ".len()..]) };
+        let _ = &after;
         let setpos = after.to_ascii_uppercase().find(" SET ")?;
         let name = ident(&after[..setpos])?;
         let rest = &after[setpos + 5..];
@@ -692,7 +698,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             (None, Some(parse_literal(rhs)?))
         };
         let wh = match wh_txt { Some(w) => Some(parse_where_int(w)?), None => None };
-        return Some(Stmt::Update { name, col, add, set, wh });
+        return Some(Stmt::Update { name, col, add, set, wh, or_mode });
     }
     if up.starts_with("DELETE FROM ") {
         let after = &s["DELETE FROM ".len()..];
@@ -762,6 +768,53 @@ fn parse_uniq_sets(sql: &str) -> Vec<Vec<String>> {
         }
     }
     out
+}
+
+/// table-constraint CHECK(expr) expressions from a CREATE TABLE statement
+fn parse_table_checks(sql: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let (open, close) = match (sql.find('('), sql.rfind(')')) { (Some(o), Some(c)) if c > o => (o, c), _ => return out };
+    let inner = &sql[open + 1..close];
+    let mut depth = 0; let mut cur = String::new(); let mut defs = Vec::new();
+    for ch in inner.chars() {
+        match ch { '(' => { depth += 1; cur.push(ch); } ')' => { depth -= 1; cur.push(ch); }
+                   ',' if depth == 0 => { defs.push(cur.clone()); cur.clear(); } _ => cur.push(ch) }
+    }
+    if !cur.trim().is_empty() { defs.push(cur); }
+    for d in defs {
+        let d = d.trim();
+        if d.to_ascii_uppercase().starts_with("CHECK") {
+            if let (Some(o), Some(c)) = (d.find('('), d.rfind(')')) {
+                if c > o { out.push(d[o + 1..c].trim().to_string()); }
+            }
+        }
+    }
+    out
+}
+
+/// evaluate all CHECKs (column + table level) against a full row image;
+/// NULL results pass (SQL semantics); returns the failing message if any
+fn check_row(name: &str, cols: &[Col], checks: &[String], row: &[Val]) -> Result<Option<String>, String> {
+    let mut env: std::collections::HashMap<String, eval::V> = Default::default();
+    for (cj, cc) in cols.iter().enumerate() {
+        env.insert(cc.name.clone(), val_to_ev(row.get(cj).unwrap_or(&Val::Null)));
+    }
+    for (ci, col) in cols.iter().enumerate() {
+        let _ = ci;
+        if let Some(chk) = &col.check {
+            let r = eval::eval_standalone(chk, &env)?;
+            if !matches!(r, eval::V::Null) && !ev_truthy(&r) {
+                return Ok(Some(format!("CHECK constraint failed: {}", name)));
+            }
+        }
+    }
+    for chk in checks {
+        let r = eval::eval_standalone(chk, &env)?;
+        if !matches!(r, eval::V::Null) && !ev_truthy(&r) {
+            return Ok(Some(format!("CHECK constraint failed: {}", name)));
+        }
+    }
+    Ok(None)
 }
 
 fn conflict_row(t: &Table, vals: &[Val]) -> Option<usize> {
@@ -1105,7 +1158,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 Stmt::Create { name, cols, sql } => {
                     st.catalog.push(("table".into(), name.clone()));
                     let uniq_sets = parse_uniq_sets(&sql);
-                    st.tables.push((name, Table { cols, uniq_sets, create_sql: sql, ..Default::default() }));
+                    let checks = parse_table_checks(&sql);
+                    st.tables.push((name, Table { cols, uniq_sets, checks, create_sql: sql, ..Default::default() }));
                     st.conn.schema_version += 1;
                 }
                 Stmt::CreateIndex { name, table, col, unique, sql } => {
@@ -1291,6 +1345,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     }
                                 }
                             }
+                            if viol.is_none() {
+                                // table-level CHECK(a < b) constraints on insert too
+                                let tchecks = st.tables.iter().find(|(n2, _)| *n2 == name)
+                                    .map(|(_, t)| t.checks.clone()).unwrap_or_default();
+                                if !tchecks.is_empty() {
+                                    viol = check_row(&name, &cols_meta, &tchecks, &full)?;
+                                }
+                            }
                             if let Some(msg) = viol {
                                 if matches!(policy, Policy::Ignore | Policy::DoNothing) { continue; }
                                 if matches!(policy, Policy::TxnRollback) {
@@ -1385,7 +1447,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let _ = fire_triggers(st, &name, 1, 0, None, Some(full))?; // AFTER INSERT
                     }
                 }
-                Stmt::Update { name, col, add, set, wh } => {
+                Stmt::Update { name, col, add, set, wh, or_mode } => {
                     if st.views.contains_key(&name) {
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 1);
                         if !has_instead {
@@ -1416,14 +1478,20 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         }
                         continue;
                     }
-                    // plan updates first so BEFORE/AFTER UPDATE triggers can fire per row
+                    // plan updates first so BEFORE/AFTER UPDATE triggers can fire per row.
+                    // CHECK constraints are evaluated against the POST-update row image here,
+                    // honouring the statement's OR-mode (v16 law):
+                    //   ABORT (default): whole statement undone; FAIL: earlier rows kept;
+                    //   IGNORE: violating row skipped; ROLLBACK: whole txn unwound.
+                    let mut check_err: Option<String> = None;
                     let planned: Vec<(usize, Vec<Val>, Vec<Val>)> = {
                         let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
                         let ci = t.1.cols.iter().position(|c| c.name == col).ok_or("no such column")?;
                         let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
-                        t.1.rows.iter().enumerate().filter_map(|(ri, (_, row))| {
+                        let mut plan: Vec<(usize, Vec<Val>, Vec<Val>)> = Vec::new();
+                        for (ri, (_, row)) in t.1.rows.iter().enumerate() {
                             if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
-                                if row[wi] != Val::Int(*wv) { return None; }
+                                if row[wi] != Val::Int(*wv) { continue; }
                             }
                             let mut newr = row.clone();
                             newr[ci] = match (&add, &set) {
@@ -1431,8 +1499,17 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                 (None, Some(v)) => v.clone(),
                                 _ => row[ci].clone(),
                             };
-                            Some((ri, row.clone(), newr))
-                        }).collect()
+                            match check_row(&name, &t.1.cols, &t.1.checks, &newr)? {
+                                None => plan.push((ri, row.clone(), newr)),
+                                Some(msg) => match or_mode {
+                                    1 => continue,                       // OR IGNORE: skip this row
+                                    2 => { check_err = Some(msg); break; } // OR FAIL: keep earlier rows
+                                    3 => return Err(format!("__TXNROLLBACK__{msg}")), // OR ROLLBACK
+                                    _ => return Err(msg),                // ABORT: nothing applied
+                                },
+                            }
+                        }
+                        plan
                     };
                     for (_, o, nw) in &planned { let _ = fire_triggers_d(st, &name, 0, 1, Some(o), Some(nw), Some(&col), 0)?; }
                     {
@@ -1442,6 +1519,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let n = planned.len() as i64;
                     st.changes = n;
                     st.total_changes += n;
+                    if let Some(msg) = check_err {
+                        return Err(msg); // OR FAIL: earlier row changes stay applied
+                    }
                     // FK ON UPDATE actions: propagate parent-key changes to children
                     if st.fk_on && !planned.is_empty() {
                         let ci = st.tables.iter().find(|(n2, _)| *n2 == name)

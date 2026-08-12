@@ -332,3 +332,43 @@ fn file_txn_reopen_commit_and_rollback() {
         let _ = std::fs::remove_file(&path);
     }
 }
+
+// ---- pack v16 anti-cheat: CHECK-on-UPDATE with runtime values ----
+
+#[test]
+fn anti_cheat_check_update_fail_and_pass() {
+    let n = runtime_int().abs() % 1000 + 100; // 100..1099
+    // fail: runtime SET below the bound leaves the row unchanged
+    let (rc, rows) = exec_collect(&format!(
+        "CREATE TABLE ck(a INTEGER CHECK(a >= {n})); INSERT INTO ck VALUES({n}); \
+         UPDATE OR IGNORE ck SET a = {}; SELECT a FROM ck;", n - 1));
+    assert_eq!(rc, 0);
+    assert_eq!(rows[0][0].as_deref(), Some(n.to_string().as_str()), "violating runtime SET ignored");
+    // pass: runtime SET within the bound is visible
+    let (rc2, rows2) = exec_collect(&format!(
+        "CREATE TABLE ck(a INTEGER CHECK(a >= {n})); INSERT INTO ck VALUES({n}); \
+         UPDATE ck SET a = {}; SELECT a FROM ck;", n + 5));
+    assert_eq!(rc2, 0);
+    assert_eq!(rows2[0][0].as_deref(), Some((n + 5).to_string().as_str()));
+}
+
+#[test]
+fn anti_cheat_check_update_or_rollback() {
+    unsafe {
+        let mut db: *mut Sqlite3 = std::ptr::null_mut();
+        sqlite3_open(CString::new(":memory:").unwrap().as_ptr(), &mut db);
+        let n = runtime_int();
+        let ex = |db, s: String| sqlite3_exec(db, CString::new(s).unwrap().as_ptr(), None, std::ptr::null_mut(), std::ptr::null_mut());
+        assert_eq!(ex(db, format!("CREATE TABLE ck(a INTEGER CHECK(a > 0)); INSERT INTO ck VALUES({n});")), 0);
+        assert_eq!(ex(db, format!("BEGIN; INSERT INTO ck VALUES({});", n + 1)), 0);
+        assert_eq!(ex(db, "UPDATE OR ROLLBACK ck SET a = -1;".into()), 19);
+        assert_eq!(sqlite3_get_autocommit(db), 1, "violation must unwind the txn");
+        let mut st: *mut Sqlite3Stmt = std::ptr::null_mut();
+        let q = CString::new("SELECT count(*) FROM ck").unwrap();
+        sqlite3_prepare_v2(db, q.as_ptr(), -1, &mut st, std::ptr::null_mut());
+        sqlite3_step(st);
+        assert_eq!(sqlite3_column_int64(st, 0), 1, "txn insert undone");
+        sqlite3_finalize(st);
+        sqlite3_close(db);
+    }
+}
