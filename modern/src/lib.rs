@@ -1562,6 +1562,138 @@ fn coll_close(dbid: usize) {
     COLL_NEEDED.with(|r| { r.borrow_mut().remove(&dbid); });
 }
 
+// ---------------- run-35: incremental blob I/O handles ----------------
+
+/// live handle on one cell: read/write bytes at an offset; the handle expires
+/// (rc 4, "query aborted") when the connection writes rows after it was opened.
+/// Residual (documented): C expires per-row; this marker is connection-write
+/// granular — the pinned scope only modifies the handle's own row.
+pub struct Sqlite3Blob {
+    db: *mut Sqlite3,
+    table: String,
+    ci: usize,
+    rowid: i64,
+    readonly: bool,
+    marker: (i64, i64),
+    expired: bool,
+}
+
+unsafe fn blob_db_err(db: *mut Sqlite3, rc: c_int, msg: &str) -> c_int {
+    if !db.is_null() {
+        (*db).errcode = rc;
+        (*db).extended = rc;
+        (*db).errmsg = Some(CString::new(msg).unwrap());
+    }
+    rc
+}
+
+/// live-handle check: any DML on the connection since open/reopen expires it
+unsafe fn blob_check_live(b: &mut Sqlite3Blob) -> bool {
+    if b.expired { return false; }
+    if store::wal_marker(b.db as usize) != b.marker { b.expired = true; return false; }
+    true
+}
+
+/// # Safety: C ABI — open a handle on (schema, table, column, rowid).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_open(
+    db: *mut Sqlite3, z_db: *const c_char, z_table: *const c_char, z_column: *const c_char,
+    i_row: i64, flags: c_int, pp_blob: *mut *mut Sqlite3Blob,
+) -> c_int {
+    if pp_blob.is_null() { return SQLITE_MISUSE; }
+    *pp_blob = std::ptr::null_mut();
+    if db.is_null() || z_table.is_null() || z_column.is_null() { return SQLITE_MISUSE; }
+    let zdb = if z_db.is_null() { "main".to_string() } else { CStr::from_ptr(z_db).to_string_lossy().into_owned() };
+    let table = CStr::from_ptr(z_table).to_string_lossy().into_owned();
+    let col = CStr::from_ptr(z_column).to_string_lossy().into_owned();
+    match store::blob_target(db as usize, &zdb, &table, &col, i_row, flags != 0) {
+        Ok(ci) => {
+            let b = Box::new(Sqlite3Blob {
+                db, table, ci, rowid: i_row, readonly: flags == 0,
+                marker: store::wal_marker(db as usize), expired: false,
+            });
+            *pp_blob = Box::into_raw(b);
+            db_ok(&mut *db);
+            SQLITE_OK
+        }
+        Err(e) => blob_db_err(db, SQLITE_ERROR, &e),
+    }
+}
+
+/// # Safety: C ABI — close is unconditional; returns OK for the pinned scope.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_close(b: *mut Sqlite3Blob) -> c_int {
+    if !b.is_null() { drop(Box::from_raw(b)); }
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — reposition the handle onto another rowid (same table/column).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_reopen(b: *mut Sqlite3Blob, i_row: i64) -> c_int {
+    if b.is_null() { return SQLITE_MISUSE; }
+    let br = &mut *b;
+    if store::blob_len(br.db as usize, &br.table, br.ci, i_row).is_none() {
+        br.expired = true; // C aborts the handle on a failed reopen
+        return blob_db_err(br.db, SQLITE_ERROR, &format!("no such rowid: {i_row}"));
+    }
+    br.rowid = i_row;
+    br.marker = store::wal_marker(br.db as usize);
+    br.expired = false;
+    db_ok(&mut *br.db);
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — 0 once the handle expired (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_bytes(b: *mut Sqlite3Blob) -> c_int {
+    if b.is_null() { return 0; }
+    let br = &mut *b;
+    if !blob_check_live(br) { return 0; }
+    store::blob_len(br.db as usize, &br.table, br.ci, br.rowid).unwrap_or(0) as c_int
+}
+
+/// # Safety: C ABI — read n bytes at offset; bounds errors leave the buffer untouched.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_read(b: *mut Sqlite3Blob, z: *mut c_void, n: c_int, i_offset: c_int) -> c_int {
+    if b.is_null() || z.is_null() { return SQLITE_MISUSE; }
+    let br = &mut *b;
+    if !blob_check_live(br) { return blob_db_err(br.db, SQLITE_ABORT, "query aborted"); }
+    let len = store::blob_len(br.db as usize, &br.table, br.ci, br.rowid).unwrap_or(0) as i64;
+    if n < 0 || i_offset < 0 || (i_offset as i64 + n as i64) > len {
+        return blob_db_err(br.db, SQLITE_ERROR, "SQL logic error");
+    }
+    if n == 0 { db_ok(&mut *br.db); return SQLITE_OK; }
+    match store::blob_read_bytes(br.db as usize, &br.table, br.ci, br.rowid, i_offset as usize, n as usize) {
+        Some(bytes) => {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), z as *mut u8, bytes.len());
+            db_ok(&mut *br.db);
+            SQLITE_OK
+        }
+        None => blob_db_err(br.db, SQLITE_ERROR, "SQL logic error"),
+    }
+}
+
+/// # Safety: C ABI — write n bytes at offset; never resizes the cell.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_blob_write(b: *mut Sqlite3Blob, z: *const c_void, n: c_int, i_offset: c_int) -> c_int {
+    if b.is_null() || z.is_null() { return SQLITE_MISUSE; }
+    let br = &mut *b;
+    if !blob_check_live(br) { return blob_db_err(br.db, SQLITE_ABORT, "query aborted"); }
+    if br.readonly {
+        return blob_db_err(br.db, 8 /* SQLITE_READONLY */, "attempt to write a readonly database");
+    }
+    let len = store::blob_len(br.db as usize, &br.table, br.ci, br.rowid).unwrap_or(0) as i64;
+    if n < 0 || i_offset < 0 || (i_offset as i64 + n as i64) > len {
+        return blob_db_err(br.db, SQLITE_ERROR, "SQL logic error");
+    }
+    if n == 0 { db_ok(&mut *br.db); return SQLITE_OK; }
+    let data = std::slice::from_raw_parts(z as *const u8, n as usize);
+    match store::blob_write_bytes(br.db as usize, &br.table, br.ci, br.rowid, i_offset as usize, data) {
+        Ok(()) => { db_ok(&mut *br.db); SQLITE_OK }
+        Err(e) => blob_db_err(br.db, SQLITE_ERROR, &e),
+    }
+}
+
 /// # Safety: C ABI — register/replace/delete a named collating sequence.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_create_collation(

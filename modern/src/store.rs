@@ -274,6 +274,98 @@ pub fn drop_store(db: usize) {
 /// b-trees (column autoindexes, multi-column UNIQUE sets, explicit indexes), so
 /// C enforces uniqueness against Rust-written files after reopen.
 /// Build the on-disk image of a connection (shared by save_file and serialize).
+// ---------------- run-35: incremental blob I/O (sqlite3_blob_*) ----------------
+
+/// resolve + validate a blob-handle target in the pinned C order; returns the
+/// column index. rowid aliases the INTEGER PRIMARY KEY when declared.
+pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, write: bool)
+    -> Result<usize, String> {
+    with_store(db, |st| {
+        if st.views.contains_key(table) {
+            return Err(format!("cannot open view: {table}"));
+        }
+        let t = match st.tables.iter().find(|(n, _)| *n == table) {
+            Some((_, t)) => t,
+            None => return Err(format!("no such table: {zdb}.{table}")),
+        };
+        let ci = match t.cols.iter().position(|c| c.name == col) {
+            Some(ci) => ci,
+            None => return Err(format!("no such column: \"{col}\"")),
+        };
+        if write {
+            // indexed columns are refused for writing (pinned): inline UNIQUE, PK,
+            // UNIQUE table constraints or any explicit index touching the column
+            let indexed = t.cols[ci].unique
+                || t.uniq_sets.iter().any(|s| s.iter().any(|c| c == col))
+                || st.indexes.iter().any(|d| d.table == table
+                    && d.exprs.iter().any(|e| e.trim().eq_ignore_ascii_case(col)));
+            if indexed {
+                return Err("cannot open indexed column for writing".into());
+            }
+        }
+        let row = blob_row_of(t, rowid).ok_or(format!("no such rowid: {rowid}"))?;
+        match t.rows[row].1.get(ci) {
+            Some(Val::Blob(_)) | Some(Val::Text(_)) => Ok(ci),
+            Some(Val::Null) | None => Err("cannot open value of type null".into()),
+            Some(Val::Int(_)) => Err("cannot open value of type integer".into()),
+            Some(Val::Real(_)) => Err("cannot open value of type real".into()),
+        }
+    })
+}
+
+fn blob_row_of(t: &Table, rowid: i64) -> Option<usize> {
+    match dbfile::ipk_index(&t.create_sql) {
+        Some(ipk) => t.rows.iter().position(|(_, r)| r.get(ipk) == Some(&Val::Int(rowid))),
+        None => t.rows.iter().position(|(rid, _)| *rid == rowid),
+    }
+}
+
+/// current byte length of the handle's cell (None when the row vanished)
+pub fn blob_len(db: usize, table: &str, ci: usize, rowid: i64) -> Option<usize> {
+    with_store(db, |st| {
+        let t = st.tables.iter().find(|(n, _)| *n == table).map(|(_, t)| t)?;
+        let row = blob_row_of(t, rowid)?;
+        match t.rows[row].1.get(ci) {
+            Some(Val::Blob(b)) => Some(b.len()),
+            Some(Val::Text(s)) => Some(s.len()),
+            _ => None,
+        }
+    })
+}
+
+/// read n bytes at offset (bounds already validated by the caller)
+pub fn blob_read_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize, n: usize)
+    -> Option<Vec<u8>> {
+    with_store(db, |st| {
+        let t = st.tables.iter().find(|(nm, _)| *nm == table).map(|(_, t)| t)?;
+        let row = blob_row_of(t, rowid)?;
+        let bytes: &[u8] = match t.rows[row].1.get(ci) {
+            Some(Val::Blob(b)) => b,
+            Some(Val::Text(s)) => s.as_bytes(),
+            _ => return None,
+        };
+        bytes.get(off..off + n).map(|s| s.to_vec())
+    })
+}
+
+/// overwrite n bytes at offset in a Blob cell — the length NEVER changes and
+/// change counters are NOT bumped (a live handle must not expire itself)
+pub fn blob_write_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize, data: &[u8])
+    -> Result<(), String> {
+    with_store(db, |st| {
+        let t = st.tables.iter_mut().find(|(nm, _)| *nm == table).map(|(_, t)| t)
+            .ok_or("no such table")?;
+        let row = blob_row_of(t, rowid).ok_or("no such rowid")?;
+        match t.rows[row].1.get_mut(ci) {
+            Some(Val::Blob(b)) if off + data.len() <= b.len() => {
+                b[off..off + data.len()].copy_from_slice(data);
+                Ok(())
+            }
+            _ => Err("SQL logic error".into()),
+        }
+    })
+}
+
 /// refresh the freelist-model page counters after a mutation (run-34)
 fn refresh_pages(st: &mut Store) {
     let pages = (dbfile::write_db_bytes(&image_of(st)).len() / 4096).max(1) as i64;
@@ -884,7 +976,15 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             if base != col { return None; }
             (Some(rhs[plus + 1..].trim().parse::<i64>().ok()?), None)
         } else {
-            (None, Some(parse_literal(rhs)?))
+            // literal or constant expression (zeroblob(4), ... — run-35, mirrors INSERT)
+            let v = match parse_literal(rhs) {
+                Some(v) => v,
+                None => {
+                    let env = std::collections::HashMap::new();
+                    ev_to_val(eval::eval_standalone(rhs, &env).ok()?)
+                }
+            };
+            (None, Some(v))
         };
         let wh = match wh_txt { Some(w) => Some(parse_where_int(w)?), None => None };
         return Some(Stmt::Update { name, col, add, set, wh, or_mode });
