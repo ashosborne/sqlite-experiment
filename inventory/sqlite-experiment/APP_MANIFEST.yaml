@@ -2377,6 +2377,24 @@ surfaces:
   notes: composed index-lookup slice (run 27); seam-kind=api
   discovery_evidence:
   - src/btree.c:1
+- surface_id: sur-engine-udf
+  kind: other
+  locator: engine-udf pinned sequences
+  repo_path: src/main.c
+  status: accepted
+  slice_id: engine-udf
+  notes: composed UDF surface slice (run 28); seam-kind=api
+  discovery_evidence:
+  - src/main.c:1
+- surface_id: sur-engine-value
+  kind: other
+  locator: engine-value pinned sequences
+  repo_path: src/vdbeapi.c
+  status: accepted
+  slice_id: engine-value
+  notes: composed UDF surface slice (run 28); seam-kind=api
+  discovery_evidence:
+  - src/vdbeapi.c:1
 behaviours:
 - behaviour_id: analyze-stats-001
   surface_id: sur-sqlite3analyze
@@ -3193,7 +3211,8 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; dlopens shared lib, derives sqlite3_X_init entry name from filename; disabled by default
     (enable_load_extension gate). | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial
-    (run-19 scoreboard) — gaps: enable-gate + not-authorized path real; actual shared-library loading absent by design'
+    (run-28) — gaps: shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2]
+    is a DIFFERENT surface and IS done (engine-udf/engine-value)'
   traceability: tests/characterization/loadext-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: loadext-api-002
@@ -5384,20 +5403,65 @@ behaviours:
   traceability: tests/characterization/engine-idxfile/TRACEABILITY.yaml
   notes: 'run-27 index lookups: real probes + durable multi-leaf/expr/partial indexes, C-readable; legacy RECORD REPLAY_GREEN
     + HUMAN_ACCEPTED 2026-08-12 (run-27 delegated stamp)'
-last_updated: '2026-08-12T09:50:34Z'
+- behaviour_id: engine-udf-001
+  surface_id: sur-engine-udf
+  name: Scalar create_function + SQL invoke
+  status: converted
+  slice_id: engine-udf
+  discovery_card: discovery/engine-udf/features/engine-udf-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 18
+  traceability: tests/characterization/engine-udf/TRACEABILITY.yaml
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
+    delegated stamp)'
+- behaviour_id: engine-udf-002
+  surface_id: sur-engine-udf
+  name: Aggregate UDF xStep/xFinal
+  status: converted
+  slice_id: engine-udf
+  discovery_card: discovery/engine-udf/features/engine-udf-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 18
+  traceability: tests/characterization/engine-udf/TRACEABILITY.yaml
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
+    delegated stamp)'
+- behaviour_id: engine-value-001
+  surface_id: sur-engine-value
+  name: sqlite3_value_*/sqlite3_result_* marshalling
+  status: converted
+  slice_id: engine-value
+  discovery_card: discovery/engine-value/features/engine-value-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 18
+  traceability: tests/characterization/engine-value/TRACEABILITY.yaml
+  notes: 'run-28: real C-callback UDF invocation from the engine; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-12 (run-28
+    delegated stamp)'
+last_updated: '2026-08-12T10:03:07Z'
 updated_by: sqlite-engine-v18-udf-value
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
 counts:
-  surfaces_total: 221
+  surfaces_total: 223
   surfaces_by_status:
     candidate: 185
-    accepted: 36
-  behaviours_known: 232
+    accepted: 38
+  behaviours_known: 235
   behaviours_by_status:
     documented: 153
-    converted: 79
+    converted: 82
   unscanned_hints: 3
-  legacy_green: 142
+  legacy_green: 145
   parity_green: 0

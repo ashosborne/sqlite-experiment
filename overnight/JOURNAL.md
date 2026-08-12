@@ -457,3 +457,16 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   index on Rust multi-leaf files. cargo 401/401; 366 prior goldens md5-identical.
 - ddl-schema-002 → FULL (all three v12 residuals closed). upsert-001 tightened (index-expression
   conflict targets remain — kept partial). Scoreboard full 75→79 / partial 50 / none 103.
+
+## Run 28 — 2026-08-12 — engine v18: UDF registration + value/result (pack v18)
+
+- Pack v17→v18 BOUND (+versions/18, ADR 0016): UDF-registration / value-result / no-dlopen laws.
+- lib.rs: per-conn UDF registry (thread_local (name,nArg)->FnEntry); create_function[_v2],
+  value/result accessors, user_data/aggregate_context/context_db_handle; xDestroy on
+  replace/close (fires even when pApp NULL); value_text raw bytes + result_text utf8-detect
+  (blob round-trip). eval.rs: ctx.db, udf scalar arm (guarded on udf_name_exists to avoid
+  count(*) '*' eval), udf aggregate via eval_agg + expr_has_udf_agg; zeroblob + quote(blob).
+- 24 goldens (engine-udf 16, engine-value 8; harness /tmp/udf_harness.c gcc); Rust twin
+  engine_udf.rs registers matching extern "C" callbacks. anti-cheat runtime scalar/value/agg.
+- Flips: engine-udf-001/002 + engine-value-001 full; loadext-api-001 kept partial (dlopen absent).
+- Scoreboard full 79→82 / partial 50 / none 103. cargo 428/428; 390 prior goldens md5-identical.

@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-12T09:40:04Z
+- Generated: 2026-08-12T10:03:08Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-12T09:40:04Z by `sqlite-engine-v17-index-lookups`
+- Manifest last_updated: 2026-08-12T10:03:07Z by `sqlite-engine-v18-udf-value`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 103 | Not started in modern |
 | partial | 50 | Some modern execution; gaps in notes |
-| full (converted) | 79 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 82 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -99,6 +99,9 @@
 - `engine-idxlookup-001` — Index-driven equality/range lookups
 - `engine-idxlookup-002` — Multi-column/expression/partial explicit indexes
 - `engine-idxfile-001` — Durable + multi-leaf indexes, C interop
+- `engine-udf-001` — Scalar create_function + SQL invoke
+- `engine-udf-002` — Aggregate UDF xStep/xFinal
+- `engine-value-001` — sqlite3_value_*/sqlite3_result_* marshalling
 
 ### Partial in modern
 
@@ -126,7 +129,7 @@
 - `json-funcs-002` — json_set/insert/replace/patch/remove real on parsed trees; array-path mutation and JSONB absent
 - `json-funcs-003` — json_valid/json_type real; json_valid flags argument and JSONB validation absent
 - `json-funcs-004` — json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent
-- `loadext-api-001` — enable-gate + not-authorized path real; actual shared-library loading absent by design
+- `loadext-api-001` — shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)
 - `loadext-api-002` — auto-extension register/invoke on open real; cancel/reset entry points absent
 - `malloc-subsystem-001` — malloc64/free/msize real allocator; memory accounting (memory_used/highwater) absent
 - `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
@@ -263,25 +266,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 221 |
-| Behaviours known | 232 |
+| Surfaces total | 223 |
+| Behaviours known | 235 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 142 |
+| legacy_green flags | 145 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 36 |
+| accepted | 38 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 79 |
+| converted | 82 |
 | documented | 153 |
 
 ## Surfaces per slice
@@ -332,8 +335,10 @@
 | engine-triggers | 1 |
 | engine-txn | 1 |
 | engine-txnfile | 1 |
+| engine-udf | 1 |
 | engine-upsert2 | 1 |
 | engine-upsert3 | 1 |
+| engine-value | 1 |
 | engine-views | 1 |
 | engine-window2 | 1 |
 | error-status-api | 3 |

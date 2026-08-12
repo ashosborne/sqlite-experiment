@@ -1,0 +1,9 @@
+slice_id: engine-value
+app_id: sqlite-experiment
+seed: composed UDF surface slice (run 28)
+status: accepted
+features:
+- feature_id: engine-value-001
+  name: sqlite3_value_* / sqlite3_result_* marshalling
+  status: accepted
+  evidence: [src/vdbeapi.c:1]

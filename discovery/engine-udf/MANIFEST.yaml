@@ -1,0 +1,13 @@
+slice_id: engine-udf
+app_id: sqlite-experiment
+seed: composed UDF surface slice (run 28)
+status: accepted
+features:
+- feature_id: engine-udf-001
+  name: Application-registered SQL functions
+  status: accepted
+  evidence: [src/main.c:1]
+- feature_id: engine-udf-002
+  name: Application-registered SQL functions
+  status: accepted
+  evidence: [src/main.c:1]
