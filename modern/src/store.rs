@@ -849,6 +849,15 @@ pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, wri
     })
 }
 
+/// run-49: `WHERE rowid = N` in kitchen UPDATE/DELETE hits exactly that row
+/// (previously the filter silently vanished and every row matched)
+fn is_rowid_alias(n: &str) -> bool {
+    n.eq_ignore_ascii_case("rowid") || n.eq_ignore_ascii_case("_rowid_") || n.eq_ignore_ascii_case("oid")
+}
+fn effective_rowid(ipk: Option<usize>, rid: i64, row: &[Val]) -> i64 {
+    match ipk { Some(i) => match row.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid }
+}
+
 fn blob_row_of(t: &Table, rowid: i64) -> Option<usize> {
     match dbfile::ipk_index(&t.create_sql) {
         Some(ipk) => t.rows.iter().position(|(_, r)| r.get(ipk) == Some(&Val::Int(rowid))),
@@ -884,6 +893,20 @@ pub fn blob_read_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize
     })
 }
 
+/// run-49: the cell's current bytes (Blob or Text) — the per-row expiry snapshot.
+/// None when the row or the cell's blob-ability is gone.
+pub fn blob_cell_snapshot(db: usize, table: &str, ci: usize, rowid: i64) -> Option<Vec<u8>> {
+    with_store(db, |st| {
+        let t = st.tables.iter().find(|(nm, _)| *nm == table).map(|(_, t)| t)?;
+        let row = blob_row_of(t, rowid)?;
+        match t.rows[row].1.get(ci) {
+            Some(Val::Blob(b)) => Some(b.clone()),
+            Some(Val::Text(s)) => Some(s.as_bytes().to_vec()),
+            _ => None,
+        }
+    })
+}
+
 /// overwrite n bytes at offset in a Blob cell — the length NEVER changes and
 /// change counters are NOT bumped (a live handle must not expire itself)
 pub fn blob_write_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize, data: &[u8])
@@ -896,6 +919,16 @@ pub fn blob_write_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usiz
             Some(Val::Blob(b)) if off + data.len() <= b.len() => {
                 b[off..off + data.len()].copy_from_slice(data);
                 Ok(())
+            }
+            // run-49: TEXT cells accept byte patches and STAY TEXT (C shape; the
+            // pinned scope writes valid UTF-8 — invalid results are refused)
+            Some(Val::Text(s)) if off + data.len() <= s.len() => {
+                let mut bytes = s.as_bytes().to_vec();
+                bytes[off..off + data.len()].copy_from_slice(data);
+                match String::from_utf8(bytes) {
+                    Ok(ns) => { *s = ns; Ok(()) }
+                    Err(_) => Err("SQL logic error".into()),
+                }
             }
             _ => Err("SQL logic error".into()),
         }
@@ -1026,9 +1059,16 @@ fn with_store<R>(db: usize, f: impl FnOnce(&mut Store) -> R) -> R {
 
 /// Split on ';' but keep CREATE TRIGGER ... BEGIN ... END; bodies whole.
 fn split_statements(script: &str) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
+    split_statements_t(script).into_iter().map(|(s, _)| s).collect()
+}
+/// run-49: like split_statements, plus whether each statement was ';'-terminated in
+/// the script (STMT/PROFILE trace text carries the terminator like C)
+fn split_statements_t(script: &str) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
     let mut buf = String::new();
-    for frag in script.split(';') {
+    let frags: Vec<&str> = script.split(';').collect();
+    let nfrags = frags.len();
+    for (fi, frag) in frags.into_iter().enumerate() {
         if !buf.is_empty() {
             buf.push(';');
         }
@@ -1039,17 +1079,25 @@ fn split_statements(script: &str) -> Vec<String> {
         if !in_trigger {
             let s = buf.trim().to_string();
             if !s.is_empty() {
-                out.push(s);
+                // the final fragment only carries a terminator if the script ended with ';'
+                out.push((s, fi + 1 < nfrags));
             }
             buf.clear();
         }
     }
     let s = buf.trim().to_string();
     if !s.is_empty() {
-        out.push(s);
+        out.push((s, false));
     }
     out
 }
+
+thread_local! {
+    // run-49: prepared statements fire their own STMT/PROFILE from sqlite3_step —
+    // the engine calls they make must not double-fire the per-statement events
+    static TRACE_SUPPRESS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+pub fn set_trace_suppressed(v: bool) { TRACE_SUPPRESS.with(|c| c.set(v)); }
 
 fn parse_literal(tok: &str) -> Option<Val> {
     let t = tok.trim();
@@ -2629,20 +2677,27 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
 
 pub fn execute_script(db: usize, script: &str) -> Outcome {
     maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
-    let raw_stmts = split_statements(script);
+    let stmts_t = split_statements_t(script);
+    let raw_stmts: Vec<String> = stmts_t.iter().map(|(s, _)| s.clone()).collect();
+    // run-49: STMT/PROFILE per statement with C's reported text (terminator kept)
+    let trace_texts: Vec<String> = stmts_t.iter()
+        .map(|(s, term)| if *term { format!("{s};") } else { s.clone() }).collect();
+    let tracing = !TRACE_SUPPRESS.with(|c| c.get());
     if raw_stmts.is_empty() { return Outcome::Done { rows: Vec::new(), rc: 0, err: None }; }
     let mut out: Vec<Vec<Option<String>>> = Vec::new();
     let res: Result<(), String> = with_store(db, |st| {
-        for s in &raw_stmts {
+        for (si, s) in raw_stmts.iter().enumerate() {
+            if tracing { crate::exec_trace_stmt(db, &trace_texts[si]); }
             // run-47: per-statement authorizer consult with C's argument strings
             // (DENY errors rc 23; IGNORE silently skips INSERT/UPDATE, DELETE proceeds)
             match auth_stmt_precheck(db, st, s)? {
-                AuthGate::Skip => continue,
+                AuthGate::Skip => { if tracing { crate::exec_trace_profile(db, &trace_texts[si]); } continue; }
                 AuthGate::Proceed => {}
             }
             // run-48: writable-vtab DML routes through the module's xUpdate
             if let Some(res) = vtab_dml_intercept(st, db, s) {
                 res?;
+                if tracing { crate::exec_trace_profile(db, &trace_texts[si]); } // run-49
                 continue;
             }
             let parsed = parse_stmt(s);
@@ -2678,7 +2733,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         eval::run_stmt(&mut ctx, s)
                     });
                     match res {
-                        Ok(Some(rows)) => { out.extend(rows); continue; }
+                        Ok(Some(rows)) => {
+                            out.extend(rows);
+                            if tracing { crate::exec_trace_profile(db, &trace_texts[si]); } // run-49
+                            continue;
+                        }
                         Ok(None) => return Err(format!("unsupported statement: {}", s)),
                         Err(e) => return Err(e),
                     }
@@ -3536,10 +3595,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
                         let ci = t.1.cols.iter().position(|c| c.name == col).ok_or("no such column")?;
                         let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
+                        let ipk_w = dbfile::ipk_index(&t.1.create_sql);
                         let mut plan: Vec<(usize, Vec<Val>, Vec<Val>)> = Vec::new();
-                        for (ri, (_, row)) in t.1.rows.iter().enumerate() {
+                        for (ri, (rid, row)) in t.1.rows.iter().enumerate() {
                             if let (Some((_, wv)), Some(wi)) = (&wh, wi) {
                                 if row[wi] != Val::Int(*wv) { continue; }
+                            } else if let Some((wc, wv)) = &wh {
+                                // run-49: rowid aliases hit the row's real rowid
+                                if wi.is_none() && is_rowid_alias(wc)
+                                    && effective_rowid(ipk_w, *rid, row) != *wv { continue; }
                             }
                             let mut newr = row.clone();
                             newr[ci] = match (&add, &set) {
@@ -3658,10 +3722,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let hits: Vec<Vec<Val>> = {
                         let t = st.tables.iter().find(|(n, _)| *n == name).ok_or("no such table")?;
                         let wi = wh.as_ref().and_then(|(wc, _)| t.1.cols.iter().position(|c| c.name == *wc));
+                        let ipk_h = dbfile::ipk_index(&t.1.create_sql);
                         let mut out = Vec::new();
                         for (rid, r) in &t.1.rows {
                             let hit = match (&wh, wi) {
                                 (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
+                                // run-49: rowid aliases hit the row's real rowid
+                                (Some((wc, wv)), None) if is_rowid_alias(wc) =>
+                                    effective_rowid(ipk_h, *rid, r) == *wv,
                                 _ => expr_hit(&t.1.cols, r, *rid)?,
                             };
                             if hit { out.push(r.clone()); }
@@ -3681,6 +3749,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         for (rid, r) in std::mem::take(&mut t.1.rows) {
                             let hit = match (&wh, wi) {
                                 (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
+                                // run-49: rowid aliases hit the row's real rowid
+                                (Some((wc, wv)), None) if is_rowid_alias(wc) =>
+                                    effective_rowid(ipk_del, rid, &r) == *wv,
                                 _ => expr_hit(&cols_c, &r, rid)?,
                             };
                             if hit {
@@ -3877,6 +3948,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
             }
+            if tracing { crate::exec_trace_profile(db, &trace_texts[si]); } // run-49
         }
         Ok(())
     });

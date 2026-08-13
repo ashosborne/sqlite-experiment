@@ -1407,6 +1407,9 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     if let Some(op) = f.find('(') {
         let fname = f[..op].trim().to_ascii_lowercase();
         let arg = f[op+1..f.rfind(')').unwrap_or(f.len())].trim().trim_matches('\'').to_string();
+        if fname.starts_with("pragma_") {
+            crate::pvtab_touch(ctx.db, &fname); // run-49: lazy module_list fill
+        }
         match fname.as_str() {
             "generate_series" => {
                 let parts: Vec<i64> = f[op+1..f.rfind(')').unwrap()].split(',').map(|x| x.trim().parse().unwrap_or(0)).collect();
@@ -1566,8 +1569,18 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         let rows = (1..=bound).map(|v| { let mut m = Row::new(); m.insert("value".into(), V::Int(v)); m }).collect();
         return Ok((vec!["value".into()], rows));
     }
+    // run-49: pragma_module_list follows C's LAZY population — user modules from the
+    // live registry plus the pragma vtabs this connection has actually touched
+    if f.eq_ignore_ascii_case("pragma_module_list") {
+        crate::pvtab_touch(ctx.db, "pragma_module_list"); // its own query instantiates it
+        let rows = crate::module_list_names(ctx.db).into_iter()
+            .map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n)); m })
+            .collect();
+        return Ok((vec!["name".into()], rows));
+    }
     // run-44: bare (unparenthesized) registry TVF forms
     if f.eq_ignore_ascii_case("pragma_collation_list") {
+        crate::pvtab_touch(ctx.db, "pragma_collation_list"); // run-49: lazy module_list fill
         let rows = crate::collation_list_names(ctx.db).into_iter().enumerate()
             .map(|(i, n)| { let mut m = Row::new();
                 m.insert("seq".into(), V::Int(i as i64)); m.insert("name".into(), V::Text(n)); m })
@@ -1575,6 +1588,7 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         return Ok((vec!["seq".into(), "name".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_compile_options") {
+        crate::pvtab_touch(ctx.db, "pragma_compile_options"); // run-49: lazy module_list fill
         let rows = crate::compileoption_all().into_iter()
             .map(|o| { let mut m = Row::new();
                 m.insert("compile_options".into(), V::Text(o.to_string())); m })
@@ -1582,14 +1596,17 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         return Ok((vec!["compile_options".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_function_list") {
+        crate::pvtab_touch(ctx.db, "pragma_function_list"); // run-49: lazy module_list fill
         let rows = FUNCTION_LIST.iter().map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n.to_string())); m }).collect();
         return Ok((vec!["name".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_pragma_list") {
+        crate::pvtab_touch(ctx.db, "pragma_pragma_list"); // run-49: lazy module_list fill
         let rows = PRAGMA_LIST.iter().map(|n| { let mut m = Row::new(); m.insert("name".into(), V::Text(n.to_string())); m }).collect();
         return Ok((vec!["name".into()], rows));
     }
     if f.eq_ignore_ascii_case("pragma_database_list") {
+        crate::pvtab_touch(ctx.db, "pragma_database_list"); // run-49: lazy module_list fill
         let mut rows = Vec::new();
         let mut seq = 0i64;
         { let mut m=Row::new(); m.insert("seq".into(), V::Int(seq)); m.insert("name".into(), V::Text("main".into())); rows.push(m); }

@@ -750,6 +750,13 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
         // their really-visited rows (rows-1 like C's OP_Next tally)
         s.cnt_run += 1;
         s.cnt_fullscan += store::fullscan_steps(s.db, &s.sql);
+        // run-49: prepared statements fire their own STMT event per execution cycle
+        exec_trace_stmt(s.db, &s.sql);
+    }
+    if rc == SQLITE_DONE {
+        // run-49: PROFILE fires when the statement finishes; the callback receives
+        // THIS statement handle (sqlite3_sql reports its text)
+        fire_trace(s.db, 2, stmt as *mut c_void, std::ptr::null_mut());
     }
     if rc == SQLITE_ROW {
         fire_trace((*stmt).db, 4 /* SQLITE_TRACE_ROW */, stmt as *mut c_void, std::ptr::null_mut());
@@ -759,6 +766,12 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
 
 /// execute via the shared store/eval engine (bind substitution -> typed rows)
 unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
+    // run-49: prepared statements fire their own STMT/PROFILE from sqlite3_step —
+    // suppress the per-statement exec-path events for the engine calls below
+    struct TraceGuard;
+    impl Drop for TraceGuard { fn drop(&mut self) { store::set_trace_suppressed(false); } }
+    store::set_trace_suppressed(true);
+    let _tg = TraceGuard;
     s.text_cache.clear();
     s.u16_keep.clear();
     // auto-reprepare: DDL since prepare invalidates the compilation (C schema cookie)
@@ -1111,6 +1124,19 @@ pub unsafe extern "C" fn sqlite3_reset(stmt: *mut Sqlite3Stmt) -> c_int {
 
 /// # Safety: C ABI — frees the handle; the pointer is dead afterwards.
 /// There is deliberately NO safe re-entry: C003 (step after finalize) is BLOCKED/unmapped.
+#[no_mangle]
+/// # Safety: C ABI — the saved original SQL text of a prepared statement (run-49:
+/// PROFILE trace callbacks read it off the handle like C). Pointer lives with the stmt.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_sql(stmt: *mut Sqlite3Stmt) -> *const c_char {
+    if stmt.is_null() { return std::ptr::null(); }
+    let s = &mut *stmt;
+    s.text_cache.push(CString::new(s.sql.clone()).ok());
+    s.text_cache.last().and_then(|o| o.as_ref())
+        .map(|c| c.as_ptr()).unwrap_or(std::ptr::null())
+}
+
+/// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
     if !stmt.is_null() {
@@ -1529,6 +1555,28 @@ pub(crate) fn fire_update_hook(dbid: usize, op: i32, table: &str, rowid: i64) {
     unsafe { f(arg as *mut c_void, op, dbn.as_ptr(), tn.as_ptr(), rowid) };
 }
 /// fire a trace event when the connection's mask includes it
+/// run-49: per-statement STMT event from execute_script (text as C reports it)
+pub fn exec_trace_stmt(dbid: usize, sql: &str) {
+    let ctext = CString::new(sql).unwrap_or_default();
+    fire_trace(dbid, 1, std::ptr::null_mut(), ctext.as_ptr() as *mut c_void);
+}
+/// run-49: per-statement PROFILE event — the callback receives a statement handle
+/// whose sqlite3_sql() reports this statement's text (freed after the call)
+pub fn exec_trace_profile(dbid: usize, sql: &str) {
+    let present = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default();
+        e.trace_cb != 0 && e.trace_mask & 2 != 0 });
+    if !present { return; }
+    let tmp = Box::new(Sqlite3Stmt {
+        db: dbid, mode: StmtMode::Normal, schema_ver: 0, sql: sql.to_string(),
+        params: Vec::new(), param_names: Vec::new(), colnames: Vec::new(), decltypes: Vec::new(),
+        u16_keep: Vec::new(), rows: None, cur: 0, state: State::Ready, readonly: true,
+        text_cache: Vec::new(), la: false, cnt_fullscan: 0, cnt_run: 0, cnt_vmstep: 0,
+    });
+    let p = Box::into_raw(tmp);
+    fire_trace(dbid, 2, p as *mut c_void, std::ptr::null_mut());
+    unsafe { drop(Box::from_raw(p)); }
+}
+
 pub(crate) fn fire_trace(dbid: usize, event: u32, p: *mut c_void, x: *mut c_void) {
     let (cb, mask, ctx) = EXTRAS.with(|m| {
         let mut mm = m.borrow_mut();
@@ -1619,16 +1667,11 @@ pub unsafe extern "C" fn sqlite3_exec(
     // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
     // run-47: the statement-class authorizer consult moved INSIDE execute_script
     // (per statement, with C's argument strings — see store::auth_stmt_precheck).
-    {
-        // run-36: SQLITE_TRACE_STMT sees the statement text (per exec call for the
-        // pinned single-statement scripts; per-prepared-statement is a residual)
-        let ctext = CString::new(sql).unwrap_or_default();
-        fire_trace(db as usize, 1 /* STMT */, std::ptr::null_mut(), ctext.as_ptr() as *mut c_void);
-    }
+    // run-49: STMT/PROFILE fire PER STATEMENT inside execute_script (C shape for
+    // multi-statement scripts); the old whole-script firing is gone.
     let wal_m0 = store::wal_marker(db as usize); // v22: WAL sidecar sync after the call
     let exec_result = store::execute_script(db as usize, sql);
     store::wal_sync(db as usize, wal_m0);
-    fire_trace(db as usize, 2 /* PROFILE */, std::ptr::null_mut(), std::ptr::null_mut()); // run-36 (count pins)
     match exec_result {
         store::Outcome::NotKitchen => {} // pack v8: no cheat-sheet fallback; treat as unknown below
         store::Outcome::Done { rows, rc, err } => {
@@ -1827,15 +1870,50 @@ pub unsafe extern "C" fn sqlite3_mutex_free(m: *mut Sqlite3Mutex) {
 /// # Safety: C ABI — xorshift PRNG; pinned observable is draws-differ only.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_randomness(n: c_int, out: *mut c_void) {
-    if n <= 0 || out.is_null() { return; }
+    // run-49: a REAL stateful PRNG stream — seeded lazily from wall-clock entropy,
+    // then a pure xorshift so test_control PRNG SAVE/RESTORE/SEED can replay it
+    // (unseeded bytes stay non-deterministic across processes; never goldens).
+    rng_ensure_seeded();
+    if n <= 0 || out.is_null() { return; } // N=0: writes nothing (pinned)
     let buf = std::slice::from_raw_parts_mut(out as *mut u8, n as usize);
     for chunk in buf.chunks_mut(8) {
-        let mut s = RNG_STATE.load(Ordering::Relaxed) ^ std::time::UNIX_EPOCH.elapsed().map(|d| d.subsec_nanos() as u64).unwrap_or(1).wrapping_add(0x2545F4914F6CDD1D);
+        let mut s = RNG_STATE.load(Ordering::Relaxed);
         s ^= s << 13; s ^= s >> 7; s ^= s << 17;
         RNG_STATE.store(s, Ordering::Relaxed);
         let b = s.to_le_bytes();
         let l = chunk.len();
         chunk.copy_from_slice(&b[..l]);
+    }
+}
+static RNG_SEEDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static RNG_SAVED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+fn rng_ensure_seeded() {
+    if !RNG_SEEDED.swap(true, Ordering::SeqCst) {
+        let t = std::time::UNIX_EPOCH.elapsed()
+            .map(|d| d.as_nanos() as u64).unwrap_or(0x9E3779B97F4A7C15)
+            ^ ((std::process::id() as u64) << 32);
+        RNG_STATE.store(t | 1, Ordering::SeqCst);
+    }
+}
+
+/// # Safety: C ABI (generic fixed arity — no C varargs on stable Rust, pack v2 note).
+/// run-49: the PRNG test controls — SAVE(5)/RESTORE(6) copy the real generator state,
+/// PRNG_SEED(28)(seed, db) re-keys it; other verbs are unimplemented (rc 0 like C's
+/// unrecognized-op fallthrough is NOT assumed — unpinned verbs report 0 conservatively).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_test_control(op: c_int, a: i64, b: i64) -> c_int {
+    match op {
+        5 => { rng_ensure_seeded(); RNG_SAVED.store(RNG_STATE.load(Ordering::SeqCst), Ordering::SeqCst); 0 }
+        6 => { RNG_STATE.store(RNG_SAVED.load(Ordering::SeqCst), Ordering::SeqCst); RNG_SEEDED.store(true, Ordering::SeqCst); 0 }
+        28 => {
+            let seed = a as u64;
+            let _db = b;
+            let mixed = (seed ^ 0x9E3779B97F4A7C15).wrapping_mul(0xBF58476D1CE4E5B9) | 1;
+            RNG_STATE.store(mixed, Ordering::SeqCst);
+            RNG_SEEDED.store(true, Ordering::SeqCst);
+            0
+        }
+        _ => 0,
     }
 }
 
@@ -2529,7 +2607,9 @@ pub struct Sqlite3Blob {
     ci: usize,
     rowid: i64,
     readonly: bool,
-    marker: (i64, i64),
+    // run-49: PER-ROW expiry — the handle snapshots its cell; a write to a DIFFERENT
+    // row leaves it live, a write to its own row (or row deletion) expires it (C shape)
+    snap: Option<Vec<u8>>,
     expired: bool,
 }
 
@@ -2545,7 +2625,8 @@ unsafe fn blob_db_err(db: *mut Sqlite3, rc: c_int, msg: &str) -> c_int {
 /// live-handle check: any DML on the connection since open/reopen expires it
 unsafe fn blob_check_live(b: &mut Sqlite3Blob) -> bool {
     if b.expired { return false; }
-    if store::wal_marker(b.db as usize) != b.marker { b.expired = true; return false; }
+    let cur = store::blob_cell_snapshot(b.db as usize, &b.table, b.ci, b.rowid);
+    if cur.is_none() || cur != b.snap { b.expired = true; return false; }
     true
 }
 
@@ -2564,8 +2645,8 @@ pub unsafe extern "C" fn sqlite3_blob_open(
     match store::blob_target(db as usize, &zdb, &table, &col, i_row, flags != 0) {
         Ok((ci, key)) => {
             let b = Box::new(Sqlite3Blob {
-                db, table: key, ci, rowid: i_row, readonly: flags == 0,
-                marker: store::wal_marker(db as usize), expired: false,
+                db, table: key.clone(), ci, rowid: i_row, readonly: flags == 0,
+                snap: store::blob_cell_snapshot(db as usize, &key, ci, i_row), expired: false,
             });
             *pp_blob = Box::into_raw(b);
             BLOBS.with(|m| { *m.borrow_mut().entry(db as usize).or_default() += 1; }); // run-36
@@ -2598,7 +2679,7 @@ pub unsafe extern "C" fn sqlite3_blob_reopen(b: *mut Sqlite3Blob, i_row: i64) ->
         return blob_db_err(br.db, SQLITE_ERROR, &format!("no such rowid: {i_row}"));
     }
     br.rowid = i_row;
-    br.marker = store::wal_marker(br.db as usize);
+    br.snap = store::blob_cell_snapshot(br.db as usize, &br.table, br.ci, i_row);
     br.expired = false;
     db_ok(&mut *br.db);
     SQLITE_OK
@@ -2650,7 +2731,12 @@ pub unsafe extern "C" fn sqlite3_blob_write(b: *mut Sqlite3Blob, z: *const c_voi
     if n == 0 { db_ok(&mut *br.db); return SQLITE_OK; }
     let data = std::slice::from_raw_parts(z as *const u8, n as usize);
     match store::blob_write_bytes(br.db as usize, &br.table, br.ci, br.rowid, i_offset as usize, data) {
-        Ok(()) => { db_ok(&mut *br.db); SQLITE_OK }
+        Ok(()) => {
+            // the handle's own write must not self-expire: refresh the snapshot
+            br.snap = store::blob_cell_snapshot(br.db as usize, &br.table, br.ci, br.rowid);
+            db_ok(&mut *br.db);
+            SQLITE_OK
+        }
         Err(e) => blob_db_err(br.db, SQLITE_ERROR, &e),
     }
 }
@@ -3212,6 +3298,24 @@ pub fn vtab_set_hint(table: &str, colidx: usize, v: eval::V) {
 }
 pub fn vtab_clear_hint() { VTAB_HINT.with(|h| { *h.borrow_mut() = None; }); }
 
+thread_local! {
+    // run-49: pragma vtabs a connection has actually touched (C fills module_list lazily)
+    static PVTAB_USED: RefCell<std::collections::HashMap<usize, std::collections::BTreeSet<String>>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+/// record a pragma-vtab instantiation (mirrors C's lazy module registration)
+pub fn pvtab_touch(dbid: usize, name: &str) {
+    PVTAB_USED.with(|m| { m.borrow_mut().entry(dbid).or_default().insert(name.to_string()); });
+}
+/// pragma_module_list contents: user-registered modules + lazily-touched pragma vtabs
+pub fn module_list_names(dbid: usize) -> Vec<String> {
+    let mut out: std::collections::BTreeSet<String> =
+        PVTAB_USED.with(|m| m.borrow().get(&dbid).cloned().unwrap_or_default());
+    VTAB_MOD.with(|m| { if let Some(per) = m.borrow().get(&dbid) {
+        for n in per.keys() { out.insert(n.clone()); } } });
+    out.into_iter().collect()
+}
+
 /// is a module of this (lowercased) name registered on the connection?
 pub fn vtab_module_registered(dbid: usize, module: &str) -> bool {
     let key = module.to_ascii_lowercase();
@@ -3452,6 +3556,7 @@ fn vtab_close(dbid: usize) {
     }
     VTAB_DECLARE.with(|d| { d.borrow_mut().remove(&dbid); });
     VTAB_CONFIG.with(|c| { c.borrow_mut().remove(&dbid); });
+    PVTAB_USED.with(|m| { m.borrow_mut().remove(&dbid); });
 }
 
 // ---- sqlite3_value_* accessors ----
