@@ -1,0 +1,3 @@
+OBS engine-harvest37-001-C003 mode_memory_rc 0
+OBS engine-harvest37-001-C003 mem_count 1
+OBS engine-harvest37-001-C003 no_disk_file 1

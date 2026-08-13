@@ -1,0 +1,5 @@
+OBS engine-harvest37-006-C001 trigger_get_rc 0
+OBS engine-harvest37-006-C001 trigger_default 1
+OBS engine-harvest37-006-C001 trigger_after_off 0
+OBS engine-harvest37-006-C001 trig_off_log 0
+OBS engine-harvest37-006-C001 trig_on_log 1

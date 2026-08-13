@@ -1,0 +1,6 @@
+OBS engine-harvest37-002-C003 ins_ignored rc=0 err=-
+OBS engine-harvest37-002-C003 count_after_ins_ignore 2
+OBS engine-harvest37-002-C003 upd_ignored rc=0 err=-
+OBS engine-harvest37-002-C003 vals_after_upd_ignore 1|2
+OBS engine-harvest37-002-C003 del_ignored rc=0 err=-
+OBS engine-harvest37-002-C003 count_after_del_ignore 0

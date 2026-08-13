@@ -1,0 +1,7 @@
+OBS engine-harvest37-001-C005 db_filename /tmp/h37u.db
+OBS engine-harvest37-001-C005 uri_param_foo bar
+OBS engine-harvest37-001-C005 uri_param_missing (null)
+OBS engine-harvest37-001-C005 uri_int_baz 7
+OBS engine-harvest37-001-C005 uri_bool_foo 0
+OBS engine-harvest37-001-C005 uri_bool_missing_dflt 1
+OBS engine-harvest37-001-C005 memory_filename ''

@@ -1,0 +1,4 @@
+OBS engine-harvest37-006-C002 view_get_rc 0
+OBS engine-harvest37-006-C002 view_default 1
+OBS engine-harvest37-006-C002 view_off_select rc=1 err=access to view "vv" prohibited
+OBS engine-harvest37-006-C002 view_on_select 4

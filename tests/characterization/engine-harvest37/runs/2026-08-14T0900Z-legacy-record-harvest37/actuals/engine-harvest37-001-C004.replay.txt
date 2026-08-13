@@ -1,0 +1,7 @@
+OBS engine-harvest37-001-C004 ro_missing_rc 14
+OBS engine-harvest37-001-C004 ro_existing_open_rc 0
+OBS engine-harvest37-001-C004 ro_existing_write rc=8 err=attempt to write a readonly database
+OBS engine-harvest37-001-C004 rw_nocreate_missing_rc 14
+OBS engine-harvest37-001-C004 memory_flag_rc 0
+OBS engine-harvest37-001-C004 memflag_no_disk 1
+OBS engine-harvest37-001-C004 zero_flags_rc 21

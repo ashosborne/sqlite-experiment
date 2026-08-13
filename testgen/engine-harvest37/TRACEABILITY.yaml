@@ -1,0 +1,218 @@
+slice_id: engine-harvest37
+source_discovery: discovery/engine-harvest37/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-harvest37-001
+- engine-harvest37-002
+- engine-harvest37-003
+- engine-harvest37-004
+- engine-harvest37-005
+- engine-harvest37-006
+- engine-harvest37-007
+cases:
+- id: engine-harvest37-001-C001
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-001-C002
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-002.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-001-C003
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-003.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-001-C004
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-004.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C004.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-001-C005
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-005.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C005.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-001-C006
+  feature_id: engine-harvest37-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-001/CASE-006.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-001/C006.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-001.md
+- id: engine-harvest37-002-C001
+  feature_id: engine-harvest37-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-002/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-002.md
+- id: engine-harvest37-002-C002
+  feature_id: engine-harvest37-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-002/CASE-002.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-002/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-002.md
+- id: engine-harvest37-002-C003
+  feature_id: engine-harvest37-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-002/CASE-003.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-002/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-002.md
+- id: engine-harvest37-003-C001
+  feature_id: engine-harvest37-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-003/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-003/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-003.md
+- id: engine-harvest37-003-C002
+  feature_id: engine-harvest37-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-003/CASE-002.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-003/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-003.md
+- id: engine-harvest37-004-C001
+  feature_id: engine-harvest37-004
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-004/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-004/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-004.md
+- id: engine-harvest37-004-C002
+  feature_id: engine-harvest37-004
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-004/CASE-002.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-004/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-004.md
+- id: engine-harvest37-005-C001
+  feature_id: engine-harvest37-005
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-005/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-005/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-005.md
+- id: engine-harvest37-006-C001
+  feature_id: engine-harvest37-006
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-006/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-006/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-006.md
+- id: engine-harvest37-006-C002
+  feature_id: engine-harvest37-006
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-006/CASE-002.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-006/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-006.md
+- id: engine-harvest37-006-C003
+  feature_id: engine-harvest37-006
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-006/CASE-003.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-006/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-006.md
+- id: engine-harvest37-007-C001
+  feature_id: engine-harvest37-007
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-harvest37-007/CASE-001.md
+  golden: tests/characterization/engine-harvest37/cases/engine-harvest37-007/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-harvest37/features/engine-harvest37-007.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-47 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-harvest37-001-C001
+  - engine-harvest37-001-C002
+  - engine-harvest37-001-C003
+  - engine-harvest37-001-C004
+  - engine-harvest37-001-C005
+  - engine-harvest37-001-C006
+  - engine-harvest37-002-C001
+  - engine-harvest37-002-C002
+  - engine-harvest37-002-C003
+  - engine-harvest37-003-C001
+  - engine-harvest37-003-C002
+  - engine-harvest37-004-C001
+  - engine-harvest37-004-C002
+  - engine-harvest37-005-C001
+  - engine-harvest37-006-C001
+  - engine-harvest37-006-C002
+  - engine-harvest37-006-C003
+  - engine-harvest37-007-C001
+updated_at: '2026-08-13T07:23:20Z'

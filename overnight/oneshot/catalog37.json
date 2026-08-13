@@ -1,0 +1,128 @@
+[
+ {
+  "id": "engine-harvest37-001-C001",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "USE_URI off: plain open treats file: as a literal path (14); OPEN_URI parses and creates the real path"
+ },
+ {
+  "id": "engine-harvest37-001-C002",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "URI mode=ro forces readonly (write rc 8); unknown vfs param errors no such vfs"
+ },
+ {
+  "id": "engine-harvest37-001-C003",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "URI mode=memory: in-memory db, no disk file"
+ },
+ {
+  "id": "engine-harvest37-001-C004",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "open_v2 flag matrix: READONLY missing 14 / existing write 8; RW-without-CREATE 14; MEMORY flag; zero flags MISUSE"
+ },
+ {
+  "id": "engine-harvest37-001-C005",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "sqlite3_uri_parameter/int64/boolean over the opened URI; db_filename; :memory: filename empty string"
+ },
+ {
+  "id": "engine-harvest37-001-C006",
+  "feature": "engine-harvest37-001",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "urifuncs SQL surface ABSENT on the bare pin (no such function: uri_parameter)"
+ },
+ {
+  "id": "engine-harvest37-002-C001",
+  "feature": "engine-harvest37-002",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "authorizer argument strings for INSERT/UPDATE(per-column)/DELETE/SELECT+READ"
+ },
+ {
+  "id": "engine-harvest37-002-C002",
+  "feature": "engine-harvest37-002",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "authorizer args for PRAGMA get/set, TRANSACTION BEGIN/COMMIT, ATTACH, DETACH"
+ },
+ {
+  "id": "engine-harvest37-002-C003",
+  "feature": "engine-harvest37-002",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "SQLITE_IGNORE semantics: INSERT/UPDATE skipped, DELETE proceeds (truncate-opt only)"
+ },
+ {
+  "id": "engine-harvest37-003-C001",
+  "feature": "engine-harvest37-003",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "multi-page backup: pagecount>1, remaining tracks step quanta exactly, DONE at 0, dest content verified"
+ },
+ {
+  "id": "engine-harvest37-003-C002",
+  "feature": "engine-harvest37-003",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "source write between steps restarts the copy; dest sees the late write"
+ },
+ {
+  "id": "engine-harvest37-004-C001",
+  "feature": "engine-harvest37-004",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "ROWS frame EXCLUDE CURRENT ROW / NO OTHERS / GROUP / TIES change frame membership"
+ },
+ {
+  "id": "engine-harvest37-004-C002",
+  "feature": "engine-harvest37-004",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "offset RANGE frames (1P/1F, 2P/0F) group by peer values; RANGE + EXCLUDE GROUP composes"
+ },
+ {
+  "id": "engine-harvest37-005-C001",
+  "feature": "engine-harvest37-005",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "sqlite3_config after init: threading modes/MEMSTATUS/URI -> MISUSE; LOG + PCACHE_HDRSZ legal; bad op MISUSE"
+ },
+ {
+  "id": "engine-harvest37-006-C001",
+  "feature": "engine-harvest37-006",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "db_config ENABLE_TRIGGER: default 1, off suppresses firing, on restores"
+ },
+ {
+  "id": "engine-harvest37-006-C002",
+  "feature": "engine-harvest37-006",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "db_config ENABLE_VIEW: off -> access to view prohibited, on restores"
+ },
+ {
+  "id": "engine-harvest37-006-C003",
+  "feature": "engine-harvest37-006",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "db_config DQS_DML: default on accepts double-quoted strings, off errors with C hint; DEFENSIVE toggle rc; bad op"
+ },
+ {
+  "id": "engine-harvest37-007-C001",
+  "feature": "engine-harvest37-007",
+  "slice": "engine-harvest37",
+  "kind": "bespoke",
+  "note": "stmt_isexplain 0/2 round-trip via sqlite3_stmt_explain (rc 0, bad mode 1); prepared EQP reports 2; EQP column shape"
+ }
+]

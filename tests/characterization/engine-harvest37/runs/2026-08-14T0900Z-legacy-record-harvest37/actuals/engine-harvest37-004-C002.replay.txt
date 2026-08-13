@@ -1,0 +1,3 @@
+OBS engine-harvest37-004-C002 range_1_1 1,55|2,85|2,85|3,115|4,70
+OBS engine-harvest37-004-C002 range_2_0 1,10|2,55|2,55|3,85|4,115
+OBS engine-harvest37-004-C002 range_excl_group 1,45|2,40|2,40|3,85|4,30

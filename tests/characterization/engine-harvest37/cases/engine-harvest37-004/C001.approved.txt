@@ -1,0 +1,4 @@
+OBS engine-harvest37-004-C001 excl_current 1,20|2,35|2,50|3,65|4,30
+OBS engine-harvest37-004-C001 excl_none 1,30|2,55|2,75|3,95|4,70
+OBS engine-harvest37-004-C001 excl_group 1,20|2,10|2,30|3,65|4,30
+OBS engine-harvest37-004-C001 excl_ties 1,30|2,30|2,55|3,95|4,70

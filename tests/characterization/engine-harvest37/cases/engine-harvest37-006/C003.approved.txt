@@ -1,0 +1,6 @@
+OBS engine-harvest37-006-C003 dqs_dml_get_rc 0
+OBS engine-harvest37-006-C003 dqs_dml_default 1
+OBS engine-harvest37-006-C003 dqs_on_ins rc=0 err=-
+OBS engine-harvest37-006-C003 dqs_off_ins rc=1 err=no such column: "notacol" - should this be a string literal in single-quotes?
+OBS engine-harvest37-006-C003 defensive_rc 0
+OBS engine-harvest37-006-C003 badop_rc 1
