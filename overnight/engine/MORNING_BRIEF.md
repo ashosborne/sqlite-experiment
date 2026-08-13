@@ -1,77 +1,86 @@
-# MORNING BRIEF — engine v39: mixed one-hole wave (run 49, overnight)
+# MORNING BRIEF — engine v40: partial-to-full harvest (run 50, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–48 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v39-oneholes, FORBID_GREENWASH_FULL,
-NO_UNSEEDED_PRNG_GOLDEN, BLOB_EXPIRY_PER_ROW, STMT_PER_PREPARED, MODULE_LIST_LAZY.
-MAX_NEW_CASES 40 (used 10).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–49 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v40-partial-to-full, FORBID_GREENWASH_FULL,
+VTAB001_FAMILY_ALL_OR_NOTHING, PREPARE006_NO_VDBE, NO_FAKE_AUTH_MASTER,
+SERIES_OWN_RESIDUAL_ONLY. MAX_NEW_CASES 80 (used 23).
 
-## 1. Pack @39 BOUND — MIXED ONE-HOLE law
+## 1. Pack @40 BOUND — PARTIAL-TO-FULL HARVEST law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v38 → **v39**
-(versions/1–39 retained; ADR `0037-engine-v39-oneholes.md`; schema VALID; 45 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v39 → **v40**
+(versions/1–40 retained; ADR `0038-engine-v40-partial-to-full.md`; schema VALID; 46 laws).
 
-## 2. The four probes (all landed; C answered on every one)
+## 2. partial → full (5 estate + 8 composed)
 
-| Named one-hole | Probe answer on the pin | Outcome |
-| --- | --- | --- |
-| **STMT/PROFILE per statement** (connection-lifecycle-api-004) | `"SELECT 1; SELECT 2;"` via exec → **2 STMT + 2 PROFILE**, texts `SELECT 1;` / `SELECT 2;` (terminator kept); 3-statement script → 3+3; prepared stmt → 1+1 without terminator, PROFILE callback reads text via `sqlite3_sql` on the handle | CLEARED — card **stays partial** (WITHOUT ROWID / truncate fast-path unpinned; legacy `sqlite3_trace`/`sqlite3_profile` not implemented) |
-| **pragma_module_list** (pragma-surface-002) | LAZY, exactly as ADR 0032 warned: fresh connection lists only `pragma_module_list` itself; `create_module("mymod")` joins immediately; `pragma_collation_list` joins after first use. Pinned the contract, not a census | CLEARED — card **stays partial** (`index_xinfo` TVF form; remaining result pragmas) |
-| **per-row blob expiry + TEXT writes** (blob-io-api-002) | handle on row 1 survives UPDATE/DELETE of row 2 (reads AND writes, rc 0); own-row write/delete expires (rc 4, bytes 0); TEXT cell opens (11 bytes), takes a 5-byte patch, stays `text` | CLEARED — **partial → FULL** (residual list empty) |
-| **sqlite3_randomness** (util-primitives-001) | fills exactly N (tail untouched), draws differ, N=0 writes nothing; testctrl PRNG SAVE/RESTORE replays the stream, same-seed PRNG_SEED replays — all predicates, **zero unseeded bytes frozen** | CLEARED — card **stays partial** (string hash tables / internal hash primitives; C ChaCha20 byte parity deliberately unclaimed) |
+| Card | What cleared |
+| --- | --- |
+| **vtab-core-001** | xRename (ALTER RENAME rewrites the quoted schema sql; renames even without an xRename method) + the savepoint family: xBegin at first write, xSync/xCommit at COMMIT/statement end, xRollback, and xSavepoint/xRelease/xRollbackTo with **C's txn-savepoint-excluded numbering** (-1 below the join, RELEASE of the txn savepoint commits). ROLLBACK TO now changes vtab DML visibility. Residual empty. |
+| **connection-lifecycle-api-004** | WITHOUT ROWID update_hook suppression + DELETE truncate fast-path (0 events, changes() counts); legacy `sqlite3_trace`/`sqlite3_profile` (shared slot, mutual displacement, param-expanded text, trace_v2 replaces both). Residual empty. |
+| **json-funcs-004** | json_tree + full vtab columns (key/value/type/atom/id/parent/fullkey/path) with **JSONB-byte-offset ids**, parent-row chains, minified containers, second path arg. Residual empty. |
+| **global-init-config-003** | the whole toggle family with REAL effects: DQS_DDL, WRITABLE_SCHEMA, **DEFENSIVE now enforced**, LEGACY_ALTER, RESET_DATABASE, TRUSTED_SCHEMA (INNOCUOUS-aware), load-ext C-API/SQL split. Residual empty. |
+| **misc-completion-001** | mirrors live C's phase contract (147-keyword census, databases, tables+views, columns; hidden phase column). Dead phases (pragmas/functions/collations) + ranking are **pin-absent** in live C. Residual empty. |
+| engine-harvest40-001..008 | composed full for the frozen batches |
 
-## 3. Modern changes
+## 3. Still partial (named residuals, honest)
 
-Per-statement trace: `execute_script` fires STMT/PROFILE per split statement with
-C's terminator text; prepared statements fire from `sqlite3_step` with the real
-handle (suppression guard stops double-firing); `sqlite3_sql` export added.
-`pragma_module_list` TVF = live create_module registry + lazily-touched pragma
-vtabs. Blob handles snapshot their cell (per-row expiry by construction; own
-write refreshes; reopen re-snapshots); TEXT cells accept in-place patches and
-stay TEXT. `sqlite3_randomness` is a real seeded xorshift stream;
-`sqlite3_test_control` PRNG SAVE(5)/RESTORE(6)/SEED(28) landed.
+- **pragma-surface-002** — index_xinfo TVF landed (40-008); RESIDUAL: remaining result pragmas (index_list/foreign_key_list projections stay count-only).
+- **error-status-api-003** — CACHE_SPILL under real spill, scanstatus, VM_STEP magnitudes (no VDBE).
+- **malloc-subsystem-002** — two-size mini-slots, pBuf, CONFIG_LOOKASIDE.
+- **auth-callback-api-001** — ~22 action codes (no faked sqlite_master sequences).
+- **wal-001/002** — multi-connection mxFrame / blocking checkpoint.
+- **json-funcs-001/002** — wildcards/#, JSONB, JSON5, array-path mutation.
+- **util-primitives-001** — string hash tables; ChaCha20 byte parity unclaimed.
+- **misc-compress-001** (zlib), **printf-format-002/003** (va_list), **loadext-api-001** (dlopen),
+  **prepare-statement-api-006** (EXPLAIN bytecode, no VDBE), planner/optimizer/codegen family,
+  **serialize-memdb-api-002** (USE_URI off), **series/prefixes/wholenumber** (ADR 0034 no re-home),
+  attach mazes, global-init-002 before-init ops, pager/btree/vfs/fts/session/expert. All structural.
 
-**Engine bug the blob probe flushed out:** kitchen UPDATE/DELETE silently dropped
-`WHERE rowid = N` and hit every row. Fixed (rowid/_rowid_/oid aliases, IPK-aware).
+## 4. Probes
 
-## 4. Anti-cheat
+legacy trace/profile **exported** on the pin → implemented; completion phases 2–6 + ranking
+**pin-absent** in live C → residual deletable; JSONB ids computed from C's encoding; DEFENSIVE
+verified to gate schema writes and no-op PRAGMA writable_schema; index_xinfo tail row cid -1/key 0.
 
-Runtime OTHER-row id that must NOT expire the handle (and own-row that must);
-runtime-length script whose STMT count must match; runtime-named module that must
-appear in pragma_module_list. All in `modern/tests/engine_harvest39.rs`.
+## 5. Anti-cheat
 
-## 5. Freezes
+Runtime rename target must reach xRename + the schema; a runtime-length batch after a savepoint
+must vanish on ROLLBACK TO; a runtime document's json_each ids must track JSONB offsets; a
+runtime-named table completes under phase 8. All in the engine_harvest40* test binaries.
 
-10 new cases under `tests/characterization/engine-harvest39/` (001 trace ×3,
-002 module_list ×2, 003 blob ×3, 004 PRNG ×2), two-run deterministic, delegated
-HUMAN_ACCEPTED. legacy_green 226. Prior golden md5s untouched.
+## 6. Freezes
 
-## 6. Cargo
+23 new cases under `tests/characterization/engine-harvest40/` (001 rename ×2, 002 savepoint ×3,
+003 legacy trace ×2, 004 WR/truncate ×2, 005 json ×3, 006 db_config ×6, 007 completion ×2,
+008 index_xinfo ×2), two-run deterministic, delegated HUMAN_ACCEPTED. legacy_green 230.
+Prior golden md5s untouched.
 
-`cargo test` (workspace, 47 binaries): **all green**, including harvest36/37,
-vtab38, lookaside35, status34/pragma34 suites. `SCRIPT_TABLE.len()==0` enforced.
+## 7. Cargo
 
-## 7. Scoreboard
+`cargo test` (workspace, 50 binaries): **all green**, including harvest36/37/39, vtab38,
+lookaside35, status34/pragma34, utf16 suites. `SCRIPT_TABLE.len()==0` enforced.
+
+## 8. Scoreboard
 
 | | before | after |
 | --- | --- | --- |
-| full | 190 | **195** |
-| partial | 48 | 47 |
+| full | 195 | **208** |
+| partial | 47 | 42 |
 | none | 78 | 78 |
-| behaviours | 316 | 320 (+4 composed) |
+| behaviours | 320 | 328 (+8 composed) |
 
-Partial→full: **blob-io-api-002** (estate), engine-harvest39-001..004 (composed).
-Deepen-still-partial: connection-lifecycle-api-004, pragma-surface-002,
-util-primitives-001 (residuals rewritten precisely).
+partial→full: vtab-core-001, connection-lifecycle-api-004, json-funcs-004,
+global-init-config-003, misc-completion-001 (estate) + engine-harvest40-001..008 (composed).
+deepen-still-partial: pragma-surface-002 (index_xinfo added, residual shrunk).
 
-## 8. Not migrated
+## 9. Not migrated
 
-SQLite is **not migrated**. WAL concurrency, planner/VDBE bytecode, pager/btree
-internals, FTS, sessions, most pragmas and the wider C API remain unimplemented
-or partial. This run closed four named one-holes; nothing more is claimed.
+SQLite is **not migrated**. WAL concurrency, planner/VDBE bytecode, pager/btree internals,
+FTS, sessions, most of the pragma census and wider C API remain partial or absent. This run
+closed two Tier-A one-family leftovers and three probe-then-maybe cards; nothing more is claimed.
 
-## 9. Next call
+## 10. Next call
 
-Options, in rough value order: (a) connection-lifecycle-api-004's remaining
-families (legacy sqlite3_trace/profile shims + WITHOUT ROWID/truncate pins) —
-would flip the card; (b) pragma-surface-002 `index_xinfo` TVF; (c) auth-callback
-remaining action codes; (d) error-status-api-003 CACHE_SPILL/scanstatus.
+(a) auth-callback-api-001 remaining action codes that DON'T need sqlite_master bookkeeping;
+(b) json-funcs-002 array-path mutation (JSONB stays named); (c) pragma-surface-002 result-pragma
+projections; (d) attach-detach-003 TEMP-trigger fire matrix. No planner/WAL/VDBE full without
+the underlying engine.

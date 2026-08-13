@@ -2959,9 +2959,12 @@ behaviours:
     rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. run-49: STMT/PROFILE now fire PER
     PREPARED STATEMENT - a multi-statement exec emits one STMT + one PROFILE per statement with the SQL C reports (terminator
     kept on exec-path text), prepared statements fire from step with the real handle (sqlite3_sql on the PROFILE arg), pinned
-    engine-harvest39-001 + runtime-length script anti-cheat. RESIDUAL: WITHOUT ROWID suppression and truncate fast-path behaviour
-    unpinned; legacy sqlite3_trace/sqlite3_profile not implemented.'
-  impl_in_modern: partial
+    engine-harvest39-001 + runtime-length script anti-cheat. run-50: FULL - both remaining leftover families cleared: the
+    update_hook is fully SUPPRESSED on WITHOUT ROWID tables and DELETE-without-WHERE takes the truncate fast-path (zero per-row
+    hook events, changes() still counts), and the legacy sqlite3_trace/sqlite3_profile hooks are implemented - they share the
+    single trace slot (installing one displaces the other and trace_v2 replaces both), fire per statement, and sqlite3_trace
+    reports parameter-EXPANDED text like C. Pinned engine-harvest40-003/004. Residual list empty.'
+  impl_in_modern: full
 - behaviour_id: date-time-funcs-001
   surface_id: sur-datefunc-datetimefunc
   name: Core date/time conversion functions
@@ -3392,10 +3395,15 @@ behaviours:
     scoreboard) — gaps: pinned db_config ops real; most per-connection options absent run-47: toggle batch landed with REAL
     effects - ENABLE_TRIGGER suppresses trigger firing, ENABLE_VIEW prohibits view access with C''s message, DQS_DML switches
     double-quoted-string DML between acceptance and C''s "should this be a string literal" error; DEFENSIVE round-trips; unknown
-    verbs error; lookaside knobs since v35. STAYS PARTIAL: DQS_DDL, WRITABLE_SCHEMA, RESET_DATABASE, LEGACY_ALTER, TRUSTED_SCHEMA,
-    load-extension gates; DEFENSIVE effect not enforced.'
+    verbs error; lookaside knobs since v35. run-50: FULL - the whole leftover toggle family landed with REAL effects: DQS_DDL
+    gates double-quoted strings in DDL (CHECK) with C''s should-this-be-a-string-literal error; WRITABLE_SCHEMA opens the
+    sqlite_master UPDATE gate (shared with PRAGMA writable_schema); DEFENSIVE now ENFORCES - it no-ops PRAGMA writable_schema
+    and keeps the schema-write gate closed; LEGACY_ALTER skips the default ALTER-RENAME view-SQL rewrite; RESET_DATABASE turns
+    the next VACUUM into a schema wipe; TRUSTED_SCHEMA off refuses non-innocuous app functions inside views (INNOCUOUS-flagged
+    functions and direct calls stay allowed); the load-extension C-API/SQL gates split like C. All query/set/round-trip pinned
+    (engine-harvest40-006). Residual list empty.'
   traceability: tests/characterization/global-init-config/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
 - behaviour_id: icu-001
   surface_id: sur-sqlite3icuinit
   name: ICU function and collation pack
@@ -3527,9 +3535,13 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Eponymous vtabs enumerate elements/paths; hidden columns key/value/type/path. | legacy
     RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard)
-    — gaps: json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent'
+    — gaps: json_each over arrays/objects real as a FROM source. run-50: FULL - json_tree lands (recursive preorder walk)
+    and both TVFs now expose the full vtab column set (key/value/type/atom/id/parent/fullkey/path) with C''s JSONB-byte-offset
+    ids and parent-row chains, minified container values, and the optional second path argument that roots the walk. Pinned
+    engine-harvest40-005 + a runtime-document id-offset anti-cheat. Residual list empty (JSONB storage form is not a json_each
+    surface, ADR 0038).'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
 - behaviour_id: loadext-api-001
   surface_id: sur-sqlite3-load-extension
   name: Load extension with enable gate
@@ -3676,11 +3688,14 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell |
     legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard):
-    deferred (pack v8): completion vtab not implemented in modern run-38: PARTIAL — completion(prefix) yields keyword + schema-name
-    candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations, wildcard ranking) not
-    claimed.'
+    deferred (pack v8): completion vtab not implemented in modern run-38: completion(prefix) yields keyword + schema-name
+    candidates for the prefix. run-50: FULL - completion now mirrors LIVE C''s phase contract exactly: candidate + a HIDDEN
+    phase column, with the 147-keyword census (phase 1), databases (7 = main), tables+views (8) and table columns (9). The
+    named residual (functions/pragmas/collations phases, wildcard ranking) is PIN-ABSENT: live C''s completionNext jumps
+    KEYWORDS->DATABASES and never enters the pragma/function/collation/index/trigger phases, and it performs no ranking (ADR
+    0038). Pinned engine-harvest40-007 + a runtime-named-table phase-8 anti-cheat. Residual list empty for the pinned bare build.'
   traceability: tests/characterization/misc-completion/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
 - behaviour_id: misc-compress-001
   surface_id: sur-sqlite3-compress-init
   name: compress()/uncompress() zlib functions
@@ -4308,7 +4323,9 @@ behaviours:
     pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with
     C''s LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
     names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name
-    anti-cheat; no ext/misc force-link, no census of untouched TVFs. RESIDUAL: index_xinfo TVF form; remaining result pragmas.'
+    anti-cheat; no ext/misc force-link, no census of untouched TVFs. run-50: pragma_index_xinfo TVF added (desc/coll/key
+    columns + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). RESIDUAL: remaining
+    result pragmas (index_list / foreign_key_list projections stay count-only).'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-001
@@ -4971,9 +4988,13 @@ behaviours:
     errors exactly), sqlite3_drop_modules matches C''s keep-list contract (live instances still scan; module-less DROP TABLE
     refuses), the _v2 destructor DEFERS while instances hold the module (refcounted registrations, pinned 0/1/2), xUpdate
     makes vtabs writable (C argv shapes, module-assigned rowids, last_insert_rowid, constraint rc 19), and eponymous-only
-    modules (xCreate NULL) connect on bare-name SELECT while refusing CREATE. RESIDUAL: the xRename / xSavepoint / xRelease
-    / xRollbackTo family is not dispatched (vtab DML under savepoints and ALTER-RENAME of vtabs unpinned).'
-  impl_in_modern: partial
+    modules (xCreate NULL) connect on bare-name SELECT while refusing CREATE. run-50: FULL - the last residual (xRename /
+    xSavepoint / xRelease / xRollbackTo family) cleared: ALTER RENAME fires xRename with the new name and rewrites the quoted
+    schema sql (renames even when the module has no xRename); vtab DML joins the write txn (xBegin at first write, xSync+xCommit
+    at COMMIT/statement end, xRollback), and SAVEPOINT/RELEASE/ROLLBACK TO drive xSavepoint/xRelease/xRollbackTo with C''s
+    txn-savepoint-excluded numbering (-1 below the join, RELEASE of the txn savepoint commits) so ROLLBACK TO changes vtab DML
+    visibility. Pinned engine-harvest40-001/002 + runtime rename-name and savepoint-rollback anti-cheats. Residual list empty.'
+  impl_in_modern: full
 - behaviour_id: vtab-core-002
   surface_id: sur-sqlite3-declare-vtab
   name: declare_vtab and vtab_config negotiation
@@ -7058,6 +7079,118 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
+- behaviour_id: engine-harvest40-001
+  surface_id: sur-engine-harvest40
+  name: vtab ALTER RENAME (xRename)
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-002
+  surface_id: sur-engine-harvest40
+  name: vtab savepoint family
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-003
+  surface_id: sur-engine-harvest40
+  name: legacy sqlite3_trace / sqlite3_profile
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-004
+  surface_id: sur-engine-harvest40
+  name: WITHOUT ROWID hook suppression + truncate fast-path
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-004.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-005
+  surface_id: sur-engine-harvest40
+  name: json_each / json_tree full vtab columns
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-005.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-006
+  surface_id: sur-engine-harvest40
+  name: db_config leftover toggles
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-006.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-007
+  surface_id: sur-engine-harvest40
+  name: live completion phases
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-007.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
+- behaviour_id: engine-harvest40-008
+  surface_id: sur-engine-harvest40
+  name: pragma_index_xinfo TVF
+  status: converted
+  slice_id: engine-harvest40
+  discovery_card: discovery/engine-harvest40/features/engine-harvest40-008.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 40
+  traceability: tests/characterization/engine-harvest40/TRACEABILITY.yaml
+  notes: run-50 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-50 delegated stamp)
 - behaviour_id: engine-harvest39-002
   surface_id: sur-engine-harvest39
   name: pragma_module_list lazy population
@@ -7110,10 +7243,10 @@ counts:
   surfaces_by_status:
     candidate: 185
     accepted: 59
-  behaviours_known: 320
+  behaviours_known: 328
   behaviours_by_status:
-    documented: 142
-    converted: 178
+    documented: 137
+    converted: 191
   unscanned_hints: 3
   legacy_green: 230
   parity_green: 0

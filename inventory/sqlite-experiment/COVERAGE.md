@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T10:10:06Z
+- Generated: 2026-08-13T11:51:00Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T09:51:01Z by `sqlite-engine-v1-kitchen`
+- Manifest last_updated: 2026-08-13T11:46:12Z by `sqlite-engine-v1-kitchen`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
 | none | 78 | Not started in modern |
-| partial | 47 | Some modern execution; gaps in notes |
-| full (converted) | 195 | Behaviour done in modern; parity may still be UNVERIFIED |
+| partial | 42 | Some modern execution; gaps in notes |
+| full (converted) | 208 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -30,6 +30,7 @@
 - `compile-options-omit-enable-001` — Compile-option diagnostics API (C + SQL)
 - `connection-lifecycle-api-001` — Open database (sqlite3_open family + URI parsing)
 - `connection-lifecycle-api-002` — Close database (deferred close semantics)
+- `connection-lifecycle-api-004` — Connection hooks and tracing
 - `date-time-funcs-001` — Core date/time conversion functions
 - `date-time-funcs-002` — strftime formatting
 - `date-time-funcs-003` — Modifier grammar (localtime, +N units, weekday, start of ...)
@@ -45,10 +46,13 @@
 - `foreign-keys-001` — Immediate vs deferred FK checking
 - `foreign-keys-002` — Cascading referential actions
 - `foreign-keys-003` — FK bookkeeping on DROP TABLE
+- `global-init-config-003` — Per-connection configuration (db_config)
 - `json-funcs-003` — JSON validation and typing
+- `json-funcs-004` — json_each / json_tree table-valued functions
 - `loadext-api-002` — Auto-extension registry
 - `malloc-subsystem-001` — Public malloc API and memory accounting
 - `misc-basexx-001` — base64 + base85 + combined basexx encoders (one optional pack)
+- `misc-completion-001` — completion vtab (shell tab-completion)
 - `misc-ieee754-001` — IEEE754 float decomposition functions
 - `misc-nextchar-001` — next_char() incremental completion function
 - `misc-rot13-001` — rot13() function + collation
@@ -77,6 +81,7 @@
 - `upsert-002` — DO UPDATE / DO NOTHING execution
 - `vacuum-001` — VACUUM full rebuild
 - `vacuum-002` — VACUUM INTO target file
+- `vtab-core-001` — Module registration and vtab lifecycle
 - `vtab-core-002` — declare_vtab and vtab_config negotiation
 - `window-functions-001` — Built-in window function family
 - `window-functions-002` — Frame specification execution (ROWS/RANGE/GROUPS + EXCLUDE)
@@ -212,6 +217,14 @@
 - `engine-vtab38-004` — xUpdate writable vtabs
 - `engine-vtab38-005` — eponymous-only modules
 - `engine-harvest39-001` — per-statement STMT/PROFILE trace events
+- `engine-harvest40-001` — vtab ALTER RENAME (xRename)
+- `engine-harvest40-002` — vtab savepoint family
+- `engine-harvest40-003` — legacy sqlite3_trace / sqlite3_profile
+- `engine-harvest40-004` — WITHOUT ROWID hook suppression + truncate fast-path
+- `engine-harvest40-005` — json_each / json_tree full vtab columns
+- `engine-harvest40-006` — db_config leftover toggles
+- `engine-harvest40-007` — live completion phases
+- `engine-harvest40-008` — pragma_index_xinfo TVF
 - `engine-harvest39-002` — pragma_module_list lazy population
 - `engine-harvest39-003` — per-row blob expiry + TEXT-cell writes
 - `engine-harvest39-004` — sqlite3_randomness + test_control PRNG
@@ -228,7 +241,6 @@
 - `compile-options-omit-enable-002` — confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as default-present.; file-only evidence run-42: PARTIAL - pinned OMIT census via the diagnostics oracle: every probed OMIT_* gate (LOAD_EXTENSION, WAL, VIRTUALTABLE, TRIGGER, ATTACH, SUBQUERY, VIEW, AUTORESET, COMPILEOPTION_DIAGS) reports 0 and the full enumeration contains zero OMIT_-prefixed entries, matching the pin build. RESIDUAL: the 77-guard per-feature census (what each OMIT would remove) is NOT claimed; no OMIT build variants are modelled.
 - `compile-options-omit-enable-003` — confidence=observed-in-code; 51 SQLITE_ENABLE_* guard references add surfaces (STAT4, DESERIALIZE, DBSTAT_VTAB, LOCKING_STYLE, ...). run-42: PARTIAL - pinned ENABLE census via the diagnostics oracle: every probed ENABLE_* gate (FTS5, FTS3, RTREE, GEOPOLY, STAT4, API_ARMOR, UNLOCK_NOTIFY, SESSION) reports 0 and the full enumeration contains zero ENABLE_-prefixed entries, matching the pin build (API_ARMOR/AUTORESET agree with the charter PIN line). RESIDUAL: the 51-guard per-feature census is NOT claimed; no ENABLE build variants are modelled.
 - `connection-lifecycle-api-003` — confidence=observed-in-code; Per-connection lock-contention callback; busy_timeout installs default sleeping handler. run-36: PARTIAL - busy_handler/busy_timeout registration, replacement and clearing real; handler retry counts and rc 5 "database is locked" pinned against a REAL in-process file write lock (BEGIN IMMEDIATE holds; COMMIT releases; commit-time flush + sibling reload). RESIDUAL: the lock model is single-process - C cross-process file locking, shared cache and unlock-notify are NOT implemented.
-- `connection-lifecycle-api-004` — confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36: PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. run-49: STMT/PROFILE now fire PER PREPARED STATEMENT - a multi-statement exec emits one STMT + one PROFILE per statement with the SQL C reports (terminator kept on exec-path text), prepared statements fire from step with the real handle (sqlite3_sql on the PROFILE arg), pinned engine-harvest39-001 + runtime-length script anti-cheat. RESIDUAL: WITHOUT ROWID suppression and truncate fast-path behaviour unpinned; legacy sqlite3_trace/sqlite3_profile not implemented.
 - `dml-codegen-001` — INSERT/UPDATE/DELETE real on store + durable files; WHERE expressiveness limited vs full DML codegen
 - `error-status-api-003` — confidence=observed-in-code; status64/db_status expose current/highwater counters with optional reset. run-38: PARTIAL — sqlite3_status64(MEMORY_USED, bad-op MISUSE) and sqlite3_db_status(LOOKASIDE/SCHEMA_USED, bad-op ERROR) real; SCHEMA_USED grows with objects. RESIDUAL: the rest of the status/db_status op matrix returns honest zero, not tracked. run-44: op-matrix residual SHRUNK - global status64 answers the full valid op range (0..9; out-of-range MISUSE): MEMORY_USED + MALLOC_SIZE/MALLOC_COUNT (real allocator count/largest-alloc), PAGECACHE_OVERFLOW/PAGECACHE_SIZE (real page-image bytes held/flushed), NOT-USED ops (SCRATCH_*, PARSER_STACK, PAGECACHE_USED) exact zeros, resetFlag re-arms highwater, sqlite3_status 32-bit twin. db_status answers 0..12 (bad op ERROR): CACHE_USED(_SHARED)/SCHEMA_USED/STMT_USED real byte footprints with highwater 0 like C, CACHE_HIT/MISS/WRITE wired to real I/O events (magnitudes not claimed - pinned predicates are the contract, ADR 0032), DEFERRED_FKS on-demand violation scan (exact 0/1 pinned). RESIDUAL (named): lookaside positives (no lookaside allocator in modern; LOOKASIDE_USED/HIT keep run-38 vacuous predicates, MISS_SIZE/FULL pinned zeros), CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched. run-45: LOOKASIDE residual CLEARED - LOOKASIDE_USED/HIT/MISS_SIZE/MISS_FULL now answer from the real run-45 pool (run-38 vacuous predicates and run-44 honest zeros superseded under the same honesty line). STAYS PARTIAL for the remaining named leftovers: CACHE_SPILL under real spill pressure, stmt_status/scanstatus untouched. run-46: stmt_status residual SHRUNK - sqlite3_stmt_status landed: FULLSCAN_STEP counts the really-visited rows minus one per unindexed single-table scan (exact values + accumulation pinned; runtime row-count anti-cheat), RUN counts execution cycles, MEMUSED reports the real statement footprint, VM_STEP counts step events (predicate-pinned only - no VDBE, magnitudes not claimed, ADR 0034). STAYS PARTIAL: CACHE_SPILL under real spill pressure, VM_STEP magnitudes, scanstatus.
 - `expr-codegen-001` — arithmetic/concat/CAST real in a typed evaluator; full affinity matrix and collation resolution absent
@@ -236,13 +248,10 @@
 - `expr-codegen-003` — IN/IS [NOT] semantics real for pinned shapes; expression-equivalence machinery absent
 - `global-init-config-001` — initialize/shutdown state machine real; OS/VFS init side effects absent
 - `global-init-config-002` — pinned sqlite3_config ops real; most of the config op matrix absent run-47: after-init matrix grown - threading modes/MEMSTATUS/URI answer MISUSE after init, LOG stays legal, PCACHE_HDRSZ reports modern's real page-image accounting record size (ADR 0035), bad ops MISUSE; generic fixed-arity export (no C varargs on stable Rust, pack v2 note). STAYS PARTIAL: before-init behaviour of the remaining ~20 ops (heap/pcache/mmap configuration) unpinned.
-- `global-init-config-003` — pinned db_config ops real; most per-connection options absent run-47: toggle batch landed with REAL effects - ENABLE_TRIGGER suppresses trigger firing, ENABLE_VIEW prohibits view access with C's message, DQS_DML switches double-quoted-string DML between acceptance and C's "should this be a string literal" error; DEFENSIVE round-trips; unknown verbs error; lookaside knobs since v35. STAYS PARTIAL: DQS_DDL, WRITABLE_SCHEMA, RESET_DATABASE, LEGACY_ALTER, TRUSTED_SCHEMA, load-extension gates; DEFENSIVE effect not enforced.
 - `json-funcs-001` — real JSON parser + json_extract/->/->>; path grammar subset (no wildcards/#), JSONB and JSON5 absent
 - `json-funcs-002` — json_set/insert/replace/patch/remove real on parsed trees; array-path mutation and JSONB absent
-- `json-funcs-004` — json_each over arrays/objects real as a FROM source; json_tree and full vtab columns absent
 - `loadext-api-001` — shared-library dlopen sqlite3_load_extension NOT implemented; in-process sqlite3_create_function[_v2] is a DIFFERENT surface and IS done (engine-udf/engine-value)
 - `malloc-subsystem-002` — confidence=observed-in-code; Two-size lookaside slots; db_config knobs; OOM fallback to general allocator. run-39: not honestly modellable — the real per-connection slab counters (e.g. 48 slots / 116 hits) and the variadic sqlite3_db_config(LOOKASIDE) control cannot be mirrored without a real lookaside allocator. Left none rather than fake counters. run-45: NONE -> PARTIAL with a REAL pool - per-connection slab acquired through the counting allocator, carved into 8-rounded slots (default 1200x40 at open); modern routes prepared-statement objects through it (placement-alloc on hit, heap fallback on size/full miss, free returns the slot); sqlite3_db_config(LOOKASIDE) follows C (BUSY 5 while allocations outstanding, OK after finalize, negative/huge args normalize rc 0, (0,0) disables, counters survive reconfig); LOOKASIDE_USED/HIT/MISS_SIZE/MISS_FULL move because of that pool with C's current-always-0 shape and resetFlag semantics. RESIDUAL: C's two-size mini-slot carving (modern pool is one-size; pinned predicates hold either way), pBuf-supplied external buffers (modern always self-allocates), lookaside for parse-tree/value allocations beyond statement objects, SQLITE_CONFIG_LOOKASIDE process-wide default knob.
-- `misc-completion-001` — confidence=observed-in-code; Suggests keywords/schema names for interactive completion; embedded by the shell | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): completion vtab not implemented in modern run-38: PARTIAL — completion(prefix) yields keyword + schema-name candidates for the prefix. RESIDUAL: full shell completion phases (functions/pragmas/collations, wildcard ranking) not claimed.
 - `misc-compress-001` — confidence=observed-in-code; Deflate-based blob compression with size-prefixed format | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-12 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): zlib byte-compat not implemented in modern run-38: PARTIAL — compress/uncompress round-trip for real (reversible size-prefixed RLE; repetitive data shrinks; blobs/empty handled). RESIDUAL: not zlib byte-format, so a C-written compressed blob is not cross-decodable — round-trips only.
 - `misc-decimal-001` — add/sub/cmp/mul/decimal(X)/pow2/exp/collation real (exact scaled i128); true arbitrary precision absent
 - `misc-func-packs-001` — decimal_mul + REGEXP of the pack execute for real (v8 defer reclaimed); remaining ~16 pack functions absent
@@ -253,7 +262,7 @@
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded). run-44: breadth bump ~27 -> ~40 of ~70 - data_version (own writes do not bump, sibling commits do), freelist_count, collation_list (live registry, newest-first), table_xinfo/index_info/index_xinfo row shapes, query_only ENFORCED ("attempt to write a readonly database" rc 8), ignore_check_constraints ENFORCED, quick_check now REALLY validates CHECK constraints ("CHECK constraint failed in T"), unknown pragma names silently ignored (get+set, the classic trap). RESIDUAL: remaining ~30 pragmas (journal-size/wal tuning, mmap, cache_spill, locking edges), typed/pk metadata in xinfo rows (pinned tables are typeless), integrity_check corruption taxonomy beyond CHECK validation.
-- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms). run-44: registry TVF residual SHRUNK - pragma_collation_list (live registry: runtime-registered collation appears at seq 0), pragma_table_xinfo (real shape incl. vtab HIDDEN), pragma_index_info, pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with C's LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name anti-cheat; no ext/misc force-link, no census of untouched TVFs. RESIDUAL: index_xinfo TVF form; remaining result pragmas.
+- `pragma-surface-002` — table_info/foreign_key_list/index_list/database_list projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list / pragma_pragma_list TVFs added (bare + parenthesized forms). run-44: registry TVF residual SHRUNK - pragma_collation_list (live registry: runtime-registered collation appears at seq 0), pragma_table_xinfo (real shape incl. vtab HIDDEN), pragma_index_info, pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with C's LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name anti-cheat; no ext/misc force-link, no census of untouched TVFs. run-50: pragma_index_xinfo TVF added (desc/coll/key columns + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). RESIDUAL: remaining result pragmas (index_list / foreign_key_list projections stay count-only).
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE) run-47: introspection APIs completed - sqlite3_stmt_isexplain (0/1/2) and sqlite3_stmt_explain mode switching (rc 0, EQP column shape follows, bad mode errors, prepared-EQP reports 2) pinned real. STAYS PARTIAL: EXPLAIN bytecode ROW CONTENTS - there is no VDBE and nested-loop EQP is not bytecode (v37 law).
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.
 - `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).
@@ -262,7 +271,6 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. run-49: public sqlite3_randomness real - stateful PRNG stream fills exactly N bytes, N=0 writes nothing, and sqlite3_test_control PRNG SAVE/RESTORE/SEED replay the stream (within-run predicates, engine-harvest39-004; unseeded bytes never goldens). STILL PARTIAL: string hash tables and internal hash primitives not implemented; modern's generator is not C's ChaCha20 (byte streams intentionally unpinned) — do not flip to full. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-- `vtab-core-001` — confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect. run-41: PARTIAL - real per-connection module registry: sqlite3_create_module/_v2 (C-ABI sqlite3_module table; redefine replaces and runs the _v2 destructor, close runs remaining destructors); CREATE VIRTUAL TABLE invokes xCreate with the C argv convention (module/db/table/raw args); unknown module -> "no such module: X" exact; xCreate failure surfaces the constructor error and leaves no schema entry; DROP TABLE -> xDestroy; sqlite_master carries rootpage 0 + CREATE VIRTUAL TABLE sql; fresh connections must re-register (pinned). run-48: lifecycle deepened — xConnect on file schema reload is REAL (durable rootpage-0 schema rows in real file images; pending entries reconnect on first use; unregistered reopen errors exactly), sqlite3_drop_modules matches C's keep-list contract (live instances still scan; module-less DROP TABLE refuses), the _v2 destructor DEFERS while instances hold the module (refcounted registrations, pinned 0/1/2), xUpdate makes vtabs writable (C argv shapes, module-assigned rowids, last_insert_rowid, constraint rc 19), and eponymous-only modules (xCreate NULL) connect on bare-name SELECT while refusing CREATE. RESIDUAL: the xRename / xSavepoint / xRelease / xRollbackTo family is not dispatched (vtab DML under savepoints and ALTER-RENAME of vtabs unpinned).
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 
@@ -352,10 +360,10 @@
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 244 |
-| Behaviours known | 320 |
+| Behaviours known | 328 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 230 |
+| legacy_green flags | 238 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -369,7 +377,7 @@
 
 | Status | Count |
 | --- | --- |
-| converted | 178 |
+| converted | 186 |
 | documented | 142 |
 
 ## Surfaces per slice

@@ -938,3 +938,25 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   pragma-surface-002, util-primitives-001 stay partial with tightened residuals.
   Composed engine-harvest39-001..004 full. cargo all green; SCRIPT_TABLE 0.
 - Scoreboard full 190->195 / partial 47 / none 78 (320 known). Not migrated.
+## Run 50 — 2026-08-15 — engine v40: partial-to-full harvest (pack v40, overnight)
+
+- Pack v39 -> v40 BOUND (PARTIAL-TO-FULL HARVEST law: vtab-core-001 family all-or-nothing;
+  conn-004 both leftover families; completion pins live C not dead defines; db_config toggles
+  need real effects; no VDBE/planner/WAL greenwash, no faked auth master sequences). ADR 0038.
+- Probed C then froze 23 goldens (engine-harvest40-001..008): vtab xRename + savepoint family
+  with C's txn-savepoint-excluded numbering; legacy sqlite3_trace/profile (shared slot, param
+  expansion); WITHOUT ROWID hook suppression + DELETE truncate fast-path; json_each/json_tree
+  full columns with JSONB-offset ids; db_config leftover toggles with real effects; live
+  completion phases; pragma_index_xinfo.
+- Modern: vtab txn protocol (VTAB_TXN join set; xBegin/xSync/xCommit/xRollback + xSavepoint/
+  xRelease/xRollbackTo, -1 below the join); vtab_x_rename; legacy trace/profile over a
+  trace_kind slot with sqlite3_sql-expanded text; WR/truncate hook suppression + sqlite3_changes;
+  json::walk (JSONB byte-offset ids); db_config 1005/1009/1011/1012/1014/1017 with real effects
+  + DEFENSIVE enforcement + INNOCUOUS-aware TRUSTED_SCHEMA + load_extension gate; completion
+  live-phase model + 147-keyword census; SELECT DISTINCT + TVF star expansion + hidden-column
+  ride-along; pragma_index_xinfo.
+- Estate: vtab-core-001, connection-lifecycle-api-004, json-funcs-004, global-init-config-003,
+  misc-completion-001 partial->FULL (residuals empty / pin-absent). pragma-surface-002 stays
+  partial (index_xinfo added). Composed engine-harvest40-001..008 full. cargo all green;
+  SCRIPT_TABLE 0.
+- Scoreboard full 195->208 / partial 42 / none 78 (328 known). Not migrated.
