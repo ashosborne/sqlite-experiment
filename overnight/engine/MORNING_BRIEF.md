@@ -1,67 +1,70 @@
-# MORNING BRIEF — engine v44: the first internal-engine pack (rollback-journal pager) (run 55, overnight)
+# MORNING BRIEF — engine v45: a table b-tree on the pager (run 56, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–54 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v44-pager, IMPLEMENT_PAGER_JOURNAL,
-REQUIRE_PAGES_THROUGH_PCACHE, FORBID_FAKE_PAGER, FORBID_WHOLE_FILE_REWRITE_AS_PAGER,
-DEEPEN_VDBE/BTREE/WAL false. MAX_NEW_CASES 40 (used 4).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–55 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v45-btree, IMPLEMENT_BTREE_ON_PAGER,
+REQUIRE_TABLE_CURSOR_ON_PAGER_PAGES, FORBID_DBFILE_WHOLE_IMAGE_AS_BTREE, DEEPEN_VDBE/WAL false.
+MAX_NEW_CASES 40 (used 4).
 
-## 1. Pack @44 BOUND — PAGER/NONE law
+## 1. Pack @45 BOUND — BTREE/NONE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v43 → **v44**
-(versions/1–44 retained; ADR `0042-engine-v44-pager.md`; schema VALID; 50 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v44 → **v45**
+(versions/1–45 retained; ADR `0043-engine-v45-btree.md`; schema VALID; 51 laws).
 
-## 2. Journal design vs C
+## 2. btree-001 — handle + txn_state
 
-File-backed, `journal_mode=DELETE`. An open write transaction copies each changed page's
-ORIGINAL bytes into `<db>-journal` before overwriting the page in the db file — so the journal
-is **observably present during the txn** and gone after COMMIT/ROLLBACK, exactly like C.
-`ROLLBACK` **replays** the journal (restores the pre-images, truncates rolled-back growth);
-`COMMIT` drops it; autocommit writes run a journal-then-write-then-delete mini-txn. Not a
-whole-file rewrite: page get/write is page-granular through the pager.
+`sqlite3_txn_state` on the pager-backed handle matches probed C: idle 0, a **deferred BEGIN
+alone** 0, a SELECT lifts to **read 1**, a write / BEGIN IMMEDIATE / BEGIN EXCLUSIVE lifts to
+**write 2**, COMMIT/ROLLBACK return to 0; a readonly-file write fails rc 8. none → **partial**.
 
-## 3. C-readable commit? YES
+## 3. Cursor vs dbfile-encode
 
-A helper (`pager44_write_committed_file`, gated on `PAGER44_OUT`) writes a committed db through
-the modern pager; the **pinned C amalgamation opens it**, reads `1,one|2,two|3,three|4,pager-made-me`,
-and `PRAGMA integrity_check` returns rc 0. The journal itself is Rust-private (magic `RJRNL01`),
-so C hot-journal recovery is **not** pinned (stretch skipped, per charter).
+`pager.rs` gained a real **table cursor**: `schema_rootpage` walks page 1 to the table's
+rootpage; `read_leaf` parses a 0x0d leaf's cells; `write_leaf` re-serialises the leaf's cell
+array + content area. File-backed INSERT/DELETE/literal-UPDATE of a single-leaf plain rowid
+table move cells on **that leaf page** (change-counter bumped), NOT via the whole-image encoder.
+A `cursor_ops` counter moves on the file DML and **not** on a `:memory:` control. Anything
+outside the single-leaf rowid scope falls back to the whole-image writer (no regressions).
 
-## 4. pcache? coupling real, card stays none
+## 4. C integrity_check — YES
 
-Every page get/write routes through a methods2-shaped page cache; its xFetch/xUnpin/write
-counters move under real file-txn traffic and **not** under a `:memory:` control (pinned by the
-`pager44_pcache_coupling` anti-cheat). But pcache-001's named surface is the pluggable
-`sqlite3_config(SQLITE_CONFIG_PCACHE2)` install seam, which is NOT implemented — so under-claim:
-**pcache-001 stays none** (real coupling captured as a composed pin + ADR), pcache-002 stays none.
+A helper (`btree45_write_committed_file`, gated on `BTREE45_OUT`) writes a db through the cursor;
+the **pinned C amalgamation** opens it, reads `1,one|3,three|4,cursor-made-me` (k=2 deleted,
+runtime row inserted), and `PRAGMA integrity_check` returns rc 0.
 
-## 5. Scoreboard
+## 5. btree-002 — YES (partial)
+
+none → **partial**: cells move through the cursor on pager leaf pages for the single-leaf rowid
+scope. RESIDUAL: single-leaf only (no split/merge balancing), no index b-trees, no WITHOUT ROWID,
+no overflow cleanup, no saved-position restore; outside that scope the whole-image writer handles
+the flush and **live query reads still evaluate over the in-memory store** (the write path +
+reopen round-trip are what go through cells-on-pages).
+
+## 6. Scoreboard
 
 | | before | after |
 | --- | --- | --- |
-| full | 225 | **227** |
-| partial | 41 | 42 |
-| none | 78 | **77** |
-| behaviours | 344 | 346 (+2 composed) |
+| full | 227 | **229** |
+| partial | 42 | **44** |
+| none | 77 | **75** |
+| behaviours | 346 | 348 (+2 composed) |
 
-partial→full: none (estate). none→partial: **pager-001**. Composed engine-pager44-001/002 full.
-None dropped by 1 (the conservative outcome; pcache-001 held at none on purpose).
+none→partial: **btree-001, btree-002**. Composed engine-btree45-001/002 full. None dropped by 2.
 
-## 6. Freezes / cargo
+## 7. Freezes / cargo
 
-4 new goldens under `tests/characterization/engine-pager44/` (001 lifecycle ×2, 002 restore/
-persist ×2), two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 254. `cargo test`
-(56 binaries): **all green**, including engine-txn, lookaside35, harvest43 TEMP/JSON and the
-sqlite_sql_suite first slice. `SCRIPT_TABLE.len()==0`. Prior goldens untouched (the run-55
-C002 golden was re-recorded with a literal UPDATE — a same-run correction, noted in ADR).
+4 goldens under `tests/characterization/engine-btree45/` (001 txn_state ×2, 002 cursor ×2),
+two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 257. `cargo test` (57 binaries):
+**all green**, including pager44, engine-txn, lookaside35, harvest43 and the sqlite_sql_suite
+first slice. `SCRIPT_TABLE.len()==0`. Prior goldens untouched.
 
-## 7. Not migrated
+## 8. Not migrated
 
-SQLite is **not migrated**. No two-phase commit, no hot-journal crash-recovery matrix, no WAL
-pager, no btree cursors, no VDBE, no planner. This run put a real rollback journal under the
-file-backed write path and nothing more.
+SQLite is **not migrated**. No VDBE, no index b-trees, no page split/merge, no WITHOUT ROWID,
+no overflow cleanup, no planner; live query evaluation is still the in-memory kitchen, not a
+btree-cursor read loop.
 
-## 8. Next call
+## 9. Next call
 
-btree-001 on this pager (page-level b-tree read/seek over the journalled file), OR the skipped
-hot-journal stretch if the journal is switched to C's on-disk format (magic 0xd9d505f9..., page
-records + checksums) so C can recover an interrupted txn. Then pager-002 journal-mode matrix.
+Leaf split (enough inserts to overflow one leaf, C integrity_check still ok — still not
+btree-002 full, the balance-siblings matrix remains), OR the VDBE first slice (a real opcode
+loop feeding the cursor) as the next `none` cut.

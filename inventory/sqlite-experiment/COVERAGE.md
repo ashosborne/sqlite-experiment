@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T20:06:36Z
+- Generated: 2026-08-13T20:39:18Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T20:06:26Z by `sqlite-engine-v44-pager`
+- Manifest last_updated: 2026-08-13T20:39:07Z by `sqlite-engine-v45-btree`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 77 | Not started in modern |
-| partial | 42 | Some modern execution; gaps in notes |
-| full (converted) | 227 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 75 | Not started in modern |
+| partial | 44 | Some modern execution; gaps in notes |
+| full (converted) | 229 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -244,6 +244,8 @@
 - `engine-temp43-002` — auth TEMP outer codes
 - `engine-pager44-001` — DELETE rollback-journal lifecycle
 - `engine-pager44-002` — rollback restores / commit persists
+- `engine-btree45-001` — btree handle txn_state on the pager
+- `engine-btree45-002` — table cursor cells on pager pages
 - `engine-harvest39-002` — pragma_module_list lazy population
 - `engine-harvest39-003` — per-row blob expiry + TEXT-cell writes
 - `engine-harvest39-004` — sqlite3_randomness + test_control PRNG
@@ -255,6 +257,8 @@
 - `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose body targets an attached table (unqualified body resolution at trigger execution) is not implemented. run-43: firing residual CLEARED — a trigger is an attached-schema object (the NAME carries the schema; unqualified names live in main and CREATE errors "trigger T cannot reference objects in database X" cross-schema); at fire time body statements resolve unqualified names STRICTLY inside the trigger schema (collision hits the trigger schema only; main-only/missing targets error "no such table: aux.X"); event/timing matrix (AFTER INSERT/UPDATE/DELETE, BEFORE, order) pinned on attached tables; DETACH tears attached triggers down; per-schema sqlite_master real. run-53: TEMP-trigger FIRE cleared - CREATE TEMP TRIGGER now fires on TEMP-table DML (BEFORE/AFTER) and shows in sqlite_temp_master (engine-temp43-001-C003). STAYS PARTIAL for named leftovers: TEMP-trigger CROSS-SCHEMA fire matrix, trigger bodies beyond INSERT..VALUES / RAISE / no-op SELECT (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.
 - `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes. run-47: s1-s4 + IGNORE residuals CLEARED - the callback now receives the probed C argument strings per statement (INSERT [18|t|~|main|~], per-column UPDATE + WHERE READs, DELETE + READs, SELECT [21] then ordered column READs, PRAGMA name/value, TRANSACTION BEGIN/COMMIT, ATTACH path, DETACH name); SQLITE_IGNORE on DML pinned (INSERT/UPDATE silently skip, DELETE proceeds - truncate-opt only). run-51: eight more codes dispatched with probed args and NO invented sqlite_master tails (engine-harvest41): FUNCTION 31 at compile time (s1 NULL, s2 = name; DENY errmsg "not authorized to use function: NAME" at plain rc 1; IGNORE yields NULL and de-aggregates, the column read degrades to the empty-column form), SAVEPOINT 32 (s1 = BEGIN/RELEASE/ROLLBACK, s2 = name; ROLLBACK TO split from TRANSACTION 22), ANALYZE 28 outer (s1 = table, s3 = main), ALTER_TABLE 26 outer (INVERTED s1 = db / s2 = table; IGNORE no-ops the rename), DROP_TABLE 11 / CREATE_VTABLE 29 / DROP_VTABLE 30 outer, view s4 read walk (base-table READs carry the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master / sqlite_temp_master bookkeeping sequences C emits for DDL are NOT modelled (CREATE_INDEX 1 / DROP_INDEX 10, CREATE_VIEW 8 / DROP_VIEW 17, CREATE_TRIGGER 7 / DROP_TRIGGER 16 full logs, and the catalog tails of ALTER/DROP/VTABLE stay unfrozen); REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*). run-53: the TEMP outer codes CREATE_TEMP_TABLE (4) and DROP_TEMP_TABLE (13) are now dispatched (s1 = table, s3 = temp; DENY rc 23; no sqlite_temp_master tail - engine-temp43-002); remaining TEMP codes (CREATE/DROP TEMP INDEX/TRIGGER/VIEW 5/6/12/14/15) and the master bookkeeping families stay named. run-52: SQLITE_RECURSIVE 33 now DISPATCHED scan-gated (recursive CTEs execute since v42): a used recursive member fires [21|cte][33|~|~|~|cte][21|cte]x2, unused WITH RECURSIVE stays silent, DENY rc 23 - pinned engine-harvest42-004 + a runtime CTE-name anti-cheat.
 - `backup-api-003` — write-between-steps restart pinned; no general page-level coordination run-47: restart residual re-pinned on a REAL multi-page copy (source write between steps resets progress; destination sees the late write). STAYS PARTIAL: cross-connection BackupUpdate page patching unpinned - modern copies the source image at completion where C patches pages (observables pinned equal for the frozen scope, ADR 0035).
+- `btree-001` — confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks. run-56: NONE -> PARTIAL - a btree handle bound to the v44 pager; sqlite3_txn_state is the public transaction pin and matches probed C: idle 0, a deferred BEGIN alone stays 0, a SELECT lifts to read 1, a write / BEGIN IMMEDIATE / BEGIN EXCLUSIVE lifts to write 2, COMMIT/ROLLBACK return to 0; a readonly-file write fails rc 8. Pinned engine-btree45-001. Supersedes the run-15 toy single-page writer. RESIDUAL (full forbidden): no shared-cache table locks, no schema-cookie out-param matrix, no read/write nesting beyond the single txn level.
+- `btree-002` — confidence=observed-in-code; Cursor positioning and mutation incl. page balancing; file-format invariants. run-56: NONE -> PARTIAL - file-backed INSERT / DELETE / literal UPDATE of a plain single-leaf rowid table move CELLS through a table cursor on the pager's leaf pages (schema-rootpage walk, read_leaf/write_leaf cell packing, file change-counter bump), NOT a whole-image rebuild; a cursor-op counter moves on the file DML and NOT on a :memory: control; the committed file stays valid SQLite (the pinned C amalgamation opens a cursor-written file, reads the runtime row, integrity_check rc 0); reopen reparses the cursor-written leaf. Pinned engine-btree45-002. RESIDUAL (full forbidden): single-leaf only (no page split/merge balancing), no index b-trees, no WITHOUT ROWID, no overflow-page cleanup, no saved-position restore matrix; anything outside the single-leaf rowid scope falls back to the whole-image writer and live query reads still evaluate over the in-memory store (the write path + reopen round-trip are what go through cells-on-pages).
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
 - `compile-options-omit-enable-002` — confidence=inferred; 77 SQLITE_OMIT_* guard references in sqliteInt.h remove surfaces (auth, vtab, wal, window, ...) run 1 carded as default-present.; file-only evidence run-42: PARTIAL - pinned OMIT census via the diagnostics oracle: every probed OMIT_* gate (LOAD_EXTENSION, WAL, VIRTUALTABLE, TRIGGER, ATTACH, SUBQUERY, VIEW, AUTORESET, COMPILEOPTION_DIAGS) reports 0 and the full enumeration contains zero OMIT_-prefixed entries, matching the pin build. RESIDUAL: the 77-guard per-feature census (what each OMIT would remove) is NOT claimed; no OMIT build variants are modelled.
@@ -296,8 +300,6 @@
 ### Remaining (impl_in_modern=none|absent, not deferred)
 
 - `analyze-stats-002` — analyze-stats — legacy_green no
-- `btree-001` — btree — legacy_green no
-- `btree-002` — btree — legacy_green no
 - `expert-001` — expert — legacy_green no
 - `fts3-001` — fts3 — legacy_green no
 - `fts5-001` — fts5 — legacy_green no
@@ -378,10 +380,10 @@
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 244 |
-| Behaviours known | 346 |
+| Behaviours known | 348 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 257 |
+| legacy_green flags | 259 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -395,7 +397,7 @@
 
 | Status | Count |
 | --- | --- |
-| converted | 204 |
+| converted | 206 |
 | documented | 142 |
 
 ## Surfaces per slice

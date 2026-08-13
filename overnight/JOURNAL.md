@@ -1037,3 +1037,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   pager-002/pcache-002 stay none. Composed engine-pager44-001/002 full. cargo 56 binaries green;
   SCRIPT_TABLE 0. C002 golden re-recorded with a literal UPDATE (kitchen expr-UPDATE out of scope).
 - Scoreboard full 225->227 / partial 42 / none 78->77 (346 known). Not migrated.
+## Run 56 — 2026-08-15 — engine v45: table b-tree on the pager (pack v45, overnight)
+
+- Pack v44 -> v45 BOUND (BTREE/NONE law: a none flips only when SQL/file observables go through
+  the stack; txn_state is the public pin; file DML must move cells through a table cursor on
+  pager pages; whole-image encode is not a cursor). ADR 0043.
+- Probed C: sqlite3_txn_state (idle 0 / deferred-BEGIN 0 / read 1 / write 2 / commit 0; RO write
+  rc 8); cursor observables. Froze 4 goldens (engine-btree45-001/002).
+- Modern: sqlite3_txn_state export + txn_level tracking (Begin immediate=2/deferred=0, read lifts
+  1 in stmt_query_typed + exec loop, write lifts 2, commit/rollback 0). pager.rs table cursor:
+  schema_rootpage walk, read_leaf/write_leaf cell packing, rewrite_table_leaf via cursor puts +
+  cursor_ops counter + change-counter bump; wired into the DELETE-mode flush (cursor_or_whole_image)
+  for the single-leaf main rowid-table scope, whole-image fallback otherwise. Committed file is
+  valid SQLite (pinned C reads a cursor-written file, integrity_check rc 0).
+- Estate: btree-001 none->PARTIAL (handle + txn_state), btree-002 none->PARTIAL (cursor cells on
+  pages, single-leaf rowid scope; residual: no split/index/WITHOUT ROWID/overflow/saved-position,
+  live reads still store-based). pager-001 unchanged; pager-002/pcache/vdbe/where untouched.
+  Composed engine-btree45-001/002 full. cargo 57 binaries green; SCRIPT_TABLE 0.
+- Scoreboard full 227->229 / partial 44 / none 77->75 (348 known). Not migrated.
