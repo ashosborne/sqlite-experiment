@@ -1470,6 +1470,14 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     let from_uq = if from.trim().starts_with('(') { from.trim().to_string() } else { unquote_ident(from) };
     let from = from_uq.as_str();
     let f = from.trim();
+    // run-52: a materialized CTE shadows tables/views of the same name (C shape)
+    if !f.starts_with('(') && !f.contains('(') {
+        if let Some((cols, rows)) = cte_lookup(f) {
+            let rmaps = rows.into_iter()
+                .map(|r| cols.iter().cloned().zip(r).collect::<Row>()).collect();
+            return Ok((cols, rmaps));
+        }
+    }
     if f.starts_with('(') {
         let inner = &f[1..f.rfind(')').ok_or("bad subquery")?];
         let (cols, rows) = select_rows_o(ctx, inner, &Row::new())?;
@@ -2624,7 +2632,288 @@ thread_local! {
     // run-38: bound for the wholenumber vtab generator (max integer literal in the SQL)
     static WN_BOUND: std::cell::Cell<i64> = const { std::cell::Cell::new(0) };
 }
+// ---------------- run-52: WITH / WITH RECURSIVE (C's Queue/Current machine) ----------------
+
+thread_local! {
+    // materialized CTE tables visible to source_rows, as a stack of WITH scopes
+    static CTE_SCOPES: std::cell::RefCell<Vec<std::collections::HashMap<String, (Vec<String>, Vec<Vec<V>>)>>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+/// CTE lookup consulted FIRST by source_rows (a CTE shadows a real table, like C)
+fn cte_lookup(name: &str) -> Option<(Vec<String>, Vec<Vec<V>>)> {
+    CTE_SCOPES.with(|s| {
+        for scope in s.borrow().iter().rev() {
+            if let Some(hit) = scope.get(&name.to_ascii_lowercase()) { return Some(hit.clone()); }
+        }
+        None
+    })
+}
+fn cte_scope_set(name: &str, cols: Vec<String>, rows: Vec<Vec<V>>) {
+    CTE_SCOPES.with(|s| {
+        if let Some(top) = s.borrow_mut().last_mut() {
+            top.insert(name.to_ascii_lowercase(), (cols, rows));
+        }
+    });
+}
+struct CteScopeGuard;
+impl Drop for CteScopeGuard {
+    fn drop(&mut self) { CTE_SCOPES.with(|s| { s.borrow_mut().pop(); }); }
+}
+
+struct CteDef { name: String, cols: Option<Vec<String>>, body: String }
+
+/// parse `WITH [RECURSIVE] name[(cols)] AS [NOT] [MATERIALIZED] (body), ... <main>`
+fn parse_with(sql: &str) -> Result<(bool, Vec<CteDef>, String), String> {
+    let s = sql.trim();
+    let mut rest = s["WITH".len()..].trim_start().to_string();
+    let mut recursive = false;
+    if rest.len() >= 9 && rest.as_bytes()[..9].eq_ignore_ascii_case(b"RECURSIVE")
+        && rest.as_bytes().get(9).is_none_or(|b| b.is_ascii_whitespace()) {
+        recursive = true;
+        rest = rest[9..].trim_start().to_string();
+    }
+    let mut defs: Vec<CteDef> = Vec::new();
+    loop {
+        // name
+        let name_end = rest.find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(rest.len());
+        let name = rest[..name_end].to_string();
+        if name.is_empty() { return Err("near \"WITH\": syntax error".into()); }
+        rest = rest[name_end..].trim_start().to_string();
+        // optional (cols)
+        let mut cols: Option<Vec<String>> = None;
+        if rest.starts_with('(') {
+            let close = matching_paren(&rest, 0).ok_or("unbalanced parentheses")?;
+            cols = Some(rest[1..close].split(',').map(|c| unquote_ident(c.trim())).collect());
+            rest = rest[close + 1..].trim_start().to_string();
+        }
+        // AS [NOT] [MATERIALIZED]
+        let up = rest.to_ascii_uppercase();
+        if !up.starts_with("AS") { return Err("near \"AS\": syntax error".into()); }
+        rest = rest[2..].trim_start().to_string();
+        let up = rest.to_ascii_uppercase();
+        if up.starts_with("NOT MATERIALIZED") { rest = rest["NOT MATERIALIZED".len()..].trim_start().to_string(); }
+        else if up.starts_with("MATERIALIZED") { rest = rest["MATERIALIZED".len()..].trim_start().to_string(); }
+        if !rest.starts_with('(') { return Err("near \"(\": syntax error".into()); }
+        let close = matching_paren(&rest, 0).ok_or("unbalanced parentheses")?;
+        let body = rest[1..close].trim().to_string();
+        rest = rest[close + 1..].trim_start().to_string();
+        defs.push(CteDef { name, cols, body });
+        if rest.starts_with(',') { rest = rest[1..].trim_start().to_string(); continue; }
+        break;
+    }
+    Ok((recursive, defs, rest))
+}
+fn matching_paren(s: &str, open: usize) -> Option<usize> {
+    let b = s.as_bytes();
+    let mut depth = 0i32;
+    let mut inq = false;
+    for (i, &c) in b.iter().enumerate().skip(open) {
+        match c {
+            b'\'' => inq = !inq,
+            b'(' if !inq => depth += 1,
+            b')' if !inq => { depth -= 1; if depth == 0 { return Some(i); } }
+            _ => {}
+        }
+    }
+    None
+}
+/// run-52: lightweight WITH parse for the authorizer walk: (recursive, [(name, body)], main)
+pub fn parse_with_pub(sql: &str) -> Result<(bool, Vec<(String, String)>, String), String> {
+    let (r, defs, main) = parse_with(sql)?;
+    Ok((r, defs.into_iter().map(|d| (d.name, d.body)).collect(), main))
+}
+pub fn refs_name_pub(sql: &str, name: &str) -> bool { refs_name(sql, name) }
+pub fn split_union_pub(body: &str) -> (Vec<String>, Vec<bool>) { split_union(body) }
+
+/// does `sql` reference `name` as a word (case-insensitive)?
+pub(crate) fn refs_name(sql: &str, name: &str) -> bool {
+    sql.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .any(|w| w.eq_ignore_ascii_case(name))
+}
+/// split a compound body on top-level UNION [ALL]; returns (terms, all_flags between)
+fn split_union(body: &str) -> (Vec<String>, Vec<bool>) {
+    let mut terms = Vec::new();
+    let mut alls = Vec::new();
+    let mut rest = body.trim().to_string();
+    loop {
+        match find_kw_top(&rest, "UNION") {
+            Some(p) => {
+                terms.push(rest[..p].trim().to_string());
+                let after = rest[p + 5..].trim_start();
+                if after.len() >= 3 && after.as_bytes()[..3].eq_ignore_ascii_case(b"ALL")
+                    && after.as_bytes().get(3).is_none_or(|b| b.is_ascii_whitespace()) {
+                    alls.push(true);
+                    rest = after[3..].trim_start().to_string();
+                } else {
+                    alls.push(false);
+                    rest = after.to_string();
+                }
+            }
+            None => { terms.push(rest.trim().to_string()); break; }
+        }
+    }
+    (terms, alls)
+}
+fn row_key(r: &[V]) -> String {
+    r.iter().map(|v| format!("{:?}", v.render())).collect::<Vec<_>>().join("\u{1}")
+}
+
+/// evaluate a WITH statement: materialize used CTEs (recursive ones through C's
+/// Queue/Current FIFO), then run the main statement against the scope.
+fn eval_with(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    let (recursive, defs, main) = parse_with(sql)?;
+    if main.is_empty() { return Err("near \";\": syntax error".into()); }
+    CTE_SCOPES.with(|s| s.borrow_mut().push(Default::default()));
+    let _guard = CteScopeGuard;
+    // LIMIT cap for an unbounded recursion: only the simple `SELECT ... FROM cte LIMIT n`
+    // outer form (no WHERE / GROUP / ORDER) can soundly stop the machine early
+    let mut cap: Option<usize> = None;
+    {
+        let mup = main.to_ascii_uppercase();
+        if let Some(lp) = find_kw_top(&main, "LIMIT") {
+            if !mup.contains(" WHERE ") && !mup.contains("GROUP BY") && !mup.contains("ORDER BY") {
+                if let Ok(n) = main[lp + 5..].trim().trim_end_matches(';').parse::<usize>() {
+                    cap = Some(n);
+                }
+            }
+        }
+    }
+    // materialize the CTEs the main statement (transitively) uses, dependency-first
+    fn materialize(ctx: &Ctx, defs: &[CteDef], name: &str, recursive_kw: bool,
+                   in_progress: &mut Vec<String>, outer: &Row, cap: Option<usize>) -> Result<(), String> {
+        if cte_lookup(name).is_some() { return Ok(()); }
+        if in_progress.iter().any(|n| n.eq_ignore_ascii_case(name)) {
+            return Err(format!("circular reference: {name}"));
+        }
+        let def = match defs.iter().find(|d| d.name.eq_ignore_ascii_case(name)) {
+            Some(d) => d, None => return Ok(()), // a real table, not a CTE
+        };
+        in_progress.push(name.to_string());
+        let (terms, alls) = split_union(&def.body);
+        let self_recursive = recursive_kw && terms.len() > 1
+            && refs_name(terms.last().unwrap(), &def.name);
+        // dependencies of every term (other CTEs) first
+        for t in &terms {
+            for d in defs {
+                if !d.name.eq_ignore_ascii_case(&def.name) && refs_name(t, &d.name) {
+                    materialize(ctx, defs, &d.name, recursive_kw, in_progress, outer, None)?;
+                }
+            }
+        }
+        let result: (Vec<String>, Vec<Vec<V>>) = if self_recursive {
+            let rec_term = terms.last().unwrap().clone();
+            let distinct = !alls.last().copied().unwrap_or(true);
+            // C's compile-time refusals (probed messages)
+            let rup = rec_term.to_ascii_uppercase();
+            let from_part = match rup.find(" FROM ") {
+                Some(p) => {
+                    let tail = &rec_term[p..];
+                    let end = tail.to_ascii_uppercase().find(" WHERE ").unwrap_or(tail.len());
+                    tail[..end].to_string()
+                }
+                None => String::new(),
+            };
+            // count self-references used as TABLE SOURCES (a `name.` column
+            // qualifier is not a second reference)
+            let self_refs = {
+                let fb = from_part.as_bytes();
+                let mut n = 0usize;
+                let mut i = 0;
+                while i < fb.len() {
+                    if (fb[i] as char).is_ascii_alphanumeric() || fb[i] == b'_' {
+                        let st_i = i;
+                        while i < fb.len() && ((fb[i] as char).is_ascii_alphanumeric() || fb[i] == b'_') { i += 1; }
+                        let prev_dot = st_i > 0 && fb[st_i - 1] == b'.';
+                        let next_dot = i < fb.len() && fb[i] == b'.';
+                        if !prev_dot && !next_dot && from_part[st_i..i].eq_ignore_ascii_case(&def.name) {
+                            n += 1;
+                        }
+                    } else { i += 1; }
+                }
+                n
+            };
+            if self_refs > 1 {
+                return Err(format!("multiple references to recursive table: {}", def.name));
+            }
+            {
+                let sel_end = rup.find(" FROM ").unwrap_or(rec_term.len());
+                let items = &rec_term[6..sel_end];
+                for item in split_top(items, ',') {
+                    if let Ok(ex) = parse_expr_full(&item) {
+                        if expr_has_agg(&ex) {
+                            return Err("recursive aggregate queries not supported".into());
+                        }
+                    }
+                }
+            }
+            // seed = the terms before the recursive member (UNION ALL concatenation)
+            let mut seed_cols: Vec<String> = Vec::new();
+            let mut queue: std::collections::VecDeque<Vec<V>> = Default::default();
+            let mut seen: std::collections::HashSet<String> = Default::default();
+            for (i, t) in terms[..terms.len() - 1].iter().enumerate() {
+                let (c, rs) = select_rows_o(ctx, t, outer)?;
+                if i == 0 {
+                    if let Some(decl) = &def.cols {
+                        if decl.len() != c.len() {
+                            return Err(format!("table {} has {} values for {} columns",
+                                def.name, c.len(), decl.len()));
+                        }
+                    }
+                    seed_cols = c;
+                }
+                for r in rs {
+                    if distinct && !seen.insert(row_key(&r)) { continue; }
+                    queue.push_back(r);
+                }
+            }
+            let colnames: Vec<String> = def.cols.clone().unwrap_or(seed_cols);
+            // the Queue/Current machine: extract ONE row as the recursive table,
+            // run the recursive member against it, enqueue its outputs FIFO
+            let mut out: Vec<Vec<V>> = Vec::new();
+            while let Some(cur) = queue.pop_front() {
+                out.push(cur.clone());
+                if let Some(c) = cap { if out.len() >= c { break; } }
+                cte_scope_set(&def.name, colnames.clone(), vec![cur]);
+                let (_c, rs) = select_rows_o(ctx, &rec_term, outer)?;
+                for r in rs {
+                    if distinct && !seen.insert(row_key(&r)) { continue; }
+                    queue.push_back(r);
+                }
+            }
+            (colnames, out)
+        } else {
+            let (c, rows) = select_rows_o(ctx, &def.body, outer)?;
+            if let Some(decl) = &def.cols {
+                if decl.len() != c.len() {
+                    return Err(format!("table {} has {} values for {} columns",
+                        def.name, c.len(), decl.len()));
+                }
+            }
+            (def.cols.clone().unwrap_or(c), rows)
+        };
+        in_progress.pop();
+        cte_scope_set(&def.name, result.0, result.1);
+        Ok(())
+    }
+    let mut in_progress: Vec<String> = Vec::new();
+    for d in &defs {
+        if refs_name(&main, &d.name) {
+            materialize(ctx, &defs, &d.name, recursive, &mut in_progress, outer, cap)?;
+        }
+    }
+    select_rows_o(ctx, &main, outer)
+}
+
 fn select_rows_o(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Vec<V>>), String> {
+    // run-52: WITH / WITH RECURSIVE route through the CTE machine
+    {
+        let t = sql.trim();
+        if t.len() > 4 && t.as_bytes()[..4].eq_ignore_ascii_case(b"WITH")
+            && t.as_bytes()[4].is_ascii_whitespace() {
+            return eval_with(ctx, t, outer);
+        }
+    }
     // pick up the largest integer literal so a wholenumber source can bound itself
     { let mut mx = 0i64; let b = sql.as_bytes(); let mut i = 0;
       while i < b.len() {
@@ -2784,7 +3073,7 @@ pub fn run_stmt(ctx: &mut Ctx, sql: &str) -> Result<Option<Vec<Vec<Option<String
         ctx.conn.attached.retain(|a| a != name);
         return Ok(Some(vec![]));
     }
-    if kw_bound(&up, "SELECT") {
+    if kw_bound(&up, "SELECT") || kw_bound(&up, "WITH") {
         let (_c, rows) = select_rows_o(ctx, s, &Row::new())?;
         return Ok(Some(rows.into_iter().map(|r| r.into_iter().map(|v| v.render()).collect()).collect()));
     }

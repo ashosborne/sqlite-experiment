@@ -549,7 +549,8 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         stmt_text = stmt_text["EXPLAIN ".len()..].trim().to_string();
         up = stmt_text.to_ascii_uppercase();
     }
-    let readonly = mode != StmtMode::Normal || up.starts_with("SELECT") || up.starts_with("PRAGMA");
+    let readonly = mode != StmtMode::Normal || up.starts_with("SELECT") || up.starts_with("PRAGMA")
+        || up.starts_with("WITH "); // run-52: WITH / WITH RECURSIVE are query statements
 
     let (param_count, param_names) = scan_params(&stmt_text);
     let dbid = db as usize;
@@ -577,7 +578,7 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         }
         StmtMode::Normal => {}
     }
-    if mode == StmtMode::Normal && eval::kw_bound(&up, "SELECT") {
+    if mode == StmtMode::Normal && (eval::kw_bound(&up, "SELECT") || eval::kw_bound(&up, "WITH")) {
         let probe = bind_sql(&stmt_text, &vec![eval::V::Null; param_count]);
         store::set_read_auth_suppressed(true); // run-38: don't fire the authorizer at the prepare dry-run
         let probe_res = store::stmt_query_typed(dbid, &probe);
@@ -600,12 +601,17 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         // run-51: compile-time FUNCTION (31) consults + the view s4 read walk.
         // A function DENY fails prepare with C's per-name message at plain rc 1.
         if let Err(e) = store::auth_select_prepare(dbid, &stmt_text) {
-            let msg = e.strip_prefix("__RC1__").unwrap_or(&e).to_string();
-            (*db).errcode = SQLITE_ERROR;
-            (*db).extended = SQLITE_ERROR;
+            // run-52: nested-consult denials (e.g. SQLITE_RECURSIVE) are SQLITE_AUTH
+            let (rc, msg) = if let Some(m) = e.strip_prefix("__AUTH__") {
+                (SQLITE_AUTH, m.to_string())
+            } else {
+                (SQLITE_ERROR, e.strip_prefix("__RC1__").unwrap_or(&e).to_string())
+            };
+            (*db).errcode = rc;
+            (*db).extended = rc;
             (*db).errmsg = Some(CString::new(msg).unwrap_or_default());
             if !pz_tail.is_null() { *pz_tail = z_sql; }
-            return SQLITE_ERROR;
+            return rc;
         }
     } else if !store::stmt_prepare_check(dbid, &stmt_text) {
         db_syntax_error(&mut *db, first_token(body));

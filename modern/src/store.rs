@@ -531,6 +531,9 @@ fn auth_view_walk(db: usize, st: &Store, view: &str, outer_items: &str) -> Resul
 pub fn auth_select_prepare(db: usize, sql: &str) -> Result<(), String> {
     if !crate::authorizer_present(db) { return Ok(()); }
     let up = sql.trim_start().to_ascii_uppercase();
+    if up.starts_with("WITH") {
+        return auth_with_consult(db, sql.trim_start());
+    }
     if !up.starts_with("SELECT") { return Ok(()); }
     auth_function_consult(db, sql)?;
     with_store(db, |st| -> Result<(), String> {
@@ -546,6 +549,47 @@ pub fn auth_select_prepare(db: usize, sql: &str) -> Result<(), String> {
         }
         Ok(())
     })
+}
+
+/// run-52: authorizer consults for a WITH statement. Only USED CTEs fire: a
+/// non-recursive CTE fires one s4-context SELECT consult per body term; a used
+/// RECURSIVE CTE fires [21|name], then SQLITE_RECURSIVE [33|~|~|~|name] (scan-
+/// gated: an unused recursive CTE is silent), then one [21|name] per term.
+fn auth_with_consult(db: usize, sql: &str) -> Result<(), String> {
+    let (recursive, defs, main) = match crate::eval::parse_with_pub(sql) {
+        Ok(x) => x, Err(_) => return Ok(()),
+    };
+    // transitively used CTE names, in declaration order
+    let mut used: Vec<usize> = Vec::new();
+    let mut frontier: Vec<String> = vec![main.clone()];
+    while let Some(txt) = frontier.pop() {
+        for (i, d) in defs.iter().enumerate() {
+            if !used.contains(&i) && crate::eval::refs_name_pub(&txt, &d.0) {
+                used.push(i);
+                frontier.push(d.1.clone());
+            }
+        }
+    }
+    used.sort_unstable();
+    for i in used {
+        let (name, body) = &defs[i];
+        let (terms, _alls) = crate::eval::split_union_pub(body);
+        let self_rec = recursive && terms.len() > 1
+            && crate::eval::refs_name_pub(terms.last().unwrap(), name);
+        let deny = || Err("__AUTH__not authorized".to_string());
+        if self_rec {
+            if crate::auth_raw(db, 21, None, None, None, Some(name)) == 1 { return deny(); }
+            if crate::auth_raw(db, 33, None, None, None, Some(name)) == 1 { return deny(); }
+            for _t in &terms {
+                if crate::auth_raw(db, 21, None, None, None, Some(name)) == 1 { return deny(); }
+            }
+        } else {
+            for _t in &terms {
+                if crate::auth_raw(db, 21, None, None, None, Some(name)) == 1 { return deny(); }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String> {
@@ -612,6 +656,11 @@ fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String
         for c in where_reads(&key) {
             if fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
         }
+    } else if up.starts_with("WITH") {
+        // run-52: top-level consult, then the used-CTE walk (scan-gated 33)
+        if fire(21, None, None, None) == 1 { return deny(); }
+        auth_with_consult(db, orig).map_err(|e|
+            e.strip_prefix("__AUTH__").map(|m| m.to_string()).unwrap_or(e))?;
     } else if up.starts_with("SELECT") {
         if fire(21, None, None, None) == 1 { return deny(); }
         // run-51: SQLITE_FUNCTION consults (compile time, textual order)
@@ -2959,7 +3008,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
     let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA");
     // run-34: simple rowid projections/sorts go to the kitchen (eval rows carry no rowids)
     let rowid_kitchen = up.contains("ROWID") && matches!(parse_stmt(s), Some(Stmt::Select { .. }));
-    if up.starts_with("SELECT") && !master && !rowid_kitchen {
+    if (up.starts_with("SELECT") || up.starts_with("WITH")) && !master && !rowid_kitchen {
         return with_store(db, |st| {
             let snap = eval_snapshot(st);
             let fk: std::collections::HashMap<String, usize> = st.tables.iter()
