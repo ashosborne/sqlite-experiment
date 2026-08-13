@@ -1,0 +1,6 @@
+OBS engine-btree45-001-C001 idle 0
+OBS engine-btree45-001-C001 after_deferred_begin 0
+OBS engine-btree45-001-C001 sel 0
+OBS engine-btree45-001-C001 after_read 1
+OBS engine-btree45-001-C001 after_write 2
+OBS engine-btree45-001-C001 after_commit 0

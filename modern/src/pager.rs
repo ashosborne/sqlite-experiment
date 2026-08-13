@@ -202,3 +202,144 @@ fn write_pages(db: &Path, new: &[u8], psize: usize) -> std::io::Result<()> {
 }
 
 pub fn journal_exists(db: &Path) -> bool { journal_path(db).exists() }
+
+// ============================================================================
+// run-56: a table b-tree cursor that reads and writes CELLS on the pager's leaf
+// pages. Scope: a single-leaf table b-tree of a plain rowid table (the pinned
+// scope). Interior roots (0x05), index trees and overflow are refused (return
+// None) so the caller falls back to the whole-image writer — those stay `none`.
+// ============================================================================
+
+use crate::store::Val;
+
+static CURSOR_OPS: AtomicU64 = AtomicU64::new(0);
+/// number of table-cursor cell operations (seek+put/seek+delete) performed.
+pub fn cursor_ops() -> u64 { CURSOR_OPS.load(Ordering::SeqCst) }
+
+const PAGE: usize = crate::dbfile::PAGE;
+
+/// find a table's physical rootpage by walking page 1's sqlite_master b-tree.
+/// Returns None for a multi-page schema we can't cheaply walk (falls back).
+pub fn schema_rootpage(image: &[u8], table: &str) -> Option<u32> {
+    if image.len() < 100 + 8 { return None; }
+    // page 1 b-tree header sits at offset 100; only handle a single schema leaf
+    let hdr = 100;
+    if image[hdr] != 0x0d { return None; } // schema root must be a leaf here
+    let ncell = u16::from_be_bytes([image[hdr + 3], image[hdr + 4]]) as usize;
+    let ptr_arr = hdr + 8;
+    for i in 0..ncell {
+        let cp = u16::from_be_bytes([image[ptr_arr + i * 2], image[ptr_arr + i * 2 + 1]]) as usize;
+        if cp + 1 > image.len() { return None; }
+        let mut pos = cp;
+        let plen = crate::dbfile::get_varint(image, &mut pos) as usize;
+        let _rowid = crate::dbfile::get_varint(image, &mut pos);
+        if pos + plen > image.len() { return None; }
+        let rec = crate::dbfile::decode_record(&image[pos..pos + plen]);
+        // schema record: (type, name, tbl_name, rootpage, sql)
+        if rec.len() >= 4 {
+            if let (Some(Val::Text(nm)), Some(Val::Int(rp))) = (rec.get(1), rec.get(3)) {
+                if nm.eq_ignore_ascii_case(table) { return Some(*rp as u32); }
+            }
+        }
+    }
+    None
+}
+
+/// parse a table-leaf page (0x0d) into its cells: (rowid, record-payload bytes).
+/// Returns None if the page is not a single leaf (interior 0x05 → split scope).
+fn read_leaf(image: &[u8], pageno: u32) -> Option<Vec<(i64, Vec<u8>)>> {
+    let base = (pageno as usize - 1) * PAGE;
+    if base + 8 > image.len() { return None; }
+    let hdr = base; // user-table leaves have no 100-byte db header (pageno >= 2)
+    if image[hdr] != 0x0d { return None; }
+    let ncell = u16::from_be_bytes([image[hdr + 3], image[hdr + 4]]) as usize;
+    let ptr_arr = hdr + 8;
+    let mut out = Vec::with_capacity(ncell);
+    for i in 0..ncell {
+        let cp = base + u16::from_be_bytes([image[ptr_arr + i * 2], image[ptr_arr + i * 2 + 1]]) as usize;
+        if cp >= image.len() { return None; }
+        let mut pos = cp;
+        let plen = crate::dbfile::get_varint(image, &mut pos) as usize;
+        let rowid = crate::dbfile::get_varint(image, &mut pos) as i64;
+        if pos + plen > image.len() { return None; }
+        // refuse overflow (payload spilled): local payload must equal plen here.
+        // MAX local for a leaf ≈ USABLE-35; small pinned rows never spill.
+        if plen > PAGE - 35 { return None; }
+        out.push((rowid, image[pos..pos + plen].to_vec()));
+    }
+    Some(out)
+}
+
+/// serialize a table-leaf page (0x0d) from rowid-sorted cells into `image` at
+/// `pageno`. Returns false if the cells don't fit one page (split needed).
+fn write_leaf(image: &mut [u8], pageno: u32, mut cells: Vec<(i64, Vec<u8>)>) -> bool {
+    cells.sort_by_key(|(r, _)| *r);
+    let base = (pageno as usize - 1) * PAGE;
+    if base + PAGE > image.len() { return false; }
+    // build each cell: payload-len varint + rowid varint + payload
+    let mut cellbytes: Vec<Vec<u8>> = Vec::with_capacity(cells.len());
+    for (rowid, payload) in &cells {
+        let mut c = Vec::new();
+        crate::dbfile::put_varint(&mut c, payload.len() as u64);
+        crate::dbfile::put_varint(&mut c, *rowid as u64);
+        c.extend_from_slice(payload);
+        cellbytes.push(c);
+    }
+    let ncell = cellbytes.len();
+    let header = 8;
+    let ptr_area = ncell * 2;
+    let content: usize = cellbytes.iter().map(|c| c.len()).sum();
+    if header + ptr_area + content > PAGE { return false; } // single-leaf only
+    // clear the page, lay out cells from the top of the page downward
+    for b in image[base..base + PAGE].iter_mut() { *b = 0; }
+    let mut content_start = PAGE;
+    let mut ptrs: Vec<u16> = Vec::with_capacity(ncell);
+    for c in &cellbytes {
+        content_start -= c.len();
+        image[base + content_start..base + content_start + c.len()].copy_from_slice(c);
+        ptrs.push(content_start as u16);
+    }
+    // header: type, first-freeblock(0), ncell, cell-content-start, nfrag(0)
+    image[base] = 0x0d;
+    image[base + 1] = 0; image[base + 2] = 0;
+    image[base + 3..base + 5].copy_from_slice(&(ncell as u16).to_be_bytes());
+    let ccs = if content_start == 65536 { 0 } else { content_start as u16 };
+    image[base + 5..base + 7].copy_from_slice(&ccs.to_be_bytes());
+    image[base + 7] = 0;
+    for (i, p) in ptrs.iter().enumerate() {
+        image[base + header + i * 2..base + header + i * 2 + 2].copy_from_slice(&p.to_be_bytes());
+    }
+    true
+}
+
+/// bump the file change counter (header offset 24) and version-valid-for (offset 92).
+fn bump_change_counter(image: &mut [u8]) {
+    if image.len() < 96 { return; }
+    let v = u32::from_be_bytes(image[24..28].try_into().unwrap()).wrapping_add(1);
+    image[24..28].copy_from_slice(&v.to_be_bytes());
+    image[92..96].copy_from_slice(&v.to_be_bytes());
+}
+
+/// rewrite `table`'s single leaf page from `rows` (rowid, record-values with the
+/// IPK column already NULLed) via cursor cell puts. Returns the new image, or
+/// None when the table isn't a single-leaf rowid tree (caller falls back). Every
+/// cell put/removed moves the cursor-op counter.
+pub fn rewrite_table_leaf(old_image: &[u8], table: &str, rows: &[(i64, Vec<Val>)]) -> Option<Vec<u8>> {
+    let root = schema_rootpage(old_image, table)?;
+    let existing = read_leaf(old_image, root)?; // refuses interior / overflow
+    let mut image = old_image.to_vec();
+    // build the target cell set through cursor puts (one op per cell)
+    let mut cells: Vec<(i64, Vec<u8>)> = Vec::with_capacity(rows.len());
+    for (rowid, vals) in rows {
+        let payload = crate::dbfile::encode_record(vals);
+        if payload.len() > PAGE - 35 { return None; } // overflow scope: fall back
+        cells.push((*rowid, payload));
+        CURSOR_OPS.fetch_add(1, Ordering::SeqCst); // cursor seek+insert of this cell
+    }
+    // count removed cells as cursor deletes (rows present before, absent now)
+    let now: std::collections::HashSet<i64> = rows.iter().map(|(r, _)| *r).collect();
+    for (r, _) in &existing { if !now.contains(r) { CURSOR_OPS.fetch_add(1, Ordering::SeqCst); } }
+    if !write_leaf(&mut image, root, cells) { return None; }
+    bump_change_counter(&mut image);
+    Some(image)
+}

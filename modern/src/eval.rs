@@ -88,6 +88,10 @@ pub struct Conn {
     /// the first modifying statement of an explicit txn flushes through the pager.
     pub pager_base: Option<Vec<u8>>,
     pub pager_journalled: bool, // a `<db>-journal` is live for the current txn
+    /// run-56: btree handle transaction level for sqlite3_txn_state — 0 none/idle,
+    /// 1 read (a SELECT ran in the txn), 2 write (a write / BEGIN IMMEDIATE|EXCLUSIVE).
+    /// A deferred BEGIN alone stays 0 until the first statement touches the db (C shape).
+    pub txn_level: u8,
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {

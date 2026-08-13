@@ -1,0 +1,30 @@
+[
+ {
+  "id": "engine-btree45-001-C001",
+  "feature": "engine-btree45-001",
+  "slice": "engine-btree45",
+  "kind": "bespoke",
+  "note": "sqlite3_txn_state: idle 0; a deferred BEGIN alone stays 0; a SELECT lifts to read 1; a write lifts to write 2; COMMIT returns to 0"
+ },
+ {
+  "id": "engine-btree45-001-C002",
+  "feature": "engine-btree45-001",
+  "slice": "engine-btree45",
+  "kind": "bespoke",
+  "note": "BEGIN IMMEDIATE and BEGIN EXCLUSIVE start a write txn (2) immediately; ROLLBACK/COMMIT return to 0"
+ },
+ {
+  "id": "engine-btree45-002-C001",
+  "feature": "engine-btree45-002",
+  "slice": "engine-btree45",
+  "kind": "bespoke",
+  "note": "table cursor: literal INSERTs persist; reopen SELECTs all rows by rowid and seeks a single rowid"
+ },
+ {
+  "id": "engine-btree45-002-C002",
+  "feature": "engine-btree45-002",
+  "slice": "engine-btree45",
+  "kind": "bespoke",
+  "note": "cursor DELETE removes a rowid cell and literal UPDATE replaces a cell; reopen reflects both; deleted rowid seek is empty; integrity_check ok"
+ }
+]

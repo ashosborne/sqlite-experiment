@@ -3817,6 +3817,15 @@ pub unsafe extern "C" fn sqlite3_changes64(db: *mut Sqlite3) -> i64 {
     store::changes(db as usize)
 }
 
+/// # Safety: C ABI — run-56: the btree handle's transaction state on `zSchema`
+/// (NULL = the top-level connection): SQLITE_TXN_NONE 0 / READ 1 / WRITE 2. A
+/// deferred BEGIN with no access yet reports 0, matching C.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_txn_state(db: *mut Sqlite3, _z_schema: *const c_char) -> c_int {
+    if db.is_null() { return -1; }
+    store::txn_state(db as usize)
+}
+
 /// connection close: xDisconnect live instances, release module registrations
 /// (refcounted — the deferred _v2 destructors fire as the last holders let go)
 fn vtab_close(dbid: usize) {

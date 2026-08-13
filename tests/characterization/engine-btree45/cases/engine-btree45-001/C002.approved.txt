@@ -1,0 +1,4 @@
+OBS engine-btree45-001-C002 after_begin_immediate 2
+OBS engine-btree45-001-C002 after_rollback 0
+OBS engine-btree45-001-C002 after_begin_exclusive 2
+OBS engine-btree45-001-C002 after_commit2 0

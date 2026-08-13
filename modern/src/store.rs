@@ -1022,6 +1022,24 @@ pub fn wal_marker(db: usize) -> (i64, i64) {
 
 /// post-exec / post-step sync of WAL sidecar files (runs OUTSIDE the store borrow):
 /// flush committed state to -wal, service pending checkpoints, handle wal->delete.
+/// run-56: build the DELETE-mode flush image. For the narrow single-rowid-table
+/// scope, move the rows onto the existing file's leaf page through the table
+/// CURSOR (cell puts/deletes on pager pages); otherwise fall back to the
+/// whole-image writer. Returns DELETE-journal-versioned bytes either way.
+fn cursor_or_whole_image(db: usize, path: &std::path::Path) -> Vec<u8> {
+    let old = std::fs::read(path).unwrap_or_default();
+    if !old.is_empty() {
+        if let Some((tbl, rows)) = cursor_rows(db) {
+            if let Some(img) = crate::pager::rewrite_table_leaf(&old, &tbl, &rows) {
+                return img; // cursor path — already valid SQLite, DELETE-versioned bytes
+            }
+        }
+    }
+    let mut dbbuf = dbfile::write_db_bytes(&build_image(db));
+    dbfile::set_journal_versions(&mut dbbuf, false);
+    dbbuf
+}
+
 pub fn wal_sync(db: usize, before: (i64, i64)) {
     let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return };
     let (journal, in_txn_now, pending, marker, committed) = with_store(db, |st| {
@@ -1080,9 +1098,7 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
                 st.conn.pager_journalled = true;
                 st.conn.pager_base.clone().unwrap()
             });
-            let img = build_image(db);
-            let mut dbbuf = dbfile::write_db_bytes(&img);
-            dbfile::set_journal_versions(&mut dbbuf, false);
+            let dbbuf = cursor_or_whole_image(db, &path);
             io_bump(db, 0, 0, 1);
             crate::pcache_note(db, dbbuf.len() as i64);
             let _ = crate::pager::txn_write(&path, &base, &dbbuf);
@@ -1098,9 +1114,7 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
             st.conn.pager_journalled = false;
             (h, b)
         });
-        let img = build_image(db);
-        let mut dbbuf = dbfile::write_db_bytes(&img);
-        dbfile::set_journal_versions(&mut dbbuf, false);
+        let dbbuf = cursor_or_whole_image(db, &path);
         io_bump(db, 0, 0, 1); // run-44: real flush = cache write
         crate::pcache_note(db, dbbuf.len() as i64);
         if had_journal {
@@ -1280,6 +1294,45 @@ pub fn blob_read_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize
 /// run-50: rows changed by the most recent DML statement (sqlite3_changes)
 pub fn changes(db: usize) -> i64 {
     with_store(db, |st| st.changes)
+}
+
+/// run-56: for the narrow btree-cursor scope — a file-backed main schema with
+/// exactly ONE plain rowid user table (no indexes/views/vtabs/attached/temp) —
+/// return (table name, rows as (rowid, record-values with the IPK col NULLed)),
+/// mirroring dbfile's cell encoding. None otherwise (caller uses the whole image).
+pub fn cursor_rows(db: usize) -> Option<(String, Vec<(i64, Vec<Val>)>)> {
+    with_store(db, |st| {
+        if !st.conn.is_file { return None; }
+        if !st.indexes.is_empty() || !st.views.is_empty() || !st.conn.attached.is_empty()
+            || !st.conn.vtabs.is_empty() || !st.conn.vtab_schema.is_empty() || !st.triggers.is_empty() {
+            return None;
+        }
+        // exactly one non-internal, non-schema-qualified table
+        let user: Vec<&(String, Table)> = st.tables.iter()
+            .filter(|(n, _)| !n.contains('.') && !n.starts_with("sqlite_")).collect();
+        if user.len() != 1 { return None; }
+        let (name, t) = user[0];
+        if t.create_sql.to_ascii_uppercase().contains("WITHOUT ROWID") { return None; }
+        let ipk = dbfile::ipk_index(&t.create_sql);
+        let rows: Vec<(i64, Vec<Val>)> = t.rows.iter().map(|(rid, vals)| {
+            match ipk {
+                Some(i) => {
+                    let rowid = match vals.get(i) { Some(Val::Int(v)) => *v, _ => *rid };
+                    let mut rv = vals.clone();
+                    if i < rv.len() { rv[i] = Val::Null; }
+                    (rowid, rv)
+                }
+                None => (*rid, vals.clone()),
+            }
+        }).collect();
+        Some((name.clone(), rows))
+    })
+}
+
+/// run-56: sqlite3_txn_state level for the connection (0 none / 1 read / 2 write).
+/// No open txn => 0. Otherwise the tracked level (a deferred BEGIN untouched = 0).
+pub fn txn_state(db: usize) -> i32 {
+    with_store(db, |st| if st.txn.is_none() { 0 } else { st.conn.txn_level as i32 })
 }
 
 /// run-49: the cell's current bytes (Blob or Text) — the per-row expiry snapshot.
@@ -3317,6 +3370,17 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
     let res: Result<(), String> = with_store(db, |st| {
         for (si, s) in raw_stmts.iter().enumerate() {
             if tracing { crate::exec_trace_stmt(db, &trace_texts[si]); }
+            // run-56: track the btree handle txn level for sqlite3_txn_state. Inside an
+            // open txn, a read (SELECT/WITH/PRAGMA-read) lifts 0->1, any write lifts to 2.
+            if st.txn.is_some() {
+                let up = s.trim_start().to_ascii_uppercase();
+                let is_write = up.starts_with("INSERT") || up.starts_with("UPDATE") || up.starts_with("DELETE")
+                    || up.starts_with("CREATE") || up.starts_with("DROP") || up.starts_with("ALTER")
+                    || up.starts_with("REPLACE") || up.starts_with("VACUUM") || up.starts_with("REINDEX");
+                let is_read = up.starts_with("SELECT") || up.starts_with("WITH") || up.starts_with("VALUES");
+                if is_write { st.conn.txn_level = 2; }
+                else if is_read && st.conn.txn_level == 0 { st.conn.txn_level = 1; }
+            }
             // run-47: per-statement authorizer consult with C's argument strings
             // (DENY errors rc 23; IGNORE silently skips INSERT/UPDATE, DELETE proceeds)
             match auth_stmt_precheck(db, st, s)? {
@@ -3729,6 +3793,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     if immediate { acquire_file_lock(db, true)?; } // run-36: RESERVED now
                     let snap = take_snap(st);
                     st.txn = Some(Txn { snap, implicit: false, savepoints: Vec::new() });
+                    // run-56: BEGIN IMMEDIATE/EXCLUSIVE start a write txn immediately;
+                    // a deferred BEGIN stays level 0 until the first statement.
+                    st.conn.txn_level = if immediate { 2 } else { 0 };
                 }
                 Stmt::Commit => {
                     if st.txn.is_none() {
@@ -3750,6 +3817,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.txn = None;
                     crate::vtab_txn_commit(db); // run-50: xSync then xCommit on joined vtabs
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0); // resets at txn end (pinned)
+                    st.conn.txn_level = 0; // run-56
                     st.commit_flush_pending = true; // run-36: flush at the post-exec sync
                     release_file_lock(db);
                 }
@@ -3768,6 +3836,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         st.conn.pager_base = None;
                     }
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0);
+                    st.conn.txn_level = 0; // run-56
                     release_file_lock(db);
                 }
                 Stmt::Savepoint { name } => {

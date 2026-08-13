@@ -26,7 +26,7 @@
 use crate::store::Val;
 use std::path::Path;
 
-const PAGE: usize = 4096;
+pub(crate) const PAGE: usize = 4096;
 const HEADER: &[u8; 16] = b"SQLite format 3\0";
 
 pub struct TableImage {
@@ -55,13 +55,13 @@ pub struct DbImage {
 }
 
 // ---------------- varint / serial types ----------------
-fn put_varint(out: &mut Vec<u8>, v: u64) {
+pub(crate) fn put_varint(out: &mut Vec<u8>, v: u64) {
     let mut g = Vec::new();
     let mut x = v;
     loop { g.push((x & 0x7f) as u8); x >>= 7; if x == 0 { break; } }
     for i in (0..g.len()).rev() { let mut b = g[i]; if i != 0 { b |= 0x80; } out.push(b); }
 }
-fn get_varint(buf: &[u8], pos: &mut usize) -> u64 {
+pub(crate) fn get_varint(buf: &[u8], pos: &mut usize) -> u64 {
     let mut v = 0u64;
     for _ in 0..9 { let b = buf[*pos]; *pos += 1; v = (v << 7) | (b & 0x7f) as u64; if b & 0x80 == 0 { break; } }
     v
@@ -77,7 +77,7 @@ fn int_serial(v: i64) -> (u64, Vec<u8>) {
         _ => (6, v.to_be_bytes().to_vec()),
     }
 }
-fn encode_record(vals: &[Val]) -> Vec<u8> {
+pub(crate) fn encode_record(vals: &[Val]) -> Vec<u8> {
     let mut st = Vec::new();
     let mut body = Vec::new();
     for v in vals {
@@ -96,7 +96,7 @@ fn encode_record(vals: &[Val]) -> Vec<u8> {
     header.extend_from_slice(&body);
     header
 }
-fn decode_record(payload: &[u8]) -> Vec<Val> {
+pub(crate) fn decode_record(payload: &[u8]) -> Vec<Val> {
     let mut pos = 0;
     let hlen = get_varint(payload, &mut pos) as usize;
     let mut sts = Vec::new();

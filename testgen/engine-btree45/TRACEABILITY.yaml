@@ -1,0 +1,59 @@
+slice_id: engine-btree45
+source_discovery: discovery/engine-btree45/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-btree45-001
+- engine-btree45-002
+cases:
+- id: engine-btree45-001-C001
+  feature_id: engine-btree45-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-btree45-001/CASE-001.md
+  golden: tests/characterization/engine-btree45/cases/engine-btree45-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-btree45/features/engine-btree45-001.md
+- id: engine-btree45-001-C002
+  feature_id: engine-btree45-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-btree45-001/CASE-002.md
+  golden: tests/characterization/engine-btree45/cases/engine-btree45-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-btree45/features/engine-btree45-001.md
+- id: engine-btree45-002-C001
+  feature_id: engine-btree45-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-btree45-002/CASE-001.md
+  golden: tests/characterization/engine-btree45/cases/engine-btree45-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-btree45/features/engine-btree45-002.md
+- id: engine-btree45-002-C002
+  feature_id: engine-btree45-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-btree45-002/CASE-002.md
+  golden: tests/characterization/engine-btree45/cases/engine-btree45-002/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-btree45/features/engine-btree45-002.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-56 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-btree45-001-C001
+  - engine-btree45-001-C002
+  - engine-btree45-002-C001
+  - engine-btree45-002-C002
+updated_at: '2026-08-13T20:34:32Z'

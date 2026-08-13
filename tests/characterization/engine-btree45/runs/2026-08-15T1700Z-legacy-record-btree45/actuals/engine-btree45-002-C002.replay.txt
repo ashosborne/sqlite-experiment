@@ -1,0 +1,3 @@
+OBS engine-btree45-002-C002 after_del_upd 10,TEN|30,thirty|40,forty
+OBS engine-btree45-002-C002 seek_deleted 
+OBS engine-btree45-002-C002 integrity ok
