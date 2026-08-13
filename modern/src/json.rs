@@ -286,6 +286,165 @@ pub fn each(doc: &str) -> Result<Vec<V>, String> {
                  other => vec![to_sql_text(other)] })
 }
 
+// ---- run-50: full json_each/json_tree vtab columns with C's JSONB-offset ids ----
+
+/// one json_each/json_tree row (all eight vtab columns)
+pub struct WalkRow {
+    pub key: Option<V>,
+    pub value: V,
+    pub jtype: String,
+    pub atom: Option<V>,
+    pub id: i64,
+    pub parent: Option<i64>,
+    pub fullkey: String,
+    pub path: String,
+}
+
+/// size of a JSONB header for a payload of n bytes (1 / 2 / 3 / 5 / 9)
+fn jsonb_hdr(n: usize) -> usize {
+    if n <= 11 { 1 } else if n <= 0xFF { 2 } else if n <= 0xFFFF { 3 }
+    else if n <= 0xFFFF_FFFF { 5 } else { 9 }
+}
+/// total encoded size of a node in C's JSONB format (ints/reals as ASCII text,
+/// strings raw, true/false/null header-only, containers = header + children)
+fn jsonb_size(j: &J) -> usize {
+    match j {
+        J::Null | J::Bool(_) => 1,
+        J::Int(i) => { let p = i.to_string().len(); jsonb_hdr(p) + p }
+        J::Real(r) => { let p = format!("{r}").len(); jsonb_hdr(p) + p }
+        J::Str(s) => { let p = s.len(); jsonb_hdr(p) + p }
+        J::Arr(a) => { let p: usize = a.iter().map(jsonb_size).sum(); jsonb_hdr(p) + p }
+        J::Obj(o) => {
+            let p: usize = o.iter().map(|(k, v)| jsonb_size(&J::Str(k.clone())) + jsonb_size(v)).sum();
+            jsonb_hdr(p) + p
+        }
+    }
+}
+fn jtype_of(j: &J) -> &'static str {
+    match j { J::Null => "null", J::Bool(true) => "true", J::Bool(false) => "false",
+              J::Int(_) => "integer", J::Real(_) => "real", J::Str(_) => "text",
+              J::Arr(_) => "array", J::Obj(_) => "object" }
+}
+fn jvalue_of(j: &J) -> V { to_sql_text(j.clone()) }
+fn jatom_of(j: &J) -> Option<V> {
+    match j { J::Arr(_) | J::Obj(_) => None, other => Some(to_sql_text(other.clone())) }
+}
+
+/// emit the row(s) for node `j` located at JSONB offset `off`, then (when
+/// `recursive`) its children. `parent` is the id of the parent ROW like C.
+fn walk_node(j: &J, off: usize, key: Option<V>, parent: Option<i64>,
+             fullkey: &str, path: &str, recursive: bool, emit_self: bool,
+             out: &mut Vec<WalkRow>) {
+    let my_id = off as i64;
+    if emit_self {
+        out.push(WalkRow {
+            key, value: jvalue_of(j), jtype: jtype_of(j).into(), atom: jatom_of(j),
+            id: my_id, parent, fullkey: fullkey.to_string(), path: path.to_string(),
+        });
+    }
+    let child_parent = if emit_self { Some(my_id) } else { parent };
+    match j {
+        J::Arr(a) => {
+            let mut co = off + jsonb_hdr(a.iter().map(jsonb_size).sum());
+            for (i, v) in a.iter().enumerate() {
+                let fk = format!("{fullkey}[{i}]");
+                if recursive {
+                    walk_node(v, co, Some(V::Int(i as i64)), child_parent, &fk, fullkey, true, true, out);
+                } else {
+                    out.push(WalkRow { key: Some(V::Int(i as i64)), value: jvalue_of(v),
+                        jtype: jtype_of(v).into(), atom: jatom_of(v), id: co as i64,
+                        parent: None, fullkey: fk, path: fullkey.to_string() });
+                }
+                co += jsonb_size(v);
+            }
+        }
+        J::Obj(o) => {
+            let payload: usize = o.iter().map(|(k, v)| jsonb_size(&J::Str(k.clone())) + jsonb_size(v)).sum();
+            let mut co = off + jsonb_hdr(payload);
+            for (k, v) in o {
+                // the member row's id is the offset of its KEY node (C shape)
+                let key_off = co;
+                let vo = co + jsonb_size(&J::Str(k.clone()));
+                let fk = format!("{fullkey}.{k}");
+                if recursive {
+                    // recurse with the value's children, but the row id is the key offset
+                    let my = key_off as i64;
+                    out.push(WalkRow { key: Some(V::Text(k.clone())), value: jvalue_of(v),
+                        jtype: jtype_of(v).into(), atom: jatom_of(v), id: my,
+                        parent: child_parent, fullkey: fk.clone(), path: fullkey.to_string() });
+                    match v {
+                        J::Arr(_) | J::Obj(_) => walk_node(v, vo, None, Some(my), &fk, fullkey, true, false, out),
+                        _ => {}
+                    }
+                } else {
+                    out.push(WalkRow { key: Some(V::Text(k.clone())), value: jvalue_of(v),
+                        jtype: jtype_of(v).into(), atom: jatom_of(v), id: key_off as i64,
+                        parent: None, fullkey: fk, path: fullkey.to_string() });
+                }
+                co = vo + jsonb_size(v);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// json_each (recursive=false) / json_tree (recursive=true) over `doc`, optionally
+/// rooted at `root_path` ($ syntax). Ids are the node's byte offset in C's JSONB
+/// encoding of the WHOLE document; parents reference the parent row's id.
+pub fn walk(doc: &str, root_path: Option<&str>, recursive: bool) -> Result<Vec<WalkRow>, String> {
+    let j = parse(doc)?;
+    let (node, off, fullkey) = match root_path {
+        None | Some("$") => (&j, 0usize, "$".to_string()),
+        Some(p) => {
+            let steps = path_steps(p);
+            let mut cur = &j;
+            let mut off = 0usize;
+            let mut fk = "$".to_string();
+            for s in &steps {
+                match cur {
+                    J::Obj(o) => {
+                        let payload: usize = o.iter().map(|(k, v)| jsonb_size(&J::Str(k.clone())) + jsonb_size(v)).sum();
+                        let mut co = off + jsonb_hdr(payload);
+                        let mut found = false;
+                        for (k, v) in o {
+                            let vo = co + jsonb_size(&J::Str(k.clone()));
+                            if k == s { cur = v; off = vo; fk = format!("{fk}.{k}"); found = true; break; }
+                            co = vo + jsonb_size(v);
+                        }
+                        if !found { return Ok(Vec::new()); }
+                    }
+                    J::Arr(a) => {
+                        let idx: usize = s.parse().map_err(|_| "bad path".to_string())?;
+                        let mut co = off + jsonb_hdr(a.iter().map(jsonb_size).sum());
+                        if idx >= a.len() { return Ok(Vec::new()); }
+                        for v in a.iter().take(idx) { co += jsonb_size(v); }
+                        cur = &a[idx]; off = co; fk = format!("{fk}[{idx}]");
+                    }
+                    _ => return Ok(Vec::new()),
+                }
+            }
+            (cur, off, fk)
+        }
+    };
+    let mut out = Vec::new();
+    match node {
+        J::Arr(_) | J::Obj(_) => {
+            if recursive {
+                // tree emits the container row itself (key NULL, path = fullkey)
+                walk_node(node, off, None, None, &fullkey, &fullkey, true, true, &mut out);
+            } else {
+                walk_node(node, off, None, None, &fullkey, &fullkey, false, false, &mut out);
+            }
+        }
+        scalar => {
+            out.push(WalkRow { key: None, value: jvalue_of(scalar), jtype: jtype_of(scalar).into(),
+                atom: jatom_of(scalar), id: off as i64, parent: None,
+                fullkey: fullkey.clone(), path: fullkey });
+        }
+    }
+    Ok(out)
+}
+
 fn v_to_j(v: &V) -> J {
     match v { V::Null => J::Null, V::Int(i) => J::Int(*i), V::Real(r) => J::Real(*r),
               V::Text(t) => parse(t).unwrap_or_else(|_| J::Str(t.clone())), V::Blob(_) => J::Null }

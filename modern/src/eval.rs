@@ -701,19 +701,22 @@ fn parse_expr_full(s: &str) -> Result<Ex, String> {
 // run-38: completion / pragma-registry contents (only what the pinned queries probe;
 // under-claimed — the umbrella pragma/completion surfaces stay partial)
 static SQL_KEYWORDS: &[&str] = &[
-    "ABORT","ACTION","ADD","AFTER","ALL","ALTER","ANALYZE","AND","AS","ASC","ATTACH",
-    "AUTOINCREMENT","BEFORE","BEGIN","BETWEEN","BY","CASCADE","CASE","CAST","CHECK",
-    "COLLATE","COLUMN","COMMIT","CONFLICT","CONSTRAINT","CREATE","CROSS","CURRENT",
-    "DATABASE","DEFAULT","DEFERRABLE","DEFERRED","DELETE","DESC","DETACH","DISTINCT",
-    "DROP","EACH","ELSE","END","ESCAPE","EXCEPT","EXCLUSIVE","EXISTS","EXPLAIN","FAIL",
-    "FILTER","FOREIGN","FROM","FULL","GLOB","GROUP","HAVING","IF","IGNORE","IMMEDIATE",
-    "IN","INDEX","INNER","INSERT","INSTEAD","INTERSECT","INTO","IS","ISNULL","JOIN",
-    "KEY","LEFT","LIKE","LIMIT","MATCH","NATURAL","NO","NOT","NOTNULL","NULL","OF",
-    "OFFSET","ON","OR","ORDER","OUTER","PRAGMA","PRIMARY","QUERY","RAISE","REFERENCES",
-    "REGEXP","REINDEX","RELEASE","RENAME","REPLACE","RESTRICT","RIGHT","ROLLBACK","ROW",
-    "SAVEPOINT","SELECT","SET","TABLE","TEMP","TEMPORARY","THEN","TO","TRANSACTION",
-    "TRIGGER","UNION","UNIQUE","UPDATE","USING","VACUUM","VALUES","VIEW","VIRTUAL","WHEN",
-    "WHERE","WITH","WITHOUT",
+    // run-50: C's exact 147-keyword census (sqlite3_keyword_name order)
+    "REINDEX","INDEXED","INDEX","DESC","ESCAPE","EACH","CHECK","KEY","BEFORE","FOREIGN",
+    "FOR","IGNORE","REGEXP","EXPLAIN","INSTEAD","ADD","DATABASE","AS","SELECT","TABLE",
+    "LEFT","THEN","END","DEFERRABLE","ELSE","EXCLUDE","DELETE","TEMPORARY","TEMP","OR",
+    "ISNULL","NULLS","SAVEPOINT","INTERSECT","TIES","NOTNULL","NOT","NO","NULL","LIKE",
+    "EXCEPT","TRANSACTION","ACTION","ON","NATURAL","ALTER","RAISE","EXCLUSIVE","EXISTS","CONSTRAINT",
+    "INTO","OFFSET","OF","SET","TRIGGER","RANGE","GENERATED","DETACH","HAVING","GLOB",
+    "BEGIN","INNER","REFERENCES","UNIQUE","QUERY","WITHOUT","WITH","OUTER","RELEASE","ATTACH",
+    "BETWEEN","NOTHING","GROUPS","GROUP","CASCADE","ASC","DEFAULT","CASE","COLLATE","CREATE",
+    "CURRENT_DATE","IMMEDIATE","JOIN","INSERT","MATCH","PLAN","ANALYZE","PRAGMA","MATERIALIZED","DEFERRED",
+    "DISTINCT","IS","UPDATE","VALUES","VIRTUAL","ALWAYS","WHEN","WHERE","RECURSIVE","ABORT",
+    "AFTER","RENAME","AND","DROP","PARTITION","AUTOINCREMENT","TO","IN","CAST","COLUMN",
+    "COMMIT","CONFLICT","CROSS","CURRENT_TIMESTAMP","CURRENT_TIME","CURRENT","PRECEDING","FAIL","LAST","FILTER",
+    "REPLACE","FIRST","FOLLOWING","FROM","FULL","LIMIT","IF","ORDER","RESTRICT","OTHERS",
+    "OVER","RETURNING","RIGHT","ROLLBACK","ROWS","ROW","UNBOUNDED","UNION","USING","VACUUM",
+    "VIEW","WINDOW","DO","BY","INITIALLY","ALL","PRIMARY",
 ];
 static FUNCTION_LIST: &[&str] = &[
     "abs","changes","char","coalesce","count","glob","hex","ifnull","instr","length",
@@ -950,9 +953,20 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         _ => {
             // registered UDF name? (only then evaluate args — avoids choking on the
             // '*' pseudo-column of aggregates like count(*), which eval_agg handles)
+            if ln == "load_extension" {
+                // run-50: the SQL form stays refused on this pin even when the
+                // C-API gate is open (C's API/SQL split, pinned; plain rc 1)
+                return Err("__RC1__not authorized".into());
+            }
             if ctx.db != 0 && crate::udf_name_exists(ctx.db, &ln) {
                 if crate::udf_is_aggregate(ctx.db, &ln, args.len()) {
                     return Err(format!("misuse of aggregate function {ln}()"));
+                }
+                // run-50: untrusted schema refuses non-innocuous app functions in views
+                if IN_VIEW.with(|d| d.get()) > 0
+                    && *ctx.conn.pragmas.get("!untrusted_schema").unwrap_or(&0) != 0
+                    && !crate::udf_innocuous(ctx.db, &ln) {
+                    return Err(format!("unsafe use of {ln}()"));
                 }
                 let mut argvals = Vec::with_capacity(args.len());
                 for e in args { argvals.push(eval_expr(e, row, ctx)?); }
@@ -1393,6 +1407,36 @@ fn unquote_ident(s: &str) -> String {
     t.to_string()
 }
 
+/// run-50: split a TVF argument list on top-level commas, honouring single quotes,
+/// and strip one level of outer quotes from each piece
+fn split_tvf_args(raw: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut inq = false;
+    let mut depth = 0i32;
+    for c in raw.chars() {
+        match c {
+            '\'' => { inq = !inq; cur.push(c); }
+            '(' | '[' | '{' if !inq => { depth += 1; cur.push(c); }
+            ')' | ']' | '}' if !inq => { depth -= 1; cur.push(c); }
+            ',' if !inq && depth == 0 => { out.push(std::mem::take(&mut cur)); }
+            _ => cur.push(c),
+        }
+    }
+    if !cur.trim().is_empty() || !out.is_empty() { out.push(cur); }
+    out.into_iter().map(|p| {
+        let t = p.trim();
+        if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') {
+            t[1..t.len()-1].replace("''", "'")
+        } else { t.to_string() }
+    }).collect()
+}
+
+thread_local! {
+    // run-50: >0 while expanding a view body (TRUSTED_SCHEMA gate)
+    static IN_VIEW: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
 fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String> {
     let from_uq = if from.trim().starts_with('(') { from.trim().to_string() } else { unquote_ident(from) };
     let from = from_uq.as_str();
@@ -1407,6 +1451,8 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     if let Some(op) = f.find('(') {
         let fname = f[..op].trim().to_ascii_lowercase();
         let arg = f[op+1..f.rfind(')').unwrap_or(f.len())].trim().trim_matches('\'').to_string();
+        // run-50: raw argument text for TVFs that take more than one argument
+        let rawargs = f[op+1..f.rfind(')').unwrap_or(f.len())].to_string();
         if fname.starts_with("pragma_") {
             crate::pvtab_touch(ctx.db, &fname); // run-49: lazy module_list fill
         }
@@ -1423,11 +1469,27 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                 let rows = (0..=chars.len()).map(|k| { let mut m = Row::new(); m.insert("prefix".into(), V::Text(chars[..k].iter().collect())); m }).collect();
                 return Ok((vec!["prefix".into()], rows));
             }
-            "json_each" => {
-                let vals = crate::json::each(&arg)?;
-                let rows = vals.into_iter().enumerate().map(|(i, v)| { let mut m = Row::new();
-                    m.insert("key".into(), V::Int(i as i64)); m.insert("value".into(), v); m }).collect();
-                return Ok((vec!["key".into(), "value".into()], rows));
+            "json_each" | "json_tree" => {
+                // run-50: full vtab columns (key/value/type/atom/id/parent/fullkey/path)
+                // with C's JSONB-offset ids; optional second argument roots the walk
+                let parts = split_tvf_args(&rawargs);
+                let doc = parts.first().cloned().unwrap_or_default();
+                let rootp = parts.get(1).cloned();
+                let walked = crate::json::walk(&doc, rootp.as_deref(), fname == "json_tree")?;
+                let rows = walked.into_iter().map(|w| {
+                    let mut m = Row::new();
+                    m.insert("key".into(), w.key.unwrap_or(V::Null));
+                    m.insert("value".into(), w.value);
+                    m.insert("type".into(), V::Text(w.jtype));
+                    m.insert("atom".into(), w.atom.unwrap_or(V::Null));
+                    m.insert("id".into(), V::Int(w.id));
+                    m.insert("parent".into(), w.parent.map(V::Int).unwrap_or(V::Null));
+                    m.insert("fullkey".into(), V::Text(w.fullkey));
+                    m.insert("path".into(), V::Text(w.path));
+                    m
+                }).collect();
+                return Ok((vec!["key".into(), "value".into(), "type".into(), "atom".into(),
+                                "id".into(), "parent".into(), "fullkey".into(), "path".into()], rows));
             }
             "pragma_table_info" => {
                 // run-41: a vtab instance reports its declared visible shape (name/type)
@@ -1504,14 +1566,27 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                 return Ok((vec!["seqno".into(), "cid".into(), "name".into()], rows));
             }
             "completion" => {
-                let mut cands: std::collections::BTreeSet<String> = SQL_KEYWORDS.iter().map(|k| k.to_string()).collect();
-                for tn in ctx.tables.keys() { cands.insert(tn.clone()); }
-                for (tn, (cols, _)) in ctx.tables.iter() { let _ = tn; for c in cols { cands.insert(c.clone()); } }
-                for vn in ctx.views.keys() { cands.insert(vn.clone()); }
+                // run-50: LIVE C's phase contract — keywords (1), databases (7),
+                // tables+views (8), table columns (9). The pragma/function/collation
+                // phases are dead code in live C (pinned; ADR 0038). `phase` is a
+                // HIDDEN column: queryable by name, absent from star-selects.
+                let mut cands: Vec<(String, i64)> = SQL_KEYWORDS.iter()
+                    .map(|k| (k.to_string(), 1)).collect();
+                cands.push(("main".into(), 7));
+                let mut objs: Vec<String> = ctx.tables.keys().cloned()
+                    .chain(ctx.views.keys().cloned())
+                    .filter(|n| !n.contains('.')).collect();
+                objs.sort();
+                for o in &objs { cands.push((o.clone(), 8)); }
+                for (tn, (cols, _)) in ctx.tables.iter() {
+                    if tn.contains('.') { continue; }
+                    for c in cols { cands.push((c.clone(), 9)); } }
                 let pfx = arg.to_ascii_lowercase();
                 let rows = cands.into_iter()
-                    .filter(|c| c.to_ascii_lowercase().starts_with(&pfx))
-                    .map(|c| { let mut m = Row::new(); m.insert("candidate".into(), V::Text(c)); m })
+                    .filter(|(c, _)| c.to_ascii_lowercase().starts_with(&pfx))
+                    .map(|(c, ph)| { let mut m = Row::new();
+                        m.insert("candidate".into(), V::Text(c));
+                        m.insert("phase".into(), V::Int(ph)); m })
                     .collect();
                 return Ok((vec!["candidate".into()], rows));
             }
@@ -1619,7 +1694,11 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         return Err(format!("access to view \"{f}\" prohibited"));
     }
     if let Some(vsql) = ctx.views.get(f) {
-        let (cols, rows) = select_rows_o(ctx, vsql, &Row::new())?;
+        // run-50: TRUSTED_SCHEMA gates non-innocuous app functions inside views
+        IN_VIEW.with(|d| d.set(d.get() + 1));
+        let r = select_rows_o(ctx, vsql, &Row::new());
+        IN_VIEW.with(|d| d.set(d.get() - 1));
+        let (cols, rows) = r?;
         let rmaps = rows.into_iter().map(|r| cols.iter().cloned().zip(r).collect()).collect();
         return Ok((cols, rmaps));
     }
@@ -1815,6 +1894,11 @@ fn parse_from(ctx: &Ctx, from: &str, outer: &Row) -> Result<Vec<Row>, String> {
                 m.insert(format!("{qual}.{c}"), v.clone());
                 m.entry(c.clone()).or_insert(v);
             }
+            // run-50: HIDDEN vtab/TVF columns ride along (queryable by name,
+            // absent from the visible column list and star-selects)
+            for (kk, vv) in r {
+                if !cols.contains(kk) { m.entry(kk.clone()).or_insert_with(|| vv.clone()); }
+            }
             m
         }).collect();
         if i == 0 { acc = qrows; continue; }
@@ -1946,6 +2030,14 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
         (None, Some(w)) => (None, Some(rest[w+5..].trim().to_string())),
         _ => (None, None),
     };
+    // run-50: SELECT DISTINCT dedupes the projected rows
+    let (items_str, sel_distinct) = {
+        let t = items_str.trim();
+        let b = t.as_bytes();
+        if b.len() > 8 && b[..8].eq_ignore_ascii_case(b"DISTINCT") && b[8].is_ascii_whitespace() {
+            (t[8..].trim_start().to_string(), true)
+        } else { (items_str.clone(), false) }
+    };
     let mut items: Vec<(String, String)> = split_top(&items_str, ',').iter().map(|i| item_alias(i)).collect();
     // run-38: expand `SELECT *` over a single bare store table to its columns
     if items.iter().any(|(e, _)| e.trim() == "*") {
@@ -1956,6 +2048,9 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
                 // run-41: vtab star expands to the declared VISIBLE columns only
                 items = shape.iter().filter(|(_, _, hidden)| !hidden)
                     .map(|(n, _, _)| (n.clone(), n.clone())).collect();
+            } else if let Ok((cols, _)) = source_rows(ctx, f.trim()) {
+                // run-50: TVF/view sources expand to their reported (visible) columns
+                items = cols.iter().map(|c| (c.clone(), c.clone())).collect();
             }
         }
     }
@@ -2096,6 +2191,10 @@ fn select_core(ctx: &Ctx, sql: &str, outer: &Row) -> Result<(Vec<String>, Vec<Ve
     } else {
         for r in &src { let env = with_outer(r); let mut orow = Vec::new();
             for e in &exprs { orow.push(eval_expr(e, &env, ctx)?); } out.push(orow); }
+    }
+    if sel_distinct {
+        let mut seen = std::collections::HashSet::new();
+        out.retain(|r| seen.insert(r.iter().map(|v| format!("{:?}", v.render())).collect::<Vec<_>>().join("\u{1}")));
     }
     Ok((colnames, out))
 }
@@ -2658,6 +2757,15 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
         "busy_timeout" => { match val {
             Some(v) => { let n = boolval(&v); ctx.conn.pragmas.insert(name.clone(), n); Ok(vec![vec![Some(n.to_string())]]) } // set RETURNS the value
             None => { let cur = *ctx.conn.pragmas.get(&name).unwrap_or(&0); Ok(vec![vec![Some(cur.to_string())]]) } } }
+        "writable_schema" => { match val {
+            Some(v) => {
+                // run-50: DEFENSIVE makes this a silent no-op (pinned)
+                if !crate::defensive_on(ctx.db) {
+                    ctx.conn.pragmas.insert("!writable_schema".into(), boolval(&v));
+                }
+                Ok(vec![])
+            }
+            None => { let cur = *ctx.conn.pragmas.get("!writable_schema").unwrap_or(&0); Ok(vec![vec![Some(cur.to_string())]]) } } }
         "foreign_keys" | "synchronous" | "read_uncommitted" | "trusted_schema" | "threads"
         | "analysis_limit" | "reverse_unordered_selects" | "cell_size_check" | "fullfsync"
         | "checkpoint_fullfsync" | "secure_delete" => {

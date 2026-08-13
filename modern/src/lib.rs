@@ -1394,6 +1394,33 @@ pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, a: i64, 
         if !out.is_null() { unsafe { *out = cur; } }
         return SQLITE_OK;
     }
+    // run-50: the leftover toggle family — each lands with its REAL effect:
+    //   1005 ENABLE_LOAD_EXTENSION (C-API gate only; the SQL function stays gated),
+    //   1009 RESET_DATABASE (VACUUM wipes the schema), 1011 WRITABLE_SCHEMA
+    //   (sqlite_master UPDATE gate, shared with PRAGMA writable_schema),
+    //   1012 LEGACY_ALTER (rename skips the view-SQL rewrite), 1014 DQS_DDL
+    //   (double-quoted strings in DDL), 1017 TRUSTED_SCHEMA (non-innocuous app
+    //   functions inside views refuse with C's message).
+    if matches!(op, 1005 | 1009 | 1011 | 1012 | 1014 | 1017) {
+        let (val, out) = (a as c_int, b as usize as *mut c_int);
+        let key = match op {
+            1005 => "load_ext_capi", 1009 => "reset_database", 1011 => "writable_schema",
+            1012 => "legacy_alter", 1014 => "dqs_ddl_off", _ => "untrusted_schema",
+        };
+        // dqs_ddl and trusted_schema default ON — store the INVERTED bit so the
+        // zero-default connection flag map keeps C's defaults
+        let inverted = matches!(op, 1014 | 1017);
+        let cur = if val >= 0 {
+            let bit = if inverted { val <= 0 } else { val > 0 };
+            store::set_conn_flag(db as usize, key, bit);
+            val > 0
+        } else {
+            let bit = store::get_conn_flag(db as usize, key);
+            if inverted { !bit } else { bit }
+        };
+        if !out.is_null() { unsafe { *out = c_int::from(cur) }; }
+        return SQLITE_OK;
+    }
     if op != SQLITE_DBCONFIG_ENABLE_FKEY { return SQLITE_ERROR; }
     let (val, out) = (a as c_int, b as usize as *mut c_int);
     with_extras(db, |e| {
@@ -1401,6 +1428,10 @@ pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, a: i64, 
         if !out.is_null() { unsafe { *out = e.fkey; } }
     });
     SQLITE_OK
+}
+/// run-50: the DEFENSIVE flag's real effect gates schema writes + PRAGMA writable_schema
+pub fn defensive_on(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().defensive != 0)
 }
 /// run-47: store/eval gates for the db_config toggles
 pub fn triggers_enabled(dbid: usize) -> bool {
@@ -1782,17 +1813,37 @@ pub unsafe extern "C" fn sqlite3_exec(
     }
 }
 
-/// # Safety: C ABI — pinned: 'not authorized' when extension loading is disabled (default).
+/// # Safety: C ABI — pinned: 'not authorized' when extension loading is disabled
+/// (default). run-50: DBCONFIG 1005 opens the C-API gate only; the actual load
+/// still fails (no dlopen in modern — loadext-api-001 keeps that residual).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_load_extension(
-    db: *mut Sqlite3, _file: *const c_char, _proc: *const c_char, errmsg: *mut *mut c_char,
+    db: *mut Sqlite3, z_file: *const c_char, _proc: *const c_char, errmsg: *mut *mut c_char,
 ) -> c_int {
     if db.is_null() { return SQLITE_MISUSE; }
+    if !store::get_conn_flag(db as usize, "load_ext_capi") {
+        (*db).errcode = SQLITE_ERROR;
+        (*db).extended = SQLITE_ERROR;
+        (*db).errmsg = Some(std::ffi::CString::new("not authorized").unwrap());
+        if !errmsg.is_null() { *errmsg = alloc_cstr("not authorized"); }
+        return SQLITE_ERROR;
+    }
+    let path = if z_file.is_null() { String::new() } else { CStr::from_ptr(z_file).to_string_lossy().into_owned() };
+    let msg = format!("unable to load extension: {path}");
     (*db).errcode = SQLITE_ERROR;
     (*db).extended = SQLITE_ERROR;
-    (*db).errmsg = Some(std::ffi::CString::new("not authorized").unwrap());
-    if !errmsg.is_null() { *errmsg = alloc_cstr("not authorized"); }
+    (*db).errmsg = Some(std::ffi::CString::new(msg.clone()).unwrap());
+    if !errmsg.is_null() { *errmsg = alloc_cstr(&msg); }
     SQLITE_ERROR
+}
+
+/// # Safety: C ABI — legacy enable (sets the C-API gate; the SQL function stays
+/// refused on this pin's frozen scope).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_enable_load_extension(db: *mut Sqlite3, onoff: c_int) -> c_int {
+    if db.is_null() { return SQLITE_MISUSE; }
+    store::set_conn_flag(db as usize, "load_ext_capi", onoff != 0);
+    SQLITE_OK
 }
 
 // ---- backup (pinned on the empty :memory: pair) ----
@@ -2612,6 +2663,7 @@ struct FnEntry {
     x_final: Option<XFinal>,
     x_destroy: Option<XDestroy>,
     user_data: usize,         // stored as usize so the map is 'static-friendly
+    innocuous: bool,          // run-50: SQLITE_INNOCUOUS (0x200000) — safe inside views
 }
 
 thread_local! {
@@ -2914,24 +2966,24 @@ fn run_destroy(e: &FnEntry) {
 /// # Safety: C ABI — sqlite3_create_function.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_create_function(
-    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, _text_rep: c_int, p_app: *mut c_void,
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, text_rep: c_int, p_app: *mut c_void,
     x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>,
 ) -> c_int {
-    create_function_impl(db, z_name, n_arg, p_app, x_func, x_step, x_final, None)
+    create_function_impl(db, z_name, n_arg, text_rep, p_app, x_func, x_step, x_final, None)
 }
 
 /// # Safety: C ABI — sqlite3_create_function_v2 (adds xDestroy).
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_create_function_v2(
-    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, _text_rep: c_int, p_app: *mut c_void,
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, text_rep: c_int, p_app: *mut c_void,
     x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>, x_destroy: Option<XDestroy>,
 ) -> c_int {
-    create_function_impl(db, z_name, n_arg, p_app, x_func, x_step, x_final, x_destroy)
+    create_function_impl(db, z_name, n_arg, text_rep, p_app, x_func, x_step, x_final, x_destroy)
 }
 
 #[allow(clippy::too_many_arguments)]
 unsafe fn create_function_impl(
-    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, p_app: *mut c_void,
+    db: *mut Sqlite3, z_name: *const c_char, n_arg: c_int, text_rep: c_int, p_app: *mut c_void,
     x_func: Option<XFunc>, x_step: Option<XStep>, x_final: Option<XFinal>, x_destroy: Option<XDestroy>,
 ) -> c_int {
     if db.is_null() || z_name.is_null() { return SQLITE_MISUSE; }
@@ -2947,7 +2999,8 @@ unsafe fn create_function_impl(
         if deleting {
             per.remove(&key);
         } else {
-            per.insert(key, FnEntry { n_arg, x_func, x_step, x_final, x_destroy, user_data: p_app as usize });
+            per.insert(key, FnEntry { n_arg, x_func, x_step, x_final, x_destroy,
+                user_data: p_app as usize, innocuous: text_rep & 0x20_0000 != 0 });
         }
     });
     db_ok(&mut *db);
@@ -2975,6 +3028,17 @@ fn udf_lookup(dbid: usize, name: &str, argc: usize) -> Option<FnEntry> {
 }
 
 /// does a UDF of ANY arity exist under this name? (prepare-time arity errors)
+/// run-50: is every registration of this UDF name flagged SQLITE_INNOCUOUS?
+pub fn udf_innocuous(dbid: usize, name: &str) -> bool {
+    UDF_REG.with(|r| r.borrow().get(&dbid).map(|per| {
+        let mut any = false;
+        for ((n, _), e) in per.iter() {
+            if n == name { if !e.innocuous { return false; } any = true; }
+        }
+        any
+    }).unwrap_or(false))
+}
+
 pub fn udf_name_exists(dbid: usize, name: &str) -> bool {
     let key_l = name.to_ascii_lowercase();
     UDF_REG.with(|r| r.borrow().get(&dbid).map(|per| per.keys().any(|(n, _)| *n == key_l)).unwrap_or(false))

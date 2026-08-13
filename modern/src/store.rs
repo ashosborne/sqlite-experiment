@@ -185,6 +185,49 @@ fn is_read_only(db: usize) -> bool { RO_DBS.with(|s| s.borrow().contains(&db)) }
 pub fn last_rowid(db: usize) -> i64 { with_store(db, |st| st.conn.last_rowid) }
 
 /// run-48: is this name a live-or-durable vtab on the connection?
+/// run-50: double-quoted tokens inside a SQL text (DQS_DDL gate)
+fn dquoted_tokens(sql: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut it = sql.char_indices();
+    let mut in_sq = false;
+    while let Some((_, c)) = it.next() {
+        match c {
+            '\'' => in_sq = !in_sq,
+            '"' if !in_sq => {
+                let mut tok = String::new();
+                for (_, d) in it.by_ref() {
+                    if d == '"' { break; }
+                    tok.push(d);
+                }
+                out.push(tok);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// run-50: replace a bare table-name token (word boundaries) in a SQL text
+fn replace_table_token(sql: &str, from: &str, to: &str) -> String {
+    let b = sql.as_bytes();
+    let fl = from.len();
+    let mut out = String::new();
+    let mut i = 0;
+    while i < b.len() {
+        let here = sql[i..].len() >= fl && sql[i..i + fl].eq_ignore_ascii_case(from);
+        let pre_ok = i == 0 || !(b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_' || b[i - 1] == b'"');
+        let post_ok = i + fl >= b.len() || !(b[i + fl].is_ascii_alphanumeric() || b[i + fl] == b'_' || b[i + fl] == b'"');
+        if here && pre_ok && post_ok {
+            out.push_str(to);
+            i += fl;
+        } else {
+            out.push(sql[i..].chars().next().unwrap());
+            i += sql[i..].chars().next().unwrap().len_utf8();
+        }
+    }
+    out
+}
+
 /// rewrite a CREATE VIRTUAL TABLE statement with the quoted new table name (C shape:
 /// `CREATE VIRTUAL TABLE "wt" USING ser`)
 fn vtab_rename_sql(sql: &str, to: &str) -> String {
@@ -340,6 +383,10 @@ pub fn set_conn_flag(db: usize, key: &str, on: bool) {
 }
 fn conn_flag(st: &Store, key: &str) -> bool {
     st.conn.pragmas.get(&format!("!{key}")).copied().unwrap_or(0) != 0
+}
+/// run-50: connection-flag read for the db_config query form
+pub fn get_conn_flag(db: usize, key: &str) -> bool {
+    with_store(db, |st| conn_flag(st, key))
 }
 
 /// run-47: resolve the DQS sentinel on a literal (accept as text, or C's error)
@@ -2729,6 +2776,23 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 AuthGate::Proceed => {}
             }
             // run-48: writable-vtab DML routes through the module's xUpdate
+            // run-50: UPDATE against sqlite_master is gated before parsing (the
+            // WRITABLE_SCHEMA / DEFENSIVE contract, pinned messages)
+            {
+                let tup = s.trim_start().to_ascii_uppercase();
+                if tup.starts_with("UPDATE") {
+                    let tgt = s.trim_start()["UPDATE".len()..].trim_start()
+                        .split(|c: char| c.is_whitespace()).next().unwrap_or("").to_string();
+                    if tgt.eq_ignore_ascii_case("sqlite_master") || tgt.eq_ignore_ascii_case("sqlite_schema") {
+                        if conn_flag(st, "writable_schema") && !crate::defensive_on(db) {
+                            st.changes = 0;
+                            if tracing { crate::exec_trace_profile(db, &trace_texts[si]); }
+                            continue;
+                        }
+                        return Err("table sqlite_master may not be modified".into());
+                    }
+                }
+            }
             if let Some(res) = vtab_dml_intercept(st, db, s) {
                 res?;
                 if st.txn.is_none() { crate::vtab_txn_commit(db); } // run-50: statement txn ends
@@ -3048,6 +3112,19 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     || st.conn.attached.iter().any(|a| a.eq_ignore_ascii_case(sch));
                                 if !known { return Err(format!("unknown database {sch}")); }
                             }
+                            // run-50: RESET_DATABASE turns this VACUUM into a wipe
+                            if conn_flag(st, "reset_database") && schema.is_none() {
+                                st.tables.clear();
+                                st.views.clear();
+                                st.triggers.clear();
+                                st.indexes.clear();
+                                st.catalog.clear();
+                                st.conn.vtabs.clear();
+                                st.conn.vtab_schema.clear();
+                                st.conn.schema_version += 1;
+                                refresh_pages(st);
+                                continue;
+                            }
                             let scope_pfx: Option<String> = schema.as_ref()
                                 .filter(|s| !s.eq_ignore_ascii_case("main") && !s.eq_ignore_ascii_case("temp"))
                                 .map(|s| format!("{s}."));
@@ -3187,6 +3264,16 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     }
                 }
                 Stmt::Create { name, cols, sql } => {
+                    // run-50: DQS_DDL off refuses double-quoted strings in CHECK
+                    // expressions with C's message (default accepts them as literals)
+                    if conn_flag(st, "dqs_ddl_off") {
+                        for tok in dquoted_tokens(&sql) {
+                            if !cols.iter().any(|c| c.name.eq_ignore_ascii_case(&tok)) {
+                                return Err(format!(
+                                    "no such column: \"{tok}\" - should this be a string literal in single-quotes?"));
+                            }
+                        }
+                    }
                     st.catalog.push(("table".into(), name.clone()));
                     let uniq_sets = parse_uniq_sets(&sql);
                     let checks = parse_table_checks(&sql);
@@ -3371,6 +3458,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         t.1.cols.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(","));
                     for e in st.catalog.iter_mut() {
                         if e.0 == "table" && e.1 == from { e.1 = to.clone(); }
+                    }
+                    // run-50: default ALTER rewrites referencing view SQL with the
+                    // QUOTED new name; DBCONFIG_LEGACY_ALTER_TABLE skips the rewrite
+                    if !conn_flag(st, "legacy_alter") {
+                        let quoted = format!("\"{to}\"");
+                        for body in st.views.values_mut() {
+                            *body = replace_table_token(body, &from, &quoted);
+                        }
                     }
                 }
                 Stmt::AddColumn { table, col, default } => {
@@ -3621,6 +3716,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
                 Stmt::Update { name, col, add, set, wh, or_mode } => {
                     let name = dml_key(st, &name); // run-43: resolve into attached schemas
+                    if name.eq_ignore_ascii_case("sqlite_master") || name.eq_ignore_ascii_case("sqlite_schema") {
+                        // run-50: schema writes need WRITABLE_SCHEMA and are always
+                        // refused under DEFENSIVE (pinned message)
+                        if conn_flag(st, "writable_schema") && !crate::defensive_on(db) {
+                            st.changes = 0;
+                            continue;
+                        }
+                        return Err("table sqlite_master may not be modified".into());
+                    }
                     if !st.views.contains_key(&name) && !st.tables.iter().any(|(n, _)| *n == name) {
                         return Err(format!("no such table: {name}"));
                     }
@@ -3941,6 +4045,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         row.push(crate::vtab_master_sql(db, n)),
                                     "sql" if st.tables.iter().any(|(tn, _)| tn == n) =>
                                         row.push(st.tables.iter().find(|(tn, _)| tn == n).map(|(_, t)| t.create_sql.clone())),
+                                    // run-50: view rows render their (possibly rename-rewritten) text
+                                    "sql" if st.views.contains_key(n) =>
+                                        row.push(Some(format!("CREATE VIEW {n} AS {}", st.views[n]))),
                                     _ => return Err(format!("no such column: {it}")),
                                 }
                             }
@@ -4038,6 +4145,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 else if e == "database is locked" { (5, e) } // run-36 busy path
                 else if e == "attempt to write a readonly database" { (8, e) } // run-44 query_only
                 else if e == "not authorized" { (23, e) } // run-47 per-statement authorizer
+                else if let Some(m) = e.strip_prefix("__RC1__") { (1, m.to_string()) } // run-50
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }
         }
