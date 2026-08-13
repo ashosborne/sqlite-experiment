@@ -185,6 +185,25 @@ fn is_read_only(db: usize) -> bool { RO_DBS.with(|s| s.borrow().contains(&db)) }
 pub fn last_rowid(db: usize) -> i64 { with_store(db, |st| st.conn.last_rowid) }
 
 /// run-48: is this name a live-or-durable vtab on the connection?
+/// rewrite a CREATE VIRTUAL TABLE statement with the quoted new table name (C shape:
+/// `CREATE VIRTUAL TABLE "wt" USING ser`)
+fn vtab_rename_sql(sql: &str, to: &str) -> String {
+    let up = sql.to_ascii_uppercase();
+    if let Some(p) = up.find("VIRTUAL TABLE ") {
+        let head = &sql[..p + "VIRTUAL TABLE ".len()];
+        let tail = &sql[p + "VIRTUAL TABLE ".len()..];
+        // skip the old name token (quoted or bare)
+        let rest = if let Some(q) = tail.strip_prefix('"') {
+            q.find('"').map(|e| &q[e + 1..]).unwrap_or("")
+        } else {
+            tail.find(|c: char| c.is_whitespace()).map(|e| &tail[e..]).unwrap_or("")
+        };
+        format!("{head}\"{to}\"{rest}")
+    } else {
+        sql.to_string()
+    }
+}
+
 fn is_vtab(st: &Store, db: usize, name: &str) -> bool {
     crate::vtab_is_instance(db, name) || st.conn.vtab_schema.iter().any(|(n, _, _, _)| n == name)
 }
@@ -229,6 +248,11 @@ fn vtab_dml_intercept(st: &mut Store, db: usize, s: &str) -> Option<Result<(), S
     if !is_vtab(st, db, &name) { return None; }
     Some((|| -> Result<(), String> {
         vtab_ensure_connected(st, db, &name)?;
+        // run-50: first write joins the txn — xBegin, plus a catch-up xSavepoint
+        // when savepoints (txn savepoint excluded) are already open (pinned)
+        let excl = st.txn.as_ref()
+            .map(|tx| tx.savepoints.len() - usize::from(tx.implicit)).unwrap_or(0);
+        crate::vtab_txn_join(db, &name, excl);
         let shape = crate::vtab_shape(db, &name).unwrap_or_default();
         let visible: Vec<String> = shape.iter().filter(|(_, _, h)| !h).map(|(n, _, _)| n.clone()).collect();
         if up.starts_with("INSERT") {
@@ -851,6 +875,11 @@ pub fn blob_target(db: usize, zdb: &str, table: &str, col: &str, rowid: i64, wri
 
 /// run-49: `WHERE rowid = N` in kitchen UPDATE/DELETE hits exactly that row
 /// (previously the filter silently vanished and every row matched)
+/// run-50: update_hook is fully suppressed on WITHOUT ROWID tables (C shape)
+fn hook_ok(create_sql: &str) -> bool {
+    !create_sql.to_ascii_uppercase().contains("WITHOUT ROWID")
+}
+
 fn is_rowid_alias(n: &str) -> bool {
     n.eq_ignore_ascii_case("rowid") || n.eq_ignore_ascii_case("_rowid_") || n.eq_ignore_ascii_case("oid")
 }
@@ -891,6 +920,11 @@ pub fn blob_read_bytes(db: usize, table: &str, ci: usize, rowid: i64, off: usize
         };
         bytes.get(off..off + n).map(|s| s.to_vec())
     })
+}
+
+/// run-50: rows changed by the most recent DML statement (sqlite3_changes)
+pub fn changes(db: usize) -> i64 {
+    with_store(db, |st| st.changes)
 }
 
 /// run-49: the cell's current bytes (Blob or Text) — the per-row expiry snapshot.
@@ -2697,6 +2731,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             // run-48: writable-vtab DML routes through the module's xUpdate
             if let Some(res) = vtab_dml_intercept(st, db, s) {
                 res?;
+                if st.txn.is_none() { crate::vtab_txn_commit(db); } // run-50: statement txn ends
                 if tracing { crate::exec_trace_profile(db, &trace_texts[si]); } // run-49
                 continue;
             }
@@ -2819,6 +2854,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         st.conn.vtab_schema.push((name.clone(), module.clone(), args.clone(), sql.clone()));
                         st.catalog.push(("table".into(), name.clone()));
                         st.conn.schema_version += 1;
+                        // run-50: the create joins the txn WITHOUT xBegin; autocommit
+                        // fires xSync+xCommit at statement end (pinned)
+                        crate::vtab_txn_join_quiet(db, &name);
+                        if st.txn.is_none() { crate::vtab_txn_commit(db); }
                     } else if module.eq_ignore_ascii_case("wholenumber") {
                         st.conn.vtabs.insert(name.clone(), module.to_ascii_lowercase());
                         st.catalog.push(("table".into(), name.clone()));
@@ -3082,6 +3121,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         }
                     }
                     st.txn = None;
+                    crate::vtab_txn_commit(db); // run-50: xSync then xCommit on joined vtabs
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0); // resets at txn end (pinned)
                     st.commit_flush_pending = true; // run-36: flush at the post-exec sync
                     release_file_lock(db);
@@ -3090,13 +3130,20 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     if !txn_rollback(st) {
                         return Err("cannot rollback - no transaction is active".into());
                     }
+                    crate::vtab_txn_rollback(db); // run-50: xRollback on joined vtabs
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0);
                     release_file_lock(db);
                 }
                 Stmt::Savepoint { name } => {
                     let snap = take_snap(st);
                     match st.txn.as_mut() {
-                        Some(tx) => tx.savepoints.push((name.to_ascii_lowercase(), snap)),
+                        Some(tx) => {
+                            // run-50: vtab savepoint numbering excludes the implicit
+                            // transaction savepoint (pinned -1 semantics)
+                            let n_excl = tx.savepoints.len() - usize::from(tx.implicit);
+                            tx.savepoints.push((name.to_ascii_lowercase(), snap));
+                            crate::vtab_txn_savepoint_open(db, n_excl);
+                        }
                         None => {
                             // savepoint outside a txn opens an implicit one (C semantics)
                             st.txn = Some(Txn { snap: snap.clone(), implicit: true,
@@ -3113,7 +3160,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             let snap = st.txn.as_ref().unwrap().savepoints[i].1.clone();
                             restore_snap(st, snap);
                             let tx = st.txn.as_mut().unwrap();
+                            let i_excl = i as i64 - i64::from(tx.implicit);
                             tx.savepoints.truncate(i + 1); // the named savepoint survives
+                            crate::vtab_txn_rollback_to(db, i_excl); // run-50 (-1 below the join)
                         }
                         None => return Err(format!("no such savepoint: {name}")),
                     }
@@ -3125,9 +3174,13 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     match hit {
                         Some(i) => {
                             let tx = st.txn.as_mut().unwrap();
+                            let implicit = tx.implicit;
                             tx.savepoints.truncate(i);
-                            if tx.savepoints.is_empty() && tx.implicit {
+                            if tx.savepoints.is_empty() && implicit {
                                 st.txn = None; // releasing the outermost implicit savepoint commits
+                                crate::vtab_txn_commit(db); // run-50: commits joined vtabs (no xRelease)
+                            } else {
+                                crate::vtab_txn_release(db, i as i64 - i64::from(implicit)); // run-50
                             }
                         }
                         None => return Err(format!("no such savepoint: {name}")),
@@ -3296,6 +3349,22 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     for i in idx { st.index_owner.remove(&i); }
                 }
                 Stmt::RenameTable { from, to } => {
+                    if is_vtab(st, db, &from) {
+                        // run-50: ALTER RENAME of a vtab — xRename fires with the new
+                        // name (a module without xRename still renames, pinned); the
+                        // schema sql is rewritten with the QUOTED new name like C
+                        vtab_ensure_connected(st, db, &from)?;
+                        crate::vtab_x_rename(db, &from, &to);
+                        if let Some(e) = st.conn.vtab_schema.iter_mut().find(|(n, _, _, _)| *n == from) {
+                            e.0 = to.clone();
+                            e.3 = vtab_rename_sql(&e.3, &to);
+                        }
+                        for e in st.catalog.iter_mut() {
+                            if e.0 == "table" && e.1 == from { e.1 = to.clone(); }
+                        }
+                        st.conn.schema_version += 1;
+                        continue;
+                    }
                     let t = st.tables.iter_mut().find(|(n, _)| *n == from).ok_or("no such table")?;
                     t.0 = to.clone();
                     t.1.create_sql = format!("CREATE TABLE {}({})", to,
@@ -3506,7 +3575,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                             Some(i) => match full.get(i) { Some(Val::Int(v)) => *v, _ => rid },
                                             None => rid,
                                         };
-                                        crate::fire_update_hook(db, 18, &name, hrow); // REPLACE inserts
+                                        if hook_ok(&t.create_sql) { crate::fire_update_hook(db, 18, &name, hrow); } // REPLACE inserts
                                         inserted.push((name.clone(), full));
                                     }
                                     Policy::DoUpdate => {
@@ -3537,7 +3606,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                         Some(i) => match full.get(i) { Some(Val::Int(v)) => *v, _ => rid },
                                         None => rid,
                                     };
-                                    crate::fire_update_hook(db, 18, &name, hrow);
+                                    if hook_ok(&t.create_sql) { crate::fire_update_hook(db, 18, &name, hrow); }
                                     inserted.push((name.clone(), full));
                                 }
                             }
@@ -3631,7 +3700,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             t.1.rows[*ri].1 = nw.clone();
                             let rid = t.1.rows[*ri].0;
                             let hrow = match ipk_upd { Some(i) => match nw.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid };
-                            crate::fire_update_hook(db, 23, &name, hrow); // run-36 SQLITE_UPDATE
+                            if hook_ok(&t.1.create_sql) { crate::fire_update_hook(db, 23, &name, hrow); } // run-36 SQLITE_UPDATE
                         }
                     }
                     let n = planned.len() as i64;
@@ -3746,6 +3815,10 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         let cols_c = t.1.cols.clone();
                         let mut keep: Vec<(i64, Vec<Val>)> = Vec::new();
                         let ipk_del = dbfile::ipk_index(&t.1.create_sql);
+                        // run-50: DELETE without WHERE takes the truncate fast-path — no
+                        // per-row update_hook events (changes() still counts, pinned);
+                        // WITHOUT ROWID tables never fire the hook
+                        let del_hooks = hook_ok(&t.1.create_sql) && (wh.is_some() || whx.is_some());
                         for (rid, r) in std::mem::take(&mut t.1.rows) {
                             let hit = match (&wh, wi) {
                                 (Some((_, wv)), Some(wi)) => r[wi] == Val::Int(*wv),
@@ -3756,7 +3829,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                             };
                             if hit {
                                 let hrow = match ipk_del { Some(i) => match r.get(i) { Some(Val::Int(v)) => *v, _ => rid }, None => rid };
-                                crate::fire_update_hook(db, 9, &name, hrow); // run-36 SQLITE_DELETE
+                                if del_hooks { crate::fire_update_hook(db, 9, &name, hrow); } // run-36 SQLITE_DELETE
                                 deleted.push(r);
                             } else { keep.push((rid, r)); }
                         }

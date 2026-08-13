@@ -751,12 +751,21 @@ pub unsafe extern "C" fn sqlite3_step(stmt: *mut Sqlite3Stmt) -> c_int {
         s.cnt_run += 1;
         s.cnt_fullscan += store::fullscan_steps(s.db, &s.sql);
         // run-49: prepared statements fire their own STMT event per execution cycle
-        exec_trace_stmt(s.db, &s.sql);
+        // (run-50: the legacy trace receives the text with bound parameters EXPANDED)
+        if trace_kind(s.db) == 1 {
+            exec_trace_stmt(s.db, &bind_sql(&s.sql, &s.params));
+        } else {
+            exec_trace_stmt(s.db, &s.sql);
+        }
     }
     if rc == SQLITE_DONE {
         // run-49: PROFILE fires when the statement finishes; the callback receives
         // THIS statement handle (sqlite3_sql reports its text)
-        fire_trace(s.db, 2, stmt as *mut c_void, std::ptr::null_mut());
+        if trace_kind(s.db) == 2 {
+            fire_legacy_profile(s.db, &s.sql);
+        } else {
+            fire_trace(s.db, 2, stmt as *mut c_void, std::ptr::null_mut());
+        }
     }
     if rc == SQLITE_ROW {
         fire_trace((*stmt).db, 4 /* SQLITE_TRACE_ROW */, stmt as *mut c_void, std::ptr::null_mut());
@@ -1275,9 +1284,10 @@ pub struct DbExtras {
     commit_arg: usize,
     update_cb: usize,        // run-36: update hook
     update_arg: usize,
-    trace_cb: usize,         // run-36: trace_v2
+    trace_cb: usize,         // run-36: trace_v2 (run-50: also the legacy trace/profile slot)
     trace_mask: u32,
     trace_ctx: usize,
+    trace_kind: u8,          // run-50: 0 = trace_v2, 1 = legacy sqlite3_trace, 2 = legacy sqlite3_profile
     // run-47: db_config toggles stored inverted so Default (0) means C's default-ON
     disable_trigger: c_int,
     disable_view: c_int,
@@ -1523,8 +1533,48 @@ pub unsafe extern "C" fn sqlite3_trace_v2(db: *mut Sqlite3, mask: u32, cb: Optio
         e.trace_cb = cb.map(|f| f as usize).unwrap_or(0);
         e.trace_mask = if cb.is_some() { mask } else { 0 };
         e.trace_ctx = ctx as usize;
+        e.trace_kind = 0; // run-50: replaces any legacy trace/profile (shared slot)
     });
     SQLITE_OK
+}
+
+pub type LegacyTraceCb = unsafe extern "C" fn(*mut c_void, *const c_char);
+pub type LegacyProfileCb = unsafe extern "C" fn(*mut c_void, *const c_char, u64);
+
+/// # Safety: C ABI — run-50: the deprecated statement-trace hook. Shares the single
+/// trace slot: installing it displaces trace_v2/profile and vice versa (pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_trace(db: *mut Sqlite3, cb: Option<LegacyTraceCb>, ctx: *mut c_void) -> *mut c_void {
+    if db.is_null() { return std::ptr::null_mut(); }
+    let mut prev = 0usize;
+    with_extras(db, |e| {
+        prev = if e.trace_kind == 1 { e.trace_ctx } else { 0 };
+        e.trace_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.trace_mask = if cb.is_some() { 1 } else { 0 };
+        e.trace_ctx = ctx as usize;
+        e.trace_kind = if cb.is_some() { 1 } else { 0 };
+    });
+    prev as *mut c_void
+}
+
+/// # Safety: C ABI — run-50: the deprecated profile hook (statement text + elapsed ns).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_profile(db: *mut Sqlite3, cb: Option<LegacyProfileCb>, ctx: *mut c_void) -> *mut c_void {
+    if db.is_null() { return std::ptr::null_mut(); }
+    let mut prev = 0usize;
+    with_extras(db, |e| {
+        prev = if e.trace_kind == 2 { e.trace_ctx } else { 0 };
+        e.trace_cb = cb.map(|f| f as usize).unwrap_or(0);
+        e.trace_mask = if cb.is_some() { 2 } else { 0 };
+        e.trace_ctx = ctx as usize;
+        e.trace_kind = if cb.is_some() { 2 } else { 0 };
+    });
+    prev as *mut c_void
+}
+
+/// the installed trace slot's kind: 0 = trace_v2 (or none), 1 = legacy trace, 2 = legacy profile
+pub(crate) fn trace_kind(dbid: usize) -> u8 {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().trace_kind)
 }
 /// is a commit hook registered? (store snapshots only when needed)
 pub(crate) fn commit_hook_present(dbid: usize) -> bool {
@@ -1555,16 +1605,40 @@ pub(crate) fn fire_update_hook(dbid: usize, op: i32, table: &str, rowid: i64) {
     unsafe { f(arg as *mut c_void, op, dbn.as_ptr(), tn.as_ptr(), rowid) };
 }
 /// fire a trace event when the connection's mask includes it
-/// run-49: per-statement STMT event from execute_script (text as C reports it)
+/// run-49: per-statement STMT event from execute_script (text as C reports it).
+/// run-50: legacy sqlite3_trace shares the slot and receives the same text here.
 pub fn exec_trace_stmt(dbid: usize, sql: &str) {
+    match trace_kind(dbid) {
+        1 => {
+            let (cb, ctx) = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default();
+                (e.trace_cb, e.trace_ctx) });
+            if cb == 0 { return; }
+            let f: LegacyTraceCb = unsafe { std::mem::transmute(cb) };
+            let ctext = CString::new(sql).unwrap_or_default();
+            unsafe { f(ctx as *mut c_void, ctext.as_ptr()) };
+        }
+        2 => {} // legacy profile fires at completion only
+        _ => {
+            let ctext = CString::new(sql).unwrap_or_default();
+            fire_trace(dbid, 1, std::ptr::null_mut(), ctext.as_ptr() as *mut c_void);
+        }
+    }
+}
+/// run-50: legacy profile event (statement text; elapsed ns unpinned)
+pub(crate) fn fire_legacy_profile(dbid: usize, sql: &str) {
+    let (cb, ctx) = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default();
+        if e.trace_kind != 2 { (0, 0) } else { (e.trace_cb, e.trace_ctx) } });
+    if cb == 0 { return; }
+    let f: LegacyProfileCb = unsafe { std::mem::transmute(cb) };
     let ctext = CString::new(sql).unwrap_or_default();
-    fire_trace(dbid, 1, std::ptr::null_mut(), ctext.as_ptr() as *mut c_void);
+    unsafe { f(ctx as *mut c_void, ctext.as_ptr(), 0) };
 }
 /// run-49: per-statement PROFILE event — the callback receives a statement handle
 /// whose sqlite3_sql() reports this statement's text (freed after the call)
 pub fn exec_trace_profile(dbid: usize, sql: &str) {
+    if trace_kind(dbid) == 2 { fire_legacy_profile(dbid, sql); return; }
     let present = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default();
-        e.trace_cb != 0 && e.trace_mask & 2 != 0 });
+        e.trace_kind == 0 && e.trace_cb != 0 && e.trace_mask & 2 != 0 });
     if !present { return; }
     let tmp = Box::new(Sqlite3Stmt {
         db: dbid, mode: StmtMode::Normal, schema_ver: 0, sql: sql.to_string(),
@@ -1581,7 +1655,7 @@ pub(crate) fn fire_trace(dbid: usize, event: u32, p: *mut c_void, x: *mut c_void
     let (cb, mask, ctx) = EXTRAS.with(|m| {
         let mut mm = m.borrow_mut();
         let e = mm.entry(dbid).or_default();
-        (e.trace_cb, e.trace_mask, e.trace_ctx)
+        if e.trace_kind != 0 { (0, 0, 0) } else { (e.trace_cb, e.trace_mask, e.trace_ctx) }
     });
     if cb == 0 || mask & event == 0 { return; }
     let f: TraceCb = unsafe { std::mem::transmute(cb) };
@@ -3395,6 +3469,101 @@ pub fn vtab_shape(dbid: usize, tname: &str) -> Option<Vec<(String, String, bool)
         .map(|v| v.cols.iter().map(|c| (c.name.clone(), c.ctype.clone(), c.hidden)).collect()))
 }
 
+thread_local! {
+    // run-50: vtabs that joined the current write transaction (xBegin fired, or a
+    // CREATE VIRTUAL TABLE joined quietly) — xSync/xCommit/xRollback fire on these
+    static VTAB_TXN: RefCell<std::collections::HashMap<usize, Vec<String>>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+fn vtab_txn_call(dbid: usize, tname: &str, which: u8, n: c_int) {
+    let inst = VTAB_INST.with(|i| i.borrow().get(&dbid).and_then(|per| per.get(tname))
+        .map(|v| (v.vtab, v.module)));
+    let Some((vtab, module)) = inst else { return; };
+    unsafe {
+        let m = &*(module as *const Sqlite3Module);
+        let pv = vtab as *mut Sqlite3Vtab;
+        match which {
+            0 => { if let Some(f) = m.x_begin { f(pv); } }
+            1 => { if let Some(f) = m.x_sync { f(pv); } }
+            2 => { if let Some(f) = m.x_commit { f(pv); } }
+            3 => { if let Some(f) = m.x_rollback { f(pv); } }
+            4 => { if let Some(f) = m.x_savepoint { f(pv, n); } }
+            5 => { if let Some(f) = m.x_release { f(pv, n); } }
+            6 => { if let Some(f) = m.x_rollback_to { f(pv, n); } }
+            _ => {}
+        }
+    }
+}
+/// first write of a txn/statement on this vtab: xBegin, then a catch-up
+/// xSavepoint(n-1) when n(>0) savepoints (txn savepoint excluded) are open (C shape)
+pub fn vtab_txn_join(dbid: usize, tname: &str, excl_savepoints: usize) {
+    let joined = VTAB_TXN.with(|t| {
+        let mut m = t.borrow_mut();
+        let v = m.entry(dbid).or_default();
+        if v.iter().any(|n| n == tname) { true } else { v.push(tname.to_string()); false }
+    });
+    if joined { return; }
+    vtab_txn_call(dbid, tname, 0, 0);
+    if excl_savepoints > 0 { vtab_txn_call(dbid, tname, 4, excl_savepoints as c_int - 1); }
+}
+/// CREATE VIRTUAL TABLE joins the txn without xBegin (C fires only xSync/xCommit)
+pub fn vtab_txn_join_quiet(dbid: usize, tname: &str) {
+    VTAB_TXN.with(|t| {
+        let mut m = t.borrow_mut();
+        let v = m.entry(dbid).or_default();
+        if !v.iter().any(|n| n == tname) { v.push(tname.to_string()); }
+    });
+}
+pub fn vtab_txn_commit(dbid: usize) {
+    let joined = VTAB_TXN.with(|t| t.borrow_mut().remove(&dbid)).unwrap_or_default();
+    for t in &joined { vtab_txn_call(dbid, t, 1, 0); }
+    for t in &joined { vtab_txn_call(dbid, t, 2, 0); }
+}
+pub fn vtab_txn_rollback(dbid: usize) {
+    let joined = VTAB_TXN.with(|t| t.borrow_mut().remove(&dbid)).unwrap_or_default();
+    for t in &joined { vtab_txn_call(dbid, t, 3, 0); }
+}
+pub fn vtab_txn_savepoint_open(dbid: usize, n_excl: usize) {
+    let joined = VTAB_TXN.with(|t| t.borrow().get(&dbid).cloned()).unwrap_or_default();
+    for t in &joined { vtab_txn_call(dbid, t, 4, n_excl as c_int); }
+}
+pub fn vtab_txn_release(dbid: usize, i_excl: i64) {
+    if i_excl < 0 { return; } // releasing at/below the txn savepoint fires nothing
+    let joined = VTAB_TXN.with(|t| t.borrow().get(&dbid).cloned()).unwrap_or_default();
+    for t in &joined { vtab_txn_call(dbid, t, 5, i_excl as c_int); }
+}
+pub fn vtab_txn_rollback_to(dbid: usize, i_excl: i64) {
+    let joined = VTAB_TXN.with(|t| t.borrow().get(&dbid).cloned()).unwrap_or_default();
+    for t in &joined { vtab_txn_call(dbid, t, 6, i_excl as c_int); }
+}
+/// ALTER TABLE .. RENAME TO on a vtab: fire xRename (when the module has one — a
+/// missing xRename still renames, pinned) and re-key the live instance.
+pub fn vtab_x_rename(dbid: usize, old: &str, new: &str) {
+    let inst = VTAB_INST.with(|i| i.borrow().get(&dbid).and_then(|per| per.get(old))
+        .map(|v| (v.vtab, v.module)));
+    if let Some((vtab, module)) = inst {
+        unsafe {
+            let m = &*(module as *const Sqlite3Module);
+            if let Some(f) = m.x_rename {
+                let cnew = CString::new(new).unwrap_or_default();
+                f(vtab as *mut Sqlite3Vtab, cnew.as_ptr());
+            }
+        }
+    }
+    VTAB_INST.with(|i| {
+        let mut b = i.borrow_mut();
+        if let Some(per) = b.get_mut(&dbid) {
+            if let Some(v) = per.remove(old) { per.insert(new.to_string(), v); }
+        }
+    });
+    VTAB_TXN.with(|t| {
+        let mut m = t.borrow_mut();
+        if let Some(v) = m.get_mut(&dbid) {
+            for n in v.iter_mut() { if n == old { *n = new.to_string(); } }
+        }
+    });
+}
+
 /// DROP TABLE on a vtab: xDestroy and remove the instance. Returns false if not a vtab.
 pub fn vtab_drop_instance(dbid: usize, tname: &str) -> bool {
     let inst = VTAB_INST.with(|i| i.borrow_mut().get_mut(&dbid).and_then(|per| per.remove(tname)));
@@ -3537,9 +3706,25 @@ pub unsafe extern "C" fn sqlite3_last_insert_rowid(db: *mut Sqlite3) -> i64 {
     store::last_rowid(db as usize)
 }
 
+/// # Safety: C ABI — run-50: rows changed by the most recent DML statement (the
+/// truncate fast-path still counts its rows, pinned).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_changes(db: *mut Sqlite3) -> c_int {
+    if db.is_null() { return 0; }
+    store::changes(db as usize) as c_int
+}
+
+/// # Safety: C ABI — 64-bit twin of sqlite3_changes.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_changes64(db: *mut Sqlite3) -> i64 {
+    if db.is_null() { return 0; }
+    store::changes(db as usize)
+}
+
 /// connection close: xDisconnect live instances, release module registrations
 /// (refcounted — the deferred _v2 destructors fire as the last holders let go)
 fn vtab_close(dbid: usize) {
+    VTAB_TXN.with(|t| { t.borrow_mut().remove(&dbid); });
     let insts = VTAB_INST.with(|i| i.borrow_mut().remove(&dbid));
     if let Some(per) = insts {
         for (_n, v) in per {
