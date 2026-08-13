@@ -218,11 +218,161 @@ pub unsafe extern "C" fn sqlite3_open(_filename: *const c_char, pp_db: *mut *mut
     if !_filename.is_null() {
         if let Ok(name) = CStr::from_ptr(_filename).to_str() {
             if !name.is_empty() && name != ":memory:" {
+                // run-47: like C, an uncreatable literal path fails CANTOPEN at open —
+                // with USE_URI off a "file:..." name is just such a literal path
+                let pb = std::path::Path::new(name);
+                if let Some(dir) = pb.parent() {
+                    if !dir.as_os_str().is_empty() && !dir.exists() {
+                        (**pp_db).errcode = 14;
+                        (**pp_db).extended = 14;
+                        (**pp_db).errmsg = CString::new("unable to open database file").ok();
+                        return 14;
+                    }
+                }
                 store::open_file(*pp_db as usize, name);
             }
         }
     }
     SQLITE_OK
+}
+
+// ---------------- run-47: sqlite3_open_v2 (flag matrix + per-open URI parsing) ----------------
+
+pub const SQLITE_OPEN_READONLY: c_int = 0x1;
+pub const SQLITE_OPEN_READWRITE: c_int = 0x2;
+pub const SQLITE_OPEN_CREATE: c_int = 0x4;
+pub const SQLITE_OPEN_URI: c_int = 0x40;
+pub const SQLITE_OPEN_MEMORY: c_int = 0x80;
+
+thread_local! {
+    // path (as db_filename reports it) -> URI query parameters, and per-db filename CStrings
+    static URI_PARAMS: RefCell<std::collections::HashMap<String, Vec<(String, String)>>> =
+        RefCell::new(std::collections::HashMap::new());
+    static DB_FILENAMES: RefCell<std::collections::HashMap<usize, CString>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+
+fn parse_uri(name: &str) -> (String, Vec<(String, String)>) {
+    let rest = name.strip_prefix("file:").unwrap_or(name);
+    let (path, query) = match rest.split_once('?') { Some((p, q)) => (p, q), None => (rest, "") };
+    let params = query.split('&').filter(|s| !s.is_empty())
+        .map(|kv| match kv.split_once('=') { Some((k, v)) => (k.to_string(), v.to_string()),
+                                             None => (kv.to_string(), String::new()) })
+        .collect();
+    (path.to_string(), params)
+}
+
+/// # Safety: C ABI — the pinned open_v2 matrix: flag validation (MISUSE on zero/invalid
+/// combos), READONLY/no-CREATE existence rules (CANTOPEN 14), MEMORY flag, and per-open
+/// URI parsing when SQLITE_OPEN_URI is set (this pin's compile default USE_URI is off).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_open_v2(
+    filename: *const c_char, pp_db: *mut *mut Sqlite3, flags: c_int, _z_vfs: *const c_char,
+) -> c_int {
+    if pp_db.is_null() { return SQLITE_MISUSE; }
+    *pp_db = ptr::null_mut();
+    let mode_bits = flags & 0x7;
+    if !(mode_bits == 1 || mode_bits == 2 || mode_bits == 6) { return SQLITE_MISUSE; }
+    let name = if filename.is_null() { String::new() }
+               else { CStr::from_ptr(filename).to_string_lossy().into_owned() };
+    let db = Box::new(Sqlite3 { errcode: SQLITE_OK, extended: SQLITE_OK, errmsg: None });
+    *pp_db = Box::into_raw(db);
+    let dbp = *pp_db;
+    let dbid = dbp as usize;
+    TOMBSTONES.with(|t| { t.borrow_mut().remove(&dbid); });
+    la_setup(dbid, 1200, 40);
+    run_auto_extensions(dbp);
+    let fail = |dbp: *mut Sqlite3, rc: c_int, msg: &str| -> c_int {
+        (*dbp).errcode = rc; (*dbp).extended = rc;
+        (*dbp).errmsg = CString::new(msg).ok();
+        rc
+    };
+    let mut path = name.clone();
+    let mut mem = (flags & SQLITE_OPEN_MEMORY) != 0 || name == ":memory:" || name.is_empty();
+    let mut ro = mode_bits == 1;
+    if (flags & SQLITE_OPEN_URI) != 0 && name.starts_with("file:") {
+        let (p, params) = parse_uri(&name);
+        for (k, v) in &params {
+            match k.as_str() {
+                "vfs" if v != "unix" => return fail(dbp, SQLITE_ERROR, &format!("no such vfs: {v}")),
+                "mode" if v == "ro" => ro = true,
+                "mode" if v == "memory" => mem = true,
+                _ => {}
+            }
+        }
+        URI_PARAMS.with(|m| { m.borrow_mut().insert(p.clone(), params); });
+        path = p;
+    }
+    if !mem {
+        let pb = std::path::Path::new(&path);
+        let exists = pb.exists();
+        if ro && !exists {
+            return fail(dbp, 14, "unable to open database file");
+        }
+        if mode_bits == 2 && !exists { // READWRITE without CREATE needs the file
+            return fail(dbp, 14, "unable to open database file");
+        }
+        if let Some(dir) = pb.parent() {
+            if !dir.as_os_str().is_empty() && !dir.exists() {
+                return fail(dbp, 14, "unable to open database file");
+            }
+        }
+        store::open_file(dbid, &path);
+        DB_FILENAMES.with(|m| { m.borrow_mut().insert(dbid, CString::new(path.clone()).unwrap_or_default()); });
+    } else {
+        DB_FILENAMES.with(|m| { m.borrow_mut().insert(dbid, CString::new("").unwrap()); });
+    }
+    if ro { store::set_read_only(dbid); }
+    SQLITE_OK
+}
+
+/// # Safety: C ABI — filename of an open database ("" for :memory:, like C).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_db_filename(db: *mut Sqlite3, _z_db: *const c_char) -> *const c_char {
+    if db.is_null() { return ptr::null(); }
+    DB_FILENAMES.with(|m| {
+        let mut m = m.borrow_mut();
+        let e = m.entry(db as usize).or_insert_with(|| CString::new("").unwrap());
+        e.as_ptr()
+    })
+}
+fn uri_lookup(z: *const c_char, param: *const c_char) -> Option<String> {
+    if z.is_null() || param.is_null() { return None; }
+    let f = unsafe { CStr::from_ptr(z) }.to_string_lossy().into_owned();
+    let p = unsafe { CStr::from_ptr(param) }.to_string_lossy().into_owned();
+    URI_PARAMS.with(|m| m.borrow().get(&f).and_then(|ps|
+        ps.iter().find(|(k, _)| *k == p).map(|(_, v)| v.clone())))
+}
+thread_local! {
+    static URI_KEEP: RefCell<Vec<CString>> = const { RefCell::new(Vec::new()) };
+}
+/// # Safety: C ABI — query parameter of a URI-opened filename (NULL when absent).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_uri_parameter(z: *const c_char, param: *const c_char) -> *const c_char {
+    match uri_lookup(z, param) {
+        Some(v) => URI_KEEP.with(|k| { let c = CString::new(v).unwrap_or_default();
+            let p = c.as_ptr(); k.borrow_mut().push(c); p }),
+        None => ptr::null(),
+    }
+}
+/// # Safety: C ABI.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_uri_int64(z: *const c_char, param: *const c_char, dflt: i64) -> i64 {
+    match uri_lookup(z, param) { Some(v) => v.trim().parse::<i64>().unwrap_or(dflt), None => dflt }
+}
+/// # Safety: C ABI — C's boolean text rules (1/true/yes/on); non-boolean text is false.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_uri_boolean(z: *const c_char, param: *const c_char, dflt: c_int) -> c_int {
+    match uri_lookup(z, param) {
+        Some(v) => {
+            let l = v.to_ascii_lowercase();
+            if matches!(l.as_str(), "1" | "true" | "yes" | "on") { 1 }
+            else if matches!(l.as_str(), "0" | "false" | "no" | "off") { 0 }
+            else if l.parse::<i64>().map(|n| n != 0).unwrap_or(false) { 1 }
+            else { 0 }
+        }
+        None => dflt,
+    }
 }
 
 /// # Safety: C ABI — `db` from sqlite3_open or NULL.
@@ -1102,6 +1252,11 @@ pub struct DbExtras {
     trace_cb: usize,         // run-36: trace_v2
     trace_mask: u32,
     trace_ctx: usize,
+    // run-47: db_config toggles stored inverted so Default (0) means C's default-ON
+    disable_trigger: c_int,
+    disable_view: c_int,
+    disable_dqs_dml: c_int,
+    defensive: c_int,
 }
 
 // (default, compile-time max) per limit id — pinned from the C baseline defaults
@@ -1143,11 +1298,30 @@ pub unsafe extern "C" fn sqlite3_shutdown() -> c_int {
     INITIALIZED.store(false, Ordering::SeqCst);
     SQLITE_OK
 }
-/// # Safety: C ABI (fixed arity — frozen case uses op-only form).
+/// # Safety: C ABI (generic fixed arity — Rust stable lacks C varargs, pack v2 note).
+/// run-47 matrix: threading modes / MEMSTATUS / URI are init-gated (MISUSE after);
+/// LOG is always legal; PCACHE_HDRSZ reports modern's real page-image accounting
+/// record size (ADR 0035); unknown ops MISUSE.
 #[no_mangle]
-pub unsafe extern "C" fn sqlite3_config(_op: c_int) -> c_int {
-    if INITIALIZED.load(Ordering::SeqCst) { SQLITE_MISUSE } else { SQLITE_OK }
+pub unsafe extern "C" fn sqlite3_config(op: c_int, a: i64, b: i64) -> c_int {
+    match op {
+        1 | 2 | 3 | 9 | 17 => { // SINGLETHREAD/MULTITHREAD/SERIALIZED/MEMSTATUS/URI
+            if INITIALIZED.load(Ordering::SeqCst) { SQLITE_MISUSE } else { SQLITE_OK }
+        }
+        16 => { // LOG: accept and store the (callback, arg) pair; legal after init
+            CONFIG_LOG.store(a as usize as u64, Ordering::SeqCst);
+            let _ = b;
+            SQLITE_OK
+        }
+        24 => { // PCACHE_HDRSZ: per-page bookkeeping record size (real struct size)
+            let out = a as usize as *mut c_int;
+            if !out.is_null() { *out = std::mem::size_of::<(usize, i64)>() as c_int; }
+            SQLITE_OK
+        }
+        _ => SQLITE_MISUSE,
+    }
 }
+static CONFIG_LOG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 /// # Safety: C ABI (generic fixed arity — Rust stable lacks C varargs, pack v2 note).
 /// Trailing slots are interpreted per verb: ENABLE_FKEY = (val, out*), LOOKASIDE =
 /// (buf ignored — modern always self-allocates the slab like C's pBuf==NULL, sz, cnt).
@@ -1157,6 +1331,33 @@ pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, a: i64, 
     if op == SQLITE_DBCONFIG_LOOKASIDE {
         return la_setup(db as usize, b as c_int, c as c_int); // run-45
     }
+    // run-47: per-connection toggles with real effects (trigger firing, view access,
+    // double-quoted-string DML); DEFENSIVE accepted as a round-trip knob (no effect
+    // claimed). Unknown verbs error like C.
+    if matches!(op, 1003 | 1015 | 1013 | 1010) {
+        let (val, out) = (a as c_int, b as usize as *mut c_int);
+        let cur = with_extras(db, |e| {
+            if op == 1010 { // DEFENSIVE stores directly (default off)
+                if val >= 0 { e.defensive = if val > 0 { 1 } else { 0 }; }
+                e.defensive
+            } else {
+                let slot: &mut c_int = match op {
+                    1003 => &mut e.disable_trigger,
+                    1015 => &mut e.disable_view,
+                    _ => &mut e.disable_dqs_dml,
+                };
+                if val >= 0 { *slot = if val > 0 { 0 } else { 1 }; }
+                1 - *slot
+            }
+        });
+        // mirror into the connection store so trigger-fire / view / DML paths see it
+        if op != 1010 && a >= 0 {
+            let key = match op { 1003 => "trigger_off", 1015 => "view_off", _ => "dqs_dml_off" };
+            store::set_conn_flag(db as usize, key, cur == 0);
+        }
+        if !out.is_null() { unsafe { *out = cur; } }
+        return SQLITE_OK;
+    }
     if op != SQLITE_DBCONFIG_ENABLE_FKEY { return SQLITE_ERROR; }
     let (val, out) = (a as c_int, b as usize as *mut c_int);
     with_extras(db, |e| {
@@ -1164,6 +1365,16 @@ pub unsafe extern "C" fn sqlite3_db_config(db: *mut Sqlite3, op: c_int, a: i64, 
         if !out.is_null() { unsafe { *out = e.fkey; } }
     });
     SQLITE_OK
+}
+/// run-47: store/eval gates for the db_config toggles
+pub fn triggers_enabled(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().disable_trigger == 0)
+}
+pub fn views_enabled(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().disable_view == 0)
+}
+pub fn dqs_dml_enabled(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().disable_dqs_dml == 0)
 }
 /// # Safety: C ABI — get (-1) / set with prior-value return; sets clamp to compile max.
 #[no_mangle]
@@ -1361,6 +1572,21 @@ unsafe fn auth_check_select(db: *mut Sqlite3) -> c_int { auth_check_action(db, S
 pub fn authorizer_present(dbid: usize) -> bool {
     EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().auth_cb != 0)
 }
+/// run-47: consult the authorizer with explicit argument strings (0 OK / 1 DENY / 2 IGNORE)
+pub fn auth_raw(dbid: usize, code: i32, s1: Option<&str>, s2: Option<&str>,
+                s3: Option<&str>, s4: Option<&str>) -> i32 {
+    let (cb, arg) = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default(); (e.auth_cb, e.auth_arg) });
+    if cb == 0 { return 0; }
+    let f: unsafe extern "C" fn(*mut c_void, c_int, *const c_char, *const c_char, *const c_char, *const c_char) -> c_int =
+        unsafe { std::mem::transmute(cb) };
+    let c1 = s1.map(|s| CString::new(s).unwrap_or_default());
+    let c2 = s2.map(|s| CString::new(s).unwrap_or_default());
+    let c3 = s3.map(|s| CString::new(s).unwrap_or_default());
+    let c4 = s4.map(|s| CString::new(s).unwrap_or_default());
+    let p = |c: &Option<CString>| c.as_ref().map(|c| c.as_ptr()).unwrap_or(std::ptr::null());
+    unsafe { f(arg as *mut c_void, code, p(&c1), p(&c2), p(&c3), p(&c4)) }
+}
+
 /// consult the authorizer for a column READ (code 20): 0 OK / 1 DENY / 2 IGNORE
 pub fn auth_read_column(dbid: usize, table: &str, col: &str) -> i32 {
     let (cb, arg) = EXTRAS.with(|m| { let mut mm = m.borrow_mut(); let e = mm.entry(dbid).or_default(); (e.auth_cb, e.auth_arg) });
@@ -1391,18 +1617,8 @@ pub unsafe extern "C" fn sqlite3_exec(
     if db.is_null() || z_sql.is_null() { return SQLITE_MISUSE; }
     let sql = match CStr::from_ptr(z_sql).to_str() { Ok(s) => s, Err(_) => return SQLITE_ERROR };
     // KITCHEN LAW (pack v5): store-parseable scripts run on the real row store.
-    {
-        // run-33: authorizer consulted for statement-class action codes (INSERT/UPDATE/
-        // DELETE/CREATE TABLE/PRAGMA) before execution; DENY -> SQLITE_AUTH (pinned)
-        let up = sql.trim_start().to_ascii_uppercase();
-        if let Some(code) = auth_code_for(&up) {
-            let rc = auth_check_action(db, code);
-            if rc != SQLITE_OK {
-                if !errmsg.is_null() { *errmsg = alloc_cstr("not authorized"); }
-                return rc;
-            }
-        }
-    }
+    // run-47: the statement-class authorizer consult moved INSIDE execute_script
+    // (per statement, with C's argument strings — see store::auth_stmt_precheck).
     {
         // run-36: SQLITE_TRACE_STMT sees the statement text (per exec call for the
         // pinned single-statement scripts; per-prepared-statement is a residual)
@@ -1463,7 +1679,18 @@ pub unsafe extern "C" fn sqlite3_load_extension(
 }
 
 // ---- backup (pinned on the empty :memory: pair) ----
-pub struct Sqlite3Backup { done: bool, partial: bool, src: usize, dst: usize, errored: bool }
+pub struct Sqlite3Backup {
+    done: bool,
+    src: usize,
+    dst: usize,
+    errored: bool,
+    // run-47: real multi-page copy state (pagecount from the real source image;
+    // remaining tracks step quanta; source writes restart the copy like C)
+    pagecount: i64,
+    copied: i64,
+    started: bool,
+    src_marker: (i64, i64),
+}
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_init(
@@ -1475,35 +1702,57 @@ pub unsafe extern "C" fn sqlite3_backup_init(
         *m.entry(src as usize).or_insert(0) += 1;
         *m.entry(dst as usize).or_insert(0) += 1; });
     BK_SRC_ROLE.with(|s| { s.borrow_mut().insert(src as usize); });
-    Box::into_raw(Box::new(Sqlite3Backup { done: false, partial: false, src: src as usize, dst: dst as usize, errored: false }))
+    Box::into_raw(Box::new(Sqlite3Backup { done: false, src: src as usize, dst: dst as usize,
+        errored: false, pagecount: 0, copied: 0, started: false, src_marker: (0, 0) }))
 }
-/// # Safety: C ABI.
+/// real page count of the source's current image (0 for a schema-less source, like
+/// C's fresh :memory: pins)
+fn bk_src_pages(src: usize) -> i64 {
+    if !store::has_tables(src) { return 0; }
+    ((store::cache_footprint(src) + 4095) / 4096).max(1)
+}
+/// # Safety: C ABI — run-47: a REAL copy. Page counts come from the source image;
+/// a source write between steps restarts the copy (C's BackupRestart); completion
+/// loads the source image into the destination store.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_step(b: *mut Sqlite3Backup, n: c_int) -> c_int {
     if b.is_null() { return SQLITE_MISUSE; }
+    let bk = &mut *b;
     // run-46: stepping after the destination's close was deferred errors (pinned)
-    if BK_DEFERRED.with(|z| z.borrow().contains(&(*b).dst)) {
-        (*b).errored = true;
+    if BK_DEFERRED.with(|z| z.borrow().contains(&bk.dst)) {
+        bk.errored = true;
         return SQLITE_ERROR;
     }
-    if n >= 0 && !(*b).done && !(*b).partial {
-        (*b).partial = true; // pinned run-12 sequence: partial step on 2-page source -> SQLITE_OK
-        return SQLITE_OK;
+    if bk.done { return SQLITE_DONE; }
+    let marker = store::wal_marker(bk.src);
+    if !bk.started || marker != bk.src_marker {
+        // (re)start: fresh pagecount, progress resets (BackupRestart)
+        bk.pagecount = bk_src_pages(bk.src);
+        bk.copied = 0;
+        bk.started = true;
+        bk.src_marker = marker;
     }
-    (*b).done = true;
-    SQLITE_DONE // pinned 101
+    if n < 0 { bk.copied = bk.pagecount; } else { bk.copied = (bk.copied + n as i64).min(bk.pagecount); }
+    if bk.copied >= bk.pagecount {
+        // completion: the destination receives the real source image
+        store::copy_store(bk.src, bk.dst);
+        bk.done = true;
+        return SQLITE_DONE; // pinned 101
+    }
+    SQLITE_OK
 }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_remaining(b: *mut Sqlite3Backup) -> c_int {
     if b.is_null() || (*b).done { return 0; }
-    if (*b).partial { 1 } else { 0 } // pinned: 1 after the partial step, 0 on the empty pair
+    if !(*b).started { return 0; } // C: 0 before the first step
+    ((*b).pagecount - (*b).copied) as c_int
 }
 /// # Safety: C ABI.
 #[no_mangle]
 pub unsafe extern "C" fn sqlite3_backup_pagecount(b: *mut Sqlite3Backup) -> c_int {
-    if b.is_null() { return 0; }
-    if (*b).partial || (*b).done && (*b).partial { 2 } else { 0 } // pinned: 2 for the written source, 0 empty
+    if b.is_null() || !(*b).started { return 0; } // C: 0 before the first step
+    (*b).pagecount as c_int
 }
 /// # Safety: C ABI.
 #[no_mangle]
@@ -1918,6 +2167,38 @@ pub unsafe extern "C" fn sqlite3_status(op: c_int, p_cur: *mut c_int, p_hi: *mut
         if !p_hi.is_null() { *p_hi = h64 as c_int; }
     }
     rc
+}
+
+/// # Safety: C ABI — 0 normal, 1 EXPLAIN, 2 EXPLAIN QUERY PLAN (run-47).
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_stmt_isexplain(stmt: *mut Sqlite3Stmt) -> c_int {
+    if stmt.is_null() { return 0; }
+    match (*stmt).mode { StmtMode::Normal => 0, StmtMode::Explain => 1, StmtMode::Eqp => 2 }
+}
+/// # Safety: C ABI — switch a prepared statement between normal/EXPLAIN/EQP modes
+/// (run-47). Bad modes error; the statement resets and its column shape follows.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_stmt_explain(stmt: *mut Sqlite3Stmt, e_mode: c_int) -> c_int {
+    if stmt.is_null() { return SQLITE_MISUSE; }
+    if !(0..=2).contains(&e_mode) { return SQLITE_ERROR; }
+    let s = &mut *stmt;
+    s.mode = match e_mode { 0 => StmtMode::Normal, 1 => StmtMode::Explain, _ => StmtMode::Eqp };
+    s.rows = None;
+    s.cur = 0;
+    s.state = State::Ready;
+    s.colnames = match s.mode {
+        StmtMode::Eqp => ["id", "parent", "notused", "detail"].iter().map(|n| CString::new(*n).unwrap()).collect(),
+        StmtMode::Explain => ["addr", "opcode", "p1", "p2", "p3", "p4", "p5", "comment"].iter().map(|n| CString::new(*n).unwrap()).collect(),
+        StmtMode::Normal => {
+            let probe = bind_sql(&s.sql, &vec![eval::V::Null; s.params.len()]);
+            store::set_read_auth_suppressed(true);
+            let r = store::stmt_query_typed(s.db, &probe);
+            store::set_read_auth_suppressed(false);
+            match r { Ok((names, _)) => names.into_iter().map(|n| CString::new(n).unwrap_or_default()).collect(),
+                      Err(_) => Vec::new() }
+        }
+    };
+    SQLITE_OK
 }
 
 /// # Safety: C ABI — per-statement counters (run-46): FULLSCAN_STEP(1) counts really

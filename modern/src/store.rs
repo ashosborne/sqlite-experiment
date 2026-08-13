@@ -157,6 +157,169 @@ pub fn cache_footprint(db: usize) -> i64 {
     with_store(db, |st| dbfile::write_db_bytes(&image_of(st)).len() as i64)
 }
 
+/// run-47: backup completion — the destination store receives the source's real
+/// image (serialize + reload through the shared reader/writer, like a file copy)
+pub fn copy_store(src: usize, dst: usize) {
+    let bytes = with_store(src, |st| dbfile::write_db_bytes(&image_of(st)));
+    with_store(dst, |st| {
+        st.tables.clear();
+        st.catalog.clear();
+        st.views.clear();
+        st.triggers.clear();
+        st.indexes.clear();
+        st.index_owner.clear();
+        st.index_cache.clear();
+        st.mutation_counter += 1;
+    });
+    load_image(dst, dbfile::read_db_bytes(&bytes));
+}
+
+thread_local! {
+    // run-47: connections opened with SQLITE_OPEN_READONLY / URI mode=ro
+    static RO_DBS: RefCell<std::collections::HashSet<usize>> = RefCell::new(std::collections::HashSet::new());
+}
+pub fn set_read_only(db: usize) { RO_DBS.with(|s| { s.borrow_mut().insert(db); }); }
+fn is_read_only(db: usize) -> bool { RO_DBS.with(|s| s.borrow().contains(&db)) }
+
+/// run-47: mirror a db_config toggle into the connection (trigger/view/dqs gates)
+pub fn set_conn_flag(db: usize, key: &str, on: bool) {
+    with_store(db, |st| { st.conn.pragmas.insert(format!("!{key}"), on as i64); });
+}
+fn conn_flag(st: &Store, key: &str) -> bool {
+    st.conn.pragmas.get(&format!("!{key}")).copied().unwrap_or(0) != 0
+}
+
+/// run-47: resolve the DQS sentinel on a literal (accept as text, or C's error)
+fn dqs_fix(st: &Store, v: &mut Val) -> Result<(), String> {
+    if let Val::Text(t) = v {
+        if let Some(rest) = t.strip_prefix('\u{2}') {
+            if conn_flag(st, "dqs_dml_off") {
+                return Err(format!("no such column: \"{rest}\" - should this be a string literal in single-quotes?"));
+            }
+            *v = Val::Text(rest.to_string());
+        }
+    }
+    Ok(())
+}
+
+/// run-47: statement-class authorizer consult with C's argument strings, fired
+/// per statement (probed shapes). Returns Skip when SQLITE_IGNORE suppresses DML.
+enum AuthGate { Proceed, Skip }
+fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String> {
+    if !crate::authorizer_present(db) { return Ok(AuthGate::Proceed); }
+    let up = s.trim_start().to_ascii_uppercase();
+    let orig = s.trim_start();
+    let deny = || Err("not authorized".to_string());
+    let split_schema = |key: &str| -> (String, String) {
+        match key.split_once('.') { Some((sch, b)) => (b.to_string(), sch.to_string()),
+                                    None => (key.to_string(), "main".to_string()) }
+    };
+    // columns of `tbl_key` referenced after WHERE, in appearance order
+    let where_reads = |tbl_key: &str| -> Vec<String> {
+        let wp = match up.find(" WHERE ") { Some(p) => p, None => return Vec::new() };
+        let cols: Vec<String> = st.tables.iter().find(|(n, _)| n == tbl_key)
+            .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+        let mut out = Vec::new();
+        for w in orig[wp..].split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+            if !w.is_empty() && cols.iter().any(|c| c == w) && !out.iter().any(|x| x == w) {
+                out.push(w.to_string());
+            }
+        }
+        out
+    };
+    let fire = |code: i32, s1: Option<&str>, s2: Option<&str>, s3: Option<&str>| -> i32 {
+        crate::auth_raw(db, code, s1, s2, s3, None)
+    };
+    if up.starts_with("INSERT") {
+        let ip = match up.find(" INTO ") { Some(p) => p, None => return Ok(AuthGate::Proceed) };
+        let raw = orig[ip + 6..].trim().split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("").to_string();
+        let key = match ident(&raw) { Some(k) => dml_key(st, &k), None => return Ok(AuthGate::Proceed) };
+        let (bare, sch) = split_schema(&key);
+        match fire(18, Some(&bare), None, Some(&sch)) {
+            1 => return deny(), 2 => return Ok(AuthGate::Skip), _ => {}
+        }
+    } else if up.starts_with("UPDATE") {
+        let raw = orig["UPDATE".len()..].trim().split_whitespace().next().unwrap_or("").to_string();
+        let key = match ident(&raw) { Some(k) => dml_key(st, &k), None => return Ok(AuthGate::Proceed) };
+        let (bare, sch) = split_schema(&key);
+        // one UPDATE consult per assigned column (C shape)
+        if let Some(sp) = up.find(" SET ") {
+            let tail = &orig[sp + 5..];
+            let end = up[sp + 5..].find(" WHERE ").unwrap_or(tail.len());
+            for a in tail[..end].split(',') {
+                if let Some(eq) = a.find('=') {
+                    let col = a[..eq].trim().trim_matches('"');
+                    match fire(23, Some(&bare), Some(col), Some(&sch)) {
+                        1 => return deny(), 2 => return Ok(AuthGate::Skip), _ => {}
+                    }
+                }
+            }
+        }
+        for c in where_reads(&key) {
+            if fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
+        }
+    } else if up.starts_with("DELETE") {
+        let fp = match up.find(" FROM ") { Some(p) => p, None => return Ok(AuthGate::Proceed) };
+        let raw = orig[fp + 6..].trim().split_whitespace().next().unwrap_or("").trim_end_matches(';').to_string();
+        let key = match ident(&raw) { Some(k) => dml_key(st, &k), None => return Ok(AuthGate::Proceed) };
+        let (bare, sch) = split_schema(&key);
+        match fire(9, Some(&bare), None, Some(&sch)) {
+            1 => return deny(), 2 => { /* C: DELETE proceeds (truncate-opt only) */ } _ => {}
+        }
+        for c in where_reads(&key) {
+            if fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
+        }
+    } else if up.starts_with("SELECT") {
+        if fire(21, None, None, None) == 1 { return deny(); }
+        // column READs in select-list order, then WHERE columns (C shape)
+        if let Some(fp) = up.find(" FROM ") {
+            let raw = orig[fp + 6..].trim().split(|c: char| c.is_whitespace() || c == ';').next().unwrap_or("").to_string();
+            if let Some(key) = ident(&raw).map(|k| dml_key(st, &k)) {
+                let (bare, sch) = split_schema(&key);
+                let cols: Vec<String> = st.tables.iter().find(|(n, _)| *n == key)
+                    .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+                let mut fired: Vec<String> = Vec::new();
+                for item in orig[6..fp].split(',') {
+                    let w = item.trim().trim_matches('"');
+                    if cols.iter().any(|c| c == w) && !fired.iter().any(|x| x == w) {
+                        fired.push(w.to_string());
+                        if fire(20, Some(&bare), Some(w), Some(&sch)) == 1 { return deny(); }
+                    }
+                }
+                for c in where_reads(&key) {
+                    if !fired.iter().any(|x| *x == c)
+                        && fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
+                }
+            }
+        }
+    } else if up.starts_with("CREATE TABLE") {
+        let raw = orig["CREATE TABLE".len()..].trim()
+            .trim_start_matches("IF NOT EXISTS ").trim()
+            .split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("").to_string();
+        let bare = ident(&raw).unwrap_or(raw);
+        if fire(2, Some(&bare), None, Some("main")) == 1 { return deny(); }
+    } else if up.starts_with("PRAGMA") {
+        let rest = orig["PRAGMA".len()..].trim().trim_end_matches(';');
+        let (name, val) = match rest.split_once('=') {
+            Some((n, v)) => (n.trim().to_string(), Some(v.trim().to_string())),
+            None => (rest.trim().to_string(), None),
+        };
+        if fire(19, Some(&name), val.as_deref(), None) == 1 { return deny(); }
+    } else if up.starts_with("BEGIN") || up.starts_with("COMMIT") || up.starts_with("ROLLBACK")
+        || up.starts_with("END") {
+        let verb = up.split_whitespace().next().unwrap_or("").to_string();
+        if fire(22, Some(&verb), None, None) == 1 { return deny(); }
+    } else if up.starts_with("ATTACH") {
+        let path = orig.split('\'').nth(1).unwrap_or("").to_string();
+        if fire(24, Some(&path), None, None) == 1 { return deny(); }
+    } else if up.starts_with("DETACH") {
+        let name = orig["DETACH".len()..].trim().trim_end_matches(';')
+            .trim_start_matches("DATABASE ").trim().to_string();
+        if fire(25, Some(&name), None, None) == 1 { return deny(); }
+    }
+    Ok(AuthGate::Proceed)
+}
+
 /// run-44: on-demand deferred-FK violation scan (SQLITE_DBSTATUS_DEFERRED_FKS):
 /// inside an open transaction, count child rows whose deferred FK has no parent.
 pub fn deferred_fk_violations(db: usize) -> i64 {
@@ -772,6 +935,11 @@ fn parse_literal(tok: &str) -> Option<Val> {
     }
     if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') {
         return Some(Val::Text(t[1..t.len() - 1].replace("''", "'")));
+    }
+    if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
+        // run-47: double-quoted string in a value position — DQS fallback. Carry a
+        // sentinel so exec can honour DBCONFIG_DQS_DML (accept as text vs C's error).
+        return Some(Val::Text(format!("\u{2}{}", &t[1..t.len() - 1])));
     }
     None
 }
@@ -2139,6 +2307,7 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
                  old: Option<&Vec<Val>>, new: Option<&Vec<Val>>,
                  upd_col: Option<&str>, depth: u32) -> Result<bool, String> {
     if depth > 16 { return Err("too many levels of trigger recursion".into()); }
+    if conn_flag(st, "trigger_off") { return Ok(true); } // run-47: DBCONFIG_ENABLE_TRIGGER off
     let trigs: Vec<Trigger> = st.triggers.iter()
         .filter(|(_, d)| d.table == table && d.timing == timing && d.event == event)
         .filter(|(_, d)| match (&d.of_col, upd_col) {
@@ -2326,6 +2495,12 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
     let mut out: Vec<Vec<Option<String>>> = Vec::new();
     let res: Result<(), String> = with_store(db, |st| {
         for s in &raw_stmts {
+            // run-47: per-statement authorizer consult with C's argument strings
+            // (DENY errors rc 23; IGNORE silently skips INSERT/UPDATE, DELETE proceeds)
+            match auth_stmt_precheck(db, st, s)? {
+                AuthGate::Skip => continue,
+                AuthGate::Proceed => {}
+            }
             let parsed = parse_stmt(s);
             // a kitchen SELECT only counts if its table actually lives in this store;
             // otherwise (pragma_* projections, TVFs) it belongs to the evaluator
@@ -2374,8 +2549,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 | Stmt::DropTrigger { .. } | Stmt::RenameColumn { .. } | Stmt::DropColumn { .. }
                 | Stmt::Drop { .. } | Stmt::RenameTable { .. } | Stmt::AddColumn { .. });
             if write_kind {
-                // run-44: PRAGMA query_only blocks every write with C's readonly error
-                if st.conn.pragmas.get("query_only").copied().unwrap_or(0) != 0 {
+                // run-44: PRAGMA query_only blocks every write with C's readonly error;
+                // run-47: connections opened READONLY (flags or URI mode=ro) block too
+                if st.conn.pragmas.get("query_only").copied().unwrap_or(0) != 0 || is_read_only(db) {
                     return Err("attempt to write a readonly database".into());
                 }
                 // holding a txn: acquire and keep; autocommit: just verify nobody else holds it
@@ -2924,6 +3100,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     if !st.views.contains_key(&name) && !st.tables.iter().any(|(n, _)| *n == name) {
                         return Err(format!("no such table: {name}"));
                     }
+                    // run-47: DQS sentinel — accept as text or error per DBCONFIG_DQS_DML
+                    let mut rows = rows;
+                    for r in rows.iter_mut() { for v in r.iter_mut() { dqs_fix(st, v)?; } }
                     if st.views.contains_key(&name) {
                         // INSTEAD OF INSERT triggers make views writable
                         let has_instead = st.triggers.iter().any(|(_, d)| d.table == name && d.timing == 2 && d.event == 0);
@@ -3549,6 +3728,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 else if e.starts_with("unable to open database") { (14, e) } // run-34 VACUUM INTO path
                 else if e == "database is locked" { (5, e) } // run-36 busy path
                 else if e == "attempt to write a readonly database" { (8, e) } // run-44 query_only
+                else if e == "not authorized" { (23, e) } // run-47 per-statement authorizer
                 else { (1, e) };
             Outcome::Done { rows: Vec::new(), rc, err: Some(msg) }
         }

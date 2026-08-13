@@ -18,7 +18,7 @@ fn global_init_config_pins() {
     unsafe {
         assert_eq!(sqlite3_initialize(), 0);
         assert_eq!(sqlite3_initialize(), 0);                    // init twice -> 0,0
-        assert_eq!(sqlite3_config(2 /*MULTITHREAD*/), 21);      // after init -> MISUSE
+        assert_eq!(sqlite3_config(2 /*MULTITHREAD*/, 0, 0), 21); // after init -> MISUSE (run-47 generic arity)
         let db = open_mem();
         let mut v: c_int = -1;
         // run-45: db_config is a generic fixed-arity export (val, out*) for this verb

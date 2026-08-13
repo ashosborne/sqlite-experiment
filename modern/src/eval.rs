@@ -1571,6 +1571,10 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
         return Ok((vec!["seq".into(), "name".into()], rows));
     }
     // view: expand its stored SELECT (real re-execution, not a cache)
+    if ctx.views.contains_key(f) && ctx.conn.pragmas.get("!view_off").copied().unwrap_or(0) != 0 {
+        // run-47: DBCONFIG_ENABLE_VIEW off refuses view access with C's message
+        return Err(format!("access to view \"{f}\" prohibited"));
+    }
     if let Some(vsql) = ctx.views.get(f) {
         let (cols, rows) = select_rows_o(ctx, vsql, &Row::new())?;
         let rmaps = rows.into_iter().map(|r| cols.iter().cloned().zip(r).collect()).collect();
@@ -2063,13 +2067,18 @@ struct WinSpec {
     part: Vec<Ex>,
     order: Vec<(Ex, bool)>, // (expr, desc)
     frame: WinFrame,
+    exclude: WinExclude,    // run-47: EXCLUDE clause
 }
 enum WinFrame {
     RangePeers,             // default: RANGE UNBOUNDED PRECEDING .. CURRENT ROW (peer-inclusive)
     Rows(Option<i64>),      // ROWS BETWEEN <n|unbounded> PRECEDING AND CURRENT ROW
     RowsFull,               // ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING (run-33)
     Groups(i64),            // GROUPS BETWEEN n PRECEDING AND CURRENT ROW
+    RowsBetween(i64, i64),  // run-47: ROWS BETWEEN n PRECEDING AND m FOLLOWING
+    RangeOffset(i64, i64),  // run-47: RANGE BETWEEN n PRECEDING AND m FOLLOWING (numeric key)
 }
+#[derive(PartialEq, Clone, Copy)]
+enum WinExclude { NoOthers, CurrentRow, Group, Ties }
 
 fn parse_winspec(spec: &str) -> Result<WinSpec, String> {
     let mut rest = spec.trim().to_string();
@@ -2100,7 +2109,18 @@ fn parse_winspec(spec: &str) -> Result<WinSpec, String> {
         }
         rest = format!("{}{}", &rest[..p], &after[stop..]);
     }
-    let up = rest.to_ascii_uppercase();
+    // run-47: EXCLUDE clause (stripped before frame parsing)
+    let mut exclude = WinExclude::NoOthers;
+    let mut up = rest.to_ascii_uppercase();
+    if let Some(p) = up.find("EXCLUDE ") {
+        let tail = up[p + 8..].trim().to_string();
+        exclude = if tail.starts_with("CURRENT ROW") { WinExclude::CurrentRow }
+            else if tail.starts_with("GROUP") { WinExclude::Group }
+            else if tail.starts_with("TIES") { WinExclude::Ties }
+            else { WinExclude::NoOthers };
+        rest = rest[..p].trim_end().to_string();
+        up = rest.to_ascii_uppercase();
+    }
     if let Some(p) = up.find("ROWS BETWEEN ") {
         let body = rest[p + 13..].trim();
         let bu = body.to_ascii_uppercase();
@@ -2108,15 +2128,35 @@ fn parse_winspec(spec: &str) -> Result<WinSpec, String> {
             frame = if bu.contains("AND UNBOUNDED FOLLOWING") { WinFrame::RowsFull } else { WinFrame::Rows(None) };
         }
         else if let Some(n) = body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
-            frame = WinFrame::Rows(Some(n));
+            // run-47: n PRECEDING AND (CURRENT ROW | m FOLLOWING)
+            if let Some(fp) = bu.find(" AND ") {
+                let endb = bu[fp + 5..].trim().to_string();
+                if endb.ends_with("FOLLOWING") || endb.contains("FOLLOWING") {
+                    if let Some(m) = body[fp + 5..].trim().split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
+                        frame = WinFrame::RowsBetween(n, m);
+                    } else { frame = WinFrame::Rows(Some(n)); }
+                } else { frame = WinFrame::Rows(Some(n)); }
+            } else { frame = WinFrame::Rows(Some(n)); }
         }
     } else if let Some(p) = up.find("GROUPS BETWEEN ") {
         let body = rest[p + 15..].trim();
         if let Some(n) = body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
             frame = WinFrame::Groups(n);
         }
+    } else if let Some(p) = up.find("RANGE BETWEEN ") {
+        // run-47: offset RANGE — n PRECEDING AND m FOLLOWING over a numeric ORDER key
+        let body = rest[p + 14..].trim();
+        let bu = body.to_ascii_uppercase();
+        if !bu.starts_with("UNBOUNDED") {
+            if let (Some(n), Some(fp)) = (body.split_whitespace().next().and_then(|w| w.parse::<i64>().ok()),
+                                          bu.find(" AND ")) {
+                if let Some(m) = body[fp + 5..].trim().split_whitespace().next().and_then(|w| w.parse::<i64>().ok()) {
+                    frame = WinFrame::RangeOffset(n, m);
+                }
+            }
+        }
     }
-    Ok(WinSpec { part, order, frame })
+    Ok(WinSpec { part, order, frame, exclude })
 }
 
 /// split "fn(args) OVER (spec)" -> (fname, args_text, spec_text)
@@ -2248,10 +2288,37 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
                                 let lo = (0..m).find(|&q| group_of[q] as i64 >= g0).unwrap_or(0);
                                 (lo, peer_end[p])
                             }
+                            // run-47: ROWS BETWEEN n PRECEDING AND m FOLLOWING
+                            WinFrame::RowsBetween(k, j) =>
+                                ((p as i64 - k).max(0) as usize, ((p as i64 + j).min(m as i64 - 1)) as usize),
+                            // run-47: offset RANGE over the (numeric) first ORDER key —
+                            // frame membership is by peer VALUE distance, not position
+                            WinFrame::RangeOffset(k, j) => {
+                                let kv = keys[order[p]].first().map(|v| v.as_f64()).unwrap_or(0.0);
+                                let (lo_v, hi_v) = (kv - *k as f64, kv + *j as f64);
+                                let mut lo = p; let mut hi = p;
+                                while lo > 0 {
+                                    let qv = keys[order[lo - 1]].first().map(|v| v.as_f64()).unwrap_or(0.0);
+                                    if qv >= lo_v { lo -= 1; } else { break; }
+                                }
+                                while hi + 1 < m {
+                                    let qv = keys[order[hi + 1]].first().map(|v| v.as_f64()).unwrap_or(0.0);
+                                    if qv <= hi_v { hi += 1; } else { break; }
+                                }
+                                (lo, hi)
+                            }
                         };
                         let mut acc: Vec<V> = Vec::new();
                         let mut rows_n = 0i64;
                         for q in lo..=hi {
+                            // run-47: EXCLUDE clause removes rows from the frame
+                            let excluded = match spec.exclude {
+                                WinExclude::NoOthers => false,
+                                WinExclude::CurrentRow => q == p,
+                                WinExclude::Group => group_of[q] == group_of[p],
+                                WinExclude::Ties => group_of[q] == group_of[p] && q != p,
+                            };
+                            if excluded { continue; }
                             rows_n += 1;
                             let av = arg_val(q)?;
                             if !matches!(av, V::Null) { acc.push(av); }
@@ -2275,6 +2342,8 @@ fn window_select(ctx: &Ctx, items: &[(String, String)], from: &str, outer: &Row)
                             WinFrame::RowsFull => m - 1,
                             WinFrame::Rows(Some(k)) => { let _ = k; p }
                             WinFrame::Groups(_) => peer_end[p],
+                            WinFrame::RowsBetween(_, j) => ((p as i64 + j).min(m as i64 - 1)) as usize,
+                            WinFrame::RangeOffset(_, _) => peer_end[p],
                         };
                         let lo = match &spec.frame { WinFrame::Rows(Some(k)) => (p as i64 - k).max(0) as usize, _ => 0 };
                         let pos: Option<usize> = match fname.as_str() {

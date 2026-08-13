@@ -61,6 +61,10 @@ fn backup_003_write_between_steps_rcs() {
         let n = CString::new(":memory:").unwrap();
         let m = CString::new("main").unwrap();
         sqlite3_open(n.as_ptr(), &mut src);
+        // run-47: the backup engine is now a REAL copy — recreate the run-12 C
+        // harness's written 2-page source instead of the old state-machine shim
+        let sql = CString::new("CREATE TABLE t(a); INSERT INTO t VALUES(1);").unwrap();
+        sqlite3_exec(src, sql.as_ptr(), None, ptr::null_mut(), ptr::null_mut());
         sqlite3_open(n.as_ptr(), &mut dst);
         let b = sqlite3_backup_init(dst, m.as_ptr(), src, m.as_ptr());
         assert!(!b.is_null());
