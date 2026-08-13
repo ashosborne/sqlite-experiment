@@ -9,5 +9,5 @@ Bespoke C API sequence: COMMIT after a multi-row UPDATE persists all pages; a fr
 
 ## Observables
 
-- `multi_commit` = `C1|C2|C3|C4`
-- `reopen_after_commit` = `1,C1|2,C2|3,C3|4,C4`
+- `multi_commit` = `cc|cc|cc|cc`
+- `reopen_after_commit` = `1,cc|2,cc|3,cc|4,cc`
