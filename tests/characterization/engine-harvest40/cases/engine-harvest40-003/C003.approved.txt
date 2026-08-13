@@ -1,0 +1,6 @@
+OBS engine-harvest40-003-C003 nlt 0
+OBS engine-harvest40-003-C003 nlp 0
+OBS engine-harvest40-003-C003 log [V2:SELECT 1;]
+OBS engine-harvest40-003-C003 nlt2 0
+OBS engine-harvest40-003-C003 nlp2 0
+OBS engine-harvest40-003-C003 log2 

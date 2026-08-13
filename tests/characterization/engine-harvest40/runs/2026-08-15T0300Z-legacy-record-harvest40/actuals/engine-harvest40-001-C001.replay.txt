@@ -1,0 +1,6 @@
+OBS engine-harvest40-001-C001 create rc=0 err=- mlog=[sync][commit]
+OBS engine-harvest40-001-C001 ins rc=0 err=- mlog=[begin][ins:5][sync][commit]
+OBS engine-harvest40-001-C001 rename rc=0 err=- mlog=[rename:wt]
+OBS engine-harvest40-001-C001 master wt,CREATE VIRTUAL TABLE "wt" USING ser
+OBS engine-harvest40-001-C001 sel_new 5
+OBS engine-harvest40-001-C001 sel_old rc=1 err=no such table: vt mlog=

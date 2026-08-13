@@ -4305,8 +4305,8 @@ behaviours:
     projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list
     / pragma_pragma_list TVFs added (bare + parenthesized forms). run-44: registry TVF residual SHRUNK - pragma_collation_list
     (live registry: runtime-registered collation appears at seq 0), pragma_table_xinfo (real shape incl. vtab HIDDEN), pragma_index_info,
-    pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with C''s
-    LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
+    pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with
+    C''s LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
     names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name
     anti-cheat; no ext/misc force-link, no census of untouched TVFs. RESIDUAL: index_xinfo TVF form; remaining result pragmas.'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
@@ -7100,7 +7100,7 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T09:51:01Z'
+last_updated: '2026-08-13T11:09:23Z'
 updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
@@ -7115,5 +7115,5 @@ counts:
     documented: 142
     converted: 178
   unscanned_hints: 3
-  legacy_green: 226
+  legacy_green: 230
   parity_green: 0

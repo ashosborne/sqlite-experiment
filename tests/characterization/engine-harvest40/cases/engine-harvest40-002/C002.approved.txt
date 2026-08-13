@@ -1,0 +1,12 @@
+OBS engine-harvest40-002-C002 create rc=0 err=- mlog=[sync][commit]
+OBS engine-harvest40-002-C002 sp_a rc=0 err=- mlog=
+OBS engine-harvest40-002-C002 sp_b rc=0 err=- mlog=
+OBS engine-harvest40-002-C002 ins rc=0 err=- mlog=[begin][svpt:0][ins:7]
+OBS engine-harvest40-002-C002 sp_c rc=0 err=- mlog=[svpt:1]
+OBS engine-harvest40-002-C002 ins2 rc=0 err=- mlog=[ins:8]
+OBS engine-harvest40-002-C002 rb_c rc=0 err=- mlog=[rbto:1]
+OBS engine-harvest40-002-C002 after_rb_c 7
+OBS engine-harvest40-002-C002 rb_a rc=0 err=- mlog=[rbto:-1]
+OBS engine-harvest40-002-C002 after_rb_a 
+OBS engine-harvest40-002-C002 rel_a rc=0 err=- mlog=[sync][commit]
+OBS engine-harvest40-002-C002 final 

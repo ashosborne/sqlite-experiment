@@ -1,0 +1,72 @@
+[
+ {
+  "id": "engine-harvest40-001-C001",
+  "feature": "engine-harvest40-001",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "ALTER RENAME of a vtab fires xRename with the new name; sqlite_master sql rewritten with the quoted new name; old name gone"
+ },
+ {
+  "id": "engine-harvest40-001-C002",
+  "feature": "engine-harvest40-001",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "renaming a vtab whose module lacks xRename still succeeds (no callback)"
+ },
+ {
+  "id": "engine-harvest40-002-C001",
+  "feature": "engine-harvest40-002",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "explicit txn: xBegin at first write, xSavepoint 0/1 per SAVEPOINT, xRollbackTo/xRelease with the savepoint's index, xSync+xCommit at COMMIT; module storage tracks visibility"
+ },
+ {
+  "id": "engine-harvest40-002-C002",
+  "feature": "engine-harvest40-002",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "late join under open savepoints: catch-up xSavepoint(0) after xBegin, txn-savepoint excluded from numbering, ROLLBACK TO below the join passes -1, RELEASE of the txn savepoint commits (xSync+xCommit, no xRelease)"
+ },
+ {
+  "id": "engine-harvest40-002-C003",
+  "feature": "engine-harvest40-002",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "autocommit vtab DML wraps in a statement txn (begin/ins/sync/commit); explicit ROLLBACK fires xRollback and the module restores its base"
+ },
+ {
+  "id": "engine-harvest40-003-C001",
+  "feature": "engine-harvest40-003",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "legacy sqlite3_trace fires per statement; exec text keeps the terminator, prepared text has bound parameters EXPANDED"
+ },
+ {
+  "id": "engine-harvest40-003-C002",
+  "feature": "engine-harvest40-003",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "sqlite3_profile REPLACES the legacy trace (same slot): only P events fire, with the statement text"
+ },
+ {
+  "id": "engine-harvest40-003-C003",
+  "feature": "engine-harvest40-003",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "trace_v2 replaces both legacy callbacks; clearing trace_v2 silences everything"
+ },
+ {
+  "id": "engine-harvest40-004-C001",
+  "feature": "engine-harvest40-004",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "update_hook fires op 18/23/9 with rowids on a rowid table and is fully SUPPRESSED on a WITHOUT ROWID table"
+ },
+ {
+  "id": "engine-harvest40-004-C002",
+  "feature": "engine-harvest40-004",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "DELETE without WHERE takes the truncate fast-path: zero update_hook events but changes() counts the rows; WHERE-qualified DELETE fires per row"
+ }
+]

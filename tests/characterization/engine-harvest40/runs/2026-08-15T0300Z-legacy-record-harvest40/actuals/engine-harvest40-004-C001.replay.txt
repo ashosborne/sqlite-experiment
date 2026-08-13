@@ -1,0 +1,4 @@
+OBS engine-harvest40-004-C001 rowid_events 3
+OBS engine-harvest40-004-C001 rowid_log [18:r:1][23:r:1][9:r:1]
+OBS engine-harvest40-004-C001 wr_events 0
+OBS engine-harvest40-004-C001 wr_log 

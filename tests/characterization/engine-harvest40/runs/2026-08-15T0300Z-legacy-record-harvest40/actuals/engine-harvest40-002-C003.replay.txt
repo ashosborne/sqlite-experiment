@@ -1,0 +1,6 @@
+OBS engine-harvest40-002-C003 create rc=0 err=- mlog=[sync][commit]
+OBS engine-harvest40-002-C003 auto_ins rc=0 err=- mlog=[begin][ins:1][sync][commit]
+OBS engine-harvest40-002-C003 begin rc=0 err=- mlog=
+OBS engine-harvest40-002-C003 ins rc=0 err=- mlog=[begin][ins:2]
+OBS engine-harvest40-002-C003 rollback rc=0 err=- mlog=[rollback]
+OBS engine-harvest40-002-C003 after_rollback 1

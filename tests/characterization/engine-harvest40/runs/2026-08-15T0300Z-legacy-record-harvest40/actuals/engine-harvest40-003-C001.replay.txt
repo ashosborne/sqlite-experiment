@@ -1,0 +1,2 @@
+OBS engine-harvest40-003-C001 nlt 2
+OBS engine-harvest40-003-C001 log [T:INSERT INTO t VALUES(1);][T:SELECT a FROM t WHERE a = 1]
