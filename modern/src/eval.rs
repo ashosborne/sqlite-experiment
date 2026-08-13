@@ -724,6 +724,12 @@ static FUNCTION_LIST: &[&str] = &[
     "replace","round","rtrim","substr","sum","total","trim","typeof","unicode","upper",
     "zeroblob","avg","group_concat",
 ];
+/// run-51: is this a function name C would consult SQLITE_FUNCTION (31) for?
+pub fn is_known_function(name: &str) -> bool {
+    let l = name.to_ascii_lowercase();
+    FUNCTION_LIST.iter().any(|f| *f == l)
+}
+
 static PRAGMA_LIST: &[&str] = &[
     "foreign_keys","journal_mode","cache_size","page_count","integrity_check","user_version",
     "table_info","index_list","foreign_key_list","wal_checkpoint","synchronous","encoding",
@@ -752,6 +758,10 @@ fn rle_uncompress(data: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String> {
+    // run-51: a function the authorizer answered SQLITE_IGNORE for yields NULL
+    // (compile-time replacement in C; per-row NULL here, args unevaluated)
+    if crate::auth_fn_ignored(name) { return Ok(V::Null); }
+
     let ln = name.to_ascii_lowercase();
     let a = |i: usize| -> Result<V, String> { eval_expr(&args[i], row, ctx) };
     Ok(match ln.as_str() {
@@ -1767,7 +1777,9 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
 fn is_agg(name: &str) -> bool { matches!(name.to_ascii_lowercase().trim_end_matches("#distinct"),
     "count"|"sum"|"total"|"avg"|"min"|"max"|"group_concat") }
 fn expr_has_agg(e: &Ex) -> bool {
-    match e { Ex::Func(n, a) => (is_agg(n) && !(matches!(n.to_ascii_lowercase().as_str(), "min"|"max") && a.len() > 1)) || a.iter().any(expr_has_agg),
+    match e { Ex::Func(n, a) => (is_agg(n)
+            && !crate::auth_fn_ignored(n) // run-51: an IGNOREd aggregate stops aggregating
+            && !(matches!(n.to_ascii_lowercase().as_str(), "min"|"max") && a.len() > 1)) || a.iter().any(expr_has_agg),
         Ex::Bin(_, x, y) | Ex::Is(x, y, _) => expr_has_agg(x) || expr_has_agg(y),
         Ex::Unary(_, x) | Ex::IsNull(x, _) | Ex::Cast(x, _) | Ex::Collate(x, _) => expr_has_agg(x),
         Ex::InList(x, xs) => expr_has_agg(x) || xs.iter().any(expr_has_agg),
@@ -1846,6 +1858,19 @@ fn eval_agg(e: &Ex, rows: &[Row], ctx: &Ctx) -> Result<V, String> {
             let xe = Ex::Lit(match x { V::Null => LitV::Null, V::Int(i) => LitV::Int(i), V::Real(r) => LitV::Real(r), V::Text(t) => LitV::Str(t), V::Blob(b) => LitV::Blob(b) });
             let ye = Ex::Lit(match y { V::Null => LitV::Null, V::Int(i) => LitV::Int(i), V::Real(r) => LitV::Real(r), V::Text(t) => LitV::Str(t), V::Blob(b) => LitV::Blob(b) });
             eval_expr(&Ex::Bin(op.clone(), Box::new(xe), Box::new(ye)), &Row::new(), ctx)
+        }
+        // run-51: scalar functions OVER aggregates (coalesce(min(a),999)): compute
+        // each argument in aggregate context, then apply the outer function
+        Ex::Func(name, args) if expr_has_agg(e) => {
+            let mut lit_args = Vec::with_capacity(args.len());
+            for a in args {
+                let v = eval_agg(a, rows, ctx)?;
+                lit_args.push(Ex::Lit(match v {
+                    V::Null => LitV::Null, V::Int(i) => LitV::Int(i), V::Real(r) => LitV::Real(r),
+                    V::Text(t) => LitV::Str(t), V::Blob(b) => LitV::Blob(b),
+                }));
+            }
+            eval_expr(&Ex::Func(name.clone(), lit_args), &Row::new(), ctx)
         }
         _ => eval_expr(e, rows.first().cloned().as_ref().unwrap_or(&Row::new()), ctx),
     }

@@ -597,6 +597,16 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
         // run-11 pin: authorizer consulted for SELECT at prepare time (DENY -> SQLITE_AUTH)
         let auth_rc = auth_check_select(db);
         if auth_rc != SQLITE_OK { return auth_rc; }
+        // run-51: compile-time FUNCTION (31) consults + the view s4 read walk.
+        // A function DENY fails prepare with C's per-name message at plain rc 1.
+        if let Err(e) = store::auth_select_prepare(dbid, &stmt_text) {
+            let msg = e.strip_prefix("__RC1__").unwrap_or(&e).to_string();
+            (*db).errcode = SQLITE_ERROR;
+            (*db).extended = SQLITE_ERROR;
+            (*db).errmsg = Some(CString::new(msg).unwrap_or_default());
+            if !pz_tail.is_null() { *pz_tail = z_sql; }
+            return SQLITE_ERROR;
+        }
     } else if !store::stmt_prepare_check(dbid, &stmt_text) {
         db_syntax_error(&mut *db, first_token(body));
         if !pz_tail.is_null() { *pz_tail = z_sql; }
@@ -1738,6 +1748,21 @@ pub fn auth_raw(dbid: usize, code: i32, s1: Option<&str>, s2: Option<&str>,
     let c4 = s4.map(|s| CString::new(s).unwrap_or_default());
     let p = |c: &Option<CString>| c.as_ref().map(|c| c.as_ptr()).unwrap_or(std::ptr::null());
     unsafe { f(arg as *mut c_void, code, p(&c1), p(&c2), p(&c3), p(&c4)) }
+}
+
+thread_local! {
+    // run-51: function names the authorizer answered SQLITE_IGNORE for during the
+    // CURRENT statement's compile-time consult (C replaces them with NULL-yielders)
+    static AUTH_FN_IGN: RefCell<std::collections::HashSet<String>> =
+        RefCell::new(std::collections::HashSet::new());
+}
+pub fn auth_fn_ign_reset() { AUTH_FN_IGN.with(|s| s.borrow_mut().clear()); }
+pub fn auth_fn_ign_add(name: &str) {
+    AUTH_FN_IGN.with(|s| { s.borrow_mut().insert(name.to_ascii_lowercase()); });
+}
+/// is this function IGNOREd for the statement being evaluated? (yields NULL)
+pub fn auth_fn_ignored(name: &str) -> bool {
+    AUTH_FN_IGN.with(|s| s.borrow().contains(&name.to_ascii_lowercase()))
 }
 
 /// consult the authorizer for a column READ (code 20): 0 OK / 1 DENY / 2 IGNORE

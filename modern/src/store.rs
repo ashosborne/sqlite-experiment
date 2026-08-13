@@ -405,6 +405,149 @@ fn dqs_fix(st: &Store, v: &mut Val) -> Result<(), String> {
 /// run-47: statement-class authorizer consult with C's argument strings, fired
 /// per statement (probed shapes). Returns Skip when SQLITE_IGNORE suppresses DML.
 enum AuthGate { Proceed, Skip }
+/// run-51: function-call occurrences (name followed by '(') in textual order,
+/// restricted to names C's resolver would consult SQLITE_FUNCTION for
+fn fn_occurrences(db: usize, sql: &str) -> Vec<String> {
+    let b = sql.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    let mut inq = false;
+    while i < b.len() {
+        let c = b[i] as char;
+        if c == '\'' { inq = !inq; i += 1; continue; }
+        if !inq && (c.is_ascii_alphabetic() || c == '_') {
+            let st_i = i;
+            while i < b.len() && ((b[i] as char).is_ascii_alphanumeric() || b[i] == b'_') { i += 1; }
+            let word = &sql[st_i..i];
+            let mut j = i;
+            while j < b.len() && (b[j] as char).is_whitespace() { j += 1; }
+            if j < b.len() && b[j] == b'(' {
+                let l = word.to_ascii_lowercase();
+                if crate::eval::is_known_function(&l) || crate::udf_name_exists(db, &l) {
+                    out.push(l);
+                }
+            }
+        } else { i += 1; }
+    }
+    out
+}
+/// remove the balanced `name(...)` spans of IGNOREd functions so their argument
+/// column refs stop counting as reads (C's compile-time replacement shape)
+fn strip_ignored_fn_spans(sql: &str) -> String {
+    let mut out = sql.to_string();
+    loop {
+        let b = out.as_bytes();
+        let mut found: Option<(usize, usize)> = None;
+        let mut i = 0;
+        while i < b.len() {
+            if (b[i] as char).is_ascii_alphabetic() || b[i] == b'_' {
+                let st_i = i;
+                while i < b.len() && ((b[i] as char).is_ascii_alphanumeric() || b[i] == b'_') { i += 1; }
+                let word = out[st_i..i].to_ascii_lowercase();
+                let mut j = i;
+                while j < b.len() && (b[j] as char).is_whitespace() { j += 1; }
+                if j < b.len() && b[j] == b'(' && crate::auth_fn_ignored(&word) {
+                    let mut depth = 0i32;
+                    let mut k = j;
+                    while k < b.len() {
+                        match b[k] { b'(' => depth += 1, b')' => { depth -= 1; if depth == 0 { break; } }, _ => {} }
+                        k += 1;
+                    }
+                    found = Some((st_i, (k + 1).min(b.len())));
+                    break;
+                }
+            } else { i += 1; }
+        }
+        match found {
+            Some((a, z)) => { out.replace_range(a..z, " "); }
+            None => break,
+        }
+    }
+    out
+}
+/// run-51: the SQLITE_FUNCTION (31) compile-time consult for one statement.
+/// DENY errors with C's per-name message (plain rc 1); IGNORE records the name so
+/// evaluation yields NULL. Resets the per-statement ignore set.
+fn auth_function_consult(db: usize, sql: &str) -> Result<(), String> {
+    crate::auth_fn_ign_reset();
+    if !crate::authorizer_present(db) { return Ok(()); }
+    for name in fn_occurrences(db, sql) {
+        match crate::auth_raw(db, 31, None, Some(&name), None, None) {
+            1 => return Err(format!("__RC1__not authorized to use function: {name}")),
+            2 => crate::auth_fn_ign_add(&name),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+/// run-51: the view-read walk C performs at compile time — every base-table column
+/// the VIEW BODY references (s4 = view name), then the outer projection's view
+/// columns (s4 NULL), then a nested SELECT consult with s4 = view.
+fn auth_view_walk(db: usize, st: &Store, view: &str, outer_items: &str) -> Result<(), String> {
+    let body = match st.views.get(view) { Some(b) => b.clone(), None => return Ok(()) };
+    // base table of the body + its referenced columns in body order
+    let bup = body.to_ascii_uppercase();
+    if let Some(fp) = bup.find(" FROM ") {
+        let raw = body[fp + 6..].trim().split(|c: char| c.is_whitespace() || c == ';')
+            .next().unwrap_or("").to_string();
+        if let Some(base) = ident(&raw) {
+            let cols: Vec<String> = st.tables.iter().find(|(n, _)| *n == base)
+                .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+            let mut fired: Vec<String> = Vec::new();
+            for w in body.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+                if !w.is_empty() && cols.iter().any(|c| c == w) && !fired.iter().any(|x| x == w) {
+                    fired.push(w.to_string());
+                    if crate::auth_raw(db, 20, Some(&base), Some(w), Some("main"), Some(view)) == 1 {
+                        return Err("not authorized".into());
+                    }
+                }
+            }
+        }
+    }
+    // outer projection over the view's own columns (s4 NULL)
+    let vcols = view_colnames(&body);
+    let star = outer_items.split(',').any(|i| { let t = i.trim(); t == "*" || t.ends_with(".*") });
+    let mut outer: Vec<String> = Vec::new();
+    if star { outer = vcols.clone(); }
+    else {
+        for w in outer_items.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+            if !w.is_empty() && vcols.iter().any(|c| c == w) && !outer.iter().any(|x| x == w) {
+                outer.push(w.to_string());
+            }
+        }
+    }
+    for c in &outer {
+        if crate::auth_raw(db, 20, Some(view), Some(c), Some("main"), None) == 1 {
+            return Err("not authorized".into());
+        }
+    }
+    if crate::auth_raw(db, 21, None, None, None, Some(view)) == 1 {
+        return Err("not authorized".into());
+    }
+    Ok(())
+}
+/// run-51: the compile-time SELECT consult shared by prepare and the exec path —
+/// [21], FUNCTION occurrences, then (for a view FROM) the s4 read walk.
+pub fn auth_select_prepare(db: usize, sql: &str) -> Result<(), String> {
+    if !crate::authorizer_present(db) { return Ok(()); }
+    let up = sql.trim_start().to_ascii_uppercase();
+    if !up.starts_with("SELECT") { return Ok(()); }
+    auth_function_consult(db, sql)?;
+    with_store(db, |st| -> Result<(), String> {
+        if let Some(fp) = up.find(" FROM ") {
+            let orig = sql.trim_start();
+            let raw = orig[fp + 6..].trim().split(|c: char| c.is_whitespace() || c == ';')
+                .next().unwrap_or("").to_string();
+            if let Some(t) = ident(&raw) {
+                if st.views.contains_key(&t) {
+                    auth_view_walk(db, st, &t, &orig[6..fp])?;
+                }
+            }
+        }
+        Ok(())
+    })
+}
+
 fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String> {
     if !crate::authorizer_present(db) { return Ok(AuthGate::Proceed); }
     let up = s.trim_start().to_ascii_uppercase();
@@ -471,25 +614,95 @@ fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String
         }
     } else if up.starts_with("SELECT") {
         if fire(21, None, None, None) == 1 { return deny(); }
-        // column READs in select-list order, then WHERE columns (C shape)
+        // run-51: SQLITE_FUNCTION consults (compile time, textual order)
+        auth_function_consult(db, orig)?;
+        // column READs in select-list order (function args count), then WHERE columns
         if let Some(fp) = up.find(" FROM ") {
             let raw = orig[fp + 6..].trim().split(|c: char| c.is_whitespace() || c == ';').next().unwrap_or("").to_string();
+            if let Some(t) = ident(&raw) {
+                if st.views.contains_key(&t) {
+                    // run-51: the view s4 read walk replaces the plain-table reads
+                    auth_view_walk(db, st, &t, &orig[6..fp])?;
+                    return Ok(AuthGate::Proceed);
+                }
+            }
             if let Some(key) = ident(&raw).map(|k| dml_key(st, &k)) {
                 let (bare, sch) = split_schema(&key);
                 let cols: Vec<String> = st.tables.iter().find(|(n, _)| *n == key)
                     .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
+                let items_txt = strip_ignored_fn_spans(&orig[6..fp]);
                 let mut fired: Vec<String> = Vec::new();
-                for item in orig[6..fp].split(',') {
-                    let w = item.trim().trim_matches('"');
-                    if cols.iter().any(|c| c == w) && !fired.iter().any(|x| x == w) {
+                for w in items_txt.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+                    if !w.is_empty() && cols.iter().any(|c| c == w) && !fired.iter().any(|x| x == w) {
                         fired.push(w.to_string());
                         if fire(20, Some(&bare), Some(w), Some(&sch)) == 1 { return deny(); }
                     }
                 }
                 for c in where_reads(&key) {
-                    if !fired.iter().any(|x| *x == c)
-                        && fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
+                    if !fired.iter().any(|x| *x == c) {
+                        fired.push(c.clone());
+                        if fire(20, Some(&bare), Some(&c), Some(&sch)) == 1 { return deny(); }
+                    }
                 }
+                // run-51: a FROM table with no surviving column refs reads the table
+                // with an EMPTY column name and NULL schema (count(*) / ignored fns)
+                if fired.is_empty() && !cols.is_empty()
+                    && crate::auth_raw(db, 20, Some(&bare), Some(""), None, None) == 1 {
+                    return deny();
+                }
+            }
+        }
+    } else if up.starts_with("SAVEPOINT ") {
+        // run-51: code 32 with s1 = BEGIN and s2 = the savepoint name
+        let name = orig["SAVEPOINT ".len()..].trim().trim_end_matches(';').trim().to_string();
+        if crate::auth_raw(db, 32, Some("BEGIN"), Some(&name), None, None) == 1 { return deny(); }
+    } else if up.starts_with("RELEASE") {
+        let name = orig["RELEASE".len()..].trim().trim_end_matches(';')
+            .trim_start_matches("SAVEPOINT ").trim().to_string();
+        if crate::auth_raw(db, 32, Some("RELEASE"), Some(&name), None, None) == 1 { return deny(); }
+    } else if up.starts_with("ROLLBACK TO") {
+        // run-51: ROLLBACK TO is code 32 (plain ROLLBACK stays TRANSACTION 22)
+        let name = orig["ROLLBACK TO".len()..].trim().trim_end_matches(';')
+            .trim_start_matches("SAVEPOINT ").trim().to_string();
+        if crate::auth_raw(db, 32, Some("ROLLBACK"), Some(&name), None, None) == 1 { return deny(); }
+    } else if up.starts_with("ANALYZE") {
+        // run-51: code 28 per analyzed table (s1 = table, s3 = main) — outer only
+        let arg = orig["ANALYZE".len()..].trim().trim_end_matches(';').trim().to_string();
+        let targets: Vec<String> = if arg.is_empty() || arg.eq_ignore_ascii_case("main") {
+            st.tables.iter().map(|(n, _)| n.clone())
+                .filter(|n| n != "sqlite_stat1" && !n.contains('.')).collect()
+        } else { vec![ident(&arg).unwrap_or(arg)] };
+        for t in targets {
+            if fire(28, Some(&t), None, Some("main")) == 1 { return deny(); }
+        }
+    } else if up.starts_with("ALTER TABLE ") {
+        // run-51: code 26 outer with INVERTED args (s1 = database, s2 = table);
+        // IGNORE silently no-ops the statement (pinned)
+        let rest = &orig["ALTER TABLE ".len()..];
+        let raw = rest.trim().split_whitespace().next().unwrap_or("").to_string();
+        if let Some(t) = ident(&raw) {
+            match crate::auth_raw(db, 26, Some("main"), Some(&t), None, None) {
+                1 => return deny(), 2 => return Ok(AuthGate::Skip), _ => {}
+            }
+        }
+    } else if up.starts_with("DROP TABLE ") {
+        // run-51: code 11 outer (s1 = table, s3 = main); a vtab drop fires 30 with
+        // s2 = the module name instead
+        let raw = orig["DROP TABLE ".len()..].trim().trim_end_matches(';').trim().to_string();
+        if let Some(t) = ident(&raw) {
+            let vmod = st.conn.vtab_schema.iter().find(|(n, _, _, _)| *n == t)
+                .map(|(_, m, _, _)| m.clone());
+            let rc = match &vmod {
+                Some(m) => crate::auth_raw(db, 30, Some(&t), Some(m), Some("main"), None),
+                None => fire(11, Some(&t), None, Some("main")),
+            };
+            if rc == 1 { return deny(); }
+        }
+    } else if up.starts_with("CREATE VIRTUAL TABLE ") {
+        // run-51: code 29 outer (s1 = table, s2 = module, s3 = main)
+        if let Some(Stmt::CreateVtab { name, module, .. }) = parse_stmt(orig) {
+            if crate::auth_raw(db, 29, Some(&name), Some(&module), Some("main"), None) == 1 {
+                return deny();
             }
         }
     } else if up.starts_with("CREATE TABLE") {
@@ -1177,6 +1390,8 @@ thread_local! {
     // run-49: prepared statements fire their own STMT/PROFILE from sqlite3_step —
     // the engine calls they make must not double-fire the per-statement events
     static TRACE_SUPPRESS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    // run-51: the connection currently inside execute_script (trigger-body auth events)
+    static EXEC_DB: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 pub fn set_trace_suppressed(v: bool) { TRACE_SUPPRESS.with(|c| c.set(v)); }
 
@@ -2576,27 +2791,45 @@ fn fire_triggers_d(st: &mut Store, table: &str, timing: u8, event: u8,
                  upd_col: Option<&str>, depth: u32) -> Result<bool, String> {
     if depth > 16 { return Err("too many levels of trigger recursion".into()); }
     if conn_flag(st, "trigger_off") { return Ok(true); } // run-47: DBCONFIG_ENABLE_TRIGGER off
-    let trigs: Vec<Trigger> = st.triggers.iter()
+    let trigs: Vec<(String, Trigger)> = st.triggers.iter()
         .filter(|(_, d)| d.table == table && d.timing == timing && d.event == event)
         .filter(|(_, d)| match (&d.of_col, upd_col) {
             (Some(oc), Some(uc)) => oc == uc,
             (Some(_), None) => event != 1, // UPDATE OF requires a matching updated column
             _ => true,
         })
-        .map(|(_, d)| d.clone()).collect();
+        .map(|(n, d)| (n.clone(), d.clone())).collect();
     if trigs.is_empty() { return Ok(true); }
     let colnames: Vec<String> = st.tables.iter().find(|(n, _)| n == table)
         .map(|(_, t)| t.cols.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
     let mut env: std::collections::HashMap<String, eval::V> = Default::default();
     if let Some(o) = old { for (i, c) in colnames.iter().enumerate() { env.insert(format!("old.{c}"), val_to_ev(o.get(i).unwrap_or(&Val::Null))); } }
     if let Some(nw) = new { for (i, c) in colnames.iter().enumerate() { env.insert(format!("new.{c}"), val_to_ev(nw.get(i).unwrap_or(&Val::Null))); } }
-    for tg in trigs {
+    for (tgname, tg) in trigs {
         if let Some(w) = &tg.when {
             if !ev_truthy(&eval::eval_standalone(w, &env)?) { continue; }
         }
         for (target, exprs) in &tg.body {
             if target == "#raise_ignore" {
                 return Ok(false); // RAISE(IGNORE): skip this row's operation silently
+            }
+            // run-51: trigger-body authorizer events carry s4 = the trigger name —
+            // the body INSERT, then the old./new. column reads it evaluates
+            if !target.starts_with('#') && crate::authorizer_present(EXEC_DB.with(|c| c.get())) {
+                let adb = EXEC_DB.with(|c| c.get());
+                let _ = crate::auth_raw(adb, 18, Some(target), None, Some("main"), Some(&tgname));
+                let mut seen: Vec<String> = Vec::new();
+                for e in exprs {
+                    let toks: Vec<&str> = e.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.')).collect();
+                    for t in toks {
+                        if let Some(col) = t.strip_prefix("new.").or_else(|| t.strip_prefix("old.")) {
+                            if !seen.iter().any(|x| x == col) {
+                                seen.push(col.to_string());
+                                let _ = crate::auth_raw(adb, 20, Some(&tg.table), Some(col), Some("main"), Some(&tgname));
+                            }
+                        }
+                    }
+                }
             }
             if target == "#raise_txnrb" {
                 let msg = eval::eval_standalone(&exprs[0], &env)?;
@@ -2685,14 +2918,23 @@ fn apply_read_auth(db: usize, sql: &str, snap: &mut std::collections::HashMap<St
             if !ordered.iter().any(|x| x == real) { ordered.push(real.clone()); }
         }
     };
-    if select_list.contains(STAR) {
+    // run-51: only a BARE star item expands (count(*) is not a whole-row read)
+    let bare_star = select_list.split(',').any(|i| { let t = i.trim(); t == "*" || t.ends_with(".*") });
+    if bare_star {
         for c in &colnames { if !ordered.contains(c) { ordered.push(c.clone()); } }
     }
-    for tok in select_list.split(|c: char| !is_word(c)) {
+    // run-51: IGNOREd functions' argument spans stop counting as reads
+    let sel_stripped = strip_ignored_fn_spans(select_list);
+    let sql_stripped = strip_ignored_fn_spans(sql);
+    for tok in sel_stripped.split(|c: char| !is_word(c)) {
         if !tok.is_empty() { push_col(tok, &mut ordered); }
     }
-    for tok in sql.split(|c: char| !is_word(c)) {
+    for tok in sql_stripped.split(|c: char| !is_word(c)) {
         if !tok.is_empty() { push_col(tok, &mut ordered); }
+    }
+    // run-51: no surviving column refs -> the empty-column table read (NULL schema)
+    if ordered.is_empty() && !colnames.is_empty() {
+        let _ = crate::auth_raw(db, 20, Some(&tname), Some(""), None, None);
     }
     let mut ignored: Vec<usize> = Vec::new();
     for cname in &ordered {
@@ -2757,6 +2999,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
 }
 
 pub fn execute_script(db: usize, script: &str) -> Outcome {
+    EXEC_DB.with(|c| c.set(db)); // run-51: trigger-body auth events know the connection
     maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let stmts_t = split_statements_t(script);
     let raw_stmts: Vec<String> = stmts_t.iter().map(|(s, _)| s.clone()).collect();
