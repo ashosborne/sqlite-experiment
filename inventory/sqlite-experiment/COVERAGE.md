@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T11:51:00Z
+- Generated: 2026-08-13T13:15:48Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T11:46:12Z by `sqlite-engine-v1-kitchen`
+- Manifest last_updated: 2026-08-13T13:03:05Z by `sqlite-engine-v41-auth-codes`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 78 | Not started in modern |
 | partial | 42 | Some modern execution; gaps in notes |
-| full (converted) | 208 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 214 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -225,6 +225,12 @@
 - `engine-harvest40-006` — db_config leftover toggles
 - `engine-harvest40-007` — live completion phases
 - `engine-harvest40-008` — pragma_index_xinfo TVF
+- `engine-harvest41-001` — SQLITE_FUNCTION authorizer code
+- `engine-harvest41-002` — SQLITE_SAVEPOINT authorizer code
+- `engine-harvest41-003` — SQLITE_ANALYZE outer code
+- `engine-harvest41-004` — SQLITE_ALTER_TABLE outer code
+- `engine-harvest41-005` — DROP_TABLE / vtab authorizer codes
+- `engine-harvest41-006` — view / trigger s4 contexts
 - `engine-harvest39-002` — pragma_module_list lazy population
 - `engine-harvest39-003` — per-row blob expiry + TEXT-cell writes
 - `engine-harvest39-004` — sqlite3_randomness + test_control PRNG
@@ -234,7 +240,7 @@
 - `analyze-stats-001` — confidence=observed-in-code; Per-index row sampling into stat tables; stat4 behind SQLITE_ENABLE_STAT4. run-37: PARTIAL - ANALYZE performs real scans and writes sqlite_stat1 in the pinned C text format (ceil selectivity with the near-1.0 rounding quirk, pinned by 11-rows/10-distinct -> "11 1"); whole-db/main/table/index scoping, re-ANALYZE replacement, DROP maintenance, WITHOUT ROWID PK pseudo-index, durable + two-direction C interop all real. RESIDUAL: sqlite_stat4 (off on the pinned build), PRAGMA optimize history, attached-schema stats, sz=/unordered annotation tokens (not emitted by pinned data). run-46: attached-schema residual CLEARED - ANALYZE aux.t / ANALYZE aux write bare-named stat rows into aux.sqlite_stat1 (main stays clean; CREATE INDEX <schema>.<ix> resolves its table into the schema); PRAGMA optimize implements the pinned missing-stats contract (creates sqlite_stat1 for indexed tables lacking stats). STAYS PARTIAL: optimize usage/staleness gating heuristics not modelled; sqlite_stat4 and sz=/unordered tokens stay pin-absent (probe evidence).
 - `attach-detach-001` — ATTACH tracked as a real namespace count; attached schemas cannot own tables/DDL yet run-40: attached schemas now OWN real tables (CREATE/INSERT/SELECT/UPDATE/DELETE via schema.table; qualified + unqualified resolution with main winning collisions; dup/reserved errors; file-backed attachments persist across reopen). RESIDUAL: URI/encryption attach maze, DETACH-locked edges, cross-schema transaction-join semantics. run-43 pin-forced deepen: unqualified DML (INSERT/UPDATE/DELETE) now resolves main-first then attach-order into attached tables, and missing-table DML errors carry the qualified name ("no such table: aux.t"). Still partial (URI/encryption maze, cross-schema txn-join).
 - `attach-detach-003` — confidence=observed-in-code; cross-db name fixation for DDL. run-39: PARTIAL — qualified table names in a non-TEMP trigger body INSERT/UPDATE/DELETE are rejected with C's exact message (trigger not created); TEMP triggers exempt; qualified SELECT inside a trigger allowed. RESIDUAL: the attached-schema (aux3) DDL and cross-db VIEW fixation forms need real attached-schema tables, which modern lacks (attach-detach-001/002 partial); proven on the main schema only. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED run-40: aux residual reclaimed — a non-TEMP trigger in/for an attached schema rejects qualified DML, and an attached-schema VIEW referencing another schema errors "view V cannot reference objects in database Y". RESIDUAL: firing a trigger whose body targets an attached table (unqualified body resolution at trigger execution) is not implemented. run-43: firing residual CLEARED — a trigger is an attached-schema object (the NAME carries the schema; unqualified names live in main and CREATE errors "trigger T cannot reference objects in database X" cross-schema); at fire time body statements resolve unqualified names STRICTLY inside the trigger schema (collision hits the trigger schema only; main-only/missing targets error "no such table: aux.X"); event/timing matrix (AFTER INSERT/UPDATE/DELETE, BEFORE, order) pinned on attached tables; DETACH tears attached triggers down; per-schema sqlite_master real. STAYS PARTIAL for named leftovers: TEMP-trigger cross-schema fire matrix (TEMP triggers accepted but not fired, run-39 scope), trigger bodies beyond INSERT..VALUES / RAISE / no-op SELECT (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.
-- `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes. run-47: s1-s4 + IGNORE residuals CLEARED - the callback now receives the probed C argument strings per statement (INSERT [18|t|~|main|~], per-column UPDATE + WHERE READs, DELETE + READs, SELECT [21] then ordered column READs, PRAGMA name/value, TRANSACTION BEGIN/COMMIT, ATTACH path, DETACH name); SQLITE_IGNORE on DML pinned (INSERT/UPDATE silently skip, DELETE proceeds - truncate-opt only). STAYS PARTIAL: ~22 action codes not dispatched (ALTER/CREATE_INDEX/DROP emit sqlite_master bookkeeping callback sequences modern does not produce; function code 31; trigger/view s4 contexts).
+- `auth-callback-api-001` — authorizer dispatch real but only the SQLITE_SELECT deny path implemented run-33: deny paths for INSERT/UPDATE/DELETE/CREATE_TABLE/PRAGMA landed (rc 23). REMAINING: per-object callback arguments (s1-s4 NULL today), SQLITE_IGNORE column semantics, remaining ~28 action codes. run-47: s1-s4 + IGNORE residuals CLEARED - the callback now receives the probed C argument strings per statement (INSERT [18|t|~|main|~], per-column UPDATE + WHERE READs, DELETE + READs, SELECT [21] then ordered column READs, PRAGMA name/value, TRANSACTION BEGIN/COMMIT, ATTACH path, DETACH name); SQLITE_IGNORE on DML pinned (INSERT/UPDATE silently skip, DELETE proceeds - truncate-opt only). run-51: eight more codes dispatched with probed args and NO invented sqlite_master tails (engine-harvest41): FUNCTION 31 at compile time (s1 NULL, s2 = name; DENY errmsg "not authorized to use function: NAME" at plain rc 1; IGNORE yields NULL and de-aggregates, the column read degrades to the empty-column form), SAVEPOINT 32 (s1 = BEGIN/RELEASE/ROLLBACK, s2 = name; ROLLBACK TO split from TRANSACTION 22), ANALYZE 28 outer (s1 = table, s3 = main), ALTER_TABLE 26 outer (INVERTED s1 = db / s2 = table; IGNORE no-ops the rename), DROP_TABLE 11 / CREATE_VTABLE 29 / DROP_VTABLE 30 outer, view s4 read walk (base-table READs carry the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master / sqlite_temp_master bookkeeping sequences C emits for DDL are NOT modelled (CREATE_INDEX 1 / DROP_INDEX 10, CREATE_VIEW 8 / DROP_VIEW 17, CREATE_TRIGGER 7 / DROP_TRIGGER 16 full logs, and the catalog tails of ALTER/DROP/VTABLE stay unfrozen); the TEMP family (3-6, 12-15) is not dispatched; REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*); RECURSIVE 33 is scan-gated and modern has no recursive-CTE execution (pin-absent, ADR 0039).
 - `backup-api-003` — write-between-steps restart pinned; no general page-level coordination run-47: restart residual re-pinned on a REAL multi-page copy (source write between steps resets progress; destination sees the late write). STAYS PARTIAL: cross-connection BackupUpdate page patching unpinned - modern copies the source image at completion where C patches pages (observables pinned equal for the frozen scope, ADR 0035).
 - `builtin-scalar-agg-funcs-001` — ~24 of ~60 core scalars real (adds round/trim family/replace/instr/scalar min-max/sign/char/unhex/concat/concat_ws/octet_length/unicode)
 - `builtin-scalar-agg-funcs-003` — LIKE (ESCAPE + case_sensitive_like) and GLOB real; unicode case-fold edges and LIKE index optimization absent
@@ -360,10 +366,10 @@
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 244 |
-| Behaviours known | 328 |
+| Behaviours known | 334 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 238 |
+| legacy_green flags | 244 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -377,7 +383,7 @@
 
 | Status | Count |
 | --- | --- |
-| converted | 186 |
+| converted | 192 |
 | documented | 142 |
 
 ## Surfaces per slice

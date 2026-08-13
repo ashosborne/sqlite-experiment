@@ -960,3 +960,24 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   partial (index_xinfo added). Composed engine-harvest40-001..008 full. cargo all green;
   SCRIPT_TABLE 0.
 - Scoreboard full 195->208 / partial 42 / none 78 (328 known). Not migrated.
+## Run 51 — 2026-08-15 — engine v41: authorizer action codes (pack v41, overnight)
+
+- Pack v40 -> v41 BOUND (AUTH CODES WITHOUT MASTER FAKERY: outer codes only, probed
+  s1-s4, per-code IGNORE/DENY, never invent sqlite_master/sqlite_temp_master tails,
+  auth-001 must not flip full). ADR 0039.
+- Probed C then froze 14 goldens (engine-harvest41-001..006) with the callback log
+  FILTERED to whitelisted codes: FUNCTION 31 (compile-time, per-name deny errmsg rc 1,
+  IGNORE -> NULL + de-aggregation + empty-column read), SAVEPOINT 32 (verb + name,
+  ROLLBACK TO != TRANSACTION 22), ANALYZE 28 outer, ALTER 26 outer (inverted s1/s2,
+  IGNORE no-op), DROP_TABLE 11 / CREATE_VTABLE 29 / DROP_VTABLE 30 outer, view s4
+  read walk + nested consult, trigger-body s4 events.
+- Skipped honestly: index/view/trigger full logs (master bookkeeping), TEMP family,
+  REINDEX (kitchen unparsed), RECURSIVE 33 (scan-gated, no recursive CTE in modern).
+- Modern: precheck branches + compile-time prepare consult + per-statement ignored-fn
+  set (NULL-yield, de-aggregation, read degradation), bare-star fix + empty-column
+  fallback in the read prepass, trigger-body auth events. Pre-existing eval bug fixed:
+  scalar functions over aggregates now aggregate (coalesce(min(a),999)).
+- Estate: auth-callback-api-001 stays partial with a precise residual (master
+  bookkeeping families, TEMP, REINDEX, RECURSIVE); auth-002 untouched. Composed
+  engine-harvest41-001..006 full. cargo all green; SCRIPT_TABLE 0.
+- Scoreboard full 208->214 / partial 42 / none 78 (334 known). Not migrated.

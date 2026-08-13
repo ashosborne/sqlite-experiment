@@ -1,86 +1,83 @@
-# MORNING BRIEF — engine v40: partial-to-full harvest (run 50, overnight)
+# MORNING BRIEF — engine v41: authorizer action codes (run 51, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–49 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v40-partial-to-full, FORBID_GREENWASH_FULL,
-VTAB001_FAMILY_ALL_OR_NOTHING, PREPARE006_NO_VDBE, NO_FAKE_AUTH_MASTER,
-SERIES_OWN_RESIDUAL_ONLY. MAX_NEW_CASES 80 (used 23).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–50 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v41-auth-codes, NO_FAKE_AUTH_MASTER,
+AUTH001_NO_FULL, DO_NOT_RECLAIM_AUTH002, GOAL_PARTIAL_TO_FULL false.
+MAX_NEW_CASES 40 (used 14).
 
-## 1. Pack @40 BOUND — PARTIAL-TO-FULL HARVEST law
+## 1. Pack @41 BOUND — AUTH CODES WITHOUT MASTER FAKERY law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v39 → **v40**
-(versions/1–40 retained; ADR `0038-engine-v40-partial-to-full.md`; schema VALID; 46 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v40 → **v41**
+(versions/1–41 retained; ADR `0039-engine-v41-auth-codes.md`; schema VALID; 47 laws).
 
-## 2. partial → full (5 estate + 8 composed)
+## 2. Codes landed (outer events, probed args, per-code IGNORE/DENY)
 
-| Card | What cleared |
+| Code | Shape landed |
 | --- | --- |
-| **vtab-core-001** | xRename (ALTER RENAME rewrites the quoted schema sql; renames even without an xRename method) + the savepoint family: xBegin at first write, xSync/xCommit at COMMIT/statement end, xRollback, and xSavepoint/xRelease/xRollbackTo with **C's txn-savepoint-excluded numbering** (-1 below the join, RELEASE of the txn savepoint commits). ROLLBACK TO now changes vtab DML visibility. Residual empty. |
-| **connection-lifecycle-api-004** | WITHOUT ROWID update_hook suppression + DELETE truncate fast-path (0 events, changes() counts); legacy `sqlite3_trace`/`sqlite3_profile` (shared slot, mutual displacement, param-expanded text, trace_v2 replaces both). Residual empty. |
-| **json-funcs-004** | json_tree + full vtab columns (key/value/type/atom/id/parent/fullkey/path) with **JSONB-byte-offset ids**, parent-row chains, minified containers, second path arg. Residual empty. |
-| **global-init-config-003** | the whole toggle family with REAL effects: DQS_DDL, WRITABLE_SCHEMA, **DEFENSIVE now enforced**, LEGACY_ALTER, RESET_DATABASE, TRUSTED_SCHEMA (INNOCUOUS-aware), load-ext C-API/SQL split. Residual empty. |
-| **misc-completion-001** | mirrors live C's phase contract (147-keyword census, databases, tables+views, columns; hidden phase column). Dead phases (pragmas/functions/collations) + ranking are **pin-absent** in live C. Residual empty. |
-| engine-harvest40-001..008 | composed full for the frozen batches |
+| **FUNCTION 31** (headline) | compile-time, once per occurrence, s1 NULL / s2 name, outer-then-inner nesting; DENY = `not authorized to use function: NAME` at **plain rc 1**; IGNORE yields NULL and **de-aggregates** (`min(a)` → 3 NULL rows, `coalesce(min(a),999)` → 999 per row); `count(*)` / ignored refs read the table with an EMPTY column name and NULL schema |
+| **SAVEPOINT 32** | s1 = BEGIN/RELEASE/ROLLBACK, s2 = savepoint name; `ROLLBACK TO` split from TRANSACTION 22; DENY rc 23 fires before the exists check |
+| **ANALYZE 28** | outer per-table event (s1 = table, s3 = main) on a DB that already has sqlite_stat1; DENY blocks |
+| **ALTER_TABLE 26** | outer, **inverted** args (s1 = database, s2 = table) for RENAME + ADD COLUMN; IGNORE silently no-ops the rename; DENY rc 23 |
+| **DROP_TABLE 11** | outer (s1 = table, s3 = main); DENY leaves the table |
+| **CREATE_VTABLE 29 / DROP_VTABLE 30** | outer (s1 = table, s2 = module); a vtab drop fires 30, not 11; DENY blocks |
+| **view s4** | the WHOLE view body's base-table READs carry s4 = view name (regardless of outer projection), then projected view columns (s4 NULL), then a nested SELECT consult with s4 = view |
+| **trigger s4** | body INSERT + old./new. column READs fire with s4 = the trigger name |
 
-## 3. Still partial (named residuals, honest)
+## 3. Codes skipped (honest, ADR 0039)
 
-- **pragma-surface-002** — index_xinfo TVF landed (40-008); RESIDUAL: remaining result pragmas (index_list/foreign_key_list projections stay count-only).
-- **error-status-api-003** — CACHE_SPILL under real spill, scanstatus, VM_STEP magnitudes (no VDBE).
-- **malloc-subsystem-002** — two-size mini-slots, pBuf, CONFIG_LOOKASIDE.
-- **auth-callback-api-001** — ~22 action codes (no faked sqlite_master sequences).
-- **wal-001/002** — multi-connection mxFrame / blocking checkpoint.
-- **json-funcs-001/002** — wildcards/#, JSONB, JSON5, array-path mutation.
-- **util-primitives-001** — string hash tables; ChaCha20 byte parity unclaimed.
-- **misc-compress-001** (zlib), **printf-format-002/003** (va_list), **loadext-api-001** (dlopen),
-  **prepare-statement-api-006** (EXPLAIN bytecode, no VDBE), planner/optimizer/codegen family,
-  **serialize-memdb-api-002** (USE_URI off), **series/prefixes/wholenumber** (ADR 0034 no re-home),
-  attach mazes, global-init-002 before-init ops, pager/btree/vfs/fts/session/expert. All structural.
+- **CREATE_INDEX/DROP_INDEX, CREATE_VIEW/DROP_VIEW, CREATE_TRIGGER/DROP_TRIGGER full logs** — dominated by sqlite_master INSERT/UPDATE/DELETE/READ bookkeeping modern does not perform (the auth2-2.1 smoking gun). Not invented.
+- **TEMP family (3–6, 12–15)** — distinct temp catalog; not aliased. Stays named.
+- **REINDEX 27** — kitchen does not parse REINDEX; no fake rebuild. Stays named.
+- **RECURSIVE 33** — scan-gated in C; modern has no recursive-CTE execution. Pin-absent.
+- ALTER/DROP/ANALYZE/VTABLE **catalog tails** — outer codes frozen, tails deliberately dropped
+  from goldens (the harness FILTERS the callback log to whitelisted codes).
 
-## 4. Probes
+## 4. Residual rewrite
 
-legacy trace/profile **exported** on the pin → implemented; completion phases 2–6 + ranking
-**pin-absent** in live C → residual deletable; JSONB ids computed from C's encoding; DEFENSIVE
-verified to gate schema writes and no-op PRAGMA writable_schema; index_xinfo tail row cid -1/key 0.
+auth-callback-api-001 **stays partial**: DDL sqlite_master/sqlite_temp_master bookkeeping
+families (index/view/trigger full logs + the unfrozen catalog tails of ALTER/DROP/VTABLE),
+TEMP family, REINDEX (unparsed), RECURSIVE (pin-absent). auth-callback-api-002 untouched.
 
 ## 5. Anti-cheat
 
-Runtime rename target must reach xRename + the schema; a runtime-length batch after a savepoint
-must vanish on ROLLBACK TO; a runtime document's json_each ids must track JSONB offsets; a
-runtime-named table completes under phase 8. All in the engine_harvest40* test binaries.
+A runtime-registered UDF name must reach s2 and denying exactly that name must fail with
+C's per-name message; a runtime savepoint name must reach s2 of code 32. Both in
+`modern/tests/engine_harvest41.rs`.
 
-## 6. Freezes
+## 6. Probes / bug found
 
-23 new cases under `tests/characterization/engine-harvest40/` (001 rename ×2, 002 savepoint ×3,
-003 legacy trace ×2, 004 WR/truncate ×2, 005 json ×3, 006 db_config ×6, 007 completion ×2,
-008 index_xinfo ×2), two-run deterministic, delegated HUMAN_ACCEPTED. legacy_green 230.
-Prior golden md5s untouched.
+All shapes probed on C first (probe → freeze → implement). **Pre-existing eval bug** flushed
+out by the coalesce pin: scalar functions over aggregates evaluated the aggregate per-row
+(`coalesce(min(a),999)` returned 1, not -3). Fixed with aggregate-context argument evaluation.
 
-## 7. Cargo
+## 7. Freezes / cargo
 
-`cargo test` (workspace, 50 binaries): **all green**, including harvest36/37/39, vtab38,
-lookaside35, status34/pragma34, utf16 suites. `SCRIPT_TABLE.len()==0` enforced.
+14 new cases under `tests/characterization/engine-harvest41/` (001 ×3, 002 ×2, 003 ×2,
+004 ×2, 005 ×3, 006 ×2), two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 238,
+prior golden md5s untouched. `cargo test` (51 binaries): **all green** including run-47
+auth s1–s4 / DELETE-proceeds and auth-002 IGNORE→NULL. `SCRIPT_TABLE.len()==0`.
 
 ## 8. Scoreboard
 
 | | before | after |
 | --- | --- | --- |
-| full | 195 | **208** |
-| partial | 47 | 42 |
+| full | 208 | **214** |
+| partial | 42 | 42 |
 | none | 78 | 78 |
-| behaviours | 320 | 328 (+8 composed) |
+| behaviours | 328 | 334 (+6 composed) |
 
-partial→full: vtab-core-001, connection-lifecycle-api-004, json-funcs-004,
-global-init-config-003, misc-completion-001 (estate) + engine-harvest40-001..008 (composed).
-deepen-still-partial: pragma-surface-002 (index_xinfo added, residual shrunk).
+partial→full: none (by design — GOAL_PARTIAL_TO_FULL false). Composed
+engine-harvest41-001..006 full. auth-callback-api-001 deepened, still partial.
 
 ## 9. Not migrated
 
-SQLite is **not migrated**. WAL concurrency, planner/VDBE bytecode, pager/btree internals,
-FTS, sessions, most of the pragma census and wider C API remain partial or absent. This run
-closed two Tier-A one-family leftovers and three probe-then-maybe cards; nothing more is claimed.
+SQLite is **not migrated**. The authorizer's DDL bookkeeping walks, TEMP catalog, REINDEX,
+recursive CTEs, WAL concurrency, planner/VDBE, pager/btree, FTS, sessions and most of the
+wider C API remain partial or absent.
 
 ## 10. Next call
 
-(a) auth-callback-api-001 remaining action codes that DON'T need sqlite_master bookkeeping;
-(b) json-funcs-002 array-path mutation (JSONB stays named); (c) pragma-surface-002 result-pragma
-projections; (d) attach-detach-003 TEMP-trigger fire matrix. No planner/WAL/VDBE full without
-the underlying engine.
+(a) recursive CTE execution (would unlock RECURSIVE 33 honestly and a chunk of select-codegen);
+(b) json-funcs-002 array-path mutation; (c) pragma-surface-002 result-pragma projections;
+(d) attach-detach-003 TEMP-trigger fire matrix. The auth master-bookkeeping family needs real
+catalog DML first — do not fake it.
