@@ -869,3 +869,29 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
 - Composed engine-harvest36-001..011 new full. Structural partials untouched per law.
 - Scoreboard full 152->173 / partial 63->53 / none 78 (304 known). cargo 806/806.
 
+## Run 47 — 2026-08-14 — engine v37: one-hole partial-to-full wave (pack v37, overnight)
+
+- Pack v36→v37 BOUND (+versions/37, ADR 0035): ONE-HOLE PARTIAL-TO-FULL LAW. 18 goldens
+  (engine-harvest37-001..007), probe-first, 3 anti-cheat. URI probe: USE_URI off ->
+  plain open of file: names is a literal path (no invented parser); OPEN_URI parses
+  per-open (mode=ro/memory, bad vfs, params); urifuncs SQL surface pin-absent.
+- ESTATE FLIPS partial->FULL (5): connection-lifecycle-api-001 (open_v2 flag matrix +
+  per-open URI), misc-urifuncs-001 (real parsing + C-API accessors; SQL surface
+  pin-absent), backup-api-001 (real multi-page copy, dest verified), backup-api-002
+  (remaining/pagecount move with exact quanta), window-functions-002 (EXCLUDE x4 +
+  offset RANGE + composition).
+- TIGHTENED partials (5): auth-callback-api-001 (s1-s4 probed strings for 9 shapes +
+  IGNORE DML semantics incl DELETE-proceeds; ~22 codes left), backup-api-003 (restart
+  re-pinned; cross-conn BackupUpdate left), prepare-statement-api-006 (stmt_isexplain/
+  stmt_explain real; bytecode rows not claimed - no VDBE), global-init-config-002
+  (after-init matrix; before-init ops left), global-init-config-003 (trigger/view/dqs
+  toggles with real effects; ddl/schema knobs left).
+- modern: sqlite3_open_v2 + URI parse + uri_parameter/int64/boolean + db_filename +
+  read-only gate; per-statement authorizer precheck with C argument strings and IGNORE
+  gates (moved out of sqlite3_exec); REAL backup engine (image pagecount, quanta,
+  marker-based restart, copy_store at completion; legacy twin re-setup, goldens
+  untouched); window WinFrame::RowsBetween/RangeOffset + WinExclude; sqlite3_config
+  generic arity; db_config toggles mirrored into conn flags (fire_triggers/view/dqs
+  gates; DQS sentinel in parse_literal); stmt_isexplain/stmt_explain.
+- Scoreboard full 173->185 / partial 53->48 / none 78 (311 known). cargo 827/827.
+

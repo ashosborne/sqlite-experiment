@@ -1,0 +1,18 @@
+slice_id: engine-harvest37
+app_id: sqlite-experiment
+created_by: sqlite-engine-v37-oneholes
+created_at: 2026-08-14T10:30:00Z
+kind: composed-engine-slice
+seam_kind: api
+note: >-
+  Composed one-hole wave slice (run 47): URI/open_v2, authorizer args/IGNORE, multi-page
+  backup, window EXCLUDE/offset RANGE, config/db_config matrices, stmt explain introspection
+  (pack v37 / ADR 0035).
+features:
+  - engine-harvest37-001
+  - engine-harvest37-002
+  - engine-harvest37-003
+  - engine-harvest37-004
+  - engine-harvest37-005
+  - engine-harvest37-006
+  - engine-harvest37-007

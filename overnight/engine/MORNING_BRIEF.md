@@ -1,74 +1,69 @@
-# MORNING BRIEF — engine v36: partial→full harvest (run 46, overnight)
+# MORNING BRIEF — engine v37: one-hole partial→full wave (run 47, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–45 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v36-partial-to-full, PACING overnight,
-FORBID_GREENWASH_FULL, ALLOW_XBESTINDEX. MAX_NEW_CASES 120 (used 36).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–46 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v37-oneholes, URI_HONESTY, PREPARE006_NO_VDBE,
+FORBID_GREENWASH_FULL. MAX_NEW_CASES 80 (used 18).
 
-## 1. Pack @36 BOUND — PARTIAL→FULL HARVEST law
+## 1. Pack @37 BOUND — ONE-HOLE PARTIAL→FULL law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v35 → **v36**
-(versions/1–36 retained; ADR `0034-engine-v36-partial-to-full.md`; schema VALID; 42 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v36 → **v37**
+(versions/1–37 retained; ADR `0035-engine-v37-oneholes.md`; schema VALID; 43 laws).
 
-## 2. Partial → FULL (10 estate flips — the stretch goal landed)
+## 2. The URI probe (charter's honesty gate — ADR 0035)
 
-Every flip's former residual is covered by fresh pins (36 goldens, two waves, probe-first):
+USE_URI is off on this pin: plain `sqlite3_open("file:...")` is a **literal path**
+(CANTOPEN pinned; no parser invented). `sqlite3_open_v2 + SQLITE_OPEN_URI` **does**
+parse per-open — pinned: real path creation, `mode=ro` → write rc 8, `mode=memory` off
+disk, `vfs=nosuch` → `no such vfs`, parameters readable via
+`sqlite3_uri_parameter/int64/boolean` on the query-stripped `db_filename`. The urifuncs
+SQL surface is ABSENT on the bare pin (pinned refusal).
 
-| Card | Former residual → evidence |
+## 3. Partial → FULL (5 estate flips)
+
+| Card | Former residual → cleared by |
 | --- | --- |
-| **tokenizer-002** | audit confirmed run-38 closed the chain; fresh comment/string/END pins |
-| **parser-grammar-002** | quoted reserved TABLE names end-to-end (all quote styles, CRUD, qualified, master) + runtime-keyword anti-cheat |
-| **attach-detach-002** | locked DETACH: active statement reading the schema → `database aux is locked`; main-only statements don't lock |
-| **json-funcs-003** | json_valid FLAGS matrix: strict/JSON5 text validators, JSONB byte walker, 1..15 range error (strict `.5` rejection fixed) |
-| **foreign-keys-003** | drop-order matrix: immediate block, child-first, NULL children, deferred-drop + COMMIT catch + ROLLBACK restore |
-| **vacuum-001** | pending page_size/auto_vacuum apply **at VACUUM** (pending readback pinned); `VACUUM <schema>`; `unknown database` |
-| **vacuum-002** | URI INTO **pin-absent with evidence**: USE_URI off → literal-path refusal pinned |
-| **vtab-core-002** | sqlite3_vtab_config (ctor-only/MISUSE matrix) + real xBestIndex EQ offers — consumed argvIndex delivers the value to xFilter argv, module bounds the scan (runtime anti-cheat) |
-| **connection-lifecycle-api-002** | backup coupling: src close BUSY + errmsg, dst close defers to finish, step/finish error after deferral, tombstoned double-close → MISUSE (post-close depth stays unfrozen UB by design) |
-| **blob-io-api-001** | attached-schema opens read real bytes, WITHOUT ROWID refusal, txn write-through durable, non-ASCII names; UTF-16 forms pin-absent (no UTF-16 blob_open API) |
+| **connection-lifecycle-api-001** | URI parsing + open flags → open_v2 matrix (READONLY/CREATE/MEMORY/zero-flags/uncreatable paths) + per-open URI behaviour above |
+| **misc-urifuncs-001** | URI parameter parsing real; SQL surface pin-absent with pinned refusal (vacuum-002 bar) |
+| **backup-api-001** | multi-page lifecycle with destination content verified; empty-pair pins stay exact |
+| **backup-api-002** | remaining()/pagecount() move with exact step-quantum relations; runtime-sized anti-cheat |
+| **window-functions-002** | EXCLUDE ×4 + offset RANGE ×2 + composition, pinned over tie rows |
 
-## 3. Deepened, honestly still partial
+## 4. Deepened, honestly still partial (tightened residuals)
 
-| Card | This run | Remaining |
+| Card | Landed | Left |
 | --- | --- | --- |
-| error-status-api-003 | **sqlite3_stmt_status**: FULLSCAN_STEP exact rows−1 tally + accumulation (runtime anti-cheat), RUN cycles, MEMUSED real footprint, VM_STEP predicate-only | CACHE_SPILL pressure, VM_STEP magnitudes (no VDBE), scanstatus |
-| analyze-stats-001 | attached ANALYZE → `aux.sqlite_stat1` (+ `CREATE INDEX aux.ti` schema resolution); PRAGMA optimize missing-stats contract | optimize usage-gating heuristics; stat4 + sz=/unordered stay pin-absent |
+| auth-callback-api-001 | probed s1–s4 strings for 9 statement shapes; IGNORE: INSERT/UPDATE skip, **DELETE proceeds** | ~22 codes (sqlite_master bookkeeping sequences, function 31, trigger/view s4) |
+| backup-api-003 | restart re-pinned on real multi-page copy; dest sees late write | cross-connection BackupUpdate page patching |
+| prepare-statement-api-006 | stmt_isexplain + stmt_explain mode switching real | EXPLAIN bytecode row contents (no VDBE — not claimed, per law) |
+| global-init-config-002 | after-init matrix (threading/MEMSTATUS/URI MISUSE; LOG legal; PCACHE_HDRSZ real record size) | before-init ~20-op configuration matrix |
+| global-init-config-003 | ENABLE_TRIGGER / ENABLE_VIEW / DQS_DML **with real effects** + DEFENSIVE round-trip | DQS_DDL, WRITABLE_SCHEMA, RESET_DATABASE, LEGACY_ALTER, TRUSTED_SCHEMA; DEFENSIVE effect |
 
-## 4. Stayed partial untouched (structural, per charter)
+## 5. Anti-cheat + goldens + cargo
 
-WAL multi-conn, planner/VDBE, ~30 remaining pragmas, ~60 scalars, zlib byte-format,
-va_list, lookaside mini-slots, decimal precision, regexp NFA, dlopen, unlock-notify,
-compile-options census, pager/btree/vfs/fts/wasm/jni/session/expert,
-attach-detach-003 TEMP-fire matrix, vtab-core-001 mega lifecycle.
+- 18 new HUMAN_ACCEPTED goldens (engine-harvest37-001…007); prior 761 goldens untouched.
+- 3 anti-cheat tests: runtime URI parameter round-trip through the real parser; runtime
+  source size → backup remaining/pagecount relations + copied row count; runtime payload
+  excluded from a window frame by EXCLUDE CURRENT ROW.
+- `cargo test` (modern): **827 passed / 0 failed** (was 806; +21). The reworked REAL
+  backup engine still satisfies the run-12 pins (the legacy twin's source was re-created
+  to the C harness's real 2-page shape; goldens untouched). SCRIPT_TABLE.len()==0.
 
-## 5. xBestIndex outcome
+## 6. Scoreboard
 
-Real constraint plumbing landed: C-layout `sqlite3_index_constraint(_usage)` arrays, a
-detected `col = literal` EQ term offered on single-vtab FROMs, consumed values delivered
-through xFilter argv, engine WHERE still applied (safe with omit). Under-claim recorded:
-one simple EQ term per scan; series/prefixes/wholenumber not re-homed.
+before → after: **173 full / 53 partial / 78 none of 304** → **185 full / 48 partial / 78 none of 311**
+(5 estate flips + 7 composed; 5 tightened partials; nones untouched).
 
-## 6. Anti-cheat + goldens + cargo
+## 7. Not migrated
 
-- 36 new HUMAN_ACCEPTED goldens (engine-harvest36-001…011); prior 734 goldens untouched.
-- 4 anti-cheat tests: runtime-keyword quoted table round-trip; runtime row count →
-  FULLSCAN_STEP == N−1; runtime EQ bound reaching the module through argv (offer + argc
-  + bounded rows asserted); plus the wave-1 golden runtime probes.
-- `cargo test` (modern): **806 passed / 0 failed** (was 767; +39 harvest36 twins).
-  All prior suites green. SCRIPT_TABLE.len()==0.
+SQLite is NOT migrated. Untouched per charter: WAL multi-conn, planner/VDBE, pragma
+census, ~60 scalars, zlib, va_list, mini-slots, decimal, regexp NFA, dlopen,
+unlock-notify, guard census, pager/btree/vfs/fts/wasm/jni/session/expert, vtab-core-001
+mega lifecycle, attach-detach-003 TEMP fire, error-status-api-003 leftovers.
 
-## 7. Scoreboard
+## 8. Next call (pick one)
 
-before → after: **152 full / 63 partial / 78 none of 293** → **173 full / 53 partial / 78 none of 304**
-(10 estate partial→full + 11 composed fulls; partial count down 10; none untouched).
-
-## 8. Not migrated
-
-SQLite is NOT migrated — the §4 list alone spans the pager/btree/VDBE core.
-
-## 9. Next call (pick one)
-
-1. **another partial→full wave** — next one-holes: prepare-statement-api-006 leftovers,
-   connection-lifecycle-api-001 URI open, auth-callback s1–s4/IGNORE, backup multi-page,
-   window EXCLUDE, global-init-config matrices.
-2. **vtab-core-001 lifecycle deepen** — xConnect schema reload, drop_modules, xUpdate.
-3. **stmt_status VM_STEP honesty study** — whether any real modern quantity can carry it.
+1. **auth action-code sweep** — decide how far the sqlite_master-bookkeeping callback
+   sequences can honestly go (the biggest remaining auth leftover).
+2. **connection-lifecycle-api-004** STMT/PROFILE multi-statement leftovers + other
+   opportunistic one-holes (pragma_module_list, blob per-row expiry, util PRNG APIs).
+3. **vtab-core-001 lifecycle deepen** — xConnect reload / drop_modules / xUpdate family.
