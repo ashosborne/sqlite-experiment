@@ -1,0 +1,4 @@
+OBS engine-harvest41-001-C001 f_abs rows=1|2|3 LOG=[21|~|~|~|~][31|~|abs|~|~][20|t|a|main|~]
+OBS engine-harvest41-001-C001 f_min rows=-3 LOG=[21|~|~|~|~][31|~|min|~|~][20|t|a|main|~]
+OBS engine-harvest41-001-C001 f_count rows=3 LOG=[21|~|~|~|~][31|~|count|~|~][20|t|{}|~|~]
+OBS engine-harvest41-001-C001 f_coal rows=-3 LOG=[21|~|~|~|~][31|~|coalesce|~|~][31|~|min|~|~][20|t|a|main|~]

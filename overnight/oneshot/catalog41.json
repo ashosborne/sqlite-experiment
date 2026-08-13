@@ -1,0 +1,100 @@
+[
+ {
+  "id": "engine-harvest41-001-C001",
+  "feature": "engine-harvest41-001",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "SQLITE_FUNCTION fires at compile time once per occurrence (s1 NULL, s2 = name), outer-then-inner for nested calls; count(*) reads the table with an EMPTY column name and NULL schema"
+ },
+ {
+  "id": "engine-harvest41-001-C002",
+  "feature": "engine-harvest41-001",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "FUNCTION DENY fails prepare rc 1 with C's per-name message: not authorized to use function: NAME (also for a nested call)"
+ },
+ {
+  "id": "engine-harvest41-001-C003",
+  "feature": "engine-harvest41-001",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "FUNCTION IGNORE makes the function yield NULL per row (an ignored aggregate stops aggregating: 3 NULL rows; coalesce fallback 999 per row) and the column READ degrades to the empty-column form"
+ },
+ {
+  "id": "engine-harvest41-002-C001",
+  "feature": "engine-harvest41-002",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "SAVEPOINT/RELEASE/ROLLBACK TO fire code 32 with s1 = BEGIN/RELEASE/ROLLBACK and s2 = the savepoint name; plain BEGIN/ROLLBACK stay code 22"
+ },
+ {
+  "id": "engine-harvest41-002-C002",
+  "feature": "engine-harvest41-002",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "SAVEPOINT DENY is the generic rc 23 not authorized; the consult fires before the savepoint-exists check"
+ },
+ {
+  "id": "engine-harvest41-003-C001",
+  "feature": "engine-harvest41-003",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "ANALYZE fires code 28 per analyzed table (s1 = table, s3 = main) - outer event only, the sqlite_stat1 tail is deliberately not frozen"
+ },
+ {
+  "id": "engine-harvest41-003-C002",
+  "feature": "engine-harvest41-003",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "ANALYZE DENY blocks with rc 23"
+ },
+ {
+  "id": "engine-harvest41-004-C001",
+  "feature": "engine-harvest41-004",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "ALTER TABLE fires code 26 with INVERTED args (s1 = database, s2 = table) for RENAME and ADD COLUMN - outer event only"
+ },
+ {
+  "id": "engine-harvest41-004-C002",
+  "feature": "engine-harvest41-004",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "ALTER IGNORE silently no-ops the rename (rc 0, old name survives); DENY is rc 23"
+ },
+ {
+  "id": "engine-harvest41-005-C001",
+  "feature": "engine-harvest41-005",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "DROP TABLE fires code 11 (s1 = table, s3 = main) - outer only; DENY rc 23 leaves the table"
+ },
+ {
+  "id": "engine-harvest41-005-C002",
+  "feature": "engine-harvest41-005",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "CREATE VIRTUAL TABLE fires 29 and dropping a vtab fires 30, both with s1 = table, s2 = module, s3 = main - outer only"
+ },
+ {
+  "id": "engine-harvest41-005-C003",
+  "feature": "engine-harvest41-005",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "vtab code DENY is rc 23 for both 29 and 30"
+ },
+ {
+  "id": "engine-harvest41-006-C001",
+  "feature": "engine-harvest41-006",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "SELECT through a view: base-table READs carry s4 = view name (the WHOLE view body, regardless of outer projection), then view-column READs with s4 NULL, then a nested SELECT consult with s4 = view"
+ },
+ {
+  "id": "engine-harvest41-006-C002",
+  "feature": "engine-harvest41-006",
+  "slice": "engine-harvest41",
+  "kind": "bespoke",
+  "note": "trigger-body events carry s4 = trigger name: the body INSERT and the new.column READ"
+ }
+]

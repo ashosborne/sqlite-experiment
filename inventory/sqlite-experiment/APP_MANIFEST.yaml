@@ -2961,8 +2961,8 @@ behaviours:
     kept on exec-path text), prepared statements fire from step with the real handle (sqlite3_sql on the PROFILE arg), pinned
     engine-harvest39-001 + runtime-length script anti-cheat. run-50: FULL - both remaining leftover families cleared: the
     update_hook is fully SUPPRESSED on WITHOUT ROWID tables and DELETE-without-WHERE takes the truncate fast-path (zero per-row
-    hook events, changes() still counts), and the legacy sqlite3_trace/sqlite3_profile hooks are implemented - they share the
-    single trace slot (installing one displaces the other and trace_v2 replaces both), fire per statement, and sqlite3_trace
+    hook events, changes() still counts), and the legacy sqlite3_trace/sqlite3_profile hooks are implemented - they share
+    the single trace slot (installing one displaces the other and trace_v2 replaces both), fire per statement, and sqlite3_trace
     reports parameter-EXPANDED text like C. Pinned engine-harvest40-003/004. Residual list empty.'
   impl_in_modern: full
 - behaviour_id: date-time-funcs-001
@@ -3691,9 +3691,9 @@ behaviours:
     deferred (pack v8): completion vtab not implemented in modern run-38: completion(prefix) yields keyword + schema-name
     candidates for the prefix. run-50: FULL - completion now mirrors LIVE C''s phase contract exactly: candidate + a HIDDEN
     phase column, with the 147-keyword census (phase 1), databases (7 = main), tables+views (8) and table columns (9). The
-    named residual (functions/pragmas/collations phases, wildcard ranking) is PIN-ABSENT: live C''s completionNext jumps
-    KEYWORDS->DATABASES and never enters the pragma/function/collation/index/trigger phases, and it performs no ranking (ADR
-    0038). Pinned engine-harvest40-007 + a runtime-named-table phase-8 anti-cheat. Residual list empty for the pinned bare build.'
+    named residual (functions/pragmas/collations phases, wildcard ranking) is PIN-ABSENT: live C''s completionNext jumps KEYWORDS->DATABASES
+    and never enters the pragma/function/collation/index/trigger phases, and it performs no ranking (ADR 0038). Pinned engine-harvest40-007
+    + a runtime-named-table phase-8 anti-cheat. Residual list empty for the pinned bare build.'
   traceability: tests/characterization/misc-completion/TRACEABILITY.yaml
   impl_in_modern: full
 - behaviour_id: misc-compress-001
@@ -4323,9 +4323,9 @@ behaviours:
     pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with
     C''s LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
     names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name
-    anti-cheat; no ext/misc force-link, no census of untouched TVFs. run-50: pragma_index_xinfo TVF added (desc/coll/key
-    columns + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). RESIDUAL: remaining
-    result pragmas (index_list / foreign_key_list projections stay count-only).'
+    anti-cheat; no ext/misc force-link, no census of untouched TVFs. run-50: pragma_index_xinfo TVF added (desc/coll/key columns
+    + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). RESIDUAL: remaining result
+    pragmas (index_list / foreign_key_list projections stay count-only).'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-001
@@ -4992,8 +4992,9 @@ behaviours:
     xSavepoint / xRelease / xRollbackTo family) cleared: ALTER RENAME fires xRename with the new name and rewrites the quoted
     schema sql (renames even when the module has no xRename); vtab DML joins the write txn (xBegin at first write, xSync+xCommit
     at COMMIT/statement end, xRollback), and SAVEPOINT/RELEASE/ROLLBACK TO drive xSavepoint/xRelease/xRollbackTo with C''s
-    txn-savepoint-excluded numbering (-1 below the join, RELEASE of the txn savepoint commits) so ROLLBACK TO changes vtab DML
-    visibility. Pinned engine-harvest40-001/002 + runtime rename-name and savepoint-rollback anti-cheats. Residual list empty.'
+    txn-savepoint-excluded numbering (-1 below the join, RELEASE of the txn savepoint commits) so ROLLBACK TO changes vtab
+    DML visibility. Pinned engine-harvest40-001/002 + runtime rename-name and savepoint-rollback anti-cheats. Residual list
+    empty.'
   impl_in_modern: full
 - behaviour_id: vtab-core-002
   surface_id: sur-sqlite3-declare-vtab
@@ -7233,7 +7234,7 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T11:46:12Z'
+last_updated: '2026-08-13T13:03:05Z'
 updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
@@ -7248,5 +7249,5 @@ counts:
     documented: 137
     converted: 191
   unscanned_hints: 3
-  legacy_green: 230
+  legacy_green: 238
   parity_green: 0

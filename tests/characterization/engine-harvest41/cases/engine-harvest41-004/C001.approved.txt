@@ -1,0 +1,3 @@
+OBS engine-harvest41-004-C001 alter_rename rc=0 err=- LOG=[26|main|t|~|~]
+OBS engine-harvest41-004-C001 after_rename rows=u LOG=
+OBS engine-harvest41-004-C001 alter_addcol rc=0 err=- LOG=[26|main|u|~|~]

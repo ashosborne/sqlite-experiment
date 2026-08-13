@@ -1,0 +1,2 @@
+OBS engine-harvest41-006-C001 view_sel rows=1,2 LOG=[21|~|~|~|~][20|t|a|main|v][20|t|b|main|v][20|v|a|main|~][20|v|b|main|~][21|~|~|~|v]
+OBS engine-harvest41-006-C001 view_one rows=1 LOG=[21|~|~|~|~][20|t|a|main|v][20|t|b|main|v][20|v|a|main|~][21|~|~|~|v]

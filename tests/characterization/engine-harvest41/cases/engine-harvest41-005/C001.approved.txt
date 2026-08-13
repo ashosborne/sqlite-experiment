@@ -1,0 +1,3 @@
+OBS engine-harvest41-005-C001 drop_t rc=0 err=- LOG=[11|t|~|main|~]
+OBS engine-harvest41-005-C001 drop_deny rc=23 err=not authorized LOG=[11|t2|~|main|~]
+OBS engine-harvest41-005-C001 t2_survives rows=t2 LOG=

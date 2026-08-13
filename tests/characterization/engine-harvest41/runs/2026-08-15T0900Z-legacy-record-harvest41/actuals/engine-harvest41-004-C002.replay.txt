@@ -1,0 +1,3 @@
+OBS engine-harvest41-004-C002 alter_ignore rc=0 err=- LOG=[26|main|u|~|~]
+OBS engine-harvest41-004-C002 after_ignore rows=u LOG=
+OBS engine-harvest41-004-C002 alter_deny rc=23 err=not authorized LOG=[26|main|u|~|~]

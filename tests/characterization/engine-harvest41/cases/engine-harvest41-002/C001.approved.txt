@@ -1,0 +1,4 @@
+OBS engine-harvest41-002-C001 sp_open rc=0 err=- LOG=[32|BEGIN|s1|~|~]
+OBS engine-harvest41-002-C001 sp_release rc=0 err=- LOG=[32|RELEASE|s1|~|~]
+OBS engine-harvest41-002-C001 sp_rbto rc=0 err=- LOG=[32|BEGIN|s2|~|~][32|ROLLBACK|s2|~|~][32|RELEASE|s2|~|~]
+OBS engine-harvest41-002-C001 txn_rollback rc=0 err=- LOG=[22|BEGIN|~|~|~][22|ROLLBACK|~|~|~]

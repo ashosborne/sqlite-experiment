@@ -1,0 +1,2 @@
+OBS engine-harvest41-006-C002 trig_ins rc=0 err=- LOG=[18|t|~|main|~][18|log|~|main|tr][20|t|a|main|tr]
+OBS engine-harvest41-006-C002 log_rows rows=5 LOG=
