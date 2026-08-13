@@ -1,0 +1,3 @@
+OBS engine-vtab38-002-C001 drop_keep_memvt_rc 0
+OBS engine-vtab38-002-C001 cvt_ser_dropped rc=1 err=no such module: ser
+OBS engine-vtab38-002-C001 cvt_memvt_kept rc=0 err=-

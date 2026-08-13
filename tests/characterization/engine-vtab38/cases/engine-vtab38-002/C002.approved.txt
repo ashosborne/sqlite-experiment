@@ -1,0 +1,4 @@
+OBS engine-vtab38-002-C002 drop_all_with_live_rc 0
+OBS engine-vtab38-002-C002 live_select_after_drop 1|2|3
+OBS engine-vtab38-002-C002 cvt_after_dropall rc=1 err=no such module: ser
+OBS engine-vtab38-002-C002 drop_table_after_dropall rc=1 err=no such module: ser

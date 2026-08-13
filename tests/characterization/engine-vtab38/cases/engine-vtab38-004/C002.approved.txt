@@ -1,0 +1,4 @@
+OBS engine-vtab38-004-C002 upd rc=0 err=-
+OBS engine-vtab38-004-C002 scan2 1,99,x|7,20,y
+OBS engine-vtab38-004-C002 del rc=0 err=-
+OBS engine-vtab38-004-C002 scan3 1,99,x

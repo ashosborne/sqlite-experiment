@@ -1,0 +1,5 @@
+OBS engine-vtab38-005-C001 epo_select 1|2|3
+OBS engine-vtab38-005-C001 epo_create_calls 0
+OBS engine-vtab38-005-C001 epo_connect_calls 1
+OBS engine-vtab38-005-C001 epo_cvt rc=1 err=no such module: epo
+OBS engine-vtab38-005-C001 epo_master 0

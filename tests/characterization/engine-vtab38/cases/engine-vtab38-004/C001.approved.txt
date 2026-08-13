@@ -1,0 +1,5 @@
+OBS engine-vtab38-004-C001 ins_auto rc=0 err=-
+OBS engine-vtab38-004-C001 last_rowid_auto 1
+OBS engine-vtab38-004-C001 ins_explicit rc=0 err=-
+OBS engine-vtab38-004-C001 last_rowid_explicit 7
+OBS engine-vtab38-004-C001 scan 1,10,x|7,20,y

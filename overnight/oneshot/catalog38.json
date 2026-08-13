@@ -1,0 +1,65 @@
+[
+ {
+  "id": "engine-vtab38-001-C001",
+  "feature": "engine-vtab38-001",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "file db: first CREATE VIRTUAL TABLE runs xCreate (not xConnect); close runs xDisconnect (not xDestroy)"
+ },
+ {
+  "id": "engine-vtab38-001-C002",
+  "feature": "engine-vtab38-001",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "reopen: unregistered module errors exactly; master row persists (rootpage 0 + sql); re-register -> SELECT runs xConnect; DROP runs xDestroy"
+ },
+ {
+  "id": "engine-vtab38-002-C001",
+  "feature": "engine-vtab38-002",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "sqlite3_drop_modules keeps the named survivors; dropped names stop resolving"
+ },
+ {
+  "id": "engine-vtab38-002-C002",
+  "feature": "engine-vtab38-002",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "drop-all with a live instance: the instance still scans, new CREATE and DROP TABLE both fail no such module"
+ },
+ {
+  "id": "engine-vtab38-003-C001",
+  "feature": "engine-vtab38-003",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "_v2 destructor DEFERS while a live instance holds the module: replace 0, DROP 1, close 2"
+ },
+ {
+  "id": "engine-vtab38-004-C001",
+  "feature": "engine-vtab38-004",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "xUpdate INSERT: auto rowid (argv1 NULL) and explicit rowid; last_insert_rowid follows the module"
+ },
+ {
+  "id": "engine-vtab38-004-C002",
+  "feature": "engine-vtab38-004",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "xUpdate UPDATE (old=new rowid, values via argv) and DELETE (argc=1 rowid); module storage drives the scans"
+ },
+ {
+  "id": "engine-vtab38-004-C003",
+  "feature": "engine-vtab38-004",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "module SQLITE_CONSTRAINT surfaces rc 19 'constraint failed'; argv shape log pinned"
+ },
+ {
+  "id": "engine-vtab38-005-C001",
+  "feature": "engine-vtab38-005",
+  "slice": "engine-vtab38",
+  "kind": "bespoke",
+  "note": "eponymous-only module (xCreate NULL): SELECT without CREATE runs xConnect; CREATE VIRTUAL TABLE refuses no such module; no master row"
+ }
+]

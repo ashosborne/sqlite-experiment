@@ -1,0 +1,7 @@
+OBS engine-vtab38-001-C002 noreg_select prep.rc=1 err=no such module: ser
+OBS engine-vtab38-001-C002 master table,vt,0,CREATE VIRTUAL TABLE vt USING ser(4)
+OBS engine-vtab38-001-C002 rereg_select 1|2|3|4
+OBS engine-vtab38-001-C002 reopen_create_calls 0
+OBS engine-vtab38-001-C002 reopen_connect_calls 1
+OBS engine-vtab38-001-C002 drop rc=0 err=-
+OBS engine-vtab38-001-C002 destroy_after_drop 1

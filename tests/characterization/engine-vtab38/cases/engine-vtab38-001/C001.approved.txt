@@ -1,0 +1,6 @@
+OBS engine-vtab38-001-C001 cvt rc=0 err=-
+OBS engine-vtab38-001-C001 create_calls 1
+OBS engine-vtab38-001-C001 connect_calls 0
+OBS engine-vtab38-001-C001 scan 1|2|3|4
+OBS engine-vtab38-001-C001 disc_at_close 1
+OBS engine-vtab38-001-C001 destroy_at_close 0

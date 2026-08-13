@@ -1,0 +1,117 @@
+slice_id: engine-vtab38
+source_discovery: discovery/engine-vtab38/MANIFEST.yaml
+phase: B
+batch_card_ids:
+- engine-vtab38-001
+- engine-vtab38-002
+- engine-vtab38-003
+- engine-vtab38-004
+- engine-vtab38-005
+cases:
+- id: engine-vtab38-001-C001
+  feature_id: engine-vtab38-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-001/CASE-001.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-001/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-001.md
+- id: engine-vtab38-001-C002
+  feature_id: engine-vtab38-001
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-001/CASE-002.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-001/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-001.md
+- id: engine-vtab38-002-C001
+  feature_id: engine-vtab38-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-002/CASE-001.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-002/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-002.md
+- id: engine-vtab38-002-C002
+  feature_id: engine-vtab38-002
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-002/CASE-002.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-002/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-002.md
+- id: engine-vtab38-003-C001
+  feature_id: engine-vtab38-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-003/CASE-001.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-003/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-003.md
+- id: engine-vtab38-004-C001
+  feature_id: engine-vtab38-004
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-004/CASE-001.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-004/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-004.md
+- id: engine-vtab38-004-C002
+  feature_id: engine-vtab38-004
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-004/CASE-002.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-004/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-004.md
+- id: engine-vtab38-004-C003
+  feature_id: engine-vtab38-004
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-004/CASE-003.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-004/C003.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-004.md
+- id: engine-vtab38-005-C001
+  feature_id: engine-vtab38-005
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vtab38-005/CASE-001.md
+  golden: tests/characterization/engine-vtab38/cases/engine-vtab38-005/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vtab38/features/engine-vtab38-005.md
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-48 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-vtab38-001-C001
+  - engine-vtab38-001-C002
+  - engine-vtab38-002-C001
+  - engine-vtab38-002-C002
+  - engine-vtab38-003-C001
+  - engine-vtab38-004-C001
+  - engine-vtab38-004-C002
+  - engine-vtab38-004-C003
+  - engine-vtab38-005-C001
+updated_at: '2026-08-13T08:22:23Z'
