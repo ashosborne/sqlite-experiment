@@ -1,78 +1,67 @@
-# MORNING BRIEF — engine v43: the kitchen 12-hour close (run 53, overnight)
+# MORNING BRIEF — engine v44: the first internal-engine pack (rollback-journal pager) (run 55, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–52 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v43-kitchen-12h, FORBID_TEMP_ALIASED_TO_MAIN,
-FORBID_FAKE_AUTH_MASTER, AUTH001_NO_FULL, DEEPEN_JSONB probe-then-maybe. MAX_NEW_CASES 40 (used 10).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–54 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v44-pager, IMPLEMENT_PAGER_JOURNAL,
+REQUIRE_PAGES_THROUGH_PCACHE, FORBID_FAKE_PAGER, FORBID_WHOLE_FILE_REWRITE_AS_PAGER,
+DEEPEN_VDBE/BTREE/WAL false. MAX_NEW_CASES 40 (used 4).
 
-## 1. Pack @43 BOUND — KITCHEN-12H law
+## 1. Pack @44 BOUND — PAGER/NONE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v42 → **v43**
-(versions/1–43 retained; ADR `0041-engine-v43-kitchen-12h.md`; schema VALID; 49 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v43 → **v44**
+(versions/1–44 retained; ADR `0042-engine-v44-pager.md`; schema VALID; 50 laws).
 
-## 2. JSONB probe
+## 2. Journal design vs C
 
-`jsonb('[]')` and `jsonb_extract('[1]','$')` both work → **JSONB is PRESENT on the pin**.
-Per the charter, JSONB is NOT implemented this pack; json-funcs-002 stays partial with JSONB
-as its single residual. Only the array-path half lands.
+File-backed, `journal_mode=DELETE`. An open write transaction copies each changed page's
+ORIGINAL bytes into `<db>-journal` before overwriting the page in the db file — so the journal
+is **observably present during the txn** and gone after COMMIT/ROLLBACK, exactly like C.
+`ROLLBACK` **replays** the journal (restores the pre-images, truncates rolled-back growth);
+`COMMIT` drops it; autocommit writes run a journal-then-write-then-delete mini-txn. Not a
+whole-file rewrite: page get/write is page-granular through the pager.
 
-## 3. Headlines landed
+## 3. C-readable commit? YES
 
-| Slice | Outcome |
-| --- | --- |
-| **JSON array-path** (json-funcs-002) | `$.a[N]`/`$[N]` set/replace overwrite, out-of-range is a no-op for set/insert/replace, `json_remove` shifts the remainder, `$.a[#]` append / `$.a[#-K]`, nested `$.a[N].b`, NULL-doc → NULL. Card stays **partial** (JSONB residual). |
-| **pragma index_list / foreign_key_list** (pragma-surface-002 → **FULL**) | real projections (seq/name/unique/origin/partial and id/seq/table/from/to/on_update/on_delete/match) for PRAGMA + TVF forms; reverse order, synthesized autoindexes, composite FK seq, IPK zero-rows. Last residual cleared. |
-| **TEMP schema** (composed) | CREATE TEMP/TEMPORARY TABLE under schema `temp` (never aliased to main), temp-first unqualified resolution, `main.`/`temp.` qualified, `sqlite_temp_master` real SELECT, unqualified-drop temp precedence, **TEMP triggers fire** on TEMP DML. |
-| **auth TEMP codes** (auth-001 stays partial) | CREATE_TEMP_TABLE (4) / DROP_TEMP_TABLE (13) dispatched (s1=table, s3=temp, DENY rc 23), no catalog tail. |
+A helper (`pager44_write_committed_file`, gated on `PAGER44_OUT`) writes a committed db through
+the modern pager; the **pinned C amalgamation opens it**, reads `1,one|2,two|3,three|4,pager-made-me`,
+and `PRAGMA integrity_check` returns rc 0. The journal itself is Rust-private (magic `RJRNL01`),
+so C hot-journal recovery is **not** pinned (stretch skipped, per charter).
 
-## 4. TEMP scope
+## 4. pcache? coupling real, card stays none
 
-TEMP is a real per-connection `temp.` schema: isolated from main both ways, shadows same-named
-main tables for unqualified access, excluded from the durable file image (so a file reopen loses
-TEMP). Cross-schema TEMP-trigger fire and non-trivial trigger bodies stay named on attach-003.
+Every page get/write routes through a methods2-shaped page cache; its xFetch/xUnpin/write
+counters move under real file-txn traffic and **not** under a `:memory:` control (pinned by the
+`pager44_pcache_coupling` anti-cheat). But pcache-001's named surface is the pluggable
+`sqlite3_config(SQLITE_CONFIG_PCACHE2)` install seam, which is NOT implemented — so under-claim:
+**pcache-001 stays none** (real coupling captured as a composed pin + ADR), pcache-002 stays none.
 
-## 5. Parked list unchanged
-
-VDBE/EXPLAIN (prepare-006), planner/flattening (select-codegen-001/003), pager/btree/WAL-multi,
-parse.y (parser-grammar-001/tokenizer-001), va_list, dlopen, compile-option other-builds,
-xBestIndex trio (series/prefixes/wholenumber), zlib-byte compress, full NFA regexp, mutex plugins,
-util hash/ChaCha20, CACHE_SPILL/scanstatus, FTS/rtree/session, ENABLE-off nones — all untouched.
-
-## 6. Anti-cheat
-
-A runtime JSON array index mutates the matching element; a runtime table name appears in
-pragma_index_list; a runtime TEMP table is isolated from a same-named main table (unqualified
-resolves temp, `main.` resolves main). All in `modern/tests/engine_harvest43.rs`.
-
-## 7. Cargo
-
-`cargo test` (53 binaries): **all green**, including the JSON, pragma-TVF, attach33 qualified-name,
-harvest41 auth-filter and harvest42 WITH/RECURSIVE suites. `SCRIPT_TABLE.len()==0`.
-
-## 8. Freezes
-
-10 new cases under `engine-harvest43/` (JSON ×3, pragma ×2) and `engine-temp43/` (TEMP ×3, auth ×2),
-two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 250, prior golden md5s untouched.
-
-## 9. Scoreboard
+## 5. Scoreboard
 
 | | before | after |
 | --- | --- | --- |
-| full | 220 | **225** |
-| partial | 42 | 41 |
-| none | 78 | 78 |
-| behaviours | 340 | 344 (+4 composed) |
+| full | 225 | **227** |
+| partial | 41 | 42 |
+| none | 78 | **77** |
+| behaviours | 344 | 346 (+2 composed) |
 
-partial→full: pragma-surface-002 (estate) + engine-harvest43-002 / engine-temp43-* (composed).
-Still partial: json-funcs-002 (JSONB), auth-callback-api-001 (TEMP index/trigger/view + master),
-attach-detach-003 (cross-schema TEMP fire + bodies).
+partial→full: none (estate). none→partial: **pager-001**. Composed engine-pager44-001/002 full.
+None dropped by 1 (the conservative outcome; pcache-001 held at none on purpose).
 
-## 10. Not migrated
+## 6. Freezes / cargo
 
-SQLite is **not migrated**. JSONB binary format, planner/flattening, VDBE, pager/btree/WAL-multi,
-parse.y, the DDL authorizer bookkeeping walks and cross-schema TEMP remain partial or absent.
+4 new goldens under `tests/characterization/engine-pager44/` (001 lifecycle ×2, 002 restore/
+persist ×2), two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 254. `cargo test`
+(56 binaries): **all green**, including engine-txn, lookaside35, harvest43 TEMP/JSON and the
+sqlite_sql_suite first slice. `SCRIPT_TABLE.len()==0`. Prior goldens untouched (the run-55
+C002 golden was re-recorded with a literal UPDATE — a same-run correction, noted in ADR).
 
-## 11. Next call
+## 7. Not migrated
 
-VFS-001 none-cut (wave 2): the in-memory VFS shim surface — probe which sqlite3_vfs entry points
-the bare pin exposes and whether a honest register/find/default round-trip is pinnable without a
-real OS backend. Then TEMP index/view auth codes once TEMP DDL widens.
+SQLite is **not migrated**. No two-phase commit, no hot-journal crash-recovery matrix, no WAL
+pager, no btree cursors, no VDBE, no planner. This run put a real rollback journal under the
+file-backed write path and nothing more.
+
+## 8. Next call
+
+btree-001 on this pager (page-level b-tree read/seek over the journalled file), OR the skipped
+hot-journal stretch if the journal is switched to C's on-disk format (magic 0xd9d505f9..., page
+records + checksums) so C can recover an interrupted txn. Then pager-002 journal-mode matrix.

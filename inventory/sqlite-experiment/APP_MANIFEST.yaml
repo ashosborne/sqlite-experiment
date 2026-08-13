@@ -4235,11 +4235,18 @@ behaviours:
   status: documented
   slice_id: pager
   discovery_card: discovery/pager/features/pager-001.md
-  legacy_green: false
+  legacy_green: true
   parity_green: false
-  notes: confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. | touched by
-    engine-files (run 15) — NOT frozen/green; durability is a toy single-page writer, not this card
-  impl_in_modern: none
+  notes: 'confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. run-55: NONE
+    -> PARTIAL - a real rollback journal on the file-backed DELETE-mode write path: an open write transaction copies each
+    changed page''s ORIGINAL bytes into <db>-journal before overwriting it in the db file (journal observably present during
+    the txn, gone after COMMIT/ROLLBACK), ROLLBACK replays the journal to restore the pre-images, COMMIT drops it, and the
+    committed db file stays valid SQLite (the pinned C amalgamation opens modern''s file, reads the runtime row, integrity_check
+    rc 0). Page get/write routes through a methods2-shaped page cache (xFetch/xUnpin/write move under real file-txn traffic,
+    not under a :memory: control). Pinned engine-pager44-001/002 + runtime anti-cheat. RESIDUAL (full forbidden): no two-phase
+    commit, no hot-journal crash-recovery matrix (the journal is Rust-private, not C''s format), no WAL-as-pager; autocommit
+    writes journal-then-write-then-delete within the statement. Supersedes the run-15 toy single-page writer.'
+  impl_in_modern: partial
 - behaviour_id: pager-002
   surface_id: sur-sqlite3pagersetjournalmode
   name: Journal-mode state machine
@@ -4289,7 +4296,11 @@ behaviours:
   discovery_card: discovery/pcache/features/pcache-001.md
   legacy_green: false
   parity_green: false
-  notes: confidence=observed-in-code; sqlite3_pcache_methods2 plugin seam installed via sqlite3_config.
+  notes: 'confidence=observed-in-code; sqlite3_pcache_methods2 plugin seam installed via sqlite3_config. run-55: STAYS NONE
+    (under-claim) - the run-44 pager routes every page get/write through a methods2-SHAPED default page cache whose xFetch/
+    xUnpin/write counters move under real file-txn traffic (pinned by the engine-pager44 pcache-coupling anti-cheat), but the
+    card''s named surface is the PLUGGABLE seam installed via sqlite3_config(SQLITE_CONFIG_PCACHE2), which is not implemented
+    (no external methods2 registration). The coupling is real but the plugin boundary is not exercised - ADR 0042.'
   impl_in_modern: none
 - behaviour_id: pcache-002
   surface_id: sur-pcache1create
@@ -7436,6 +7447,34 @@ behaviours:
   pack_version: 43
   traceability: tests/characterization/engine-temp43/TRACEABILITY.yaml
   notes: run-53 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-53 delegated stamp)
+- behaviour_id: engine-pager44-001
+  surface_id: sur-engine-pager44
+  name: DELETE rollback-journal lifecycle
+  status: converted
+  slice_id: engine-pager44
+  discovery_card: discovery/engine-pager44/features/engine-pager44-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 44
+  traceability: tests/characterization/engine-pager44/TRACEABILITY.yaml
+  notes: run-55 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-55 delegated stamp)
+- behaviour_id: engine-pager44-002
+  surface_id: sur-engine-pager44
+  name: rollback restores / commit persists
+  status: converted
+  slice_id: engine-pager44
+  discovery_card: discovery/engine-pager44/features/engine-pager44-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 44
+  traceability: tests/characterization/engine-pager44/TRACEABILITY.yaml
+  notes: run-55 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-55 delegated stamp)
 - behaviour_id: engine-harvest39-002
   surface_id: sur-engine-harvest39
   name: pragma_module_list lazy population
@@ -7478,8 +7517,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T20:03:43Z'
-updated_by: sqlite-engine-v1-kitchen
+last_updated: '2026-08-13T20:06:26Z'
+updated_by: sqlite-engine-v44-pager
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -7488,10 +7527,10 @@ counts:
   surfaces_by_status:
     candidate: 185
     accepted: 59
-  behaviours_known: 344
+  behaviours_known: 346
   behaviours_by_status:
     documented: 137
-    converted: 207
+    converted: 209
   unscanned_hints: 3
   legacy_green: 254
   parity_green: 0

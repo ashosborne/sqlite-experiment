@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T19:00:25Z
+- Generated: 2026-08-13T20:06:36Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T19:00:15Z by `sqlite-engine-v43-kitchen-12h`
+- Manifest last_updated: 2026-08-13T20:06:26Z by `sqlite-engine-v44-pager`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 78 | Not started in modern |
-| partial | 41 | Some modern execution; gaps in notes |
-| full (converted) | 225 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 77 | Not started in modern |
+| partial | 42 | Some modern execution; gaps in notes |
+| full (converted) | 227 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -242,6 +242,8 @@
 - `engine-harvest43-002` — pragma index_list / foreign_key_list projections
 - `engine-temp43-001` — TEMP schema isolation + triggers
 - `engine-temp43-002` — auth TEMP outer codes
+- `engine-pager44-001` — DELETE rollback-journal lifecycle
+- `engine-pager44-002` — rollback restores / commit persists
 - `engine-harvest39-002` — pragma_module_list lazy population
 - `engine-harvest39-003` — per-row blob expiry + TEXT-cell writes
 - `engine-harvest39-004` — sqlite3_randomness + test_control PRNG
@@ -277,6 +279,7 @@
 - `misc-series-001` — generate_series(a,b[,step]) real as FROM row source; vtab constraint pushdown absent
 - `misc-wholenumber-001` — confidence=observed-in-code; Infinite integer sequence vtab (predecessor of generate_series) | legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=none (run-19 scoreboard): deferred (pack v8): wholenumber vtab not implemented in modern run-38: PARTIAL — CREATE VIRTUAL TABLE ... USING wholenumber registers a bounded generator; WHERE-bounded SELECT/aggregates match C. RESIDUAL: vtab-core general module system (xBestIndex cost, unbounded scans) not implemented.
 - `mutex-subsystem-001` — alloc/enter/leave/free real; pluggable mutex methods and static-mutex semantics absent
+- `pager-001` — confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. run-55: NONE -> PARTIAL - a real rollback journal on the file-backed DELETE-mode write path: an open write transaction copies each changed page's ORIGINAL bytes into <db>-journal before overwriting it in the db file (journal observably present during the txn, gone after COMMIT/ROLLBACK), ROLLBACK replays the journal to restore the pre-images, COMMIT drops it, and the committed db file stays valid SQLite (the pinned C amalgamation opens modern's file, reads the runtime row, integrity_check rc 0). Page get/write routes through a methods2-shaped page cache (xFetch/xUnpin/write move under real file-txn traffic, not under a :memory: control). Pinned engine-pager44-001/002 + runtime anti-cheat. RESIDUAL (full forbidden): no two-phase commit, no hot-journal crash-recovery matrix (the journal is Rust-private, not C's format), no WAL-as-pager; autocommit writes journal-then-write-then-delete within the statement. Supersedes the run-15 toy single-page writer.
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded). run-44: breadth bump ~27 -> ~40 of ~70 - data_version (own writes do not bump, sibling commits do), freelist_count, collation_list (live registry, newest-first), table_xinfo/index_info/index_xinfo row shapes, query_only ENFORCED ("attempt to write a readonly database" rc 8), ignore_check_constraints ENFORCED, quick_check now REALLY validates CHECK constraints ("CHECK constraint failed in T"), unknown pragma names silently ignored (get+set, the classic trap). RESIDUAL: remaining ~30 pragmas (journal-size/wal tuning, mmap, cache_spill, locking edges), typed/pk metadata in xinfo rows (pinned tables are typeless), integrity_check corruption taxonomy beyond CHECK validation.
 - `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE) run-47: introspection APIs completed - sqlite3_stmt_isexplain (0/1/2) and sqlite3_stmt_explain mode switching (rc 0, EQP column shape follows, bad mode errors, prepared-EQP reports 2) pinned real. STAYS PARTIAL: EXPLAIN bytecode ROW CONTENTS - there is no VDBE and nested-loop EQP is not bytecode (v37 law).
@@ -332,7 +335,6 @@
 - `misc-vtablog-001` — misc-vtablog — legacy_green no
 - `misc-vtshim-001` — misc-vtshim — legacy_green no
 - `misc-zipfile-sqlar-001` — misc-zipfile-sqlar — legacy_green no
-- `pager-001` — pager — legacy_green no
 - `pager-002` — pager — legacy_green no
 - `pcache-001` — pcache — legacy_green no
 - `pcache-002` — pcache — legacy_green no
@@ -376,10 +378,10 @@
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 244 |
-| Behaviours known | 344 |
+| Behaviours known | 346 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 254 |
+| legacy_green flags | 257 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -393,7 +395,7 @@
 
 | Status | Count |
 | --- | --- |
-| converted | 202 |
+| converted | 204 |
 | documented | 142 |
 
 ## Surfaces per slice

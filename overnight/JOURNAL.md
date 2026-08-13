@@ -1019,3 +1019,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   auth-callback-api-001 TEMP outer codes dispatched (stays partial). Composed engine-harvest43-001/002
   + engine-temp43-001/002 full. cargo 53 binaries green; SCRIPT_TABLE 0.
 - Scoreboard full 220->225 / partial 41 / none 78 (344 known). Parked list unchanged. Not migrated.
+## Run 55 — 2026-08-15 — engine v44: rollback-journal pager (pack v44, overnight)
+
+- Pack v43 -> v44 BOUND (PAGER/NONE law: a none flips only when SQL/file observables go through
+  that stack; journal originals before overwrite, ROLLBACK replays, COMMIT drops; whole-file
+  rewrite is not a pager; pcache only if methods2 fetches are real). ADR 0042.
+- Probed C (file-backed DELETE): <db>-journal present during txn, gone after commit/rollback,
+  rollback restores pre-images, commit persists, C reopens. Froze 4 goldens (engine-pager44-001/002).
+- Modern: new pager.rs — txn_write journals ORIGINAL changed pages into <db>-journal and writes
+  the db file page-granular; ROLLBACK replays the journal; COMMIT drops it; autocommit does a
+  journal-then-write-then-delete mini-txn. Page get/write routes through a methods2-shaped page
+  cache (xFetch/xUnpin/write counters move on real file traffic, not on :memory:). Wired into
+  wal_sync's DELETE path + the Rollback arm. Committed file is valid SQLite — pinned C reads
+  modern's file (integrity_check rc 0).
+- Estate: pager-001 none->PARTIAL (real rollback journal; full forbidden). pcache-001 STAYS
+  none (coupling real but the pluggable sqlite3_config(PCACHE2) seam not implemented — under-claim).
+  pager-002/pcache-002 stay none. Composed engine-pager44-001/002 full. cargo 56 binaries green;
+  SCRIPT_TABLE 0. C002 golden re-recorded with a literal UPDATE (kitchen expr-UPDATE out of scope).
+- Scoreboard full 225->227 / partial 42 / none 78->77 (346 known). Not migrated.
