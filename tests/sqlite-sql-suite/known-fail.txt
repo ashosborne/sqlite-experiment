@@ -1,0 +1,88 @@
+# sqlite-sql-suite known failures — run-54 first slice
+# id per line; text after # is the reason. Listed cases still RUN and are
+# reported as known-fail (a listed case that now passes prints XPASS).
+# git ref 2665df90 / VERSION 3.54.0. These are kitchen gaps, NOT a migration claim.
+# Categories: parser (unsupported statement forms), upsert/ON CONFLICT semantics,
+# missing constraint validation, NULL/row-text divergence, catchsql errmsg wording.
+
+coalesce-1.6  # execsql: row text/order/NULL-render differs from C
+null-2.7  # execsql: kitchen errors (rc1) on a form C runs
+null-2.8  # execsql: kitchen errors (rc1) on a form C runs
+null-6.5  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+null-6.6  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+null-7.1  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+null-7.2  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+null-8.1  # execsql: row text/order/NULL-render differs from C
+null-8.11  # execsql: row text/order/NULL-render differs from C
+unique-1.1  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+unique-1.4  # execsql: kitchen returns no rows where C returns some
+unique-1.6  # execsql: kitchen returns no rows where C returns some
+unique-1.8  # execsql: kitchen returns no rows where C returns some
+unique-2.8  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+unique-4.10  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+upsert1-102  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-110  # catchsql: rc matches, errmsg wording differs from C
+upsert1-140  # execsql: kitchen errors (rc1) on a form C runs
+upsert1-320  # execsql: row text/order/NULL-render differs from C
+upsert1-400  # execsql: kitchen errors (rc1) on a form C runs
+upsert1-410  # execsql: kitchen errors (rc1) on a form C runs
+upsert1-500  # execsql: kitchen errors (rc1) on a form C runs
+upsert1-700  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-710  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-720  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-730  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-740  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-750  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-760  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-770  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-780  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-900  # execsql: kitchen errors (rc1) on a form C runs
+upsert1-910  # catchsql: rc matches, errmsg wording differs from C
+upsert1-1000  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+upsert1-1100  # execsql: kitchen raises constraint (rc19) where C succeeds (upsert/ON CONFLICT semantics)
+upsert1-1300  # execsql: kitchen errors (rc1) on a form C runs
+values-1.2.1  # execsql: row text/order/NULL-render differs from C
+values-1.2.2  # execsql: row text/order/NULL-render differs from C
+values-1.2.3  # execsql: row text/order/NULL-render differs from C
+values-1.2.4  # execsql: row text/order/NULL-render differs from C
+values-1.2.5  # execsql: kitchen errors (rc1) on a form C runs
+values-1.2.6  # execsql: kitchen returns no rows where C returns some
+values-2.1.1  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+values-2.1.2  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+values-3.1.1  # execsql: kitchen errors (rc1) on a form C runs
+values-3.1.2  # execsql: kitchen returns no rows where C returns some
+values-3.2.1  # execsql: kitchen errors (rc1) on a form C runs
+values-3.1.2#2  # execsql: kitchen returns no rows where C returns some
+values-5.1  # execsql: kitchen errors (rc1) on a form C runs
+values-6.1  # execsql: kitchen errors (rc1) on a form C runs
+values-6.1#2  # execsql: kitchen errors (rc1) on a form C runs
+values-6.2  # execsql: kitchen errors (rc1) on a form C runs
+values-7.1  # execsql: kitchen errors (rc1) on a form C runs
+values-9.1  # execsql: kitchen errors (rc1) on a form C runs
+values-9.2  # execsql: kitchen errors (rc1) on a form C runs
+values-11.1  # execsql: kitchen errors (rc1) on a form C runs
+values-12.1  # execsql: kitchen errors (rc1) on a form C runs
+values-12.2  # execsql: kitchen returns no rows where C returns some
+values-13.0  # execsql: kitchen errors (rc1) on a form C runs
+values-13.1  # kitchen parser: unsupported statement form
+values-14.2  # execsql: kitchen errors (rc1) on a form C runs
+values-16.2  # execsql: kitchen errors (rc1) on a form C runs
+values-16.4  # execsql: kitchen errors (rc1) on a form C runs
+values-16.6  # execsql: kitchen errors (rc1) on a form C runs
+values-17.1  # execsql: kitchen errors (rc1) on a form C runs
+values-17.2  # execsql: kitchen returns no rows where C returns some
+values-18.1  # kitchen parser: unsupported statement form
+values-18.2  # kitchen parser: unsupported statement form
+values-18.3.1  # kitchen parser: unsupported statement form
+values-18.4.1  # kitchen parser: unsupported statement form
+values-18.5.1  # kitchen parser: unsupported statement form
+values-18.5.2  # catchsql: kitchen accepts a statement C rejects (missing constraint/validation)
+values-19.1  # execsql: kitchen errors (rc1) on a form C runs
+values-19.2  # execsql: kitchen errors (rc1) on a form C runs
+values-19.3  # execsql: kitchen errors (rc1) on a form C runs
+values-19.4  # execsql: kitchen errors (rc1) on a form C runs
+values-19.5  # execsql: kitchen errors (rc1) on a form C runs
+values-19.6  # execsql: kitchen errors (rc1) on a form C runs
+values-19.7  # execsql: kitchen errors (rc1) on a form C runs
+values-19.8  # execsql: kitchen errors (rc1) on a form C runs
+values-19.9  # execsql: kitchen errors (rc1) on a form C runs
