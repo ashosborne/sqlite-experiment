@@ -842,15 +842,33 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
             return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
         }
         StmtMode::Explain => {
-            // column shape is real; the bytecode listing is honestly absent (no VDBE)
-            s.rows = Some(Vec::new());
+            // run-58: constant SELECTs have a REAL program — the listing matches
+            // probed C. Everything the kitchen still owns stays honestly absent.
+            let rows: Vec<Vec<eval::V>> = match vdbe::compile(&s.sql) {
+                Some(prog) => vdbe::explain_rows(&prog).into_iter()
+                    .map(|r| r.into_iter().map(|c| match c {
+                        Some(t) => eval::V::Text(t), None => eval::V::Null,
+                    }).collect())
+                    .collect(),
+                None => Vec::new(),
+            };
+            let has = !rows.is_empty();
+            s.rows = Some(rows);
             s.cur = 0;
-            s.state = State::Done;
-            return SQLITE_DONE;
+            return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
         }
         StmtMode::Normal => {}
     }
     let bound = bind_sql(&s.sql, &s.params);
+    // run-58: a constant SELECT runs its Vdbe program through the dispatch loop —
+    // NOT the kitchen evaluator (the dispatch counter is the anti-cheat proof).
+    if let Some(prog) = vdbe::compile(&bound) {
+        let rows = vdbe::execute(&prog);
+        let has = !rows.is_empty();
+        s.rows = Some(rows);
+        s.cur = 0;
+        return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+    }
     if s.readonly {
         let wal_m0 = store::wal_marker(s.db); // v22: pragmas may switch journal modes
         let q = store::stmt_query_typed(s.db, &bound);
@@ -1190,6 +1208,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 pub mod datetime;
 pub mod dbfile;
 pub mod pager;
+pub mod vdbe;
 pub mod fpdec;
 pub mod eval;
 pub mod json;

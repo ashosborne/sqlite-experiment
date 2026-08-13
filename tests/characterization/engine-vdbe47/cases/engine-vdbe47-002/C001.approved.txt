@@ -1,0 +1,6 @@
+OBS engine-vdbe47-002-C001 run_1 1
+OBS engine-vdbe47-002-C001 run_42 42
+OBS engine-vdbe47-002-C001 run_add 3
+OBS engine-vdbe47-002-C001 run_text hi
+OBS engine-vdbe47-002-C001 run_two 1|2
+OBS engine-vdbe47-002-C001 run_where_0 

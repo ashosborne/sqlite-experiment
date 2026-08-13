@@ -1,0 +1,43 @@
+slice_id: engine-vdbe47
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-vdbe47-001-C001
+  feature_id: engine-vdbe47-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe47-001/C001.approved.txt
+  run_id: 2026-08-15T2100Z-legacy-record-vdbe47
+- case_id: engine-vdbe47-001-C002
+  feature_id: engine-vdbe47-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe47-001/C002.approved.txt
+  run_id: 2026-08-15T2100Z-legacy-record-vdbe47
+- case_id: engine-vdbe47-001-C003
+  feature_id: engine-vdbe47-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe47-001/C003.approved.txt
+  run_id: 2026-08-15T2100Z-legacy-record-vdbe47
+- case_id: engine-vdbe47-002-C001
+  feature_id: engine-vdbe47-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe47-002/C001.approved.txt
+  run_id: 2026-08-15T2100Z-legacy-record-vdbe47
+- case_id: engine-vdbe47-002-C002
+  feature_id: engine-vdbe47-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe47-002/C002.approved.txt
+  run_id: 2026-08-15T2100Z-legacy-record-vdbe47
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-58 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-vdbe47-001-C001
+  - engine-vdbe47-001-C002
+  - engine-vdbe47-001-C003
+  - engine-vdbe47-002-C001
+  - engine-vdbe47-002-C002
+updated_at: '2026-08-13T23:22:42Z'
+run_id: 2026-08-15T2100Z-legacy-record-vdbe47
