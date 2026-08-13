@@ -181,6 +181,135 @@ thread_local! {
 pub fn set_read_only(db: usize) { RO_DBS.with(|s| { s.borrow_mut().insert(db); }); }
 fn is_read_only(db: usize) -> bool { RO_DBS.with(|s| s.borrow().contains(&db)) }
 
+/// run-48: sqlite3_last_insert_rowid source
+pub fn last_rowid(db: usize) -> i64 { with_store(db, |st| st.conn.last_rowid) }
+
+/// run-48: is this name a live-or-durable vtab on the connection?
+fn is_vtab(st: &Store, db: usize, name: &str) -> bool {
+    crate::vtab_is_instance(db, name) || st.conn.vtab_schema.iter().any(|(n, _, _, _)| n == name)
+}
+/// ensure a durable vtab entry has a live instance (xConnect on demand)
+fn vtab_ensure_connected(st: &Store, db: usize, name: &str) -> Result<(), String> {
+    if crate::vtab_is_instance(db, name) { return Ok(()); }
+    match st.conn.vtab_schema.iter().find(|(n, _, _, _)| n == name) {
+        Some((_, module, args, sql)) => crate::vtab_connect_instance(db, name, module, args, sql),
+        None => Err(format!("no such table: {name}")),
+    }
+}
+/// scan a vtab through the module cursor, returning (visible cols, rows, rowids) as Vals
+fn vtab_rows_vals(db: usize, name: &str) -> Result<(Vec<String>, Vec<Vec<Val>>, Vec<i64>), String> {
+    match crate::vtab_scan(db, name) {
+        Some(Ok((visible, all, rows, rowids))) => {
+            // project the visible columns in declared order
+            let idx: Vec<usize> = visible.iter()
+                .map(|v| all.iter().position(|a| a == v).unwrap_or(0)).collect();
+            let vrows = rows.into_iter()
+                .map(|r| idx.iter().map(|&i| ev_to_val(r[i].clone())).collect())
+                .collect();
+            Ok((visible, vrows, rowids))
+        }
+        Some(Err(e)) => Err(e),
+        None => Err(format!("no such table: {name}")),
+    }
+}
+
+/// run-48: writable-vtab DML — INSERT/UPDATE/DELETE route through the module's
+/// xUpdate with C's argv shapes. Returns None when the target is not a vtab.
+fn vtab_dml_intercept(st: &mut Store, db: usize, s: &str) -> Option<Result<(), String>> {
+    let up = s.trim_start().to_ascii_uppercase();
+    let orig = s.trim_start();
+    let target_of = |kw: &str, txt: &str| -> Option<String> {
+        let p = txt.to_ascii_uppercase().find(kw)? + kw.len();
+        ident(txt[p..].trim().split(|c: char| c.is_whitespace() || c == '(' || c == ';').next()?)
+    };
+    let name = if up.starts_with("INSERT") { target_of(" INTO ", orig)? }
+        else if up.starts_with("UPDATE") { ident(orig["UPDATE".len()..].trim().split_whitespace().next()?)? }
+        else if up.starts_with("DELETE") { target_of(" FROM ", orig)? }
+        else { return None };
+    if !is_vtab(st, db, &name) { return None; }
+    Some((|| -> Result<(), String> {
+        vtab_ensure_connected(st, db, &name)?;
+        let shape = crate::vtab_shape(db, &name).unwrap_or_default();
+        let visible: Vec<String> = shape.iter().filter(|(_, _, h)| !h).map(|(n, _, _)| n.clone()).collect();
+        if up.starts_with("INSERT") {
+            let (collist, rows) = match parse_stmt(orig) {
+                Some(Stmt::Insert { collist, rows, .. }) => (collist, rows),
+                _ => return Err("unsupported vtab INSERT shape".into()),
+            };
+            for r in rows {
+                let mut rowid_v = eval::V::Null;
+                let mut vals = vec![eval::V::Null; visible.len()];
+                match &collist {
+                    None => {
+                        for (i, v) in r.iter().enumerate().take(visible.len()) { vals[i] = val_to_ev(v); }
+                    }
+                    Some(cl) => {
+                        for (ci, cn) in cl.iter().enumerate() {
+                            if cn.eq_ignore_ascii_case("rowid") { rowid_v = val_to_ev(&r[ci]); }
+                            else if let Some(p) = visible.iter().position(|v| v.eq_ignore_ascii_case(cn)) {
+                                vals[p] = val_to_ev(&r[ci]);
+                            }
+                        }
+                    }
+                }
+                // C INSERT shape: argv[0]=NULL, argv[1]=rowid-or-NULL, then columns
+                let mut argv = vec![eval::V::Null, rowid_v];
+                argv.extend(vals);
+                let rid = crate::vtab_x_update(db, &name, &argv)?;
+                st.conn.last_rowid = rid;
+            }
+            return Ok(());
+        }
+        // UPDATE <t> SET <col> = <lit> [WHERE <col> = <lit>] / DELETE FROM <t> [WHERE ...]
+        let parse_wh = |txt: &str| -> Option<(String, Val)> {
+            let wp = txt.to_ascii_uppercase().find(" WHERE ")?;
+            let cond = txt[wp + 7..].trim().trim_end_matches(';');
+            let eq = cond.find('=')?;
+            Some((ident(cond[..eq].trim())?, parse_literal(cond[eq + 1..].trim())?))
+        };
+        let wh = parse_wh(orig);
+        let (cols, rows, rowids) = vtab_rows_vals(db, &name)?;
+        let matches = |r: &Vec<Val>| -> bool {
+            match &wh {
+                None => true,
+                Some((c, v)) => cols.iter().position(|cn| cn.eq_ignore_ascii_case(c))
+                    .map_or(false, |ci| r.get(ci) == Some(v)),
+            }
+        };
+        if up.starts_with("DELETE") {
+            for (r, rid) in rows.iter().zip(&rowids) {
+                if matches(r) {
+                    crate::vtab_x_update(db, &name, &[eval::V::Int(*rid)])?; // argc=1: DELETE
+                }
+            }
+            return Ok(());
+        }
+        // UPDATE
+        let sp = up.find(" SET ").ok_or("unsupported vtab UPDATE shape")?;
+        let tail = &orig[sp + 5..];
+        let end = tail.to_ascii_uppercase().find(" WHERE ").unwrap_or(tail.len());
+        let (set_col, set_val) = {
+            let a = &tail[..end];
+            let eq = a.find('=').ok_or("unsupported vtab UPDATE shape")?;
+            (ident(a[..eq].trim()).ok_or("bad column")?,
+             parse_literal(a[eq + 1..].trim().trim_end_matches(';')).ok_or("bad value")?)
+        };
+        let sci = cols.iter().position(|cn| cn.eq_ignore_ascii_case(&set_col))
+            .ok_or_else(|| format!("no such column: {set_col}"))?;
+        for (r, rid) in rows.iter().zip(&rowids) {
+            if matches(r) {
+                let mut vals: Vec<eval::V> = r.iter().map(val_to_ev).collect();
+                vals[sci] = val_to_ev(&set_val);
+                // C UPDATE shape: argv[0]=old rowid, argv[1]=new rowid, then columns
+                let mut argv = vec![eval::V::Int(*rid), eval::V::Int(*rid)];
+                argv.extend(vals);
+                crate::vtab_x_update(db, &name, &argv)?;
+            }
+        }
+        Ok(())
+    })())
+}
+
 /// run-47: mirror a db_config toggle into the connection (trigger/view/dqs gates)
 pub fn set_conn_flag(db: usize, key: &str, on: bool) {
     with_store(db, |st| { st.conn.pragmas.insert(format!("!{key}"), on as i64); });
@@ -488,7 +617,7 @@ fn attached_image(st: &Store, schema: &str) -> DbImage {
         };
         TableImage { name: bare.to_string(), sql, rows: tt.rows.clone() }
     }).collect();
-    DbImage { tables, triggers: Vec::new(), indexes: Vec::new() }
+    DbImage { tables, triggers: Vec::new(), indexes: Vec::new(), vtabs: Vec::new() }
 }
 
 /// load a parsed sub-file image into a schema's `schema.tbl` keys
@@ -645,6 +774,15 @@ pub fn load_image(db: usize, img: DbImage) {
             if let Some(Stmt::CreateTrigger { name, def, .. }) = parse_stmt(&tg.sql) {
                 st.catalog.push(("trigger".into(), name.clone()));
                 st.triggers.push((name, def));
+            }
+        }
+        // run-48: vtab schema rows become PENDING entries — xConnect runs on first
+        // use once the module is re-registered (C's reload shape)
+        for (vn, vsql) in img.vtabs {
+            if let Some(Stmt::CreateVtab { name, module, args, .. }) = parse_stmt(&vsql) {
+                let _ = &name;
+                st.conn.vtab_schema.push((vn.clone(), module, args, vsql.clone()));
+                st.catalog.push(("table".into(), vn));
             }
         }
     });
@@ -834,7 +972,8 @@ fn image_of(st: &Store) -> DbImage {
                     sql: Some(idef.sql.clone()), entries });
             }
         }
-        DbImage { tables, triggers, indexes }
+        let vtabs = st.conn.vtab_schema.iter().map(|(n, _, _, sql)| (n.clone(), sql.clone())).collect();
+        DbImage { tables, triggers, indexes, vtabs }
     }
 }
 
@@ -2501,6 +2640,11 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 AuthGate::Skip => continue,
                 AuthGate::Proceed => {}
             }
+            // run-48: writable-vtab DML routes through the module's xUpdate
+            if let Some(res) = vtab_dml_intercept(st, db, s) {
+                res?;
+                continue;
+            }
             let parsed = parse_stmt(s);
             // a kitchen SELECT only counts if its table actually lives in this store;
             // otherwise (pragma_* projections, TVFs) it belongs to the evaluator
@@ -2613,6 +2757,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     // generator stays as the legacy harvest28 path (not re-homed; see ADR 0029).
                     if crate::vtab_module_registered(db, &module) {
                         crate::vtab_create_instance(db, &name, &module, &args, &sql)?;
+                        st.conn.vtab_schema.push((name.clone(), module.clone(), args.clone(), sql.clone()));
                         st.catalog.push(("table".into(), name.clone()));
                         st.conn.schema_version += 1;
                     } else if module.eq_ignore_ascii_case("wholenumber") {
@@ -3042,10 +3187,23 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.catalog.retain(|(ty, n)| !(ty == "view" && *n == name));
                     st.conn.schema_version += 1;
                 }
-                // run-41: DROP TABLE on a vtab instance -> module xDestroy + schema removal
-                Stmt::Drop { ref name } if crate::vtab_is_instance(db, name) => {
+                // run-41/48: DROP TABLE on a vtab -> xDestroy; C needs the module to be
+                // registered to drop (post-drop_modules DROP fails "no such module")
+                Stmt::Drop { ref name } if crate::vtab_is_instance(db, name)
+                    || st.conn.vtab_schema.iter().any(|(n, _, _, _)| n == name) => {
+                    let ent = st.conn.vtab_schema.iter().find(|(n, _, _, _)| n == name).cloned();
+                    if let Some((_, module, args, sql)) = &ent {
+                        if !crate::vtab_module_registered(db, module) {
+                            return Err(format!("no such module: {module}"));
+                        }
+                        if !crate::vtab_is_instance(db, name) {
+                            // pending (reopened) entry: connect first, then destroy (C shape)
+                            crate::vtab_connect_instance(db, name, module, args, sql)?;
+                        }
+                    }
                     crate::vtab_drop_instance(db, name);
                     st.conn.vtabs.remove(name);
+                    st.conn.vtab_schema.retain(|(n, _, _, _)| n != name);
                     st.catalog.retain(|(ty, n)| !(ty == "table" && n == name));
                     st.conn.schema_version += 1;
                 }
@@ -3627,8 +3785,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     "type" => row.push(Some(ty.clone())),
                                     "name" => row.push(Some(n.clone())),
                                     "tbl_name" => row.push(Some(st.index_owner.get(n).cloned().unwrap_or_else(|| n.clone()))),
-                                    // run-41: vtab entries carry rootpage 0 and the CREATE VIRTUAL TABLE text
-                                    "rootpage" if crate::vtab_is_instance(db, n) => row.push(Some("0".into())),
+                                    // run-41/48: vtab entries carry rootpage 0 and the CREATE
+                                    // VIRTUAL TABLE text (from the durable schema row, so
+                                    // reopened-but-not-yet-connected vtabs report too)
+                                    "rootpage" if st.conn.vtab_schema.iter().any(|(vn, _, _, _)| vn == n)
+                                        || crate::vtab_is_instance(db, n) => row.push(Some("0".into())),
+                                    "sql" if st.conn.vtab_schema.iter().any(|(vn, _, _, _)| vn == n) =>
+                                        row.push(st.conn.vtab_schema.iter().find(|(vn, _, _, _)| vn == n)
+                                            .map(|(_, _, _, s)| s.clone())),
                                     "sql" if crate::vtab_is_instance(db, n) =>
                                         row.push(crate::vtab_master_sql(db, n)),
                                     "sql" if st.tables.iter().any(|(tn, _)| tn == n) =>

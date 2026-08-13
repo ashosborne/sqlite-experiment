@@ -50,6 +50,8 @@ pub struct DbImage {
     pub tables: Vec<TableImage>,
     pub triggers: Vec<TriggerImage>,
     pub indexes: Vec<IndexImage>,
+    /// run-48: CREATE VIRTUAL TABLE schema rows (name, sql) — rootpage 0, like C
+    pub vtabs: Vec<(String, String)>,
 }
 
 // ---------------- varint / serial types ----------------
@@ -561,6 +563,13 @@ pub fn write_db(path: &Path, img: &DbImage) -> std::io::Result<()> {
         schema_cells.push(table_cell(schema_rowid, &rec, &mut datapages));
         schema_rowid += 1;
     }
+    for (vn, vsql) in &img.vtabs {
+        // run-48: vtab schema rows persist with rootpage 0 (C's shape)
+        let rec = vec![Val::Text("table".into()), Val::Text(vn.clone()),
+                       Val::Text(vn.clone()), Val::Int(0), Val::Text(vsql.clone())];
+        schema_cells.push(table_cell(schema_rowid, &rec, &mut datapages));
+        schema_rowid += 1;
+    }
 
     let mut page1 = leaf_page(&schema_cells, 100);
     let npages = (1 + datapages.len()) as u32;
@@ -668,6 +677,10 @@ pub fn read_db(path: &Path) -> std::io::Result<DbImage> {
         let tbl = match &rec[2] { Val::Text(t) => t.clone(), _ => continue };
         let sql = match &rec[4] { Val::Text(t) => t.clone(), _ => String::new() };
         if ty == "table" {
+            if sql.trim_start().to_ascii_uppercase().starts_with("CREATE VIRTUAL TABLE") {
+                img.vtabs.push((name, sql)); // run-48
+                continue;
+            }
             let root = match &rec[3] { Val::Int(i) => *i as usize, _ => continue };
             let ipk = ipk_index(&sql);
             let mut rows = Vec::new();

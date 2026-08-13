@@ -79,6 +79,10 @@ pub struct Conn {
     pub page_hwm: i64,         // grow-only until VACUUM resets it (freelist model, run-34)
     pub vtabs: BTreeMap<String, String>, // run-38: virtual table name -> module (wholenumber)
     pub data_version: i64,     // run-44: bumps when a sibling's commit is picked up (PRAGMA data_version = 1 + this)
+    /// run-48: durable vtab schema rows (name, module, args, sql) — persisted in file
+    /// images with rootpage 0; instances reconnect on demand via xConnect
+    pub vtab_schema: Vec<(String, String, Vec<String>, String)>,
+    pub last_rowid: i64,       // run-48: sqlite3_last_insert_rowid (vtab xUpdate sets it too)
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
@@ -1524,14 +1528,36 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
     // run-41: registered-module vtab instance — real cursor scan through
     // xOpen/xBestIndex/xFilter/xEof/xColumn/xNext/xClose. Rows carry HIDDEN columns
     // (selectable by name / usable in WHERE) but the visible column list drives SELECT *.
-    if let Some(res) = crate::vtab_scan(ctx.db, f) {
-        // the col list carries HIDDEN columns too (addressable by name / in WHERE);
-        // `SELECT *` expansion filters to the visible shape via vtab_shape upstream.
-        let (_visible, all, rows) = res?;
-        let rmaps = rows.into_iter()
-            .map(|r| all.iter().cloned().zip(r).collect())
-            .collect();
-        return Ok((all, rmaps));
+    {
+        // run-48: reconnect-on-demand — a reopened file schema row or an eponymous-only
+        // module materializes an instance (xConnect) before the scan; an unregistered
+        // module surfaces C's exact error.
+        let mut res = crate::vtab_scan(ctx.db, f);
+        if res.is_none() {
+            if let Some((_, module, args, sql)) = ctx.conn.vtab_schema.iter()
+                .find(|(n, _, _, _)| n == f).cloned() {
+                crate::vtab_connect_instance(ctx.db, f, &module, &args, &sql)?;
+                res = crate::vtab_scan(ctx.db, f);
+            } else if let Some(r) = crate::vtab_eponymous_connect(ctx.db, f) {
+                r?;
+                res = crate::vtab_scan(ctx.db, f);
+            }
+        }
+        if let Some(res) = res {
+            // the col list carries HIDDEN columns AND rowid (addressable by name / in
+            // WHERE / ORDER BY); `SELECT *` expansion filters to the visible shape via
+            // vtab_shape upstream, so neither leaks into star projections.
+            let (_visible, mut all, rows, rowids) = res?;
+            all.push("rowid".into());
+            let rmaps = rows.into_iter().zip(rowids)
+                .map(|(r, rid)| {
+                    let mut m: Row = all.iter().cloned().zip(r.into_iter().chain(std::iter::once(V::Int(rid)))).collect();
+                    m.insert("rowid".into(), V::Int(rid));
+                    m
+                })
+                .collect();
+            return Ok((all, rmaps));
+        }
     }
     // run-38: wholenumber eponymous vtab — a bounded generator (needs a WHERE bound;
     // vtab-core general module system is a documented residual)
