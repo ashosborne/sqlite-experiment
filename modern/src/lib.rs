@@ -1189,6 +1189,7 @@ pub unsafe extern "C" fn sqlite3_finalize(stmt: *mut Sqlite3Stmt) -> c_int {
 
 pub mod datetime;
 pub mod dbfile;
+pub mod pager;
 pub mod fpdec;
 pub mod eval;
 pub mod json;

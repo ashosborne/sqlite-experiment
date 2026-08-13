@@ -1067,15 +1067,50 @@ pub fn wal_sync(db: usize, before: (i64, i64)) {
         let _ = std::fs::remove_file(&walp);
         let _ = std::fs::remove_file(&shmp);
         bump_file_version(db, &path);
+    } else if in_txn_now {
+        // run-55: an OPEN explicit write txn on a file-backed DELETE-mode db flushes
+        // through the rollback-journal pager — original pages are copied into
+        // `<db>-journal` before the db file is overwritten, so the journal is
+        // observably present for the life of the txn (matching C).
+        if marker != before {
+            let base = with_store(db, |st| {
+                if st.conn.pager_base.is_none() {
+                    st.conn.pager_base = Some(std::fs::read(&path).unwrap_or_default());
+                }
+                st.conn.pager_journalled = true;
+                st.conn.pager_base.clone().unwrap()
+            });
+            let img = build_image(db);
+            let mut dbbuf = dbfile::write_db_bytes(&img);
+            dbfile::set_journal_versions(&mut dbbuf, false);
+            io_bump(db, 0, 0, 1);
+            crate::pcache_note(db, dbbuf.len() as i64);
+            let _ = crate::pager::txn_write(&path, &base, &dbbuf);
+        }
     } else if (marker != before || committed) && !in_txn_now {
-        // run-36: delete-mode commits persist immediately (C durability point),
-        // making committed state visible to sibling connections on the same file
+        // run-36/55: delete-mode commit — if this connection had an open journalled
+        // txn, the pages are already in the db file (written during the txn); drop
+        // the journal. Otherwise (autocommit write) run a real journal-then-write-
+        // then-delete mini-txn through the pager. Committed file is C-readable.
+        let (had_journal, base) = with_store(db, |st| {
+            let h = st.conn.pager_journalled;
+            let b = st.conn.pager_base.take();
+            st.conn.pager_journalled = false;
+            (h, b)
+        });
         let img = build_image(db);
         let mut dbbuf = dbfile::write_db_bytes(&img);
         dbfile::set_journal_versions(&mut dbbuf, false);
         io_bump(db, 0, 0, 1); // run-44: real flush = cache write
         crate::pcache_note(db, dbbuf.len() as i64);
-        let _ = std::fs::write(&path, dbbuf);
+        if had_journal {
+            let _ = std::fs::write(&path, &dbbuf); // final committed pages
+            crate::pager::commit_drop_journal(&path);
+            let _ = base;
+        } else {
+            let old = std::fs::read(&path).unwrap_or_default();
+            let _ = crate::pager::commit_over(&path, &old, &dbbuf);
+        }
         bump_file_version(db, &path);
     }
 }
@@ -3723,6 +3758,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                         return Err("cannot rollback - no transaction is active".into());
                     }
                     crate::vtab_txn_rollback(db); // run-50: xRollback on joined vtabs
+                    // run-55: if the file-backed pager journalled this txn, replay the
+                    // journal into the db file (restores the pre-images) and drop it.
+                    if st.conn.pager_journalled {
+                        if let Some(p) = PATHS.with(|m| m.borrow().get(&db).cloned()) {
+                            crate::pager::rollback(&p);
+                        }
+                        st.conn.pager_journalled = false;
+                        st.conn.pager_base = None;
+                    }
                     st.conn.pragmas.insert("defer_foreign_keys".into(), 0);
                     release_file_lock(db);
                 }

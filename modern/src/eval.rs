@@ -83,6 +83,11 @@ pub struct Conn {
     /// images with rootpage 0; instances reconnect on demand via xConnect
     pub vtab_schema: Vec<(String, String, Vec<String>, String)>,
     pub last_rowid: i64,       // run-48: sqlite3_last_insert_rowid (vtab xUpdate sets it too)
+    /// run-55: rollback-journal pager state for a file-backed DELETE-mode write txn.
+    /// pager_base = the db file bytes at txn start (the rollback pre-image); set when
+    /// the first modifying statement of an explicit txn flushes through the pager.
+    pub pager_base: Option<Vec<u8>>,
+    pub pager_journalled: bool, // a `<db>-journal` is live for the current txn
 }
 impl Conn {
     fn pragma_default(name: &str) -> i64 {
