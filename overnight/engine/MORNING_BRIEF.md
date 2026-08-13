@@ -1,73 +1,78 @@
-# MORNING BRIEF — engine v42: recursive CTE execution (run 52, overnight)
+# MORNING BRIEF — engine v43: the kitchen 12-hour close (run 53, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–51 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v42-recursive-cte, RECURSIVE33_SCAN_GATED,
-NO_FAKE_RECURSION_LIMIT, DO_NOT_RECLAIM_SELECT002, AUTH001_NO_FULL, GOAL_PARTIAL_TO_FULL false.
-MAX_NEW_CASES 40 (used 11).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–52 stamped alongside.
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v43-kitchen-12h, FORBID_TEMP_ALIASED_TO_MAIN,
+FORBID_FAKE_AUTH_MASTER, AUTH001_NO_FULL, DEEPEN_JSONB probe-then-maybe. MAX_NEW_CASES 40 (used 10).
 
-## 1. Pack @42 BOUND — RECURSIVE CTE EXECUTION law
+## 1. Pack @43 BOUND — KITCHEN-12H law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v41 → **v42**
-(versions/1–42 retained; ADR `0040-engine-v42-recursive-cte.md`; schema VALID; 48 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v42 → **v43**
+(versions/1–43 retained; ADR `0041-engine-v43-kitchen-12h.md`; schema VALID; 49 laws).
 
-## 2. Slices landed
+## 2. JSONB probe
 
-| Slice | What landed |
+`jsonb('[]')` and `jsonb_extract('[1]','$')` both work → **JSONB is PRESENT on the pin**.
+Per the charter, JSONB is NOT implemented this pack; json-funcs-002 stays partial with JSONB
+as its single residual. Only the array-path half lands.
+
+## 3. Headlines landed
+
+| Slice | Outcome |
 | --- | --- |
-| **Non-recursive WITH** | literal / real-table bodies, no-column-list, multiple CTEs with earlier references, MATERIALIZED variants; CTEs shadow same-named tables |
-| **Recursive UNION ALL** (headline) | C's **Queue/Current FIFO**: seeds enqueue, ONE extracted row is the recursive table per step, outputs enqueue. Multi-seed terms interleave (`1|10|2|11|3|12|13`); parent/child walks are breadth-first; multi-column recursion carries expressions |
-| **SQLITE_RECURSIVE 33** | scan-gated exactly like C: unused WITH RECURSIVE silent; a scanned CTE fires `[21\|c][33\|~\|~\|~\|c][21\|c][21\|c]`; DENY rc 23. Fired from prepare, never at WITH parse |
-| **Recursive UNION (distinct)** | probed clean → landed: DistFifo seen-set, a cyclic graph terminates (`1|2|3`) |
-| **Outer LIMIT / ORDER BY / subquery** | LIMIT stops an unbounded machine (`LIMIT 4` on an infinite CTE); ORDER BY sorts the output; recursive CTEs work as subquery sources |
-| **Compile errors** | C's exact messages: `table c has 1 values for 2 columns`, `circular reference: a`, `multiple references to recursive table: c`, `recursive aggregate queries not supported` |
+| **JSON array-path** (json-funcs-002) | `$.a[N]`/`$[N]` set/replace overwrite, out-of-range is a no-op for set/insert/replace, `json_remove` shifts the remainder, `$.a[#]` append / `$.a[#-K]`, nested `$.a[N].b`, NULL-doc → NULL. Card stays **partial** (JSONB residual). |
+| **pragma index_list / foreign_key_list** (pragma-surface-002 → **FULL**) | real projections (seq/name/unique/origin/partial and id/seq/table/from/to/on_update/on_delete/match) for PRAGMA + TVF forms; reverse order, synthesized autoindexes, composite FK seq, IPK zero-rows. Last residual cleared. |
+| **TEMP schema** (composed) | CREATE TEMP/TEMPORARY TABLE under schema `temp` (never aliased to main), temp-first unqualified resolution, `main.`/`temp.` qualified, `sqlite_temp_master` real SELECT, unqualified-drop temp precedence, **TEMP triggers fire** on TEMP DML. |
+| **auth TEMP codes** (auth-001 stays partial) | CREATE_TEMP_TABLE (4) / DROP_TEMP_TABLE (13) dispatched (s1=table, s3=temp, DENY rc 23), no catalog tail. |
 
-## 3. Skipped (honest, ADR 0040)
+## 4. TEMP scope
 
-SEARCH/CYCLE (not in this pin's CTE block — not invented); recursive CTEs in VIEW bodies /
-triggers; window-in-recursion; **no invented recursion-limit error** (an unbounded UNION ALL
-without LIMIT runs unbounded, like C); flattening (select-codegen-003) and planner
-(select-codegen-001) untouched; recursive **triggers** are a different surface (untouched).
+TEMP is a real per-connection `temp.` schema: isolated from main both ways, shadows same-named
+main tables for unqualified access, excluded from the durable file image (so a file reopen loses
+TEMP). Cross-schema TEMP-trigger fire and non-trivial trigger bodies stay named on attach-003.
 
-## 4. Residual updates
+## 5. Parked list unchanged
 
-- **auth-callback-api-001** stays partial — the "RECURSIVE 33 pin-absent" sentence is replaced
-  by the landed scan-gated dispatch; sqlite_master bookkeeping / TEMP / REINDEX remain named.
-- **select-codegen-001** stays partial — WITH/recursive execution noted; residual still full
-  select.c orchestration / flattening / planner.
-- **select-codegen-002 / 003** untouched.
+VDBE/EXPLAIN (prepare-006), planner/flattening (select-codegen-001/003), pager/btree/WAL-multi,
+parse.y (parser-grammar-001/tokenizer-001), va_list, dlopen, compile-option other-builds,
+xBestIndex trio (series/prefixes/wholenumber), zlib-byte compress, full NFA regexp, mutex plugins,
+util hash/ChaCha20, CACHE_SPILL/scanstatus, FTS/rtree/session, ENABLE-off nones — all untouched.
 
-## 5. Anti-cheat
+## 6. Anti-cheat
 
-A runtime stop bound must drive the row count (`x<{n}` for a pid-derived n); a runtime CTE
-name must appear in the code-33 s4 slot when scanned. Both in `modern/tests/engine_harvest42.rs`.
+A runtime JSON array index mutates the matching element; a runtime table name appears in
+pragma_index_list; a runtime TEMP table is isolated from a same-named main table (unqualified
+resolves temp, `main.` resolves main). All in `modern/tests/engine_harvest43.rs`.
 
-## 6. Freezes / cargo
+## 7. Cargo
 
-11 new cases under `tests/characterization/engine-harvest42/` (001 ×2, 002 ×2, 003 ×1,
-004 ×2, 005 ×2, 006 ×2), two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 244,
-prior golden md5s untouched. `cargo test` (52 binaries): **all green**, including the run-51
-auth suite, harvest40, set-op and subquery suites. `SCRIPT_TABLE.len()==0`.
+`cargo test` (53 binaries): **all green**, including the JSON, pragma-TVF, attach33 qualified-name,
+harvest41 auth-filter and harvest42 WITH/RECURSIVE suites. `SCRIPT_TABLE.len()==0`.
 
-## 7. Scoreboard
+## 8. Freezes
+
+10 new cases under `engine-harvest43/` (JSON ×3, pragma ×2) and `engine-temp43/` (TEMP ×3, auth ×2),
+two-run deterministic, delegated HUMAN_ACCEPTED, legacy_green 250, prior golden md5s untouched.
+
+## 9. Scoreboard
 
 | | before | after |
 | --- | --- | --- |
-| full | 214 | **220** |
-| partial | 42 | 42 |
+| full | 220 | **225** |
+| partial | 42 | 41 |
 | none | 78 | 78 |
-| behaviours | 334 | 340 (+6 composed) |
+| behaviours | 340 | 344 (+4 composed) |
 
-partial→full: none (by design). Composed engine-harvest42-001..006 full.
+partial→full: pragma-surface-002 (estate) + engine-harvest43-002 / engine-temp43-* (composed).
+Still partial: json-funcs-002 (JSONB), auth-callback-api-001 (TEMP index/trigger/view + master),
+attach-detach-003 (cross-schema TEMP fire + bodies).
 
-## 8. Not migrated
+## 10. Not migrated
 
-SQLite is **not migrated**. Flattening, the planner, full select.c orchestration, SEARCH/CYCLE,
-the authorizer's DDL bookkeeping walks, TEMP catalog, REINDEX, WAL concurrency, VDBE, pager/
-btree, FTS and sessions remain partial or absent.
+SQLite is **not migrated**. JSONB binary format, planner/flattening, VDBE, pager/btree/WAL-multi,
+parse.y, the DDL authorizer bookkeeping walks and cross-schema TEMP remain partial or absent.
 
-## 9. Next call
+## 11. Next call
 
-(a) TEMP schema family (CREATE TEMP TABLE + sqlite_temp_master would unlock auth TEMP codes
-honestly); (b) json-funcs-002 array-path mutation; (c) pragma-surface-002 result-pragma
-projections; (d) attach-detach-003 TEMP-trigger fire matrix; (e) subquery flattening probes
-for select-codegen-003 (heavy — only with a full pack).
+VFS-001 none-cut (wave 2): the in-memory VFS shim surface — probe which sqlite3_vfs entry points
+the bare pin exposes and whether a honest register/find/default round-trip is pinnable without a
+real OS backend. Then TEMP index/view auth codes once TEMP DDL widens.

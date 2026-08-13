@@ -1000,3 +1000,22 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   select-codegen-001 notes WITH real (residual unchanged); 002/003 untouched. Composed
   engine-harvest42-001..006 full. cargo 52 binaries green; SCRIPT_TABLE 0.
 - Scoreboard full 214->220 / partial 42 / none 78 (340 known). Not migrated.
+## Run 53 — 2026-08-15 — engine v43: the kitchen 12-hour close (pack v43, overnight)
+
+- Pack v42 -> v43 BOUND (KITCHEN-12H: TEMP not aliased to main, sqlite_temp_master real not a
+  fake auth walk, JSON array paths match C, pragma index_list/fk_list real projections not counts,
+  JSONB probe-then-maybe, parked cards stay parked). ADR 0041.
+- JSONB probed PRESENT on the pin -> not implemented; json-funcs-002 stays partial (JSONB residual).
+- Probed C then froze 10 goldens: JSON array paths (OOB no-op split, remove shift, #/#-K, nested,
+  NULL-doc), pragma_index_list/foreign_key_list projections, TEMP schema isolation/shadowing/
+  drop-precedence/TEMP-trigger-fire, auth TEMP codes 4/13 (filtered logs, no catalog tail).
+- Modern: array-index paths on the JSON tree mutators (arr_idx handling N/#/#-K); index_list/
+  fk_list projections built once into the eval Ctx (avoids nested store borrow), synthesized
+  autoindexes + composite FK parse; real per-connection temp schema (temp. keys, temp-first
+  dml_key + eval_snapshot alias, sqlite_temp_master SELECT branch, image_of excludes temp),
+  TEMP triggers reparsed with a temp flag and fired; auth codes 4/13.
+- Estate: pragma-surface-002 partial->FULL (projections were the last residual); json-funcs-002
+  stays partial (JSONB); attach-detach-003 TEMP-trigger-fire line cleared (stays partial);
+  auth-callback-api-001 TEMP outer codes dispatched (stays partial). Composed engine-harvest43-001/002
+  + engine-temp43-001/002 full. cargo 53 binaries green; SCRIPT_TABLE 0.
+- Scoreboard full 220->225 / partial 41 / none 78 (344 known). Parked list unchanged. Not migrated.

@@ -2669,9 +2669,10 @@ behaviours:
     live in main and CREATE errors "trigger T cannot reference objects in database X" cross-schema); at fire time body statements
     resolve unqualified names STRICTLY inside the trigger schema (collision hits the trigger schema only; main-only/missing
     targets error "no such table: aux.X"); event/timing matrix (AFTER INSERT/UPDATE/DELETE, BEFORE, order) pinned on attached
-    tables; DETACH tears attached triggers down; per-schema sqlite_master real. STAYS PARTIAL for named leftovers: TEMP-trigger
-    cross-schema fire matrix (TEMP triggers accepted but not fired, run-39 scope), trigger bodies beyond INSERT..VALUES /
-    RAISE / no-op SELECT (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.'
+    tables; DETACH tears attached triggers down; per-schema sqlite_master real. run-53: TEMP-trigger FIRE cleared - CREATE TEMP
+    TRIGGER now fires on TEMP-table DML (BEFORE/AFTER) and shows in sqlite_temp_master (engine-temp43-001-C003). STAYS PARTIAL
+    for named leftovers: TEMP-trigger CROSS-SCHEMA fire matrix, trigger bodies beyond INSERT..VALUES / RAISE / no-op SELECT
+    (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.'
   traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: auth-callback-api-001
@@ -2698,7 +2699,10 @@ behaviours:
     the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master
     / sqlite_temp_master bookkeeping sequences C emits for DDL are NOT modelled (CREATE_INDEX 1 / DROP_INDEX 10, CREATE_VIEW
     8 / DROP_VIEW 17, CREATE_TRIGGER 7 / DROP_TRIGGER 16 full logs, and the catalog tails of ALTER/DROP/VTABLE stay unfrozen);
-    the TEMP family (3-6, 12-15) is not dispatched; REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*).
+    REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*). run-53: the TEMP outer codes
+    CREATE_TEMP_TABLE (4) and DROP_TEMP_TABLE (13) are now dispatched (s1 = table, s3 = temp; DENY rc 23; no sqlite_temp_master
+    tail - engine-temp43-002); remaining TEMP codes (CREATE/DROP TEMP INDEX/TRIGGER/VIEW 5/6/12/14/15) and the master
+    bookkeeping families stay named.
     run-52: SQLITE_RECURSIVE 33 now DISPATCHED scan-gated (recursive CTEs execute since v42): a used recursive member fires
     [21|cte][33|~|~|~|cte][21|cte]x2, unused WITH RECURSIVE stays silent, DENY rc 23 - pinned engine-harvest42-004 + a runtime
     CTE-name anti-cheat.'
@@ -3515,7 +3519,10 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB. | legacy RECORD
     REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    json_set/insert/replace/patch/remove real on parsed trees; array-path mutation and JSONB absent'
+    json_set/insert/replace/patch/remove real on parsed trees. run-53: ARRAY-PATH mutation landed - $.a[N] / $[N] / $.a[#] append /
+    $.a[#-K] with C''s set/insert/replace out-of-range no-op split, remove-shifts-the-remainder, nested $.a[N].b, NULL-doc -> NULL
+    (engine-harvest43-001 + a runtime array-index anti-cheat). RESIDUAL: JSONB (probed PRESENT on the pin - jsonb()/jsonb_extract
+    exist; the binary format is deliberately not implemented this pack, ADR 0041).'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: json-funcs-003
@@ -4334,10 +4341,13 @@ behaviours:
     C''s LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
     names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name
     anti-cheat; no ext/misc force-link, no census of untouched TVFs. run-50: pragma_index_xinfo TVF added (desc/coll/key columns
-    + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). RESIDUAL: remaining result
-    pragmas (index_list / foreign_key_list projections stay count-only).'
+    + the trailing rowid entry cid -1/key 0; column collation carried; pinned engine-harvest40-008). run-53: FULL - the last
+    residual cleared: pragma_index_list projects seq/name/unique/origin/partial (reverse creation order, synthesized UNIQUE/PK
+    autoindexes with origin u/pk, partial-index flag) and pragma_foreign_key_list projects id/seq/table/from/to/on_update/
+    on_delete/match (reverse declaration order, composite keys sharing an id across seq), for both PRAGMA and TVF forms -
+    real projections over live schema, not counts (engine-harvest43-002 + a runtime index-name anti-cheat). Residual empty.'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
-  impl_in_modern: partial
+  impl_in_modern: full
 - behaviour_id: prepare-statement-api-001
   surface_id: sur-sqlite3-prepare-v2
   name: Prepare family (v1/v2/v3, UTF-8/16, prepFlags)
@@ -7371,6 +7381,62 @@ behaviours:
   pack_version: 42
   traceability: tests/characterization/engine-harvest42/TRACEABILITY.yaml
   notes: run-52 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-52 delegated stamp)
+- behaviour_id: engine-harvest43-001
+  surface_id: sur-engine-harvest43
+  name: JSON array-index paths
+  status: converted
+  slice_id: engine-harvest43
+  discovery_card: discovery/engine-harvest43/features/engine-harvest43-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 43
+  traceability: tests/characterization/engine-harvest43/TRACEABILITY.yaml
+  notes: run-53 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-53 delegated stamp)
+- behaviour_id: engine-harvest43-002
+  surface_id: sur-engine-harvest43
+  name: pragma index_list / foreign_key_list projections
+  status: converted
+  slice_id: engine-harvest43
+  discovery_card: discovery/engine-harvest43/features/engine-harvest43-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 43
+  traceability: tests/characterization/engine-harvest43/TRACEABILITY.yaml
+  notes: run-53 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-53 delegated stamp)
+- behaviour_id: engine-temp43-001
+  surface_id: sur-engine-temp43
+  name: TEMP schema isolation + triggers
+  status: converted
+  slice_id: engine-temp43
+  discovery_card: discovery/engine-temp43/features/engine-temp43-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 43
+  traceability: tests/characterization/engine-temp43/TRACEABILITY.yaml
+  notes: run-53 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-53 delegated stamp)
+- behaviour_id: engine-temp43-002
+  surface_id: sur-engine-temp43
+  name: auth TEMP outer codes
+  status: converted
+  slice_id: engine-temp43
+  discovery_card: discovery/engine-temp43/features/engine-temp43-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 43
+  traceability: tests/characterization/engine-temp43/TRACEABILITY.yaml
+  notes: run-53 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-53 delegated stamp)
 - behaviour_id: engine-harvest39-002
   surface_id: sur-engine-harvest39
   name: pragma_module_list lazy population
@@ -7413,8 +7479,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T18:37:31Z'
-updated_by: sqlite-engine-v1-kitchen
+last_updated: '2026-08-13T19:00:15Z'
+updated_by: sqlite-engine-v43-kitchen-12h
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -7423,10 +7489,10 @@ counts:
   surfaces_by_status:
     candidate: 185
     accepted: 59
-  behaviours_known: 340
+  behaviours_known: 344
   behaviours_by_status:
     documented: 137
-    converted: 203
+    converted: 207
   unscanned_hints: 3
   legacy_green: 250
   parity_green: 0
