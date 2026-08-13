@@ -1,0 +1,2 @@
+OBS engine-harvest40-008-C002 xinfo_coll 0,1,y,0,NOCASE,1|1,-1,~,0,BINARY,0
+OBS engine-harvest40-008-C002 info_vs_xinfo 1,2

@@ -2731,8 +2731,8 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             let views = st.views.clone();
             let idxmaps = build_index_snapshot(st);
             let colls = build_coll_snapshot(st);
-            let idefs: Vec<(String, String, Vec<String>)> = st.indexes.iter()
-                .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone())).collect();
+            let idefs: Vec<(String, String, Vec<String>, String)> = st.indexes.iter()
+                .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone(), d.sql.clone())).collect();
             let mut snap = snap;
             apply_read_auth(db, s, &mut snap); // run-38: authorizer READ -> IGNORE nulls columns
             PROBE_CELL.with(|c| c.set(0));
@@ -2825,8 +2825,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let idxmaps = build_index_snapshot(st);
                     let views2 = st.views.clone();
                     let colls2 = build_coll_snapshot(st);
-                    let idefs2: Vec<(String, String, Vec<String>)> = st.indexes.iter()
-                        .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone())).collect();
+                    let idefs2: Vec<(String, String, Vec<String>, String)> = st.indexes.iter()
+                        .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone(), d.sql.clone())).collect();
                     let res = PROBE_CELL.with(|probes| {
                         let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2, index_defs: &idefs2 };
                         eval::run_stmt(&mut ctx, s)

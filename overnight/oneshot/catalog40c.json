@@ -1,0 +1,16 @@
+[
+ {
+  "id": "engine-harvest40-008-C001",
+  "feature": "engine-harvest40-008",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "pragma_index_xinfo adds desc/coll/key columns and the trailing rowid entry (cid -1, key 0); DESC column pinned"
+ },
+ {
+  "id": "engine-harvest40-008-C002",
+  "feature": "engine-harvest40-008",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "index_xinfo carries the column collation (NOCASE) and shows one more row than index_info (the rowid tail)"
+ }
+]

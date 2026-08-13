@@ -393,7 +393,7 @@ pub struct Ctx<'a> {
     /// declared column collations (lower colname -> lower collation name)
     pub col_colls: &'a std::collections::HashMap<String, String>,
     /// run-44: explicit index definitions (index name, table, columns) for pragma TVFs
-    pub index_defs: &'a [(String, String, Vec<String>)],
+    pub index_defs: &'a [(String, String, Vec<String>, String)], // (name, table, cols, sql)
 }
 
 /// Evaluate one expression against a plain env (used by the store for CHECK
@@ -1437,6 +1437,25 @@ thread_local! {
     static IN_VIEW: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
+/// run-50: per-column (desc, collation) from a CREATE INDEX statement's column list
+fn parse_index_col_attrs(sql: &str) -> Vec<(bool, String)> {
+    let up = sql.to_ascii_uppercase();
+    let open = match up.find('(') { Some(p) => p, None => return Vec::new() };
+    let close = match sql.rfind(')') { Some(p) => p, None => return Vec::new() };
+    if close <= open { return Vec::new(); }
+    let list = &sql[open + 1..close];
+    split_top(list, ',').iter().map(|part| {
+        let pu = part.to_ascii_uppercase();
+        let desc = pu.split_whitespace().last() == Some("DESC")
+            || pu.trim_end().ends_with(" DESC");
+        let coll = match pu.find("COLLATE ") {
+            Some(cp) => part[cp + 8..].split_whitespace().next().unwrap_or("BINARY").to_string(),
+            None => "BINARY".to_string(),
+        };
+        (desc, coll)
+    }).collect()
+}
+
 fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String> {
     let from_uq = if from.trim().starts_with('(') { from.trim().to_string() } else { unquote_ident(from) };
     let from = from_uq.as_str();
@@ -1552,7 +1571,7 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
             }
             "pragma_index_info" => {
                 let mut rows: Vec<Row> = Vec::new();
-                if let Some((_, tbl, cols)) = ctx.index_defs.iter().find(|(n, _, _)| *n == arg) {
+                if let Some((_, tbl, cols, _)) = ctx.index_defs.iter().find(|(n, _, _, _)| *n == arg) {
                     let tcols: Vec<String> = ctx.tables.get(tbl).map(|(c, _)| c.clone()).unwrap_or_default();
                     for (seq, col) in cols.iter().enumerate() {
                         let cid = tcols.iter().position(|c| c == col).map(|p| p as i64).unwrap_or(-1);
@@ -1564,6 +1583,41 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                     }
                 }
                 return Ok((vec!["seqno".into(), "cid".into(), "name".into()], rows));
+            }
+            "pragma_index_xinfo" => {
+                // run-50: index_xinfo adds desc / coll / key and the trailing
+                // rowid entry (cid -1, key 0) C appends for a rowid-table index
+                let mut rows: Vec<Row> = Vec::new();
+                if let Some((_, tbl, cols, sql)) = ctx.index_defs.iter().find(|(n, _, _, _)| *n == arg) {
+                    let tcols: Vec<String> = ctx.tables.get(tbl).map(|(c, _)| c.clone()).unwrap_or_default();
+                    let attrs = parse_index_col_attrs(sql);
+                    for (seq, colraw) in cols.iter().enumerate() {
+                        // the stored column expr may carry ASC/DESC/COLLATE; the bare
+                        // name is the leading identifier
+                        let col = colraw.split_whitespace().next().unwrap_or(colraw).to_string();
+                        let cid = tcols.iter().position(|c| *c == col).map(|p| p as i64).unwrap_or(-1);
+                        let (desc, coll) = attrs.get(seq).cloned().unwrap_or((false, "BINARY".into()));
+                        let mut m = Row::new();
+                        m.insert("seqno".into(), V::Int(seq as i64));
+                        m.insert("cid".into(), V::Int(cid));
+                        m.insert("name".into(), V::Text(col));
+                        m.insert("desc".into(), V::Int(desc as i64));
+                        m.insert("coll".into(), V::Text(coll));
+                        m.insert("key".into(), V::Int(1));
+                        rows.push(m);
+                    }
+                    // trailing rowid entry (unless the index already covers the rowid)
+                    let mut m = Row::new();
+                    m.insert("seqno".into(), V::Int(cols.len() as i64));
+                    m.insert("cid".into(), V::Int(-1));
+                    m.insert("name".into(), V::Null);
+                    m.insert("desc".into(), V::Int(0));
+                    m.insert("coll".into(), V::Text("BINARY".into()));
+                    m.insert("key".into(), V::Int(0));
+                    rows.push(m);
+                }
+                return Ok((vec!["seqno".into(), "cid".into(), "name".into(),
+                                "desc".into(), "coll".into(), "key".into()], rows));
             }
             "completion" => {
                 // run-50: LIVE C's phase contract — keywords (1), databases (7),

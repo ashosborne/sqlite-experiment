@@ -1,0 +1,3 @@
+OBS engine-harvest40-008-C001 xinfo_cols seqno,cid,name,desc,coll,key
+OBS engine-harvest40-008-C001 xinfo_rows 0,0,a,0,BINARY,1|1,1,b,1,BINARY,1|2,-1,~,0,BINARY,0
+OBS engine-harvest40-008-C001 xinfo_missing 0

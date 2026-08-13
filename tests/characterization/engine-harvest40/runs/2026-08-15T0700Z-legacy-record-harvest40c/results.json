@@ -1,0 +1,29 @@
+{
+ "run_id": "2026-08-15T0700Z-legacy-record-harvest40c",
+ "slice_id": "engine-harvest40",
+ "mode": "RECORD",
+ "target": "legacy",
+ "build": {
+  "recipe": "run-5 pin reused (/tmp/sqlite-build), fingerprint re-verified 3.54.0/armor0/autoreset0",
+  "determinism_gate": "two independent runs byte-matched before freeze"
+ },
+ "scrub_profile": "none (deterministic static inputs; nondeterministic sources captured as derived booleans/shape only)",
+ "cases": [
+  {
+   "case_id": "engine-harvest40-008-C001",
+   "feature_id": "engine-harvest40-008",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-harvest40-008/C001.approved.txt",
+   "actual_path": "runs/2026-08-15T0700Z-legacy-record-harvest40c/actuals/engine-harvest40-008-C001.replay.txt"
+  },
+  {
+   "case_id": "engine-harvest40-008-C002",
+   "feature_id": "engine-harvest40-008",
+   "status": "REPLAY_GREEN",
+   "failure_class": null,
+   "golden_path": "cases/engine-harvest40-008/C002.approved.txt",
+   "actual_path": "runs/2026-08-15T0700Z-legacy-record-harvest40c/actuals/engine-harvest40-008-C002.replay.txt"
+  }
+ ]
+}
