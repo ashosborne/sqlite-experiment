@@ -5,17 +5,17 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T22:01:27Z
+- Generated: 2026-08-13T23:37:11Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-13T22:00:48Z by `sqlite-engine-v46-leaf-split`
+- Manifest last_updated: 2026-08-13T23:37:11Z by `sqlite-engine-v47-vdbe`
 
 ## Operator progress (modern implementation)
 
 | State | Count | Meaning |
 | --- | --- | --- |
-| none | 75 | Not started in modern |
-| partial | 44 | Some modern execution; gaps in notes |
-| full (converted) | 231 | Behaviour done in modern; parity may still be UNVERIFIED |
+| none | 74 | Not started in modern |
+| partial | 45 | Some modern execution; gaps in notes |
+| full (converted) | 233 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -248,6 +248,8 @@
 - `engine-btree45-002` — table cursor cells on pager pages
 - `engine-btree46-001` — cursor-path first split
 - `engine-btree46-002` — pinned C reads the modern split file
+- `engine-vdbe47-001` — EXPLAIN of constant SELECT is C's program
+- `engine-vdbe47-002` — stepping a constant SELECT dispatches that program
 - `engine-harvest39-002` — pragma_module_list lazy population
 - `engine-harvest39-003` — per-row blob expiry + TEXT-cell writes
 - `engine-harvest39-004` — sqlite3_randomness + test_control PRNG
@@ -288,7 +290,7 @@
 - `pager-001` — confidence=observed-in-code; Begin/commit-phase-one/two/rollback with rollback-journal crash safety. run-55: NONE -> PARTIAL - a real rollback journal on the file-backed DELETE-mode write path: an open write transaction copies each changed page's ORIGINAL bytes into <db>-journal before overwriting it in the db file (journal observably present during the txn, gone after COMMIT/ROLLBACK), ROLLBACK replays the journal to restore the pre-images, COMMIT drops it, and the committed db file stays valid SQLite (the pinned C amalgamation opens modern's file, reads the runtime row, integrity_check rc 0). Page get/write routes through a methods2-shaped page cache (xFetch/xUnpin/write move under real file-txn traffic, not under a :memory: control). Pinned engine-pager44-001/002 + runtime anti-cheat. RESIDUAL (full forbidden): no two-phase commit, no hot-journal crash-recovery matrix (the journal is Rust-private, not C's format), no WAL-as-pager; autocommit writes journal-then-write-then-delete within the statement. Supersedes the run-15 toy single-page writer.
 - `parser-grammar-001` — grammar subset real (pinned DDL/DML/SELECT/pragma catalogue); full parse.y productions absent
 - `pragma-surface-001` — 27 of ~70 pragmas real (get/set incl. busy_timeout set-returns-value, journal_mode by backing store); rest of dispatcher absent run-32: journal_mode grew real wal/delete set semantics on files + wal_checkpoint family; card stays partial (dispatcher breadth still bounded). run-44: breadth bump ~27 -> ~40 of ~70 - data_version (own writes do not bump, sibling commits do), freelist_count, collation_list (live registry, newest-first), table_xinfo/index_info/index_xinfo row shapes, query_only ENFORCED ("attempt to write a readonly database" rc 8), ignore_check_constraints ENFORCED, quick_check now REALLY validates CHECK constraints ("CHECK constraint failed in T"), unknown pragma names silently ignored (get+set, the classic trap). RESIDUAL: remaining ~30 pragmas (journal-size/wal tuning, mmap, cache_spill, locking edges), typed/pk metadata in xinfo rows (pinned tables are typeless), integrity_check corruption taxonomy beyond CHECK validation.
-- `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE) run-47: introspection APIs completed - sqlite3_stmt_isexplain (0/1/2) and sqlite3_stmt_explain mode switching (rc 0, EQP column shape follows, bad mode errors, prepared-EQP reports 2) pinned real. STAYS PARTIAL: EXPLAIN bytecode ROW CONTENTS - there is no VDBE and nested-loop EQP is not bytecode (v37 law).
+- `prepare-statement-api-006` — stmt_readonly/busy + EXPLAIN QUERY PLAN (this engine's honest nested-loop SCAN; planner-artifact EQP deliberately unfrozen) + EXPLAIN column shape real; EXPLAIN bytecode listing absent (no VDBE) run-47: introspection APIs completed - sqlite3_stmt_isexplain (0/1/2) and sqlite3_stmt_explain mode switching (rc 0, EQP column shape follows, bad mode errors, prepared-EQP reports 2) pinned real. run-58: EXPLAIN bytecode row contents now REAL for the landed constant-SELECT programs (rows match frozen C incl. addr/opcode/p1-p5). STAYS PARTIAL: EXPLAIN of kitchen-owned SQL (anything with a FROM, DML, CTEs) still returns no rows - those programs do not exist yet - and nested-loop EQP is still not bytecode (v37 law).
 - `printf-format-002` — mprintf subset real; vmprintf/snprintf variants absent run-33: sqlite3_snprintf real (truncation/NUL/n<=0 pinned). REMAINING: sqlite3_vmprintf requires a C va_list, which stable Rust cannot define — honest platform residual.
 - `printf-format-003` — str_new/appendf/appendchar/reset/length/value/errcode/finish (empty->NULL) real; raw append(z,n) and vappendf (varargs ABI) absent run-33: raw sqlite3_str_append(z,n) real. REMAINING: vappendf (same va_list platform residual).
 - `select-codegen-001` — joins/subqueries/FROM depth run real (nested loop). run-52: WITH and WITH RECURSIVE ... UNION ALL now execute for real (CTE scope shadowing, C's Queue/Current FIFO recursion, UNION-distinct DistFifo, probed compile errors - engine-harvest42). RESIDUAL unchanged: full select.c orchestration, flattening rewrite and planner absent.
@@ -296,6 +298,7 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. run-49: public sqlite3_randomness real - stateful PRNG stream fills exactly N bytes, N=0 writes nothing, and sqlite3_test_control PRNG SAVE/RESTORE/SEED replay the stream (within-run predicates, engine-harvest39-004; unseeded bytes never goldens). STILL PARTIAL: string hash tables and internal hash primitives not implemented; modern's generator is not C's ChaCha20 (byte streams intentionally unpinned) — do not flip to full. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
+- `vdbe-engine-001` — confidence=observed-in-code; 199 OP_ cases; interruption, progress-callback and error unwinding semantics. | run-58 impl_in_modern=partial: the first bytecode slice. Constant SELECTs (SELECT n / n WHERE 1|0 / n+m / 'text' / n,m) compile to C's exact program (Init/Integer/String8/Add/ResultRow/Halt/Goto with C's p1-p5 and layout: WHERE-0 jumps Goto->Halt, 1+2 stays UNFOLDED with init-section loads after Halt), EXPLAIN returns that listing row-for-row against frozen C, and sqlite3_step of the same SQL executes the program through a real dispatch loop (register file, pc jumps, dispatch counter moves; kitchen-fallback SQL does not move it). RESIDUAL: everything with a FROM (OpenRead/Rewind/Column on the v45 cursor), the other ~192 opcodes, comparisons/jumps beyond Goto, OP_Program triggers, interrupt, progress handler, explain comment column (NULL here as in C's default build), and DML/CTE/aggregate codegen - all still the kitchen evaluator, honestly named (engine-vdbe47 goldens).
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 
@@ -356,7 +359,6 @@
 - `shell-cli-002` — shell-cli — legacy_green no
 - `tcl-binding-001` — tcl-binding — legacy_green no
 - `unlock-notify-api-001` — unlock-notify-api — legacy_green no
-- `vdbe-engine-001` — vdbe-engine — legacy_green no
 - `vdbe-engine-002` — vdbe-engine — legacy_green no
 - `vfs-kv-001` — vfs-kv — legacy_green no
 - `vfs-kv-002` — vfs-kv — legacy_green no
@@ -382,10 +384,10 @@
 | Metric | Count |
 | --- | --- |
 | Surfaces total | 244 |
-| Behaviours known | 350 |
+| Behaviours known | 352 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 261 |
+| legacy_green flags | 263 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
@@ -399,7 +401,7 @@
 
 | Status | Count |
 | --- | --- |
-| converted | 208 |
+| converted | 210 |
 | documented | 142 |
 
 ## Surfaces per slice

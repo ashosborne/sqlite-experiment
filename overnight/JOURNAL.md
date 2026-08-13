@@ -1073,3 +1073,13 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   btree-001/pager/pcache/vdbe/where untouched. Composed engine-btree46-001/002 full.
   cargo 59 binaries green; SCRIPT_TABLE 0. Brief filename drift (run54/55) fixed.
 - Scoreboard full 229->231 / partial 44 / none 75 (350 known). Not migrated.
+
+## run 58 — engine v47: the first bytecode slice (constant-SELECT VDBE)
+Pack v46→v47 BOUND (VDBE/NONE law; ADR 0045). Probed C's EXPLAIN of constant SELECTs and froze 5
+goldens (engine-vdbe47): SELECT n programs, WHERE-1 fold vs WHERE-0 Goto→Halt, unfolded 1+2 with
+init-section loads, String8 p4, two-column ResultRow, execution rows + step/reset cycle.
+modern/src/vdbe.rs compiles those shapes to C's exact programs; sqlite3_step dispatches them
+(Init/Goto/Integer/String8/Add/ResultRow/Halt; counter moves, kitchen join doesn't); EXPLAIN
+returns the real listing for compiled programs. vdbe-engine-001 none→partial; vdbe-engine-002
+stays none (no Mem cells); prepare-006 residual rewritten. Composed engine-vdbe47-001/002 full.
+233 full / 45 partial / 74 none of 352; 60 binaries green. SQLite not migrated.

@@ -1,77 +1,62 @@
-# MORNING BRIEF — engine v46: the cursor-path first split (run 57, overnight)
+# MORNING BRIEF — engine v47: the first bytecode slice (run 58, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–56 stamped alongside.
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v46-leaf-split, IMPLEMENT_BTREE_LEAF_SPLIT,
-FORBID_DBFILE_FALLBACK_AS_SPLIT, REQUIRE_PINNED_C_OPENS_SPLIT_FILE,
-FORBID_KITCHEN_INTEGRITY_AS_PROOF. MAX_NEW_CASES 40 (used 4).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–57 stamped alongside
+(run-57 brief archived at MORNING_BRIEF-2026-08-15-run57.md).
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v47-vdbe, IMPLEMENT_VDBE_DISPATCH,
+REQUIRE_EXPLAIN_MATCHES_C, FORBID_KITCHEN_EVAL_AS_VDBE, FORBID_EQP_AS_BYTECODE.
+MAX_NEW_CASES 40 (used 5).
 
-## 1. Pack @46 BOUND — SPLIT/CURSOR law
+## 1. Pack @47 BOUND — VDBE/NONE law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v45 → **v46**
-(versions/1–46 retained; ADR `0044-engine-v46-leaf-split.md`; schema VALID; 52 laws).
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v46 → **v47**
+(versions/1–47 retained; ADR `0045-engine-v47-vdbe.md`; schema VALID; 53 laws).
+The law: vdbe-engine-001 leaves none only if EXPLAIN rows match probed C (names + p1–p5,
+never a paraphrase) **and** sqlite3_step of the same SQL runs the program in a dispatch loop
+(counter moves; kitchen-fallback SQL doesn't move it). Canned EXPLAIN, EQP-as-bytecode and
+199-opcode full forbidden.
 
-## 2. Split vs C
+## 2. C's programs (probed, frozen)
 
-Probed: 12 × 500-char rows overflow one 4096 leaf; C's `page_count` goes **2 → 4**, the table
-root (page 2) turns **0x0d → interior 0x05**, pages 3/4 are 0x0d leaves; reopen returns all 16
-rows; a post-split INSERT lands with the root still interior. Modern's cursor path now produces
-the same geometry: greedy cell chunking into ≥2 leaves on appended pages, an interior root with
-C's divider-cell layout (4-byte left child + largest-rowid varint, right-most in the header),
-db-size header + change counter updated. Root page number never changes (schema untouched).
+`EXPLAIN SELECT 1` on this pin: `Init 0 4` · `Integer 1 1` · `ResultRow 1 1` · `Halt` ·
+`Goto 0 1` (8 columns; p4 NULL except String8's text, p5 0, comment NULL). `WHERE 1` folds to
+the same program; `WHERE 0` inserts **Goto→Halt** so no row is produced; **`1+2` is NOT
+constant-folded** — `Add 3 2 1` with the `Integer` loads in the init section *after* Halt;
+`'hi'` is `String8` with p4; `1, 2` widens to `ResultRow 1 2`. Execution: values, zero rows
+for WHERE 0, and the step/step/reset/step cycle (ROW+1, DONE, ROW+1). 5 goldens under
+`tests/characterization/engine-vdbe47/`, two-run deterministic, delegated HUMAN_ACCEPTED.
 
-## 3. Cursor path vs fallback
+## 3. Modern: dispatch, not kitchen
 
-The overflow INSERT is taken by the tree-capable cursor (`rewrite_table_leaf` returns Some) —
-**not** by `dbfile::write_db_bytes` (which has done multi-leaf since disk-debt and is not a
-split). Proof: a `split_count` counter moves on the overflow INSERT **and** on the post-split
-write (the interior read was lifted so the second write re-splits on the cursor path), and stays
-still on a `:memory:` control. The whole-image fallback remains only for shrink-below-split
-(merge out of scope), deeper trees and oversized cells — named in the residual.
+`modern/src/vdbe.rs`: `compile()` recognises exactly the probed constant-SELECT shapes and
+emits C's program layout; `execute()` is a dispatch loop over **Init, Goto, Integer, String8,
+Add, ResultRow, Halt** (register file, pc jumps, dispatch counter). `sqlite3_step` of compiled
+SQL runs the program — the counter moves; a join (still the evaluator's) does not move it.
+EXPLAIN-mode statements return the real listing for compiled programs and stay honestly empty
+for kitchen SQL. Prior prepare-006 pins (isexplain, EQP shape on FROM-table SQL) untouched.
 
-## 4. How C was exec'd
+## 4. Inventory
 
-Not an env-gated modern-only writer:
-1. **RECORD golden** `engine-btree46-002`: modern wrote the deterministic split file FIRST; the
-   RECORD harness binary — the pinned C amalgamation — opened it and its read (all rowids, leaf
-   probe, `integrity_check` ok, root type 5) is the frozen golden.
-2. **In the cargo suite**: `exec_pinned_c` compiles (cached) and **executes** a reader against
-   `/tmp/sqlite-build/sqlite3.c` (the RECORD pin) on modern-written files — the twin's integrity
-   line and the runtime-payload anti-cheat both come from that C process. Kitchen
-   `PRAGMA integrity_check` (a CHECK-constraint walk) is never used as proof.
+- **vdbe-engine-001 none → partial** — residual: everything with a FROM (OpenRead/Rewind/
+  Column on the v45 cursor), ~192 opcodes, OP_Program/interrupt/progress, DML/CTE/aggregate
+  codegen — all still kitchen, honestly named.
+- **vdbe-engine-002 stays none** — the loop's registers are a plain value Vec, not Mem cells
+  with probed affinity (lookaside/pcache lesson applied).
+- **prepare-statement-api-006 stays partial** — bytecode rows now real for landed programs;
+  kitchen-owned SQL still rowless; nested-loop EQP still not bytecode (v37).
+- Composed `engine-vdbe47-001/002` full. btree/pager/wal/select/expr untouched.
 
-## 5. btree-002 residual (stays partial)
+## 5. Scoreboard
 
-First split landed on the cursor path. Remaining: sibling-balance matrix (the split
-redistributes cells across leaves rather than balancing siblings in place), merge on DELETE
-(shrink-below-split falls back), 3-level trees, index b-trees, WITHOUT ROWID, overflow chains
-on the cursor path, saved-position restore; live query reads still store-based.
+**233 full / 45 partial / 74 none of 352.** All 60 test binaries green (btree46, pager44,
+sqlite_sql_suite first slice included). SCRIPT_TABLE.len()==0.
 
-## 6. Scoreboard
+## 6. Not migrated
 
-| | before | after |
-| --- | --- | --- |
-| full | 229 | **231** |
-| partial | 44 | 44 |
-| none | 75 | 75 |
-| behaviours | 348 | 350 (+2 composed) |
+SQLite is **not** migrated. SQL with a FROM never touches the VM; 192 opcodes, Mem cells,
+triggers, interrupt, progress, WAL depth, leaf merge, index btrees all absent.
 
-Composed engine-btree46-001/002 full. No estate flips (by design — residual shrink only).
+## 7. Next call
 
-## 7. Freezes / cargo
-
-4 goldens under `tests/characterization/engine-btree46/` (001 split geometry + reopen +
-post-split ×3, 002 C-reads-modern ×1), two-run deterministic, delegated HUMAN_ACCEPTED,
-legacy_green 259. `cargo test` (59 binaries): **all green** including btree45, pager44,
-engine-txn and the sqlite_sql_suite first slice. `SCRIPT_TABLE.len()==0`. One non-reproducible
-harvest43 flake seen once, gone across five re-runs (noted in ADR; file-path-only changes this run).
-
-## 8. Not migrated
-
-SQLite is **not migrated**. No sibling balancing, no merge, no 3-level trees, no index b-trees,
-no VDBE, no planner; live query evaluation is still the in-memory kitchen.
-
-## 9. Next call
-
-Page **merge** on DELETE (shrink below the split without orphaning pages — needs freelist
-handling), or the **VDBE first slice** (a real opcode loop feeding this cursor) as the next
-none-cut.
+**OpenRead/Rewind/Column on the v45 btree cursor** (the first table-scan program — would let
+`SELECT * FROM t` step through real opcodes over real pages), or **leaf merge on DELETE**
+(shrink below the split; needs a freelist).
