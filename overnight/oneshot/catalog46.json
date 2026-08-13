@@ -1,0 +1,30 @@
+[
+ {
+  "id": "engine-btree46-001-C001",
+  "feature": "engine-btree46-001",
+  "slice": "engine-btree46",
+  "kind": "bespoke",
+  "note": "overflow forces the first split: page_count 2->4, root 0x0d -> interior 0x05, pages 3/4 are 0x0d leaves, all 16 rows and min/max intact"
+ },
+ {
+  "id": "engine-btree46-001-C002",
+  "feature": "engine-btree46-001",
+  "slice": "engine-btree46",
+  "kind": "bespoke",
+  "note": "reopen after the split returns every rowid in order plus low- and high-leaf probes"
+ },
+ {
+  "id": "engine-btree46-001-C003",
+  "feature": "engine-btree46-001",
+  "slice": "engine-btree46",
+  "kind": "bespoke",
+  "note": "a second INSERT after the split lands and survives reopen; the root stays interior"
+ },
+ {
+  "id": "engine-btree46-002-C001",
+  "feature": "engine-btree46-002",
+  "slice": "engine-btree46",
+  "kind": "bespoke",
+  "note": "THE PINNED C AMALGAMATION (this harness binary) opens the MODERN-written split file: all rowids, the leaf probe, PRAGMA integrity_check ok, root type 5"
+ }
+]

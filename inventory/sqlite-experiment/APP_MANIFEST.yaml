@@ -2810,11 +2810,11 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; Open/close btree on a pager; read/write transaction nesting with schema-version checks.
-    run-56: NONE -> PARTIAL - a btree handle bound to the v44 pager; sqlite3_txn_state is the public transaction pin and
-    matches probed C: idle 0, a deferred BEGIN alone stays 0, a SELECT lifts to read 1, a write / BEGIN IMMEDIATE / BEGIN
-    EXCLUSIVE lifts to write 2, COMMIT/ROLLBACK return to 0; a readonly-file write fails rc 8. Pinned engine-btree45-001.
-    Supersedes the run-15 toy single-page writer. RESIDUAL (full forbidden): no shared-cache table locks, no schema-cookie
-    out-param matrix, no read/write nesting beyond the single txn level.'
+    run-56: NONE -> PARTIAL - a btree handle bound to the v44 pager; sqlite3_txn_state is the public transaction pin and matches
+    probed C: idle 0, a deferred BEGIN alone stays 0, a SELECT lifts to read 1, a write / BEGIN IMMEDIATE / BEGIN EXCLUSIVE
+    lifts to write 2, COMMIT/ROLLBACK return to 0; a readonly-file write fails rc 8. Pinned engine-btree45-001. Supersedes
+    the run-15 toy single-page writer. RESIDUAL (full forbidden): no shared-cache table locks, no schema-cookie out-param
+    matrix, no read/write nesting beyond the single txn level.'
   impl_in_modern: partial
 - behaviour_id: btree-002
   surface_id: sur-sqlite3btreecursor
@@ -2826,13 +2826,13 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Cursor positioning and mutation incl. page balancing; file-format invariants. run-56:
     NONE -> PARTIAL - file-backed INSERT / DELETE / literal UPDATE of a plain single-leaf rowid table move CELLS through a
-    table cursor on the pager''s leaf pages (schema-rootpage walk, read_leaf/write_leaf cell packing, file change-counter bump),
-    NOT a whole-image rebuild; a cursor-op counter moves on the file DML and NOT on a :memory: control; the committed file
-    stays valid SQLite (the pinned C amalgamation opens a cursor-written file, reads the runtime row, integrity_check rc 0);
-    reopen reparses the cursor-written leaf. Pinned engine-btree45-002. RESIDUAL (full forbidden): single-leaf only (no
-    page split/merge balancing), no index b-trees, no WITHOUT ROWID, no overflow-page cleanup, no saved-position restore
-    matrix; anything outside the single-leaf rowid scope falls back to the whole-image writer and live query reads still
-    evaluate over the in-memory store (the write path + reopen round-trip are what go through cells-on-pages).'
+    table cursor on the pager''s leaf pages (schema-rootpage walk, read_leaf/write_leaf cell packing, file change-counter
+    bump), NOT a whole-image rebuild; a cursor-op counter moves on the file DML and NOT on a :memory: control; the committed
+    file stays valid SQLite (the pinned C amalgamation opens a cursor-written file, reads the runtime row, integrity_check
+    rc 0); reopen reparses the cursor-written leaf. Pinned engine-btree45-002. RESIDUAL (full forbidden): single-leaf only
+    (no page split/merge balancing), no index b-trees, no WITHOUT ROWID, no overflow-page cleanup, no saved-position restore
+    matrix; anything outside the single-leaf rowid scope falls back to the whole-image writer and live query reads still evaluate
+    over the in-memory store (the write path + reopen round-trip are what go through cells-on-pages).'
   impl_in_modern: partial
 - behaviour_id: builtin-scalar-agg-funcs-001
   surface_id: sur-sqlite3registerbuiltinfunctions
@@ -7557,8 +7557,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T20:39:07Z'
-updated_by: sqlite-engine-v45-btree
+last_updated: '2026-08-13T21:55:22Z'
+updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -7572,5 +7572,5 @@ counts:
     documented: 137
     converted: 211
   unscanned_hints: 3
-  legacy_green: 257
+  legacy_green: 259
   parity_green: 0

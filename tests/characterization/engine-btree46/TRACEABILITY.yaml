@@ -1,0 +1,37 @@
+slice_id: engine-btree46
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-btree46-001-C001
+  feature_id: engine-btree46-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-btree46-001/C001.approved.txt
+  run_id: 2026-08-15T1900Z-legacy-record-btree46
+- case_id: engine-btree46-001-C002
+  feature_id: engine-btree46-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-btree46-001/C002.approved.txt
+  run_id: 2026-08-15T1900Z-legacy-record-btree46
+- case_id: engine-btree46-001-C003
+  feature_id: engine-btree46-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-btree46-001/C003.approved.txt
+  run_id: 2026-08-15T1900Z-legacy-record-btree46
+- case_id: engine-btree46-002-C001
+  feature_id: engine-btree46-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-btree46-002/C001.approved.txt
+  run_id: 2026-08-15T1900Z-legacy-record-btree46
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-57 delegated stamp (full-autonomy charter); engine-btree46-002 is the pinned C amalgamation reading the modern-written split file
+  stamped_case_ids:
+  - engine-btree46-001-C001
+  - engine-btree46-001-C002
+  - engine-btree46-001-C003
+  - engine-btree46-002-C001
+updated_at: '2026-08-13T21:55:22Z'
+run_id: 2026-08-15T1900Z-legacy-record-btree46

@@ -1,0 +1,5 @@
+OBS engine-btree46-002-C001 modern_count 16
+OBS engine-btree46-002-C001 modern_rowids 1|2|3|4|10|11|12|13|14|15|16|17|18|19|20|21
+OBS engine-btree46-002-C001 modern_probe vvvv
+OBS engine-btree46-002-C001 modern_integrity ok
+OBS engine-btree46-002-C001 modern_root_type 5

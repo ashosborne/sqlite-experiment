@@ -1,0 +1,4 @@
+OBS engine-btree46-001-C002 reopen_count 16
+OBS engine-btree46-001-C002 reopen_rowids 1|2|3|4|10|11|12|13|14|15|16|17|18|19|20|21
+OBS engine-btree46-001-C002 reopen_hi vvvv
+OBS engine-btree46-001-C002 reopen_low cccc

@@ -320,26 +320,193 @@ fn bump_change_counter(image: &mut [u8]) {
     image[92..96].copy_from_slice(&v.to_be_bytes());
 }
 
-/// rewrite `table`'s single leaf page from `rows` (rowid, record-values with the
-/// IPK column already NULLed) via cursor cell puts. Returns the new image, or
-/// None when the table isn't a single-leaf rowid tree (caller falls back). Every
-/// cell put/removed moves the cursor-op counter.
+// ---- run-57: first split — the cursor path grows an interior root (0x05) ----
+
+static SPLITS: AtomicU64 = AtomicU64::new(0);
+/// number of cursor-path leaf splits performed (root became / stayed interior).
+pub fn split_count() -> u64 { SPLITS.load(Ordering::SeqCst) }
+
+/// read all table cells rooted at `pageno`, walking an interior root's children
+/// (one level — the pinned scope; deeper trees return None → caller falls back).
+fn read_table_cells(image: &[u8], pageno: u32) -> Option<Vec<(i64, Vec<u8>)>> {
+    let base = (pageno as usize - 1) * PAGE;
+    if base + 12 > image.len() { return None; }
+    match image[base] {
+        0x0d => read_leaf(image, pageno),
+        0x05 => {
+            let ncell = u16::from_be_bytes([image[base + 3], image[base + 4]]) as usize;
+            let rightmost = u32::from_be_bytes(image[base + 8..base + 12].try_into().ok()?);
+            let mut out = Vec::new();
+            for i in 0..ncell {
+                let cp = base + u16::from_be_bytes([image[base + 12 + i * 2], image[base + 12 + i * 2 + 1]]) as usize;
+                if cp + 4 > image.len() { return None; }
+                let child = u32::from_be_bytes(image[cp..cp + 4].try_into().ok()?);
+                out.extend(read_leaf(image, child)?); // children must be leaves (1 level)
+            }
+            out.extend(read_leaf(image, rightmost)?);
+            Some(out)
+        }
+        _ => None,
+    }
+}
+
+/// the interior children (in order, rightmost last) of a one-level 0x05 root.
+fn interior_children(image: &[u8], pageno: u32) -> Option<Vec<u32>> {
+    let base = (pageno as usize - 1) * PAGE;
+    if base + 12 > image.len() || image[base] != 0x05 { return None; }
+    let ncell = u16::from_be_bytes([image[base + 3], image[base + 4]]) as usize;
+    let rightmost = u32::from_be_bytes(image[base + 8..base + 12].try_into().ok()?);
+    let mut out = Vec::new();
+    for i in 0..ncell {
+        let cp = base + u16::from_be_bytes([image[base + 12 + i * 2], image[base + 12 + i * 2 + 1]]) as usize;
+        out.push(u32::from_be_bytes(image[cp..cp + 4].try_into().ok()?));
+    }
+    out.push(rightmost);
+    Some(out)
+}
+
+/// greedily chunk full cell bytes into leaves (header 8 + 2/cell + content < page).
+fn chunk_cells(cells: Vec<(i64, Vec<u8>)>) -> Vec<Vec<(i64, Vec<u8>)>> {
+    let mut leaves = Vec::new();
+    let mut cur: Vec<(i64, Vec<u8>)> = Vec::new();
+    let mut used = 8usize;
+    for (rid, cell) in cells {
+        let add = cell.len() + 2;
+        if !cur.is_empty() && used + add > PAGE - 16 {
+            leaves.push(std::mem::take(&mut cur));
+            used = 8;
+        }
+        used += add;
+        cur.push((rid, cell));
+    }
+    if !cur.is_empty() { leaves.push(cur); }
+    leaves
+}
+
+/// write a leaf page from PRE-BUILT full cell bytes at `pageno`.
+fn write_leaf_cells(image: &mut [u8], pageno: u32, cells: &[(i64, Vec<u8>)]) -> bool {
+    let base = (pageno as usize - 1) * PAGE;
+    if base + PAGE > image.len() { return false; }
+    let ncell = cells.len();
+    let content: usize = cells.iter().map(|(_, c)| c.len()).sum();
+    if 8 + ncell * 2 + content > PAGE { return false; }
+    for b in image[base..base + PAGE].iter_mut() { *b = 0; }
+    let mut content_start = PAGE;
+    let mut ptrs: Vec<u16> = Vec::with_capacity(ncell);
+    for (_, c) in cells {
+        content_start -= c.len();
+        image[base + content_start..base + content_start + c.len()].copy_from_slice(c);
+        ptrs.push(content_start as u16);
+    }
+    image[base] = 0x0d;
+    image[base + 1] = 0; image[base + 2] = 0;
+    image[base + 3..base + 5].copy_from_slice(&(ncell as u16).to_be_bytes());
+    image[base + 5..base + 7].copy_from_slice(&(content_start as u16).to_be_bytes());
+    image[base + 7] = 0;
+    for (i, p) in ptrs.iter().enumerate() {
+        image[base + 8 + i * 2..base + 8 + i * 2 + 2].copy_from_slice(&p.to_be_bytes());
+    }
+    true
+}
+
+/// write a table interior root (0x05) at `pageno`: divider cells (4-byte left
+/// child + largest-rowid varint) for all children but the last; right-most child
+/// in the 12-byte header — C's layout (mirrors the disk-debt encoder, C-proven).
+fn write_interior(image: &mut [u8], pageno: u32, children: &[(u32, i64)], rightmost: u32) -> bool {
+    let base = (pageno as usize - 1) * PAGE;
+    if base + PAGE > image.len() { return false; }
+    for b in image[base..base + PAGE].iter_mut() { *b = 0; }
+    let mut cells: Vec<Vec<u8>> = Vec::new();
+    for (child, key) in children {
+        let mut c = Vec::new();
+        c.extend_from_slice(&child.to_be_bytes());
+        crate::dbfile::put_varint(&mut c, *key as u64);
+        cells.push(c);
+    }
+    if 12 + cells.len() * 2 + cells.iter().map(|c| c.len()).sum::<usize>() > PAGE { return false; }
+    let mut content = PAGE;
+    let mut ptrs = Vec::new();
+    for c in &cells {
+        content -= c.len();
+        image[base + content..base + content + c.len()].copy_from_slice(c);
+        ptrs.push(content as u16);
+    }
+    image[base] = 0x05;
+    image[base + 3..base + 5].copy_from_slice(&(cells.len() as u16).to_be_bytes());
+    image[base + 5..base + 7].copy_from_slice(&(content as u16).to_be_bytes());
+    image[base + 7] = 0;
+    image[base + 8..base + 12].copy_from_slice(&rightmost.to_be_bytes());
+    for (i, p) in ptrs.iter().enumerate() {
+        image[base + 12 + i * 2..base + 12 + i * 2 + 2].copy_from_slice(&p.to_be_bytes());
+    }
+    true
+}
+
+/// set the db-size-in-pages header field (offset 28) to match the image length.
+fn set_page_count(image: &mut [u8]) {
+    if image.len() < 32 { return; }
+    let n = (image.len() / PAGE) as u32;
+    image[28..32].copy_from_slice(&n.to_be_bytes());
+}
+
+/// rewrite `table`'s b-tree from `rows` via cursor cell puts. Single-leaf when
+/// the cells fit; otherwise the FIRST SPLIT: the root page becomes an interior
+/// 0x05 and the cells land on >=2 leaf 0x0d pages (existing children reused,
+/// new pages appended). Returns None only for scopes the cursor doesn't own
+/// (shrink-below-split, deep trees, oversized single cells) — the caller falls
+/// back to the whole-image writer and the residual names it.
 pub fn rewrite_table_leaf(old_image: &[u8], table: &str, rows: &[(i64, Vec<Val>)]) -> Option<Vec<u8>> {
     let root = schema_rootpage(old_image, table)?;
-    let existing = read_leaf(old_image, root)?; // refuses interior / overflow
+    let existing = read_table_cells(old_image, root)?; // walks a one-level interior
     let mut image = old_image.to_vec();
-    // build the target cell set through cursor puts (one op per cell)
+    // build full cells (payload-len varint + rowid varint + record) via cursor puts
     let mut cells: Vec<(i64, Vec<u8>)> = Vec::with_capacity(rows.len());
     for (rowid, vals) in rows {
         let payload = crate::dbfile::encode_record(vals);
-        if payload.len() > PAGE - 35 { return None; } // overflow scope: fall back
-        cells.push((*rowid, payload));
+        if payload.len() > PAGE - 35 { return None; } // overflow-chain scope: fall back
+        let mut c = Vec::new();
+        crate::dbfile::put_varint(&mut c, payload.len() as u64);
+        crate::dbfile::put_varint(&mut c, *rowid as u64);
+        c.extend_from_slice(&payload);
+        cells.push((*rowid, c));
         CURSOR_OPS.fetch_add(1, Ordering::SeqCst); // cursor seek+insert of this cell
     }
-    // count removed cells as cursor deletes (rows present before, absent now)
+    cells.sort_by_key(|(r, _)| *r);
+    // removed rowids count as cursor deletes
     let now: std::collections::HashSet<i64> = rows.iter().map(|(r, _)| *r).collect();
     for (r, _) in &existing { if !now.contains(r) { CURSOR_OPS.fetch_add(1, Ordering::SeqCst); } }
-    if !write_leaf(&mut image, root, cells) { return None; }
+
+    let leaves = chunk_cells(cells);
+    let root_is_interior = image[(root as usize - 1) * PAGE] == 0x05;
+    if leaves.len() <= 1 {
+        if root_is_interior { return None; } // shrink/merge is out of scope (residual)
+        let flat = leaves.into_iter().next().unwrap_or_default();
+        if !write_leaf_cells(&mut image, root, &flat) { return None; }
+        bump_change_counter(&mut image);
+        return Some(image);
+    }
+    // FIRST SPLIT (or re-split): leaf pages = existing children first, then appended
+    let mut child_pages: Vec<u32> = if root_is_interior {
+        interior_children(&image, root)?
+    } else { Vec::new() };
+    if child_pages.len() > leaves.len() { return None; } // shrink would orphan pages
+    while child_pages.len() < leaves.len() {
+        let newp = (image.len() / PAGE) as u32 + 1;
+        image.extend(std::iter::repeat(0u8).take(PAGE));
+        child_pages.push(newp);
+    }
+    for (leaf, page) in leaves.iter().zip(&child_pages) {
+        if !write_leaf_cells(&mut image, *page, leaf) { return None; }
+    }
+    // interior root: dividers = (child, largest rowid in child) for all but last
+    let mut dividers: Vec<(u32, i64)> = Vec::new();
+    for (leaf, page) in leaves.iter().zip(&child_pages).take(leaves.len() - 1) {
+        dividers.push((*page, leaf.last().map(|(r, _)| *r)?));
+    }
+    let rightmost = *child_pages.last()?;
+    if !write_interior(&mut image, root, &dividers, rightmost) { return None; }
+    set_page_count(&mut image);
     bump_change_counter(&mut image);
+    SPLITS.fetch_add(1, Ordering::SeqCst);
     Some(image)
 }
