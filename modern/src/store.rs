@@ -3310,6 +3310,10 @@ const UNDER: char = '_';
 const STAR: char = '*';
 
 pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<eval::V>>), String> {
+    // run-56: a read inside an open (deferred) txn lifts txn_state 0 -> read 1
+    with_store(db, |st| {
+        if st.txn.is_some() && st.conn.txn_level == 0 { st.conn.txn_level = 1; }
+    });
     maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let s = sql.trim().trim_end_matches(';').trim();
     let up = s.to_ascii_uppercase();
