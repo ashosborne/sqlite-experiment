@@ -918,3 +918,23 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   against the refcounted registry).
 - Scoreboard full 185->190 / partial 48 / none 78 (316 known).
 
+## Run 49 — 2026-08-14 — engine v39: mixed one-hole wave (pack v39, overnight)
+
+- Pack v38 -> v39 BOUND (MIXED ONE-HOLE law: full only when every named residual
+  clears; module_list lazy contract not census; no unseeded PRNG goldens; blob
+  expiry per-row; STMT/PROFILE per prepared statement). ADR 0037. Schema valid.
+- Probed C on all four named one-holes and froze 10 goldens (engine-harvest39-*):
+  multi-statement exec fires STMT/PROFILE per statement with terminator-kept text;
+  pragma_module_list lists itself fresh, create_module names live, pragma TVFs
+  lazily; blob handle survives other-row UPDATE/DELETE and expires on own-row
+  (rc 4, bytes 0), TEXT cells patch in place and stay text; randomness fills
+  exactly N / N=0 no-op-write, testctrl PRNG SAVE/RESTORE/SEED replay predicates.
+- Modern: per-statement trace in execute_script + step-fired events for prepared
+  stmts (sqlite3_sql added, double-fire suppressed); pragma_module_list TVF with
+  lazy fill + live registry; blob cell-snapshot per-row expiry + TEXT writes;
+  seeded xorshift randomness + test_control 5/6/28. Engine bug fixed en route:
+  kitchen UPDATE/DELETE dropped `WHERE rowid=N` and hit every row (now IPK-aware).
+- Estate: blob-io-api-002 partial->FULL (residual empty). conn-lifecycle-004,
+  pragma-surface-002, util-primitives-001 stay partial with tightened residuals.
+  Composed engine-harvest39-001..004 full. cargo all green; SCRIPT_TABLE 0.
+- Scoreboard full 190->195 / partial 47 / none 78 (320 known). Not migrated.

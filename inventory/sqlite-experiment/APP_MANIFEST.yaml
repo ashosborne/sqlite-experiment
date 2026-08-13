@@ -2782,11 +2782,12 @@ behaviours:
   legacy_green: false
   parity_green: false
   notes: 'confidence=observed-in-code; read/write at offset via shared blobReadWrite; handles expire on row modification (SQLITE_ABORT).
-    run-35: PARTIAL - offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob
-    preallocate + interior write, and expiry (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven.
-    RESIDUAL: expiry granularity is connection-write, not per-row like C (pins only modify the handle''s own row); TEXT-cell
-    writes via handles unpinned.'
-  impl_in_modern: partial
+    run-35: offset reads/writes, C bounds errors with untouched buffers, fixed-size writes, read-only rc 8, zeroblob preallocate
+    + interior write, and expiry (rc 4, bytes->0) on UPDATE/DELETE all real and pinned; durable + C interop proven. run-49:
+    FULL - both named residuals cleared: expiry is PER ROW (cell-snapshot check; UPDATE/DELETE of a different row leaves the
+    handle readable AND writable, pinned engine-harvest39-003 + runtime other-row anti-cheat) and TEXT-cell writes patch bytes
+    in place with the cell staying TEXT. Residual list empty for the pinned bare build.'
+  impl_in_modern: full
 - behaviour_id: btree-001
   surface_id: sur-sqlite3btreeopen
   name: Btree handle and transaction boundary
@@ -2955,9 +2956,11 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; commit_hook/update_hook/trace_v2 register observable per-connection callbacks. run-36:
     PARTIAL - update_hook (op/db/table/IPK-aliased rowid), commit_hook (autocommit + explicit, non-zero aborts commit with
-    rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. RESIDUAL: STMT/PROFILE fire per exec
-    call (not per prepared statement in multi-statement scripts); WITHOUT ROWID suppression and truncate fast-path behaviour
-    unpinned; legacy sqlite3_trace/profile not implemented.'
+    rollback), trace_v2 STMT/ROW/CLOSE/PROFILE with unset semantics all real and pinned. run-49: STMT/PROFILE now fire PER
+    PREPARED STATEMENT - a multi-statement exec emits one STMT + one PROFILE per statement with the SQL C reports (terminator
+    kept on exec-path text), prepared statements fire from step with the real handle (sqlite3_sql on the PROFILE arg), pinned
+    engine-harvest39-001 + runtime-length script anti-cheat. RESIDUAL: WITHOUT ROWID suppression and truncate fast-path behaviour
+    unpinned; legacy sqlite3_trace/sqlite3_profile not implemented.'
   impl_in_modern: partial
 - behaviour_id: date-time-funcs-001
   surface_id: sur-datefunc-datetimefunc
@@ -4302,8 +4305,10 @@ behaviours:
     projections real; compile_options/function_list/module_list/pragma_list registries deferred run-38: pragma_function_list
     / pragma_pragma_list TVFs added (bare + parenthesized forms). run-44: registry TVF residual SHRUNK - pragma_collation_list
     (live registry: runtime-registered collation appears at seq 0), pragma_table_xinfo (real shape incl. vtab HIDDEN), pragma_index_info,
-    pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. RESIDUAL: pragma_module_list (C populates
-    it lazily per pragma-vtab use - fragile pin, deferred with ADR 0032 note), index_xinfo TVF form, remaining result pragmas.'
+    pragma_compile_options (v32 38-entry fingerprint), bare + parenthesized forms. run-49: pragma_module_list landed with C''s
+    LAZY population contract (ADR 0032 hole closed): fresh connection lists only its own pragma vtab, sqlite3_create_module
+    names join the live registry, touched pragma TVFs join lazily - pinned engine-harvest39-002 + runtime-registered module-name
+    anti-cheat; no ext/misc force-link, no census of untouched TVFs. RESIDUAL: index_xinfo TVF form; remaining result pragmas.'
   traceability: tests/characterization/pragma-surface/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: prepare-statement-api-001
@@ -4783,8 +4788,10 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public
     API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16
-    surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on
-    codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED'
+    surface. run-49: public sqlite3_randomness real - stateful PRNG stream fills exactly N bytes, N=0 writes nothing, and
+    sqlite3_test_control PRNG SAVE/RESTORE/SEED replay the stream (within-run predicates, engine-harvest39-004; unseeded bytes
+    never goldens). STILL PARTIAL: string hash tables and internal hash primitives not implemented; modern''s generator is
+    not C''s ChaCha20 (byte streams intentionally unpinned) — do not flip to full. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED'
   traceability: tests/characterization/util-primitives/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: vacuum-001
@@ -7037,6 +7044,62 @@ behaviours:
   pack_version: 38
   traceability: tests/characterization/engine-vtab38/TRACEABILITY.yaml
   notes: run-48 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-48 delegated stamp)
+- behaviour_id: engine-harvest39-001
+  surface_id: sur-engine-harvest39
+  name: per-statement STMT/PROFILE trace events
+  status: converted
+  slice_id: engine-harvest39
+  discovery_card: discovery/engine-harvest39/features/engine-harvest39-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 39
+  traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
+  notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
+- behaviour_id: engine-harvest39-002
+  surface_id: sur-engine-harvest39
+  name: pragma_module_list lazy population
+  status: converted
+  slice_id: engine-harvest39
+  discovery_card: discovery/engine-harvest39/features/engine-harvest39-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 39
+  traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
+  notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
+- behaviour_id: engine-harvest39-003
+  surface_id: sur-engine-harvest39
+  name: per-row blob expiry + TEXT-cell writes
+  status: converted
+  slice_id: engine-harvest39
+  discovery_card: discovery/engine-harvest39/features/engine-harvest39-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 39
+  traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
+  notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
+- behaviour_id: engine-harvest39-004
+  surface_id: sur-engine-harvest39
+  name: sqlite3_randomness + test_control PRNG
+  status: converted
+  slice_id: engine-harvest39
+  discovery_card: discovery/engine-harvest39/features/engine-harvest39-004.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 39
+  traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
+  notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
 last_updated: '2026-08-13T09:51:01Z'
 updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
@@ -7047,10 +7110,10 @@ counts:
   surfaces_by_status:
     candidate: 185
     accepted: 59
-  behaviours_known: 316
+  behaviours_known: 320
   behaviours_by_status:
     documented: 142
-    converted: 174
+    converted: 178
   unscanned_hints: 3
   legacy_green: 226
   parity_green: 0
