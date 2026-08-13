@@ -1055,3 +1055,21 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   live reads still store-based). pager-001 unchanged; pager-002/pcache/vdbe/where untouched.
   Composed engine-btree45-001/002 full. cargo 57 binaries green; SCRIPT_TABLE 0.
 - Scoreboard full 227->229 / partial 44 / none 77->75 (348 known). Not migrated.
+## Run 57 — 2026-08-15 — engine v46: cursor-path first split (pack v46, overnight)
+
+- Pack v45 -> v46 BOUND (SPLIT/CURSOR law: a split counts only on the cursor path — interior
+  0x05 root + >=2 0x0d leaves, never the dbfile whole-image fallback; C-proof = the pinned
+  amalgamation compiled and exec'd on the MODERN-written file; kitchen integrity is not proof).
+  ADR 0044.
+- Probed C: overflow (12x500-char rows) -> page_count 2->4, root 0x05, leaves 3/4 0x0d, reopen
+  16 rows, post-split insert ok. Froze 4 goldens (engine-btree46-001 x3 + 002 C-reads-modern x1).
+- Modern: rewrite_table_leaf made tree-capable — chunk_cells across leaves, write_interior with
+  C's divider layout, appended pages, db-size header + change counter; read_table_cells lifts
+  the 0x05 refusal (one-level) so post-split writes re-split on the cursor path; split_count
+  counter; shrink-below-split still falls back (merge out of scope). exec_pinned_c compiles and
+  runs the pinned amalgamation inside the cargo suite (integrity from real C).
+- Estate: btree-002 stays partial, residual rewritten (single-leaf -> first-split landed; keep
+  sibling-balance, merge, 3-level, index, WITHOUT ROWID, overflow, saved-position, store-reads).
+  btree-001/pager/pcache/vdbe/where untouched. Composed engine-btree46-001/002 full.
+  cargo 59 binaries green; SCRIPT_TABLE 0. Brief filename drift (run54/55) fixed.
+- Scoreboard full 229->231 / partial 44 / none 75 (350 known). Not migrated.
