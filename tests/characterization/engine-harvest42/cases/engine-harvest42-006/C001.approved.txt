@@ -1,0 +1,2 @@
+OBS engine-harvest42-006-C001 e_colcount prep.rc=1 err=table c has 1 values for 2 columns LOG=
+OBS engine-harvest42-006-C001 e_seedcols prep.rc=1 err=table x has 1 values for 2 columns LOG=

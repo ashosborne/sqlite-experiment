@@ -1,0 +1,79 @@
+slice_id: engine-harvest42
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-harvest42-001-C001
+  feature_id: engine-harvest42-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-001/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-001-C002
+  feature_id: engine-harvest42-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-001/C002.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-002-C001
+  feature_id: engine-harvest42-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-002/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-002-C002
+  feature_id: engine-harvest42-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-002/C002.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-003-C001
+  feature_id: engine-harvest42-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-003/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-004-C001
+  feature_id: engine-harvest42-004
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-004/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-004-C002
+  feature_id: engine-harvest42-004
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-004/C002.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-005-C001
+  feature_id: engine-harvest42-005
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-005/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-005-C002
+  feature_id: engine-harvest42-005
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-005/C002.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-006-C001
+  feature_id: engine-harvest42-006
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-006/C001.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+- case_id: engine-harvest42-006-C002
+  feature_id: engine-harvest42-006
+  status: REPLAY_GREEN
+  golden_path: cases/engine-harvest42-006/C002.approved.txt
+  run_id: 2026-08-15T1100Z-legacy-record-harvest42
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-52 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-harvest42-001-C001
+  - engine-harvest42-001-C002
+  - engine-harvest42-002-C001
+  - engine-harvest42-002-C002
+  - engine-harvest42-003-C001
+  - engine-harvest42-004-C001
+  - engine-harvest42-004-C002
+  - engine-harvest42-005-C001
+  - engine-harvest42-005-C002
+  - engine-harvest42-006-C001
+  - engine-harvest42-006-C002
+updated_at: '2026-08-13T16:30:07Z'
+run_id: 2026-08-15T1100Z-legacy-record-harvest42

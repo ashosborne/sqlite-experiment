@@ -2693,13 +2693,13 @@ behaviours:
     dispatched with probed args and NO invented sqlite_master tails (engine-harvest41): FUNCTION 31 at compile time (s1 NULL,
     s2 = name; DENY errmsg "not authorized to use function: NAME" at plain rc 1; IGNORE yields NULL and de-aggregates, the
     column read degrades to the empty-column form), SAVEPOINT 32 (s1 = BEGIN/RELEASE/ROLLBACK, s2 = name; ROLLBACK TO split
-    from TRANSACTION 22), ANALYZE 28 outer (s1 = table, s3 = main), ALTER_TABLE 26 outer (INVERTED s1 = db / s2 = table;
-    IGNORE no-ops the rename), DROP_TABLE 11 / CREATE_VTABLE 29 / DROP_VTABLE 30 outer, view s4 read walk (base-table READs
-    carry the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master
+    from TRANSACTION 22), ANALYZE 28 outer (s1 = table, s3 = main), ALTER_TABLE 26 outer (INVERTED s1 = db / s2 = table; IGNORE
+    no-ops the rename), DROP_TABLE 11 / CREATE_VTABLE 29 / DROP_VTABLE 30 outer, view s4 read walk (base-table READs carry
+    the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master
     / sqlite_temp_master bookkeeping sequences C emits for DDL are NOT modelled (CREATE_INDEX 1 / DROP_INDEX 10, CREATE_VIEW
     8 / DROP_VIEW 17, CREATE_TRIGGER 7 / DROP_TRIGGER 16 full logs, and the catalog tails of ALTER/DROP/VTABLE stay unfrozen);
-    the TEMP family (3-6, 12-15) is not dispatched; REINDEX 27 is not parsed by the kitchen (C fires per index incl.
-    sqlite_autoindex_*); RECURSIVE 33 is scan-gated and modern has no recursive-CTE execution (pin-absent, ADR 0039).'
+    the TEMP family (3-6, 12-15) is not dispatched; REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*);
+    RECURSIVE 33 is scan-gated and modern has no recursive-CTE execution (pin-absent, ADR 0039).'
   traceability: tests/characterization/auth-callback-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: auth-callback-api-002
@@ -7326,8 +7326,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T13:03:05Z'
-updated_by: sqlite-engine-v41-auth-codes
+last_updated: '2026-08-13T16:30:07Z'
+updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -7341,5 +7341,5 @@ counts:
     documented: 137
     converted: 197
   unscanned_hints: 3
-  legacy_green: 238
+  legacy_green: 244
   parity_green: 0

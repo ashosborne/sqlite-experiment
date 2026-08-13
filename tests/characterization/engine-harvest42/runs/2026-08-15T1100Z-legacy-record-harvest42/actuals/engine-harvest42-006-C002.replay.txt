@@ -1,0 +1,3 @@
+OBS engine-harvest42-006-C002 e_circular prep.rc=1 err=circular reference: a LOG=
+OBS engine-harvest42-006-C002 e_multi_rec prep.rc=1 err=multiple references to recursive table: c LOG=
+OBS engine-harvest42-006-C002 e_agg prep.rc=1 err=recursive aggregate queries not supported LOG=

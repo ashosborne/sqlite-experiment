@@ -1,0 +1,3 @@
+OBS engine-harvest42-004-C001 a_unused rows=42 LOG=[21|~|~|~|~]
+OBS engine-harvest42-004-C001 a_scanned rows=1|2|3 LOG=[21|~|~|~|~][21|~|~|~|c][33|~|~|~|c][21|~|~|~|c][21|~|~|~|c]
+OBS engine-harvest42-004-C001 a_nonrec rows=1 LOG=[21|~|~|~|~][21|~|~|~|x]

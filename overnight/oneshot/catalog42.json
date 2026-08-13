@@ -1,0 +1,79 @@
+[
+ {
+  "id": "engine-harvest42-001-C001",
+  "feature": "engine-harvest42-001",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "non-recursive WITH: literal seed, real-table body, no-column-list form; column names come from the CTE declaration or the body projection"
+ },
+ {
+  "id": "engine-harvest42-001-C002",
+  "feature": "engine-harvest42-001",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "multiple CTEs with an earlier-CTE reference (cross join); MATERIALIZED and NOT MATERIALIZED accepted with identical results"
+ },
+ {
+  "id": "engine-harvest42-002-C001",
+  "feature": "engine-harvest42-002",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "recursive UNION ALL over integers: Queue/Current FIFO row order; multi-column recursion with text accumulation"
+ },
+ {
+  "id": "engine-harvest42-002-C002",
+  "feature": "engine-harvest42-002",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "TWO seed terms interleave in FIFO order (1|10|2|11|3|12|13) - the extracted row IS the recursive table, outputs enqueue"
+ },
+ {
+  "id": "engine-harvest42-003-C001",
+  "feature": "engine-harvest42-003",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "recursive walk of a parent/child table is BREADTH-first (FIFO queue), both comma-join and JOIN..ON forms"
+ },
+ {
+  "id": "engine-harvest42-004-C001",
+  "feature": "engine-harvest42-004",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "SQLITE_RECURSIVE 33 is SCAN-GATED: unused WITH RECURSIVE fires nothing beyond the top-level 21; a scanned CTE fires [21|c][33|~|~|~|c][21|c][21|c]; a non-recursive WITH fires only the s4-context 21"
+ },
+ {
+  "id": "engine-harvest42-004-C002",
+  "feature": "engine-harvest42-004",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "DENY of code 33 fails prepare rc 23 not authorized, stopping after the 33 consult"
+ },
+ {
+  "id": "engine-harvest42-005-C001",
+  "feature": "engine-harvest42-005",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "recursive UNION (distinct) dedupes and terminates a cyclic graph (DistFifo: 1|2|3, the cycle-closing row is never re-enqueued)"
+ },
+ {
+  "id": "engine-harvest42-005-C002",
+  "feature": "engine-harvest42-005",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "outer LIMIT stops an unbounded recursion at the limit; outer ORDER BY sorts the queue output; a recursive CTE works as a subquery source"
+ },
+ {
+  "id": "engine-harvest42-006-C001",
+  "feature": "engine-harvest42-006",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "seed column count must match the declaration: table NAME has N values for M columns (recursive and plain WITH)"
+ },
+ {
+  "id": "engine-harvest42-006-C002",
+  "feature": "engine-harvest42-006",
+  "slice": "engine-harvest42",
+  "kind": "bespoke",
+  "note": "circular reference: NAME for mutually-referencing CTEs; multiple references to recursive table: NAME; recursive aggregate queries not supported"
+ }
+]

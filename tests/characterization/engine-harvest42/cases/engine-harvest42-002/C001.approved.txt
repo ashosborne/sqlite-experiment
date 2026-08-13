@@ -1,0 +1,2 @@
+OBS engine-harvest42-002-C001 r_int rows=1|2|3|4|5 LOG=
+OBS engine-harvest42-002-C001 r_expr rows=1,a|2,ab|3,abb LOG=
