@@ -1,0 +1,37 @@
+slice_id: engine-pager44
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-pager44-001-C001
+  feature_id: engine-pager44-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pager44-001/C001.approved.txt
+  run_id: 2026-08-15T1500Z-legacy-record-pager44
+- case_id: engine-pager44-001-C002
+  feature_id: engine-pager44-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pager44-001/C002.approved.txt
+  run_id: 2026-08-15T1500Z-legacy-record-pager44
+- case_id: engine-pager44-002-C001
+  feature_id: engine-pager44-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pager44-002/C001.approved.txt
+  run_id: 2026-08-15T1500Z-legacy-record-pager44
+- case_id: engine-pager44-002-C002
+  feature_id: engine-pager44-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-pager44-002/C002.approved.txt
+  run_id: 2026-08-15T1500Z-legacy-record-pager44
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-55 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-pager44-001-C001
+  - engine-pager44-001-C002
+  - engine-pager44-002-C001
+  - engine-pager44-002-C002
+updated_at: '2026-08-13T19:59:45Z'
+run_id: 2026-08-15T1500Z-legacy-record-pager44

@@ -2669,10 +2669,10 @@ behaviours:
     live in main and CREATE errors "trigger T cannot reference objects in database X" cross-schema); at fire time body statements
     resolve unqualified names STRICTLY inside the trigger schema (collision hits the trigger schema only; main-only/missing
     targets error "no such table: aux.X"); event/timing matrix (AFTER INSERT/UPDATE/DELETE, BEFORE, order) pinned on attached
-    tables; DETACH tears attached triggers down; per-schema sqlite_master real. run-53: TEMP-trigger FIRE cleared - CREATE TEMP
-    TRIGGER now fires on TEMP-table DML (BEFORE/AFTER) and shows in sqlite_temp_master (engine-temp43-001-C003). STAYS PARTIAL
-    for named leftovers: TEMP-trigger CROSS-SCHEMA fire matrix, trigger bodies beyond INSERT..VALUES / RAISE / no-op SELECT
-    (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.'
+    tables; DETACH tears attached triggers down; per-schema sqlite_master real. run-53: TEMP-trigger FIRE cleared - CREATE
+    TEMP TRIGGER now fires on TEMP-table DML (BEFORE/AFTER) and shows in sqlite_temp_master (engine-temp43-001-C003). STAYS
+    PARTIAL for named leftovers: TEMP-trigger CROSS-SCHEMA fire matrix, trigger bodies beyond INSERT..VALUES / RAISE / no-op
+    SELECT (UPDATE/DELETE/INSERT-SELECT bodies), URI/lock/txn attach edges.'
   traceability: tests/characterization/attach-detach/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: auth-callback-api-001
@@ -2699,10 +2699,9 @@ behaviours:
     the view name, nested SELECT consult) and trigger-body events with s4 = trigger name. STAYS PARTIAL: the sqlite_master
     / sqlite_temp_master bookkeeping sequences C emits for DDL are NOT modelled (CREATE_INDEX 1 / DROP_INDEX 10, CREATE_VIEW
     8 / DROP_VIEW 17, CREATE_TRIGGER 7 / DROP_TRIGGER 16 full logs, and the catalog tails of ALTER/DROP/VTABLE stay unfrozen);
-    REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*). run-53: the TEMP outer codes
-    CREATE_TEMP_TABLE (4) and DROP_TEMP_TABLE (13) are now dispatched (s1 = table, s3 = temp; DENY rc 23; no sqlite_temp_master
-    tail - engine-temp43-002); remaining TEMP codes (CREATE/DROP TEMP INDEX/TRIGGER/VIEW 5/6/12/14/15) and the master
-    bookkeeping families stay named.
+    REINDEX 27 is not parsed by the kitchen (C fires per index incl. sqlite_autoindex_*). run-53: the TEMP outer codes CREATE_TEMP_TABLE
+    (4) and DROP_TEMP_TABLE (13) are now dispatched (s1 = table, s3 = temp; DENY rc 23; no sqlite_temp_master tail - engine-temp43-002);
+    remaining TEMP codes (CREATE/DROP TEMP INDEX/TRIGGER/VIEW 5/6/12/14/15) and the master bookkeeping families stay named.
     run-52: SQLITE_RECURSIVE 33 now DISPATCHED scan-gated (recursive CTEs execute since v42): a used recursive member fires
     [21|cte][33|~|~|~|cte][21|cte]x2, unused WITH RECURSIVE stays silent, DENY rc 23 - pinned engine-harvest42-004 + a runtime
     CTE-name anti-cheat.'
@@ -3519,10 +3518,10 @@ behaviours:
   parity_green: false
   notes: 'confidence=observed-in-code; Create-or-update semantics per variant; jsonb_* return binary JSONB. | legacy RECORD
     REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-11 (run-11 delegated stamp) | impl_in_modern=partial (run-19 scoreboard) — gaps:
-    json_set/insert/replace/patch/remove real on parsed trees. run-53: ARRAY-PATH mutation landed - $.a[N] / $[N] / $.a[#] append /
-    $.a[#-K] with C''s set/insert/replace out-of-range no-op split, remove-shifts-the-remainder, nested $.a[N].b, NULL-doc -> NULL
-    (engine-harvest43-001 + a runtime array-index anti-cheat). RESIDUAL: JSONB (probed PRESENT on the pin - jsonb()/jsonb_extract
-    exist; the binary format is deliberately not implemented this pack, ADR 0041).'
+    json_set/insert/replace/patch/remove real on parsed trees. run-53: ARRAY-PATH mutation landed - $.a[N] / $[N] / $.a[#]
+    append / $.a[#-K] with C''s set/insert/replace out-of-range no-op split, remove-shifts-the-remainder, nested $.a[N].b,
+    NULL-doc -> NULL (engine-harvest43-001 + a runtime array-index anti-cheat). RESIDUAL: JSONB (probed PRESENT on the pin
+    - jsonb()/jsonb_extract exist; the binary format is deliberately not implemented this pack, ADR 0041).'
   traceability: tests/characterization/json-funcs/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: json-funcs-003
@@ -7479,8 +7478,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-13T19:00:15Z'
-updated_by: sqlite-engine-v43-kitchen-12h
+last_updated: '2026-08-13T19:59:45Z'
+updated_by: sqlite-engine-v1-kitchen
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'
@@ -7494,5 +7493,5 @@ counts:
     documented: 137
     converted: 207
   unscanned_hints: 3
-  legacy_green: 250
+  legacy_green: 254
   parity_green: 0

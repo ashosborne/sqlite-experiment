@@ -1,0 +1,30 @@
+[
+ {
+  "id": "engine-pager44-001-C001",
+  "feature": "engine-pager44-001",
+  "slice": "engine-pager44",
+  "kind": "bespoke",
+  "note": "DELETE-mode rollback journal: <db>-journal present during an open write txn, absent after COMMIT and after ROLLBACK; committed row visible, rolled-back row gone"
+ },
+ {
+  "id": "engine-pager44-001-C002",
+  "feature": "engine-pager44-001",
+  "slice": "engine-pager44",
+  "kind": "bespoke",
+  "note": "reopen after COMMIT sees the committed rows (durable db file)"
+ },
+ {
+  "id": "engine-pager44-002-C001",
+  "feature": "engine-pager44-002",
+  "slice": "engine-pager44",
+  "kind": "bespoke",
+  "note": "ROLLBACK restores the pre-images: UPDATE, DELETE, and a multi-row UPDATE all revert"
+ },
+ {
+  "id": "engine-pager44-002-C002",
+  "feature": "engine-pager44-002",
+  "slice": "engine-pager44",
+  "kind": "bespoke",
+  "note": "COMMIT after a multi-row UPDATE persists all pages; a fresh open re-reads them"
+ }
+]

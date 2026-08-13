@@ -1,0 +1,6 @@
+OBS engine-pager44-001-C001 journal_during_txn 1
+OBS engine-pager44-001-C001 journal_after_commit 0
+OBS engine-pager44-001-C001 after_commit_rows one|two|three|four
+OBS engine-pager44-001-C001 journal_during_txn2 1
+OBS engine-pager44-001-C001 journal_after_rollback 0
+OBS engine-pager44-001-C001 after_rollback_rows one|two|three|four
