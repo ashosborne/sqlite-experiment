@@ -1,0 +1,3 @@
+OBS engine-harvest39-003-C003 text_open rc=0 bytes=11
+OBS engine-harvest39-003-C003 text_write_rc 0
+OBS engine-harvest39-003-C003 text_after HELLO world,text

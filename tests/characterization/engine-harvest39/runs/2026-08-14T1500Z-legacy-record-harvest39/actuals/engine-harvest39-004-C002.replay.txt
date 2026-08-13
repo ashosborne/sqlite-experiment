@@ -1,0 +1,7 @@
+OBS engine-harvest39-004-C002 save_rc 0
+OBS engine-harvest39-004-C002 restore_rc 0
+OBS engine-harvest39-004-C002 restore_replays 1
+OBS engine-harvest39-004-C002 next_differs 1
+OBS engine-harvest39-004-C002 seed_rc 0
+OBS engine-harvest39-004-C002 seed_rc2 0
+OBS engine-harvest39-004-C002 seed_replays 1

@@ -1,0 +1,72 @@
+[
+ {
+  "id": "engine-harvest39-001-C001",
+  "feature": "engine-harvest39-001",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "two-statement exec fires STMT and PROFILE per statement with the SQL C reports (trailing semicolons)"
+ },
+ {
+  "id": "engine-harvest39-001-C002",
+  "feature": "engine-harvest39-001",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "three-statement exec: three STMT + three PROFILE in statement order"
+ },
+ {
+  "id": "engine-harvest39-001-C003",
+  "feature": "engine-harvest39-001",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "prepared statement fires STMT at execution and PROFILE at completion (no semicolon)"
+ },
+ {
+  "id": "engine-harvest39-002-C001",
+  "feature": "engine-harvest39-002",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "fresh connection: pragma_module_list lists only its own lazily-created pragma vtab"
+ },
+ {
+  "id": "engine-harvest39-002-C002",
+  "feature": "engine-harvest39-002",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "create_module names appear; a touched pragma TVF joins the lazy list"
+ },
+ {
+  "id": "engine-harvest39-003-C001",
+  "feature": "engine-harvest39-003",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "PER-ROW expiry: writing a different row leaves the handle readable and writable; writing its own row expires it (rc 4, bytes 0)"
+ },
+ {
+  "id": "engine-harvest39-003-C002",
+  "feature": "engine-harvest39-003",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "deleting a different row leaves the handle live; deleting its own row expires it"
+ },
+ {
+  "id": "engine-harvest39-003-C003",
+  "feature": "engine-harvest39-003",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "TEXT-cell blob writes patch bytes in place and the cell stays TEXT"
+ },
+ {
+  "id": "engine-harvest39-004-C001",
+  "feature": "engine-harvest39-004",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "randomness fills exactly N bytes (tail untouched), draws differ, N=0 writes nothing and the stream continues"
+ },
+ {
+  "id": "engine-harvest39-004-C002",
+  "feature": "engine-harvest39-004",
+  "slice": "engine-harvest39",
+  "kind": "bespoke",
+  "note": "test_control PRNG SAVE/RESTORE replays the stream; re-seeding with the same seed replays (within-run predicates, no raw bytes)"
+ }
+]

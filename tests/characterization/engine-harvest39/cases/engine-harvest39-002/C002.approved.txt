@@ -1,0 +1,3 @@
+OBS engine-harvest39-002-C002 after_create_module mymod|pragma_module_list
+OBS engine-harvest39-002-C002 touch_tvf 3
+OBS engine-harvest39-002-C002 after_tvf mymod|pragma_collation_list|pragma_module_list

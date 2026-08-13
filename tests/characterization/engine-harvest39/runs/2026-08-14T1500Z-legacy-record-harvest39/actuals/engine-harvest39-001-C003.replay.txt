@@ -1,0 +1,3 @@
+OBS engine-harvest39-001-C003 nstmt 1
+OBS engine-harvest39-001-C003 nprof 1
+OBS engine-harvest39-001-C003 log [STMT:SELECT 3][PROF:SELECT 3]

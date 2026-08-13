@@ -1,0 +1,2 @@
+OBS engine-harvest39-003-C002 read_after_other_delete_rc 0
+OBS engine-harvest39-003-C002 read_after_own_delete rc=4 bytes=0

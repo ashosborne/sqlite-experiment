@@ -1,0 +1,4 @@
+OBS engine-harvest39-003-C001 open_rc 0
+OBS engine-harvest39-003-C001 read_after_other_row rc=0 bytes=5 b0=1
+OBS engine-harvest39-003-C001 write_after_other_row_rc 0
+OBS engine-harvest39-003-C001 read_after_own_row rc=4 bytes=0
