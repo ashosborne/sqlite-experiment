@@ -1,0 +1,3 @@
+OBS engine-harvest43-001-C003 patch_arr rows={"a":[9]}
+OBS engine-harvest43-001-C003 null_json rows=~
+OBS engine-harvest43-001-C003 chain rows={"a":[0,2]}

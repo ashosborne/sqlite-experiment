@@ -1,0 +1,3 @@
+OBS engine-temp43-002-C002 a_deny_ct rc=23 err=not authorized LOG=[4|at3|~|temp|~]
+OBS engine-temp43-002-C002 a_deny_drop rc=23 err=not authorized LOG=[13|at2|~|temp|~]
+OBS engine-temp43-002-C002 at2_survives rows=1

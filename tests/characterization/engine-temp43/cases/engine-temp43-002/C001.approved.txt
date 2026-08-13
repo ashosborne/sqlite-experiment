@@ -1,0 +1,2 @@
+OBS engine-temp43-002-C001 a_ct_temp rc=0 err=- LOG=[4|at|~|temp|~]
+OBS engine-temp43-002-C001 a_drop_temp rc=0 err=- LOG=[13|at|~|temp|~]

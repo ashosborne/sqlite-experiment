@@ -1,0 +1,7 @@
+OBS engine-temp43-001-C001 ct_temp rc=0 err=- LOG=
+OBS engine-temp43-001-C001 ct_temporary rc=0 err=- LOG=
+OBS engine-temp43-001-C001 ins_temp rc=0 err=- LOG=
+OBS engine-temp43-001-C001 sel_temp rows=7
+OBS engine-temp43-001-C001 sel_qual rows=7
+OBS engine-temp43-001-C001 temp_master rows=tt,table|tt2,table
+OBS engine-temp43-001-C001 main_master rows=shared

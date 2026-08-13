@@ -1,0 +1,10 @@
+OBS engine-temp43-001-C002 shadow rc=0 err=- LOG=
+OBS engine-temp43-001-C002 ins_shadow rc=0 err=- LOG=
+OBS engine-temp43-001-C002 resolve_unqual rows=temp
+OBS engine-temp43-001-C002 resolve_main rows=main
+OBS engine-temp43-001-C002 resolve_temp rows=temp
+OBS engine-temp43-001-C002 drop_unqual rc=0 err=- LOG=
+OBS engine-temp43-001-C002 after_drop_unqual rows=main
+OBS engine-temp43-001-C002 after_drop_temp_master rows=tt|tt2
+OBS engine-temp43-001-C002 drop_qual_temp rc=0 err=- LOG=
+OBS engine-temp43-001-C002 temp_master2 rows=tt

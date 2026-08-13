@@ -1,0 +1,5 @@
+OBS engine-harvest43-002-C002 fk_cols id,seq,table,from,to,on_update,on_delete,match
+OBS engine-harvest43-002-C002 fk_rows rows=0,0,t,y,a,NO ACTION,NO ACTION,NONE|1,0,p,x,id,SET NULL,CASCADE,NONE
+OBS engine-harvest43-002-C002 fk_pragma rows=0,0,t,y,a,NO ACTION,NO ACTION,NONE|1,0,p,x,id,SET NULL,CASCADE,NONE
+OBS engine-harvest43-002-C002 fk_comp rows=0,0,t,m,a,NO ACTION,NO ACTION,NONE|0,1,t,n,b,NO ACTION,NO ACTION,NONE
+OBS engine-harvest43-002-C002 fk_none rows=0

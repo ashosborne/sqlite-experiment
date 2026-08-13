@@ -1,0 +1,7 @@
+OBS engine-harvest43-001-C002 rm_idx rows={"a":[1,3]}
+OBS engine-harvest43-001-C002 rm_top rows=[20,30]
+OBS engine-harvest43-001-C002 rm_nested rows={"a":[{},{"b":2}]}
+OBS engine-harvest43-001-C002 nested_set rows={"a":[{"b":1},{"b":42}]}
+OBS engine-harvest43-001-C002 extract_idx rows=7
+OBS engine-harvest43-001-C002 hash_append rows={"a":[1,2,9]}
+OBS engine-harvest43-001-C002 hash_minus rows={"a":[1,2,9]}

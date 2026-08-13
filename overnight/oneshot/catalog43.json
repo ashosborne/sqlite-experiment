@@ -1,0 +1,72 @@
+[
+ {
+  "id": "engine-harvest43-001-C001",
+  "feature": "engine-harvest43-001",
+  "slice": "engine-harvest43",
+  "kind": "bespoke",
+  "note": "JSON array-index paths: set/replace hit existing elements, out-of-range indexes are NO-OPS for set/insert/replace; insert never overwrites; inserting $[0] into an empty array appends"
+ },
+ {
+  "id": "engine-harvest43-001-C002",
+  "feature": "engine-harvest43-001",
+  "slice": "engine-harvest43",
+  "kind": "bespoke",
+  "note": "json_remove of an array index shifts the remainder; nested $.a[N].b paths mutate and remove; $.a[#] appends and $.a[#-1] replaces the last element; json_extract reads by index"
+ },
+ {
+  "id": "engine-harvest43-001-C003",
+  "feature": "engine-harvest43-001",
+  "slice": "engine-harvest43",
+  "kind": "bespoke",
+  "note": "json_patch replaces arrays wholesale; NULL document yields NULL; chained set-then-remove composes"
+ },
+ {
+  "id": "engine-harvest43-002-C001",
+  "feature": "engine-harvest43-002",
+  "slice": "engine-harvest43",
+  "kind": "bespoke",
+  "note": "pragma_index_list projects seq/name/unique/origin/partial in reverse creation order with the autoindex last (origin u); IPK tables report zero rows; PRAGMA and TVF forms agree"
+ },
+ {
+  "id": "engine-harvest43-002-C002",
+  "feature": "engine-harvest43-002",
+  "slice": "engine-harvest43",
+  "kind": "bespoke",
+  "note": "pragma_foreign_key_list projects id/seq/table/from/to/on_update/on_delete/match in reverse declaration order; composite keys share an id across seq 0/1; defaults NO ACTION/NONE"
+ },
+ {
+  "id": "engine-temp43-001-C001",
+  "feature": "engine-temp43-001",
+  "slice": "engine-temp43",
+  "kind": "bespoke",
+  "note": "CREATE TEMP/TEMPORARY TABLE lands in schema temp: unqualified and temp.-qualified reads agree, sqlite_temp_master lists the objects, sqlite_master does not"
+ },
+ {
+  "id": "engine-temp43-001-C002",
+  "feature": "engine-temp43-001",
+  "slice": "engine-temp43",
+  "kind": "bespoke",
+  "note": "a TEMP table shadows a same-named main table for unqualified access; unqualified DROP removes the TEMP one first; temp.-qualified DROP works"
+ },
+ {
+  "id": "engine-temp43-001-C003",
+  "feature": "engine-temp43-001",
+  "slice": "engine-temp43",
+  "kind": "bespoke",
+  "note": "CREATE TEMP TRIGGER fires on TEMP-table DML and appears in sqlite_temp_master with type trigger"
+ },
+ {
+  "id": "engine-temp43-002-C001",
+  "feature": "engine-temp43-002",
+  "slice": "engine-temp43",
+  "kind": "bespoke",
+  "note": "CREATE TEMP TABLE fires authorizer code 4 and dropping one fires 13, both (s1 = table, s3 = temp) - outer events only, no sqlite_temp_master tail frozen"
+ },
+ {
+  "id": "engine-temp43-002-C002",
+  "feature": "engine-temp43-002",
+  "slice": "engine-temp43",
+  "kind": "bespoke",
+  "note": "DENY of 4/13 is rc 23 and the object survives"
+ }
+]

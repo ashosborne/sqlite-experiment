@@ -1,0 +1,4 @@
+OBS engine-temp43-001-C003 temp_trig rc=0 err=- LOG=
+OBS engine-temp43-001-C003 trig_fire rc=0 err=- LOG=
+OBS engine-temp43-001-C003 trig_log rows=fired:55
+OBS engine-temp43-001-C003 temp_master3 rows=tlog,table|tt,table|ttr,trigger

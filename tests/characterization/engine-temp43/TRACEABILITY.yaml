@@ -1,0 +1,43 @@
+slice_id: engine-temp43
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-temp43-001-C001
+  feature_id: engine-temp43-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-temp43-001/C001.approved.txt
+  run_id: 2026-08-15T1300Z-legacy-record-kitchen43
+- case_id: engine-temp43-001-C002
+  feature_id: engine-temp43-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-temp43-001/C002.approved.txt
+  run_id: 2026-08-15T1300Z-legacy-record-kitchen43
+- case_id: engine-temp43-001-C003
+  feature_id: engine-temp43-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-temp43-001/C003.approved.txt
+  run_id: 2026-08-15T1300Z-legacy-record-kitchen43
+- case_id: engine-temp43-002-C001
+  feature_id: engine-temp43-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-temp43-002/C001.approved.txt
+  run_id: 2026-08-15T1300Z-legacy-record-kitchen43
+- case_id: engine-temp43-002-C002
+  feature_id: engine-temp43-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-temp43-002/C002.approved.txt
+  run_id: 2026-08-15T1300Z-legacy-record-kitchen43
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-53 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-temp43-001-C001
+  - engine-temp43-001-C002
+  - engine-temp43-001-C003
+  - engine-temp43-002-C001
+  - engine-temp43-002-C002
+updated_at: '2026-08-13T18:37:31Z'
+run_id: 2026-08-15T1300Z-legacy-record-kitchen43
