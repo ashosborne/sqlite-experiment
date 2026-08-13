@@ -895,3 +895,26 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   gates; DQS sentinel in parse_literal); stmt_isexplain/stmt_explain.
 - Scoreboard full 173->185 / partial 53->48 / none 78 (311 known). cargo 827/827.
 
+## Run 48 — 2026-08-14 — engine v38: vtab lifecycle deepen (pack v38, overnight)
+
+- Pack v37→v38 BOUND (+versions/38, ADR 0036): VTAB LIFECYCLE LAW. 9 goldens
+  (engine-vtab38-001..005), probe-first, 2 anti-cheat. Probe fixed: reopen runs
+  xConnect (never xCreate) once re-registered; drop_modules takes a KEEP list; the
+  _v2 destructor defers while instances hold the module (0/1/2); xUpdate argv shapes
+  (INS NULL/NULL-or-rowid + cols, UPD old/new, DEL argc=1); eponymous-only refuses
+  CREATE and connects on bare-name SELECT.
+- vtab-core-001 residuals CLEARED: xConnect reload, drop_modules, deferred destructor,
+  xUpdate, eponymous-only. STAYS PARTIAL (law): xRename/xSavepoint/xRelease/
+  xRollbackTo family is the one remaining line.
+- modern: dbfile DbImage.vtabs (rootpage-0 rows both writer paths + reader);
+  Conn.vtab_schema durable entries + pending reconnect in eval source path;
+  refcounted registrations (REG_SEQ/MOD_RC, reg_new/addref/release) wired through
+  register/replace/drop_modules/instance create/drop/close; sqlite3_drop_modules;
+  vtab_dml_intercept (xUpdate argv builder; INSERT via shared parser incl rowid
+  collist, UPDATE/DELETE simple predicates); sqlite3_last_insert_rowid (new export;
+  Conn.last_rowid); vtab scans carry xRowid (rowid key + col, star-safe);
+  vtab_eponymous_connect; Drop-vtab requires a registered module like C.
+- Composed engine-vtab38-001..005 new full. cargo 835/835 (v31/v36 vtab suites green
+  against the refcounted registry).
+- Scoreboard full 185->190 / partial 48 / none 78 (316 known).
+

@@ -5,9 +5,9 @@
 > Characterization flags (`legacy_green`, replay-green tests) ≠ done;
 > use **Operator progress** below for modern-implementation status.
 
-- Generated: 2026-08-13T07:44:51Z
+- Generated: 2026-08-13T08:37:15Z
 - App status: `in_progress` · completeness: `incomplete`
-- Manifest last_updated: 2026-08-14T10:30:00Z by `sqlite-engine-v37-oneholes`
+- Manifest last_updated: 2026-08-14T13:30:00Z by `sqlite-engine-v38-vtab-lifecycle`
 
 ## Operator progress (modern implementation)
 
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | none | 78 | Not started in modern |
 | partial | 48 | Some modern execution; gaps in notes |
-| full (converted) | 185 | Behaviour done in modern; parity may still be UNVERIFIED |
+| full (converted) | 190 | Behaviour done in modern; parity may still be UNVERIFIED |
 | deferred / rejected | 0 | Explicitly out |
 
 ### Done in modern (impl_in_modern=full)
@@ -205,6 +205,11 @@
 - `engine-harvest37-005` — sqlite3_config after-init matrix
 - `engine-harvest37-006` — db_config toggles with real effects
 - `engine-harvest37-007` — stmt_isexplain / stmt_explain
+- `engine-vtab38-001` — xConnect on file schema reload
+- `engine-vtab38-002` — sqlite3_drop_modules
+- `engine-vtab38-003` — deferred module destructor
+- `engine-vtab38-004` — xUpdate writable vtabs
+- `engine-vtab38-005` — eponymous-only modules
 
 ### Partial in modern
 
@@ -253,7 +258,7 @@
 - `serialize-memdb-api-002` — in-memory stores are real; the memdb VFS surface (URI attach, shared named memdb) absent
 - `tokenizer-001` — hex/exp/blob/bracket-ident token classes real in the eval tokenizer; full tokenize.c class coverage absent
 - `util-primitives-001` — confidence=observed-in-code; UTF-8/16 read/convert with invalid-sequence policy; ChaCha20-based randomness (public API); string hash tables. run-29: real UTF-8<->UTF-16 codec (surrogate pairs) now lands in modern for the prepare16/column16 surface. STILL PARTIAL: string hash tables and internal hash/PRNG primitives not implemented — do not flip to full on codec alone. legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED
-- `vtab-core-001` — confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect. run-41: PARTIAL - real per-connection module registry: sqlite3_create_module/_v2 (C-ABI sqlite3_module table; redefine replaces and runs the _v2 destructor, close runs remaining destructors); CREATE VIRTUAL TABLE invokes xCreate with the C argv convention (module/db/table/raw args); unknown module -> "no such module: X" exact; xCreate failure surfaces the constructor error and leaves no schema entry; DROP TABLE -> xDestroy; sqlite_master carries rootpage 0 + CREATE VIRTUAL TABLE sql; fresh connections must re-register (pinned). RESIDUAL: xConnect on schema reload for file DBs, eponymous-only modules (xCreate==NULL), sqlite3_drop_modules, deferred destructor while instances hold the module, xUpdate/xRename/xSavepoint family.
+- `vtab-core-001` — confidence=observed-in-code; create_module(+v2 destructor); CREATE VIRTUAL TABLE → xCreate; reconnect → xConnect. run-41: PARTIAL - real per-connection module registry: sqlite3_create_module/_v2 (C-ABI sqlite3_module table; redefine replaces and runs the _v2 destructor, close runs remaining destructors); CREATE VIRTUAL TABLE invokes xCreate with the C argv convention (module/db/table/raw args); unknown module -> "no such module: X" exact; xCreate failure surfaces the constructor error and leaves no schema entry; DROP TABLE -> xDestroy; sqlite_master carries rootpage 0 + CREATE VIRTUAL TABLE sql; fresh connections must re-register (pinned). run-48: lifecycle deepened — xConnect on file schema reload is REAL (durable rootpage-0 schema rows in real file images; pending entries reconnect on first use; unregistered reopen errors exactly), sqlite3_drop_modules matches C's keep-list contract (live instances still scan; module-less DROP TABLE refuses), the _v2 destructor DEFERS while instances hold the module (refcounted registrations, pinned 0/1/2), xUpdate makes vtabs writable (C argv shapes, module-assigned rowids, last_insert_rowid, constraint rc 19), and eponymous-only modules (xCreate NULL) connect on bare-name SELECT while refusing CREATE. RESIDUAL: the xRename / xSavepoint / xRelease / xRollbackTo family is not dispatched (vtab DML under savepoints and ALTER-RENAME of vtabs unpinned).
 - `wal-001` — confidence=observed-in-code; Frame append with commit records; readers pin mxFrame snapshots via wal-index. run-32: PARTIAL — real WAL write path (C-valid frame format, C interop proven), mode persistence, reopen recovery and single-process commit visibility landed (pack v22). RESIDUAL: commits rewrite the -wal with the full committed image (not C frame-level appends); no multi-connection mxFrame reader snapshots; no shm/wal-index locking protocol; no torn-write/corruption recovery matrix. Do not flip to full on the v22 slice.
 - `wal-002` — confidence=observed-in-code; Four checkpoint modes differing in blocking and wal-reset behaviour. run-32: PARTIAL — all four modes + bare form pinned and real in the SINGLE-CONNECTION regime (backfill observable wal-blind; TRUNCATE zeroes -wal). RESIDUAL: the modes differ precisely in busy/blocking behaviour across connections, which is unexercised — full would greenwash that distinction. No wal_autocheckpoint.
 
@@ -342,25 +347,25 @@
 
 | Metric | Count |
 | --- | --- |
-| Surfaces total | 243 |
-| Behaviours known | 311 |
+| Surfaces total | 244 |
+| Behaviours known | 316 |
 | Seeds scanned | 109 |
 | Unscanned hints (residual) | 3 |
-| legacy_green flags | 221 |
+| legacy_green flags | 226 |
 | parity_green flags | 0 |
 
 ## Surfaces by status
 
 | Status | Count |
 | --- | --- |
-| accepted | 58 |
+| accepted | 59 |
 | candidate | 185 |
 
 ## Behaviours by status
 
 | Status | Count |
 | --- | --- |
-| converted | 169 |
+| converted | 174 |
 | documented | 142 |
 
 ## Surfaces per slice
@@ -435,6 +440,7 @@
 | engine-value | 1 |
 | engine-views | 1 |
 | engine-vtab31 | 1 |
+| engine-vtab38 | 1 |
 | engine-wal | 1 |
 | engine-window2 | 1 |
 | error-status-api | 3 |
