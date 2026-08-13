@@ -981,3 +981,22 @@ Charter: MAX_ITERATIONS=24, MAX_NEW_SEEDS_PER_ITER=4, MAX_NEW_CANDIDATES=120 (th
   bookkeeping families, TEMP, REINDEX, RECURSIVE); auth-002 untouched. Composed
   engine-harvest41-001..006 full. cargo all green; SCRIPT_TABLE 0.
 - Scoreboard full 208->214 / partial 42 / none 78 (334 known). Not migrated.
+## Run 52 — 2026-08-15 — engine v42: recursive CTE execution (pack v42, overnight)
+
+- Pack v41 -> v42 BOUND (RECURSIVE CTE EXECUTION: C's Queue/Current FIFO, scan-gated
+  code 33, no invented DistFifo-without-probe / SEARCH/CYCLE / recursion limits /
+  flattening; select-codegen-001/003, parser-grammar-001, auth-001 stay partial). ADR 0040.
+- Probed C then froze 11 goldens (engine-harvest42-001..006): non-recursive WITH forms;
+  recursive UNION ALL FIFO (multi-seed interleave 1|10|2|11|3|12|13, breadth-first table
+  walks); 33 scan-gating ([21|c][33|~|~|~|c][21|c]x2, unused silent, DENY rc 23);
+  UNION-distinct cyclic termination; LIMIT stop on an unbounded machine; C's four
+  compile errors verbatim.
+- Modern: CTE scope stack consulted first by the FROM resolver (shadowing), lazy
+  dependency-first materialization with the circular-reference guard, the literal
+  VecDeque machine (pop one row -> output -> bind as the CTE table -> run recursive
+  member -> enqueue), seen-set UNION distinct, simple-outer-LIMIT cap, WITH routed as
+  a query through prepare/step/exec/get_table, authorizer WITH walk at prepare.
+- Estate: auth-001's RECURSIVE pin-absent line replaced by the landed scan-gated 33;
+  select-codegen-001 notes WITH real (residual unchanged); 002/003 untouched. Composed
+  engine-harvest42-001..006 full. cargo 52 binaries green; SCRIPT_TABLE 0.
+- Scoreboard full 214->220 / partial 42 / none 78 (340 known). Not migrated.
