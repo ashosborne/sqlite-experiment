@@ -1,0 +1,6 @@
+OBS engine-harvest40-006-C005 trusted_default 42
+OBS engine-harvest40-006-C005 trusted_off prep.rc=1 err=unsafe use of dbl()
+OBS engine-harvest40-006-C005 ts_state 0
+OBS engine-harvest40-006-C005 direct_use 10
+OBS engine-harvest40-006-C005 innocuous_off 8
+OBS engine-harvest40-006-C005 trusted_back 42

@@ -1,0 +1,3 @@
+OBS engine-harvest40-005-C001 each_cols key,value,type,atom,id,parent,fullkey,path
+OBS engine-harvest40-005-C001 each_full a,1,integer,1,1,~,$.a,$|b,[true,null],array,~,5,~,$.b,$
+OBS engine-harvest40-005-C001 each_arr 0,7,integer,7,1,$[0]|1,x,text,x,3,$[1]|2,~,null,~,5,$[2]

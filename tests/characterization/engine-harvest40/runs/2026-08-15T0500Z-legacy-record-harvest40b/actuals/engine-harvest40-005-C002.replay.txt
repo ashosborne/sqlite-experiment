@@ -1,0 +1,4 @@
+OBS engine-harvest40-005-C002 tree_cols key,value,type,atom,id,parent,fullkey,path
+OBS engine-harvest40-005-C002 tree_full ~,{"a":[1,2],"b":{"c":3}},object,~,0,~,$,$|a,[1,2],array,~,2,0,$.a,$|0,1,integer,1,5,2,$.a[0],$.a|1,2,integer,2,7,2,$.a[1],$.a|b,{"c":3},object,~,9,0,$.b,$|c,3,integer,3,12,9,$.b.c,$.b
+OBS engine-harvest40-005-C002 tree_arr $,array,~|$[0],integer,1|$[1],array,~|$[1][0],integer,2|$[1][1],integer,3
+OBS engine-harvest40-005-C002 tree_root ~,integer,$,$

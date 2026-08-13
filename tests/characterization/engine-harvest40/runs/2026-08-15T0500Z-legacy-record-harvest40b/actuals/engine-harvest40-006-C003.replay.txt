@@ -1,0 +1,5 @@
+OBS engine-harvest40-006-C003 alter_default rc=0 err=-
+OBS engine-harvest40-006-C003 view_sql_default CREATE VIEW v AS SELECT a FROM "u"
+OBS engine-harvest40-006-C003 legacy_state 1
+OBS engine-harvest40-006-C003 alter_legacy rc=0 err=-
+OBS engine-harvest40-006-C003 view_sql_legacy CREATE VIEW v AS SELECT a FROM t

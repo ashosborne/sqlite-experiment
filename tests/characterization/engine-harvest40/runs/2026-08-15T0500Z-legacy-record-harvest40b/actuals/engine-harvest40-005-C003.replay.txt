@@ -1,0 +1,5 @@
+OBS engine-harvest40-005-C003 each_second a,1
+OBS engine-harvest40-005-C003 tree_second $.a,{"b":4}|$.a.b,4
+OBS engine-harvest40-005-C003 each_scalar ~,9,integer,0
+OBS engine-harvest40-005-C003 tree_count 6
+OBS engine-harvest40-005-C003 each_count 2

@@ -1,0 +1,9 @@
+OBS engine-harvest40-006-C002 ws_off rc=1 err=table sqlite_master may not be modified
+OBS engine-harvest40-006-C002 ws_on rc=0 err=-
+OBS engine-harvest40-006-C002 ws_state 1
+OBS engine-harvest40-006-C002 def_pragma_ws rc=0 err=-
+OBS engine-harvest40-006-C002 def_ws_state 0
+OBS engine-harvest40-006-C002 def_update rc=1 err=table sqlite_master may not be modified
+OBS engine-harvest40-006-C002 def_state 0
+OBS engine-harvest40-006-C002 off_pragma_ws rc=0 err=-
+OBS engine-harvest40-006-C002 off_update rc=0 err=-

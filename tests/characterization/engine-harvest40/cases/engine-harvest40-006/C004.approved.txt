@@ -1,0 +1,6 @@
+OBS engine-harvest40-006-C004 reset_state0 0
+OBS engine-harvest40-006-C004 reset_state1 1
+OBS engine-harvest40-006-C004 reset_vacuum rc=0 err=-
+OBS engine-harvest40-006-C004 after_reset 0
+OBS engine-harvest40-006-C004 post_reset_use rc=0 err=-
+OBS engine-harvest40-006-C004 post_reset_rows 3

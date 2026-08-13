@@ -1,0 +1,79 @@
+[
+ {
+  "id": "engine-harvest40-005-C001",
+  "feature": "engine-harvest40-005",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "json_each full vtab columns: object keys by name, JSONB-offset ids, atom NULL for containers, fullkey/path"
+ },
+ {
+  "id": "engine-harvest40-005-C002",
+  "feature": "engine-harvest40-005",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "json_tree preorder walk with container rows, JSONB-offset ids, parent = parent row id, minified container values"
+ },
+ {
+  "id": "engine-harvest40-005-C003",
+  "feature": "engine-harvest40-005",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "second path argument roots the walk; scalar roots yield one row; row counts"
+ },
+ {
+  "id": "engine-harvest40-006-C001",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "DQS_DDL: double-quoted strings in CHECK accepted by default and when on; off errors with C's should-this-be-a-string-literal message"
+ },
+ {
+  "id": "engine-harvest40-006-C002",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "WRITABLE_SCHEMA gates sqlite_master UPDATE; DEFENSIVE makes PRAGMA writable_schema=ON a no-op and keeps the gate closed"
+ },
+ {
+  "id": "engine-harvest40-006-C003",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "default ALTER RENAME rewrites referencing view SQL with the quoted new name; LEGACY_ALTER leaves the view text untouched"
+ },
+ {
+  "id": "engine-harvest40-006-C004",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "RESET_DATABASE + VACUUM empties the schema; the connection stays usable"
+ },
+ {
+  "id": "engine-harvest40-006-C005",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "TRUSTED_SCHEMA off refuses non-innocuous app functions inside views (unsafe use), INNOCUOUS functions and direct calls stay allowed"
+ },
+ {
+  "id": "engine-harvest40-006-C006",
+  "feature": "engine-harvest40-006",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "load_extension gates: C API refused not authorized until DBCONFIG 1005; the SQL function stays refused under 1005 (C's API/SQL split)"
+ },
+ {
+  "id": "engine-harvest40-007-C001",
+  "feature": "engine-harvest40-007",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "live completion candidates: keywords, schema names, tables+views, columns (the pragma/function/collation phases are dead in live C)"
+ },
+ {
+  "id": "engine-harvest40-007-C002",
+  "feature": "engine-harvest40-007",
+  "slice": "engine-harvest40",
+  "kind": "bespoke",
+  "note": "completion census: 147 keywords + schema objects, DISTINCT phase = 1|7|8|9, only candidate visible in star-select"
+ }
+]

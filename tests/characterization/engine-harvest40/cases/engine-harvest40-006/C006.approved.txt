@@ -1,0 +1,4 @@
+OBS engine-harvest40-006-C006 capi_disabled rc=1 err=not authorized
+OBS engine-harvest40-006-C006 sql_disabled rc=1 err=not authorized
+OBS engine-harvest40-006-C006 capi_state 1
+OBS engine-harvest40-006-C006 sql_capi_on rc=1 err=not authorized

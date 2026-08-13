@@ -1,0 +1,5 @@
+OBS engine-harvest40-007-C001 comp_sel SELECT
+OBS engine-harvest40-007-C001 comp_wid widgets
+OBS engine-harvest40-007-C001 comp_wcol wcol1|wcol2
+OBS engine-harvest40-007-C001 comp_mai main
+OBS engine-harvest40-007-C001 comp_wv wview

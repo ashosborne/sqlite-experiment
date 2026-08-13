@@ -1,0 +1,4 @@
+OBS engine-harvest40-007-C002 comp_count 154
+OBS engine-harvest40-007-C002 comp_phases 1|7|8|9
+OBS engine-harvest40-007-C002 comp_cols candidate
+OBS engine-harvest40-007-C002 comp_g GENERATED,1|GLOB,1|GROUP,1|GROUPS,1|gadgets,8|gcol,9

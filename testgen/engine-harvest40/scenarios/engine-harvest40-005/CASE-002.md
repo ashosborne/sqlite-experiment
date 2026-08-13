@@ -1,0 +1,15 @@
+# engine-harvest40-005-C002 — run-11 oneshot characterization
+
+Feature: `engine-harvest40-005` · Kind: characterization · Assert mode: RECORDED (was TO_BE_RECORDED)
+Matrix gate: run-11 full-autonomy charter. Determinism gate: two independent RECORD runs byte-matched.
+
+## Boundary invoke
+
+Bespoke C API sequence: json_tree preorder walk with container rows, JSONB-offset ids, parent = parent row id, minified container values (see harness).
+
+## Observables
+
+- `tree_cols` = `key,value,type,atom,id,parent,fullkey,path`
+- `tree_full` = `~,{"a":[1,2],"b":{"c":3}},object,~,0,~,$,$|a,[1,2],array,~,2,0,$.a,$|0,1,integer,1,5,2,$.a[0],$.a|1,2,integer,2,7,2,$.a[1],$.a|b,{"c":3},object,~,9,0,$.b,$|c,3,integer,3,12,9,$.b.c,$.b`
+- `tree_arr` = `$,array,~|$[0],integer,1|$[1],array,~|$[1][0],integer,2|$[1][1],integer,3`
+- `tree_root` = `~,integer,$,$`
