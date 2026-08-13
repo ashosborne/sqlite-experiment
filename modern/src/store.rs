@@ -736,17 +736,28 @@ fn auth_stmt_precheck(db: usize, st: &Store, s: &str) -> Result<AuthGate, String
         }
     } else if up.starts_with("DROP TABLE ") {
         // run-51: code 11 outer (s1 = table, s3 = main); a vtab drop fires 30 with
-        // s2 = the module name instead
+        // s2 = the module name instead. run-53: a TEMP table fires DROP_TEMP_TABLE 13.
         let raw = orig["DROP TABLE ".len()..].trim().trim_end_matches(';').trim().to_string();
         if let Some(t) = ident(&raw) {
             let vmod = st.conn.vtab_schema.iter().find(|(n, _, _, _)| *n == t)
                 .map(|(_, m, _, _)| m.clone());
+            let is_temp = t.strip_prefix("temp.").map(|b| st.tables.iter().any(|(n, _)| n == &format!("temp.{b}")))
+                .unwrap_or_else(|| st.tables.iter().any(|(n, _)| *n == format!("temp.{t}")));
+            let bare = t.strip_prefix("temp.").unwrap_or(&t).to_string();
             let rc = match &vmod {
                 Some(m) => crate::auth_raw(db, 30, Some(&t), Some(m), Some("main"), None),
+                None if is_temp => crate::auth_raw(db, 13, Some(&bare), None, Some("temp"), None),
                 None => fire(11, Some(&t), None, Some("main")),
             };
             if rc == 1 { return deny(); }
         }
+    } else if up.starts_with("CREATE TEMP TABLE ") || up.starts_with("CREATE TEMPORARY TABLE ") {
+        // run-53: SQLITE_CREATE_TEMP_TABLE (4), s1 = bare name, s3 = temp
+        let prefix = if up.starts_with("CREATE TEMP TABLE ") { "CREATE TEMP TABLE " } else { "CREATE TEMPORARY TABLE " };
+        let raw = orig[prefix.len()..].trim().trim_start_matches("IF NOT EXISTS ").trim()
+            .split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("").to_string();
+        let bare = ident(&raw).unwrap_or(raw);
+        if crate::auth_raw(db, 4, Some(&bare), None, Some("temp"), None) == 1 { return deny(); }
     } else if up.starts_with("CREATE VIRTUAL TABLE ") {
         // run-51: code 29 outer (s1 = table, s2 = module, s3 = main)
         if let Some(Stmt::CreateVtab { name, module, .. }) = parse_stmt(orig) {
@@ -1301,6 +1312,7 @@ fn image_of(st: &Store) -> DbImage {
             TableImage { name: n.clone(), sql, rows: t.rows.clone() }
         }).collect();
         let triggers: Vec<TriggerImage> = st.triggers.iter()
+            .filter(|(n, d)| !n.contains('.') && !d.table.contains('.')) // run-53: temp triggers don't persist
             .map(|(n, d)| TriggerImage { name: n.clone(), tbl: d.table.clone(), sql: d.raw.clone() })
             .collect();
         let mut indexes: Vec<dbfile::IndexImage> = Vec::new();
@@ -1522,7 +1534,7 @@ enum Stmt {
     Savepoint { name: String },
     Release { name: String },
     RollbackTo { name: String },
-    CreateTrigger { name: String, def: Trigger, sql: String },
+    CreateTrigger { name: String, def: Trigger, sql: String, temp: bool },
     TriggerReject { msg: String }, // run-39: qualified table in trigger DML (non-TEMP)
     TriggerNoop,                    // run-39: accepted-but-inert TEMP trigger
     CreateView { name: String, body: String, sql: String },
@@ -1675,11 +1687,20 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
         let rest = if rest.to_ascii_uppercase().starts_with("SAVEPOINT ") { &rest["SAVEPOINT ".len()..] } else { rest };
         return Some(Stmt::Release { name: ident(rest)? });
     }
-    if let Some(_r) = up.strip_prefix("CREATE TABLE ") {
-        let open = s.find('(')?;
-        let name = ident(&s["CREATE TABLE ".len()..open])?;
-        let inner = &s[open + 1..s.rfind(')')?];
-        return Some(Stmt::Create { name, cols: parse_coldefs(inner)?, sql: s.trim().to_string() });
+    // run-53: CREATE [TEMP|TEMPORARY] TABLE — TEMP objects live under the temp schema
+    {
+        let (temp, prefix) = if up.starts_with("CREATE TEMP TABLE ") { (true, "CREATE TEMP TABLE ") }
+            else if up.starts_with("CREATE TEMPORARY TABLE ") { (true, "CREATE TEMPORARY TABLE ") }
+            else if up.starts_with("CREATE TABLE ") { (false, "CREATE TABLE ") }
+            else { (false, "") };
+        if !prefix.is_empty() {
+            let open = s.find('(')?;
+            let bare = ident(&s[prefix.len()..open])?;
+            // an already-qualified name (temp.x / main.x) keeps its schema
+            let name = if temp && !bare.contains('.') { format!("temp.{bare}") } else { bare };
+            let inner = &s[open + 1..s.rfind(')')?];
+            return Some(Stmt::Create { name, cols: parse_coldefs(inner)?, sql: s.trim().to_string() });
+        }
     }
     if up.starts_with("CREATE UNIQUE INDEX ") || up.starts_with("CREATE INDEX ") {
         let unique = up.starts_with("CREATE UNIQUE");
@@ -1743,7 +1764,15 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
                         });
                     }
                     if is_temp {
-                        // TEMP triggers are accepted; the pinned scope never fires them
+                        // run-53: TEMP triggers now FIRE — reparse the de-TEMPed form
+                        // and mark it temp so it registers in the temp schema
+                        let after = if up.starts_with("CREATE TEMP TRIGGER ") {
+                            &s["CREATE TEMP TRIGGER ".len()..]
+                        } else { &s["CREATE TEMPORARY TRIGGER ".len()..] };
+                        let rewritten = format!("CREATE TRIGGER {after}");
+                        if let Some(Stmt::CreateTrigger { name, def, sql, .. }) = parse_stmt(&rewritten) {
+                            return Some(Stmt::CreateTrigger { name, def, sql, temp: true });
+                        }
                         return Some(Stmt::TriggerNoop);
                     }
                 }
@@ -1839,7 +1868,7 @@ fn parse_stmt(s: &str) -> Option<Stmt> {
             body.push((target, exprs));
         }
         if body.is_empty() { return None; }
-        return Some(Stmt::CreateTrigger { name, def: Trigger { table, timing, event, of_col, when, body, raw: s.trim().to_string(), schema: String::new(), on_schema }, sql: s.trim().to_string() });
+        return Some(Stmt::CreateTrigger { name, def: Trigger { table, timing, event, of_col, when, body, raw: s.trim().to_string(), schema: String::new(), on_schema }, sql: s.trim().to_string(), temp: false });
     }
     if up.starts_with("CREATE VIEW ") {
         let rest = &s["CREATE VIEW ".len()..];
@@ -2180,6 +2209,182 @@ const FK_ERR: &str = "FOREIGN KEY constraint failed";
 const UNIQ_ERR: &str = "UNIQUE constraint failed";
 
 /// table-constraint UNIQUE(a,b,...) column sets from a CREATE TABLE statement
+/// run-53: pragma_index_list projection over live schema — C's row shape
+/// (seq, name, unique, origin, partial), explicit indexes newest-first then the
+/// UNIQUE/PK autoindexes. Returns rows as string columns.
+fn index_list_rows_st(st: &Store, table: &str) -> Vec<Vec<Option<String>>> {
+    {
+        let t = match st.tables.iter().find(|(n, _)| n == table) { Some((_, t)) => t, None => return Vec::new() };
+        let mut ordered: Vec<(String, bool, &'static str, bool)> = Vec::new();
+        // explicit CREATE INDEX entries, newest-first
+        let mut expl: Vec<&IndexDef> = st.indexes.iter().filter(|d| d.table == *table).collect();
+        expl.reverse();
+        for d in expl {
+            ordered.push((d.name.clone(), d.unique, "c", d.where_c.is_some()));
+        }
+        // synthesized autoindexes for UNIQUE / non-IPK PRIMARY KEY constraints
+        let ipk = dbfile::ipk_index(&t.create_sql);
+        let mut autos: Vec<(bool, &'static str)> = Vec::new(); // (is_pk, origin) in declaration order
+        for cc in column_constraints(&t.create_sql) {
+            match cc {
+                ColConstraint::Unique(_) => autos.push((false, "u")),
+                ColConstraint::PrimaryKey(cols) => {
+                    // an INTEGER PRIMARY KEY single-column alias is the rowid (no index)
+                    let is_ipk = ipk.is_some() && cols.len() == 1
+                        && t.cols.get(ipk.unwrap()).map(|c| c.name.eq_ignore_ascii_case(&cols[0])).unwrap_or(false);
+                    if !is_ipk { autos.push((true, "pk")); }
+                }
+            }
+        }
+        // sqlite_autoindex_<table>_<n> numbered in declaration order, emitted newest-first
+        let n_auto = autos.len();
+        for (i, (_pk, origin)) in autos.into_iter().enumerate().rev() {
+            let name = format!("sqlite_autoindex_{table}_{}", n_auto - i);
+            ordered.push((name, true, origin, false));
+        }
+        ordered.into_iter().enumerate().map(|(seq, (name, uniq, origin, partial))| vec![
+            Some(seq.to_string()), Some(name), Some((uniq as i64).to_string()),
+            Some(origin.to_string()), Some((partial as i64).to_string()),
+        ]).collect()
+    }
+}
+
+/// run-53: pragma_foreign_key_list projection — C's shape (id, seq, table, from,
+/// to, on_update, on_delete, match), reverse declaration order, composite keys
+/// sharing an id across seq 0..n.
+fn fk_list_rows_st(st: &Store, table: &str) -> Vec<Vec<Option<String>>> {
+    {
+        let t = match st.tables.iter().find(|(n, _)| n == table) { Some((_, t)) => t, None => return Vec::new() };
+        let fks = parse_foreign_keys(&t.create_sql); // declaration order, each = (parent, [(from,to)], onupd, ondel)
+        let mut out = Vec::new();
+        let n = fks.len();
+        for (idx, fk) in fks.into_iter().rev().enumerate() {
+            let id = idx; // reverse-declaration id
+            let _ = n;
+            for (seq, (from, to)) in fk.pairs.iter().enumerate() {
+                out.push(vec![
+                    Some(id.to_string()), Some(seq.to_string()), Some(fk.parent.clone()),
+                    Some(from.clone()),
+                    to.clone().map(Some).unwrap_or(None),
+                    Some(fk.on_update.clone()), Some(fk.on_delete.clone()), Some("NONE".to_string()),
+                ]);
+            }
+        }
+        out
+    }
+}
+
+/// run-53: re-entrant pragma projection maps built inside an existing store borrow
+pub fn build_pragma_proj(st: &Store)
+    -> (std::collections::HashMap<String, Vec<Vec<Option<String>>>>,
+        std::collections::HashMap<String, Vec<Vec<Option<String>>>>) {
+    let mut il = std::collections::HashMap::new();
+    let mut fk = std::collections::HashMap::new();
+    for (n, _) in &st.tables {
+        if n.contains('.') { continue; }
+        il.insert(n.clone(), index_list_rows_st(st, n));
+        fk.insert(n.clone(), fk_list_rows_st(st, n));
+    }
+    (il, fk)
+}
+
+enum ColConstraint { Unique(Vec<String>), PrimaryKey(Vec<String>) }
+/// parse UNIQUE / PRIMARY KEY constraints (column-level and table-level) in
+/// declaration order from a CREATE TABLE statement
+fn column_constraints(sql: &str) -> Vec<ColConstraint> {
+    let mut out = Vec::new();
+    let inner = match (sql.find('('), sql.rfind(')')) {
+        (Some(a), Some(b)) if b > a => &sql[a + 1..b], _ => return out,
+    };
+    for part in split_top_commas(inner) {
+        let p = part.trim();
+        let up = p.to_ascii_uppercase();
+        if up.starts_with("UNIQUE") && p.contains('(') {
+            let cols = paren_cols(p);
+            out.push(ColConstraint::Unique(cols));
+        } else if up.starts_with("PRIMARY KEY") && p.contains('(') {
+            out.push(ColConstraint::PrimaryKey(paren_cols(p)));
+        } else if up.starts_with("FOREIGN KEY") || up.starts_with("CHECK") || up.starts_with("CONSTRAINT") {
+            // not an index-origin constraint here
+        } else {
+            // a column definition: first token is the name
+            let name = p.split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("").trim_matches('"').to_string();
+            if name.is_empty() { continue; }
+            // ` UNIQUE ` / ` PRIMARY KEY ` as column constraints
+            let cu = format!(" {up} ");
+            if cu.contains(" UNIQUE") { out.push(ColConstraint::Unique(vec![name.clone()])); }
+            if cu.contains(" PRIMARY KEY") { out.push(ColConstraint::PrimaryKey(vec![name])); }
+        }
+    }
+    out
+}
+struct FkDef { parent: String, pairs: Vec<(String, Option<String>)>, on_update: String, on_delete: String }
+/// parse all foreign keys (column-level REFERENCES and table-level FOREIGN KEY),
+/// in declaration order, with action strings in C's words
+fn parse_foreign_keys(sql: &str) -> Vec<FkDef> {
+    let mut out = Vec::new();
+    let inner = match (sql.find('('), sql.rfind(')')) {
+        (Some(a), Some(b)) if b > a => &sql[a + 1..b], _ => return out,
+    };
+    let action_word = |s: &str| -> String {
+        let u = s.to_ascii_uppercase();
+        if u.contains("CASCADE") { "CASCADE".into() }
+        else if u.contains("SET NULL") { "SET NULL".into() }
+        else if u.contains("SET DEFAULT") { "SET DEFAULT".into() }
+        else if u.contains("RESTRICT") { "RESTRICT".into() }
+        else { "NO ACTION".into() }
+    };
+    for part in split_top_commas(inner) {
+        let p = part.trim();
+        let up = p.to_ascii_uppercase();
+        let refp = up.find("REFERENCES");
+        if refp.is_none() { continue; }
+        let refp = refp.unwrap();
+        // parent table + parent columns
+        let after = p[refp + "REFERENCES".len()..].trim_start();
+        let parent = after.split(|c: char| c.is_whitespace() || c == '(').next().unwrap_or("").trim_matches('"').to_string();
+        let pcols: Vec<String> = if after.trim_start().starts_with(&parent).then(|| after[parent.len()..].trim_start().starts_with('(')).unwrap_or(false) {
+            paren_cols(&after[parent.len()..])
+        } else if let Some(op) = after.find('(') {
+            paren_cols(&after[op..])
+        } else { Vec::new() };
+        // on update / on delete
+        let ondel = if let Some(dp) = up.find("ON DELETE") { action_word(&p[dp..dp + 24.min(p.len() - dp)]) } else { "NO ACTION".into() };
+        let onupd = if let Some(up2) = up.find("ON UPDATE") { action_word(&p[up2..up2 + 24.min(p.len() - up2)]) } else { "NO ACTION".into() };
+        // child columns
+        let fcols: Vec<String> = if up.starts_with("FOREIGN KEY") {
+            paren_cols(p)
+        } else {
+            vec![p.split(|c: char| c.is_whitespace()).next().unwrap_or("").trim_matches('"').to_string()]
+        };
+        let pairs: Vec<(String, Option<String>)> = fcols.iter().enumerate()
+            .map(|(i, f)| (f.clone(), pcols.get(i).cloned())).collect();
+        out.push(FkDef { parent, pairs, on_update: onupd, on_delete: ondel });
+    }
+    out
+}
+fn paren_cols(s: &str) -> Vec<String> {
+    match (s.find('('), s.find(')')) {
+        (Some(a), Some(b)) if b > a => s[a + 1..b].split(',').map(|c| c.trim().trim_matches('"').to_string()).collect(),
+        _ => Vec::new(),
+    }
+}
+fn split_top_commas(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut cur = String::new();
+    for c in s.chars() {
+        match c {
+            '(' => { depth += 1; cur.push(c); }
+            ')' => { depth -= 1; cur.push(c); }
+            ',' if depth == 0 => out.push(std::mem::take(&mut cur)),
+            _ => cur.push(c),
+        }
+    }
+    if !cur.trim().is_empty() { out.push(cur); }
+    out
+}
+
 fn parse_uniq_sets(sql: &str) -> Vec<Vec<String>> {
     let mut out = Vec::new();
     let (open, close) = match (sql.find('('), sql.rfind(')')) { (Some(o), Some(c)) if c > o => (o, c), _ => return out };
@@ -2684,12 +2889,19 @@ fn eval_snapshot(st: &Store) -> std::collections::HashMap<String, (Vec<String>, 
     }
     // aliases (separate pass so ambiguity favours main/base tables)
     let keys: Vec<String> = m.keys().cloned().collect();
-    for n in keys {
-        if let Some((_, tbl)) = n.split_once('.') {
-            if !m.contains_key(tbl) { let v = m[&n].clone(); m.insert(tbl.to_string(), v); }
+    for n in &keys {
+        if let Some((sch, tbl)) = n.split_once('.') {
+            if sch != "temp" && !m.contains_key(tbl) { let v = m[n].clone(); m.insert(tbl.to_string(), v); }
         } else {
             let q = format!("main.{n}");
-            if !m.contains_key(&q) { let v = m[&n].clone(); m.insert(q, v); }
+            if !m.contains_key(&q) { let v = m[n].clone(); m.insert(q, v); }
+        }
+    }
+    // run-53: TEMP objects WIN the unqualified alias (C resolves temp before main)
+    for n in &keys {
+        if let Some(tbl) = n.strip_prefix("temp.") {
+            let v = m[n].clone();
+            m.insert(tbl.to_string(), v);
         }
     }
     m
@@ -2779,7 +2991,15 @@ pub fn stmt_reads_schema(st: &Store, sql: &str, schema: &str) -> bool {
 /// run-43: unqualified DML resolution — main first, then attached schemas in attach
 /// order (C's search path). Returns the canonical store key.
 fn dml_key(st: &Store, name: &str) -> String {
-    if name.contains('.') || st.tables.iter().any(|(n, _)| n == name) || st.views.contains_key(name) {
+    // run-53: main.<x> resolves to the bare main key; temp.<x> / attached stay dotted
+    if let Some(bare) = name.strip_prefix("main.").or_else(|| name.strip_prefix("MAIN.")) {
+        return bare.to_string();
+    }
+    if name.contains('.') { return name.to_string(); }
+    // run-53: an unqualified name resolves to the TEMP object first (C's rule)
+    let tk = format!("temp.{name}");
+    if st.tables.iter().any(|(n, _)| *n == tk) || st.views.contains_key(&tk) { return tk; }
+    if st.tables.iter().any(|(n, _)| n == name) || st.views.contains_key(name) {
         return name.to_string();
     }
     for sch in &st.conn.attached {
@@ -3005,7 +3225,7 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
     maybe_refresh_from_file(db); // run-36: pick up sibling connections' commits
     let s = sql.trim().trim_end_matches(';').trim();
     let up = s.to_ascii_uppercase();
-    let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA");
+    let master = up.contains("SQLITE_MASTER") || up.contains("SQLITE_SCHEMA") || up.contains("SQLITE_TEMP_MASTER") || up.contains("SQLITE_TEMP_SCHEMA");
     // run-34: simple rowid projections/sorts go to the kitchen (eval rows carry no rowids)
     let rowid_kitchen = up.contains("ROWID") && matches!(parse_stmt(s), Some(Stmt::Select { .. }));
     if (up.starts_with("SELECT") || up.starts_with("WITH")) && !master && !rowid_kitchen {
@@ -3024,11 +3244,12 @@ pub fn stmt_query_typed(db: usize, sql: &str) -> Result<(Vec<String>, Vec<Vec<ev
             let colls = build_coll_snapshot(st);
             let idefs: Vec<(String, String, Vec<String>, String)> = st.indexes.iter()
                 .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone(), d.sql.clone())).collect();
+            let (ilp, fkp) = build_pragma_proj(st); // run-53
             let mut snap = snap;
             apply_read_auth(db, s, &mut snap); // run-38: authorizer READ -> IGNORE nulls columns
             PROBE_CELL.with(|c| c.set(0));
             let r = PROBE_CELL.with(|probes| {
-                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls, index_defs: &idefs };
+                let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views, indexes: &idxmaps, probes, col_colls: &colls, index_defs: &idefs, index_list_proj: &ilp, fk_list_proj: &fkp };
                 eval::stmt_select_typed(&mut ctx, s)
             });
             r
@@ -3097,6 +3318,7 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
             let kitchen_ok = match &parsed {
                 Some(Stmt::Select { target, .. }) =>
                     target == "sqlite_master" || target.ends_with(".sqlite_master")
+                    || target == "sqlite_temp_master" || target == "sqlite_temp_schema"
                         || st.tables.iter().any(|(n, _)| n == target),
                 Some(_) => true,
                 None => false,
@@ -3119,8 +3341,9 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     let colls2 = build_coll_snapshot(st);
                     let idefs2: Vec<(String, String, Vec<String>, String)> = st.indexes.iter()
                         .map(|d| (d.name.clone(), d.table.clone(), d.exprs.clone(), d.sql.clone())).collect();
+                    let (ilp, fkp) = build_pragma_proj(st); // run-53
                     let res = PROBE_CELL.with(|probes| {
-                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2, index_defs: &idefs2 };
+                        let mut ctx = eval::Ctx { db, conn: &mut st.conn, tables: &snap, fk_counts: &fk, index_counts: &idx, views: &views2, indexes: &idxmaps, probes, col_colls: &colls2, index_defs: &idefs2, index_list_proj: &ilp, fk_list_proj: &fkp };
                         eval::run_stmt(&mut ctx, s)
                     });
                     match res {
@@ -3624,13 +3847,15 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                 }
                 Stmt::TriggerReject { msg } => { return Err(msg); }
                 Stmt::TriggerNoop => { /* accepted, inert (run-39) */ }
-                Stmt::CreateTrigger { name, mut def, sql: _ } => {
+                Stmt::CreateTrigger { name, mut def, sql: _, temp } => {
                     // run-43: the trigger NAME carries the schema (C model); ON resolves
                     // strictly inside that schema — the two C error shapes are pinned.
-                    let (tsch, bname) = match name.split_once('.') {
-                        Some((s, b)) => (s.to_string(), b.to_string()),
-                        None => ("main".to_string(), name.clone()),
-                    };
+                    // run-53: a TEMP trigger registers in the temp schema.
+                    let (tsch, bname) = if temp { ("temp".to_string(), name.clone()) }
+                        else { match name.split_once('.') {
+                            Some((s, b)) => (s.to_string(), b.to_string()),
+                            None => ("main".to_string(), name.clone()),
+                        } };
                     if let Some(os) = &def.on_schema {
                         if !os.eq_ignore_ascii_case(&tsch) {
                             return Err(format!("trigger {bname} cannot reference objects in database {os}"));
@@ -3699,6 +3924,8 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     st.conn.schema_version += 1;
                 }
                 Stmt::Drop { name } => {
+                    // run-53: DROP TABLE resolves TEMP-first (unqualified) / main.|temp. qualified
+                    let name = dml_key(st, &name);
                     stat1_delete(st, Some(&name), None); // run-37: C clears the table's stat1 rows
                     if st.fk_on {
                         // DROP parent while child rows still reference it -> rc 19.
@@ -4283,10 +4510,14 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                     for o in &hits { let _ = fire_triggers(st, &name, 1, 2, Some(o), None)?; }
                 }
                 Stmt::Select { items, target, wh, order_by } => {
-                    if target == "sqlite_master" || target.ends_with(".sqlite_master") {
+                    let is_temp_master = target == "sqlite_temp_master" || target == "sqlite_temp_schema"
+                        || target.ends_with(".sqlite_temp_master") || target.ends_with(".sqlite_temp_schema");
+                    if target == "sqlite_master" || target.ends_with(".sqlite_master") || is_temp_master {
                         // run-43: schema-qualified sqlite_master reports that schema's objects
                         // with bare names; bare sqlite_master is main-only (C model).
-                        let schp: Option<String> = target.strip_suffix(".sqlite_master").map(|s| s.to_string());
+                        // run-53: sqlite_temp_master reports the temp-schema objects (bare names).
+                        let schp: Option<String> = if is_temp_master { Some("temp".to_string()) }
+                            else { target.strip_suffix(".sqlite_master").map(|s| s.to_string()) };
                         let scoped: Vec<(String, String)> = st.catalog.iter().filter(|(_, n)| match &schp {
                             None => !n.contains('.'),
                             Some(s) => n.starts_with(&format!("{s}.")),

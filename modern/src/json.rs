@@ -255,6 +255,18 @@ fn path_steps(path: &str) -> Vec<String> {
     out
 }
 
+/// run-53: resolve an array-path step against a length: "N", "#" (== len) or "#-K"
+fn arr_idx(step: &str, len: usize) -> Option<usize> {
+    if let Some(rest) = step.strip_prefix('#') {
+        if rest.is_empty() { return Some(len); }
+        if let Some(k) = rest.strip_prefix('-') {
+            return k.trim().parse::<usize>().ok().and_then(|k| len.checked_sub(k));
+        }
+        return None;
+    }
+    step.parse::<usize>().ok()
+}
+
 fn get<'a>(j: &'a J, steps: &[String]) -> Option<&'a J> {
     let mut cur = j;
     for s in steps {
@@ -457,17 +469,42 @@ pub fn set(doc: &str, path: &str, val: &V, mode: &str) -> Result<String, String>
         if steps.is_empty() { *j = nv; return; }
         let key = &steps[0];
         if steps.len() == 1 {
-            if let J::Obj(o) = j {
-                let exists = o.iter().any(|(k, _)| k == key);
-                match (mode, exists) {
-                    ("json_insert", true) => {}
-                    ("json_replace", false) => {}
-                    _ => { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { e.1 = nv; } else { o.push((key.clone(), nv)); } }
+            match j {
+                J::Obj(o) => {
+                    let exists = o.iter().any(|(k, _)| k == key);
+                    match (mode, exists) {
+                        ("json_insert", true) => {}
+                        ("json_replace", false) => {}
+                        _ => { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { e.1 = nv; } else { o.push((key.clone(), nv)); } }
+                    }
                 }
+                // run-53: array-index last step — an existing element overwrites
+                // (set/replace), idx == len appends (set/insert), past-the-end is a NO-OP
+                J::Arr(a) => {
+                    if let Some(idx) = arr_idx(key, a.len()) {
+                        let exists = idx < a.len();
+                        match (mode, exists) {
+                            ("json_insert", true) => {}
+                            ("json_replace", false) => {}
+                            (_, true) => a[idx] = nv,
+                            (_, false) => { if idx == a.len() { a.push(nv); } }
+                        }
+                    }
+                }
+                _ => {}
             }
             return;
         }
-        if let J::Obj(o) = j { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { put(&mut e.1, &steps[1..], nv, mode); } }
+        match j {
+            J::Obj(o) => { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { put(&mut e.1, &steps[1..], nv, mode); } }
+            J::Arr(a) => {
+                let len = a.len();
+                if let Some(idx) = arr_idx(key, len) {
+                    if let Some(el) = a.get_mut(idx) { put(el, &steps[1..], nv, mode); }
+                }
+            }
+            _ => {}
+        }
     }
     put(&mut j, &steps, v_to_j(val), mode);
     Ok(serialize(&j))
@@ -478,8 +515,29 @@ pub fn remove(doc: &str, path: &str) -> Result<String, String> {
     fn rm(j: &mut J, steps: &[String]) {
         if steps.is_empty() { return; }
         let key = &steps[0];
-        if steps.len() == 1 { if let J::Obj(o) = j { o.retain(|(k, _)| k != key); } return; }
-        if let J::Obj(o) = j { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { rm(&mut e.1, &steps[1..]); } }
+        if steps.len() == 1 {
+            match j {
+                J::Obj(o) => { o.retain(|(k, _)| k != key); }
+                // run-53: removing an array index shifts the remainder; OOB is a no-op
+                J::Arr(a) => {
+                    if let Some(idx) = arr_idx(key, a.len()) {
+                        if idx < a.len() { a.remove(idx); }
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
+        match j {
+            J::Obj(o) => { if let Some(e) = o.iter_mut().find(|(k, _)| k == key) { rm(&mut e.1, &steps[1..]); } }
+            J::Arr(a) => {
+                let len = a.len();
+                if let Some(idx) = arr_idx(key, len) {
+                    if let Some(el) = a.get_mut(idx) { rm(el, &steps[1..]); }
+                }
+            }
+            _ => {}
+        }
     }
     rm(&mut j, &steps);
     Ok(serialize(&j))

@@ -394,6 +394,9 @@ pub struct Ctx<'a> {
     pub col_colls: &'a std::collections::HashMap<String, String>,
     /// run-44: explicit index definitions (index name, table, columns) for pragma TVFs
     pub index_defs: &'a [(String, String, Vec<String>, String)], // (name, table, cols, sql)
+    /// run-53: prebuilt pragma_index_list / pragma_foreign_key_list projections
+    pub index_list_proj: &'a std::collections::HashMap<String, Vec<Vec<Option<String>>>>,
+    pub fk_list_proj: &'a std::collections::HashMap<String, Vec<Vec<Option<String>>>>,
 }
 
 /// Evaluate one expression against a plain env (used by the store for CHECK
@@ -408,7 +411,9 @@ pub fn eval_standalone(expr: &str, env: &std::collections::HashMap<String, V>) -
     let probes = std::cell::Cell::new(0u64);
     let mut conn = Conn::default();
     let colls = std::collections::HashMap::new();
-    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes, col_colls: &colls, index_defs: &[] };
+    let ilp = std::collections::HashMap::new();
+    let fkp = std::collections::HashMap::new();
+    let ctx = Ctx { db: 0, conn: &mut conn, tables: &tables, fk_counts: &fk, index_counts: &ix, views: &views, indexes: &indexes, probes: &probes, col_colls: &colls, index_defs: &[], index_list_proj: &ilp, fk_list_proj: &fkp };
     eval_expr(&e, env, &ctx)
 }
 
@@ -957,6 +962,9 @@ fn eval_func(name: &str, args: &[Ex], row: &Row, ctx: &Ctx) -> Result<V, String>
         }
         "json_type" => { let doc=a(0)?.as_text(); let p = if args.len()>1 { a(1)?.as_text() } else { "$".into() };
                          match crate::json::type_at(&doc,&p) { Some(t)=>V::Text(t), None=>V::Null } }
+        // run-53: a NULL document argument yields NULL (C shape), not an error
+        "json_set" | "json_insert" | "json_replace" if matches!(a(0)?, V::Null) => V::Null,
+        "json_remove" | "json_patch" if matches!(a(0)?, V::Null) => V::Null,
         "json_set" | "json_insert" | "json_replace" => V::Text(crate::json::set(&a(0)?.as_text(), &a(1)?.as_text(), &a(2)?, &ln)?),
         "json_remove" => V::Text(crate::json::remove(&a(0)?.as_text(), &a(1)?.as_text())?),
         "json_patch" => V::Text(crate::json::patch(&a(0)?.as_text(), &a(1)?.as_text())?),
@@ -1540,10 +1548,31 @@ fn source_rows(ctx: &Ctx, from: &str) -> Result<(Vec<String>, Vec<Row>), String>
                 }
                 let n = ctx.tables.get(&arg).map(|(c,_)| c.len()).unwrap_or(0);
                 return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
-            "pragma_foreign_key_list" => { let n = *ctx.fk_counts.get(&arg).unwrap_or(&0);
-                return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
-            "pragma_index_list" => { let n = *ctx.index_counts.get(&arg).unwrap_or(&0);
-                return Ok((vec!["x".into()], (0..n).map(|_| Row::new()).collect())); }
+            "pragma_foreign_key_list" => {
+                // run-53: real projection (id/seq/table/from/to/on_update/on_delete/match)
+                let cn: Vec<String> = vec!["id".into(), "seq".into(), "table".into(), "from".into(),
+                              "to".into(), "on_update".into(), "on_delete".into(), "match".into()];
+                let rows = ctx.fk_list_proj.get(&arg).cloned().unwrap_or_default().into_iter().map(|r| {
+                    let mut m = Row::new();
+                    for (c, v) in cn.iter().zip(r) {
+                        m.insert(c.clone(), v.map(V::Text).unwrap_or(V::Null));
+                    }
+                    m
+                }).collect();
+                return Ok((cn, rows));
+            }
+            "pragma_index_list" => {
+                // run-53: real projection (seq/name/unique/origin/partial)
+                let cn: Vec<String> = vec!["seq".into(), "name".into(), "unique".into(), "origin".into(), "partial".into()];
+                let rows = ctx.index_list_proj.get(&arg).cloned().unwrap_or_default().into_iter().map(|r| {
+                    let mut m = Row::new();
+                    for (c, v) in cn.iter().zip(r) {
+                        m.insert(c.clone(), v.map(V::Text).unwrap_or(V::Null));
+                    }
+                    m
+                }).collect();
+                return Ok((cn, rows));
+            }
             "pragma_database_list" => {
                 let mut rows = Vec::new();
                 let mut seq = 0i64;
@@ -3084,6 +3113,16 @@ fn run_pragma(ctx: &mut Ctx, body: &str) -> Result<Vec<Vec<Option<String>>>, Str
     let b = body.trim();
     let (name, val) = match b.split_once('=') { Some((n, v)) => (n.trim().to_ascii_lowercase(), Some(v.trim().to_string())), None => (b.trim().to_ascii_lowercase(), None) };
     let boolval = |v: &str| -> i64 { match v.to_ascii_uppercase().as_str() { "ON"|"TRUE"|"YES" => 1, "OFF"|"FALSE"|"NO" => 0, _ => v.parse().unwrap_or(0) } };
+    // run-53: PRAGMA index_list(t) / foreign_key_list(t) share the TVF projection
+    if name.starts_with("index_list(") || name.starts_with("foreign_key_list(") {
+        let arg = name[name.find('(').unwrap() + 1..].trim_end_matches(')').trim().trim_matches('\'').to_string();
+        let rows = if name.starts_with("index_list") {
+            ctx.index_list_proj.get(&arg).cloned().unwrap_or_default()
+        } else {
+            ctx.fk_list_proj.get(&arg).cloned().unwrap_or_default()
+        };
+        return Ok(rows);
+    }
     match name.as_str() {
         n if n.starts_with("wal_checkpoint") => {
             // counts row (busy, log, checkpointed); backfill runs in the post-exec sync
