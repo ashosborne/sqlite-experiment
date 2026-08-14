@@ -1296,6 +1296,11 @@ pub fn changes(db: usize) -> i64 {
     with_store(db, |st| st.changes)
 }
 
+/// run-61: rows changed since the connection opened (sqlite3_total_changes)
+pub fn total_changes(db: usize) -> i64 {
+    with_store(db, |st| st.total_changes)
+}
+
 /// run-56: for the narrow btree-cursor scope — a file-backed main schema with
 /// exactly ONE plain rowid user table (no indexes/views/vtabs/attached/temp) —
 /// return (table name, rows as (rowid, record-values with the IPK col NULLed)),
@@ -1364,6 +1369,123 @@ pub fn vm_scan_ctx(db: usize, table: &str, cols: &[String]) -> Option<(Vec<u8>, 
     crate::pager::read_table_cells(&image, root)?; // scope check: leaf or 1-level tree
     let cookie = u32::from_be_bytes(image[40..44].try_into().ok()?);
     Some((image, root, colidx, cookie))
+}
+
+/// run-61: sqlite3AffinityType over a declared column type (probed letters:
+/// INT -> D, CHAR/CLOB/TEXT -> B, BLOB/empty -> A, REAL/FLOA/DOUB -> E, else C).
+fn affinity_of(decl: &str) -> char {
+    let u = decl.to_ascii_uppercase();
+    if u.contains("INT") { 'D' }
+    else if u.contains("CHAR") || u.contains("CLOB") || u.contains("TEXT") { 'B' }
+    else if u.trim().is_empty() || u.contains("BLOB") { 'A' }
+    else if u.contains("REAL") || u.contains("FLOA") || u.contains("DOUB") { 'E' }
+    else { 'C' }
+}
+
+/// the declared type text of each column, parsed from CREATE TABLE (top-level
+/// comma split; table constraints skipped). None when the text defies the
+/// simple shape this slice owns.
+fn decl_types(create_sql: &str, ncols: usize) -> Option<Vec<String>> {
+    let open = create_sql.find('(')?;
+    let close = create_sql.rfind(')')?;
+    let body = &create_sql[open + 1..close];
+    let mut parts: Vec<String> = Vec::new();
+    let (mut depth, mut cur) = (0i32, String::new());
+    for ch in body.chars() {
+        match ch {
+            '(' => { depth += 1; cur.push(ch); }
+            ')' => { depth -= 1; cur.push(ch); }
+            ',' if depth == 0 => { parts.push(cur.trim().to_string()); cur.clear(); }
+            _ => cur.push(ch),
+        }
+    }
+    if !cur.trim().is_empty() { parts.push(cur.trim().to_string()); }
+    let mut out = Vec::new();
+    for p in parts {
+        let up = p.to_ascii_uppercase();
+        if ["PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "CONSTRAINT"].iter().any(|k| up.starts_with(k)) { continue; }
+        let mut toks = p.split_whitespace();
+        let _name = toks.next()?;
+        let ty: Vec<&str> = toks.take_while(|t| {
+            let tu = t.to_ascii_uppercase();
+            !["PRIMARY", "NOT", "UNIQUE", "CHECK", "DEFAULT", "REFERENCES", "COLLATE", "GENERATED", "AS"].contains(&tu.as_str())
+        }).collect();
+        out.push(ty.join(" "));
+    }
+    if out.len() == ncols { Some(out) } else { None }
+}
+
+/// run-61: context for the VDBE INSERT path (OpenWrite/NewRowid/MakeRecord/
+/// Insert). Gates = the v48 scan scope PLUS: the column list (when given) must
+/// be exactly the table's columns in declared order, the value count must match,
+/// and no hooks/authorizer are registered (those side-effects stay kitchen).
+/// Returns (file image, root page, schema cookie, MakeRecord affinity string,
+/// table name as the schema spells it).
+pub fn vm_insert_ctx(db: usize, table: &str, cols: Option<&[String]>, nvals: usize)
+    -> Option<(Vec<u8>, u32, u32, String, String)> {
+    if crate::commit_hook_present(db) || crate::update_hook_present(db) || crate::authorizer_present(db) {
+        return None;
+    }
+    let (tname, aff) = with_store(db, |st| {
+        if !st.conn.is_file || st.txn.is_some() { return None; }
+        if st.conn.journal == "wal" { return None; }
+        if !st.indexes.is_empty() || !st.views.is_empty() || !st.conn.attached.is_empty()
+            || !st.conn.vtabs.is_empty() || !st.conn.vtab_schema.is_empty() || !st.triggers.is_empty() {
+            return None;
+        }
+        let user: Vec<&(String, Table)> = st.tables.iter()
+            .filter(|(n, _)| !n.contains('.') && !n.starts_with("sqlite_")).collect();
+        if user.len() != 1 { return None; }
+        let (name, t) = user[0];
+        if !name.eq_ignore_ascii_case(table) { return None; }
+        if t.create_sql.to_ascii_uppercase().contains("WITHOUT ROWID") { return None; }
+        if dbfile::ipk_index(&t.create_sql).is_some() { return None; } // IPK changes NewRowid
+        if t.cols.iter().any(|c| c.not_null || c.unique || c.check.is_some() || c.default.is_some() || c.references.is_some()) {
+            return None; // constraint enforcement stays kitchen
+        }
+        if nvals != t.cols.len() { return None; }
+        if let Some(cs) = cols {
+            if cs.len() != t.cols.len() { return None; }
+            for (c, tc) in cs.iter().zip(&t.cols) {
+                if !c.eq_ignore_ascii_case(&tc.name) { return None; }
+            }
+        }
+        let decls = decl_types(&t.create_sql, t.cols.len())?;
+        let aff: String = decls.iter().map(|d| affinity_of(d)).collect();
+        Some((name.clone(), aff))
+    })?;
+    let path = PATHS.with(|m| m.borrow().get(&db).cloned())?;
+    let image = std::fs::read(&path).ok()?;
+    if image.len() < 100 { return None; }
+    let root = crate::pager::schema_rootpage(&image, table)?;
+    crate::pager::read_table_cells(&image, root)?;
+    let cookie = u32::from_be_bytes(image[40..44].try_into().ok()?);
+    Some((image, root, cookie, aff, tname))
+}
+
+/// run-61: after OP_Insert put the cell (pager::insert_cell built new_image),
+/// persist through the pager's journal-then-write mini-txn and mirror the row
+/// into this connection's store (the store is bookkeeping here, NOT the writer
+/// — the cell bytes on disk are the ones MakeRecord built).
+pub fn vm_persist_insert(db: usize, table: &str, rowid: i64, payload: &[u8], new_image: &[u8]) -> bool {
+    let path = match PATHS.with(|m| m.borrow().get(&db).cloned()) { Some(p) => p, None => return false };
+    let old = std::fs::read(&path).unwrap_or_default();
+    if crate::pager::commit_over(&path, &old, new_image).is_err() { return false; }
+    io_bump(db, 0, 0, 1);
+    crate::pcache_note(db, new_image.len() as i64);
+    bump_file_version(db, &path);
+    let vals = dbfile::decode_record(payload);
+    with_store(db, |st| {
+        if let Some((_, t)) = st.tables.iter_mut().find(|(n, _)| n.eq_ignore_ascii_case(table)) {
+            t.rows.push((rowid, vals.clone()));
+            // next_rowid stores the LAST assigned rowid (the kitchen pre-increments)
+            if rowid > t.next_rowid { t.next_rowid = rowid; }
+        }
+        st.conn.last_rowid = rowid;
+        st.changes = 1;
+        st.total_changes += 1;
+    });
+    true
 }
 
 /// run-56: sqlite3_txn_state level for the connection (0 none / 1 read / 2 write).

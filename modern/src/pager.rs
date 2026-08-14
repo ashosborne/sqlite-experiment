@@ -455,6 +455,65 @@ fn set_page_count(image: &mut [u8]) {
 /// new pages appended). Returns None only for scopes the cursor doesn't own
 /// (shrink-below-split, deep trees, oversized single cells) — the caller falls
 /// back to the whole-image writer and the residual names it.
+/// run-61: OP_Insert's put-cell — append ONE cell (rowid + the record payload
+/// MakeRecord built) to the table's btree, repacking leaves (split-capable via
+/// the same v46 machinery). This IS the cursor write of the VDBE Insert path:
+/// the payload bytes are written verbatim, never re-derived from the store.
+pub(crate) fn insert_cell(old_image: &[u8], table: &str, rowid: i64, payload: &[u8]) -> Option<Vec<u8>> {
+    let root = schema_rootpage(old_image, table)?;
+    let existing = read_table_cells(old_image, root)?;
+    if payload.len() > PAGE - 35 { return None; } // overflow-chain scope: fall back
+    if existing.iter().any(|(r, _)| *r == rowid) { return None; } // not an insert
+    let mut image = old_image.to_vec();
+    let mut cells: Vec<(i64, Vec<u8>)> = Vec::with_capacity(existing.len() + 1);
+    for (r, p) in &existing {
+        let mut c = Vec::new();
+        crate::dbfile::put_varint(&mut c, p.len() as u64);
+        crate::dbfile::put_varint(&mut c, *r as u64);
+        c.extend_from_slice(p);
+        cells.push((*r, c));
+    }
+    let mut nc = Vec::new();
+    crate::dbfile::put_varint(&mut nc, payload.len() as u64);
+    crate::dbfile::put_varint(&mut nc, rowid as u64);
+    nc.extend_from_slice(payload);
+    cells.push((rowid, nc));
+    cells.sort_by_key(|(r, _)| *r);
+    CURSOR_OPS.fetch_add(1, Ordering::SeqCst); // cursor seek+insert of this cell
+
+    let leaves = chunk_cells(cells);
+    let root_is_interior = image[(root as usize - 1) * PAGE] == 0x05;
+    if leaves.len() <= 1 {
+        if root_is_interior { return None; } // shrink/merge out of scope
+        let flat = leaves.into_iter().next().unwrap_or_default();
+        if !write_leaf_cells(&mut image, root, &flat) { return None; }
+        bump_change_counter(&mut image);
+        return Some(image);
+    }
+    let mut child_pages: Vec<u32> = if root_is_interior {
+        interior_children(&image, root)?
+    } else { Vec::new() };
+    if child_pages.len() > leaves.len() { return None; }
+    while child_pages.len() < leaves.len() {
+        let newp = (image.len() / PAGE) as u32 + 1;
+        image.extend(std::iter::repeat(0u8).take(PAGE));
+        child_pages.push(newp);
+    }
+    for (leaf, page) in leaves.iter().zip(&child_pages) {
+        if !write_leaf_cells(&mut image, *page, leaf) { return None; }
+    }
+    let mut dividers: Vec<(u32, i64)> = Vec::new();
+    for (leaf, page) in leaves.iter().zip(&child_pages).take(leaves.len() - 1) {
+        dividers.push((*page, leaf.last().map(|(r, _)| *r)?));
+    }
+    let rightmost = *child_pages.last()?;
+    if !write_interior(&mut image, root, &dividers, rightmost) { return None; }
+    set_page_count(&mut image);
+    bump_change_counter(&mut image);
+    SPLITS.fetch_add(1, Ordering::SeqCst);
+    Some(image)
+}
+
 pub fn rewrite_table_leaf(old_image: &[u8], table: &str, rows: &[(i64, Vec<Val>)]) -> Option<Vec<u8>> {
     let root = schema_rootpage(old_image, table)?;
     let existing = read_table_cells(old_image, root)?; // walks a one-level interior

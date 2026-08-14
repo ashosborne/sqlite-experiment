@@ -878,6 +878,13 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
                         Some(vdbe::compile_seek_rowid(root, cookie, &colidx, &rhs))
                     }
                 }
+            }).or_else(|| {
+                // run-61: the single-row INSERT program (OpenWrite/NewRowid/
+                // MakeRecord/Insert with the real root page and affinity string)
+                let (tbl, cols, vals) = vdbe::parse_insert(&s.sql)?;
+                let (_img, root, cookie, aff, tname) =
+                    store::vm_insert_ctx(s.db, &tbl, cols.as_deref(), vals.len())?;
+                Some(vdbe::compile_insert(root, cookie, &tname, &aff, &vals))
             });
             let rows: Vec<Vec<eval::V>> = match compiled {
                 Some(prog) => vdbe::explain_rows(&prog).into_iter()
@@ -928,6 +935,29 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
                 s.rows = Some(rows);
                 s.cur = 0;
                 return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+            }
+        }
+    }
+    // run-61: single-row INSERT dispatches OpenWrite/NewRowid/MakeRecord/Insert;
+    // the cell (rowid + the record MakeRecord built) is put through the pager's
+    // cursor packing (insert_cell) and persisted via the journal mini-txn — the
+    // kitchen store only mirrors the row afterwards (bookkeeping, not the writer).
+    if let Some((tbl, cols, vals)) = vdbe::parse_insert(&s.sql) {
+        if let Some((image, root, cookie, aff, tname)) =
+            store::vm_insert_ctx(s.db, &tbl, cols.as_deref(), vals.len()) {
+            if let Some(cells) = pager::read_table_cells(&image, root) {
+                let prog = vdbe::compile_insert(root, cookie, &tname, &aff, &vals);
+                let (_rows, pending) = vdbe::execute_dml(&prog, Some(&cells), &s.params);
+                if let Some((rowid, payload)) = pending {
+                    if let Some(newimg) = pager::insert_cell(&image, &tname, rowid, &payload) {
+                        if store::vm_persist_insert(s.db, &tname, rowid, &payload, &newimg) {
+                            s.rows = Some(Vec::new());
+                            s.cur = 0;
+                            s.state = State::Done;
+                            return SQLITE_DONE;
+                        }
+                    }
+                }
             }
         }
     }
@@ -1723,6 +1753,9 @@ pub(crate) fn trace_kind(dbid: usize) -> u8 {
 /// is a commit hook registered? (store snapshots only when needed)
 pub(crate) fn commit_hook_present(dbid: usize) -> bool {
     EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().commit_cb != 0)
+}
+pub(crate) fn update_hook_present(dbid: usize) -> bool {
+    EXTRAS.with(|m| m.borrow_mut().entry(dbid).or_default().update_cb != 0)
 }
 /// commit-hook consult (None = no hook; Some(rc) = callback result)
 pub(crate) fn consult_commit_hook(dbid: usize) -> Option<i32> {
@@ -3911,6 +3944,20 @@ pub unsafe extern "C" fn sqlite3_changes(db: *mut Sqlite3) -> c_int {
 pub unsafe extern "C" fn sqlite3_changes64(db: *mut Sqlite3) -> i64 {
     if db.is_null() { return 0; }
     store::changes(db as usize)
+}
+
+/// # Safety: C ABI — run-61: total rows changed since the connection opened.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_total_changes(db: *mut Sqlite3) -> c_int {
+    if db.is_null() { return 0; }
+    store::total_changes(db as usize) as c_int
+}
+
+/// # Safety: C ABI — 64-bit twin of sqlite3_total_changes.
+#[no_mangle]
+pub unsafe extern "C" fn sqlite3_total_changes64(db: *mut Sqlite3) -> i64 {
+    if db.is_null() { return 0; }
+    store::total_changes(db as usize)
 }
 
 /// # Safety: C ABI — run-56: the btree handle's transaction state on `zSchema`
