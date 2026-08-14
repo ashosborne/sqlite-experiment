@@ -588,11 +588,24 @@ pub unsafe extern "C" fn sqlite3_prepare_v2(
                 colnames = names.into_iter().map(|n| CString::new(n).unwrap_or_default()).collect();
             }
             Err(e) => {
-                (*db).errcode = SQLITE_ERROR;
-                (*db).extended = SQLITE_ERROR;
-                (*db).errmsg = Some(CString::new(e).unwrap_or_default());
-                if !pz_tail.is_null() { *pz_tail = z_sql; }
-                return SQLITE_ERROR;
+                // run-60: the rowid-seek shape is VM-owned — the kitchen has no
+                // rowid binding for plain tables and never runs this statement;
+                // the program compiler resolves the shape (colnames = the idents)
+                let vm_owned = vdbe::parse_where_scan(&stmt_text)
+                    .filter(|(_, _, wcol, _, _)| *wcol == vdbe::WhereCol::Rowid)
+                    .and_then(|(tbl, cols, _, _, _)| store::vm_scan_ctx(dbid, &tbl, &cols).map(|_| cols));
+                match vm_owned {
+                    Some(cols) => {
+                        colnames = cols.iter().map(|c| CString::new(c.as_str()).unwrap_or_default()).collect();
+                    }
+                    None => {
+                        (*db).errcode = SQLITE_ERROR;
+                        (*db).extended = SQLITE_ERROR;
+                        (*db).errmsg = Some(CString::new(e).unwrap_or_default());
+                        if !pz_tail.is_null() { *pz_tail = z_sql; }
+                        return SQLITE_ERROR;
+                    }
+                }
             }
         }
         // run-11 pin: authorizer consulted for SELECT at prepare time (DENY -> SQLITE_AUTH)
@@ -850,6 +863,21 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
                 let (tbl, cols) = vdbe::parse_scan(&s.sql)?;
                 let (_img, root, colidx, cookie) = store::vm_scan_ctx(s.db, &tbl, &cols)?;
                 Some(vdbe::compile_scan(root, cookie, &colidx))
+            }).or_else(|| {
+                // run-60: WHERE compare / rowid-seek programs (probed shapes only)
+                let (tbl, cols, wcol, op, rhs) = vdbe::parse_where_scan(&s.sql)?;
+                match wcol {
+                    vdbe::WhereCol::Named(w) => {
+                        let mut all = cols.clone(); all.push(w);
+                        let (_img, root, colidx, cookie) = store::vm_scan_ctx(s.db, &tbl, &all)?;
+                        let wi = *colidx.last()?;
+                        Some(vdbe::compile_where_scan(root, cookie, &colidx[..colidx.len() - 1], wi, op, &rhs))
+                    }
+                    vdbe::WhereCol::Rowid => {
+                        let (_img, root, colidx, cookie) = store::vm_scan_ctx(s.db, &tbl, &cols)?;
+                        Some(vdbe::compile_seek_rowid(root, cookie, &colidx, &rhs))
+                    }
+                }
             });
             let rows: Vec<Vec<eval::V>> = match compiled {
                 Some(prog) => vdbe::explain_rows(&prog).into_iter()
@@ -875,6 +903,33 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
         s.rows = Some(rows);
         s.cur = 0;
         return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+    }
+    // run-60: WHERE compare / rowid-seek on the cell cursor — the compare runs
+    // as an opcode (C's inverted jump-to-Next Ne/Eq/Le/Ge/Lt/Gt), never as a
+    // Rust filter; OP_Variable reads the 1-based statement parameters.
+    if let Some((tbl, cols, wcol, wop, rhs)) = vdbe::parse_where_scan(&s.sql) {
+        let scan = match &wcol {
+            vdbe::WhereCol::Named(w) => {
+                let mut all = cols.clone(); all.push(w.clone());
+                store::vm_scan_ctx(s.db, &tbl, &all).map(|ctx| (ctx, true))
+            }
+            vdbe::WhereCol::Rowid => store::vm_scan_ctx(s.db, &tbl, &cols).map(|ctx| (ctx, false)),
+        };
+        if let Some(((image, root, colidx, cookie), named)) = scan {
+            if let Some(cells) = pager::read_table_cells(&image, root) {
+                let prog = if named {
+                    let wi = colidx[colidx.len() - 1];
+                    vdbe::compile_where_scan(root, cookie, &colidx[..colidx.len() - 1], wi, wop, &rhs)
+                } else {
+                    vdbe::compile_seek_rowid(root, cookie, &colidx, &rhs)
+                };
+                let rows = vdbe::execute_bound(&prog, Some(&cells), &s.params);
+                let has = !rows.is_empty();
+                s.rows = Some(rows);
+                s.cur = 0;
+                return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+            }
+        }
     }
     // run-59: SELECT col(s) FROM one file-backed rowid table walks btree cells
     // through OpenRead/Rewind/Column/Next — Column decodes cell payloads parsed

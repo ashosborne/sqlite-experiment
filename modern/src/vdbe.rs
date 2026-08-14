@@ -30,7 +30,7 @@ pub struct Op {
     pub p4: Option<String>,
     pub p5: i64,
 }
-fn op(opcode: &'static str, p1: i64, p2: i64, p3: i64) -> Op {
+fn op_(opcode: &'static str, p1: i64, p2: i64, p3: i64) -> Op {
     Op { opcode, p1, p2, p3, p4: None, p5: 0 }
 }
 
@@ -77,12 +77,12 @@ pub fn compile(sql: &str) -> Option<Vec<Op>> {
             let a = parse_int(parts[0])?;
             let b = parse_int(parts[1])?;
             return Some(vec![
-                op("Init", 0, 5, 0),
-                op("Integer", a, 1, 0),
-                op("Integer", b, 2, 0),
-                op("ResultRow", 1, 2, 0),
-                op("Halt", 0, 0, 0),
-                op("Goto", 0, 1, 0),
+                op_("Init", 0, 5, 0),
+                op_("Integer", a, 1, 0),
+                op_("Integer", b, 2, 0),
+                op_("ResultRow", 1, 2, 0),
+                op_("Halt", 0, 0, 0),
+                op_("Goto", 0, 1, 0),
             ]);
         }
         return None;
@@ -93,13 +93,13 @@ pub fn compile(sql: &str) -> Option<Vec<Op>> {
             let a = parse_int(&items_txt[..pp])?;
             let b = parse_int(&items_txt[pp + 1..])?;
             return Some(vec![
-                op("Init", 0, 4, 0),
-                op("Add", 3, 2, 1),
-                op("ResultRow", 1, 1, 0),
-                op("Halt", 0, 0, 0),
-                op("Integer", a, 2, 0),
-                op("Integer", b, 3, 0),
-                op("Goto", 0, 1, 0),
+                op_("Init", 0, 4, 0),
+                op_("Add", 3, 2, 1),
+                op_("ResultRow", 1, 1, 0),
+                op_("Halt", 0, 0, 0),
+                op_("Integer", a, 2, 0),
+                op_("Integer", b, 3, 0),
+                op_("Goto", 0, 1, 0),
             ]);
         }
         return None;
@@ -107,14 +107,14 @@ pub fn compile(sql: &str) -> Option<Vec<Op>> {
     // SELECT '<text>'
     if let Some(t) = parse_text(items_txt) {
         if wh.is_none() {
-            let mut s8 = op("String8", 0, 1, 0);
+            let mut s8 = op_("String8", 0, 1, 0);
             s8.p4 = Some(t);
             return Some(vec![
-                op("Init", 0, 4, 0),
+                op_("Init", 0, 4, 0),
                 s8,
-                op("ResultRow", 1, 1, 0),
-                op("Halt", 0, 0, 0),
-                op("Goto", 0, 1, 0),
+                op_("ResultRow", 1, 1, 0),
+                op_("Halt", 0, 0, 0),
+                op_("Goto", 0, 1, 0),
             ]);
         }
         return None;
@@ -123,19 +123,19 @@ pub fn compile(sql: &str) -> Option<Vec<Op>> {
     let n = parse_int(items_txt)?;
     match wh {
         None | Some(true) => Some(vec![
-            op("Init", 0, 4, 0),
-            op("Integer", n, 1, 0),
-            op("ResultRow", 1, 1, 0),
-            op("Halt", 0, 0, 0),
-            op("Goto", 0, 1, 0),
+            op_("Init", 0, 4, 0),
+            op_("Integer", n, 1, 0),
+            op_("ResultRow", 1, 1, 0),
+            op_("Halt", 0, 0, 0),
+            op_("Goto", 0, 1, 0),
         ]),
         Some(false) => Some(vec![
-            op("Init", 0, 5, 0),
-            op("Goto", 0, 4, 0),
-            op("Integer", n, 1, 0),
-            op("ResultRow", 1, 1, 0),
-            op("Halt", 0, 0, 0),
-            op("Goto", 0, 1, 0),
+            op_("Init", 0, 5, 0),
+            op_("Goto", 0, 4, 0),
+            op_("Integer", n, 1, 0),
+            op_("ResultRow", 1, 1, 0),
+            op_("Halt", 0, 0, 0),
+            op_("Goto", 0, 1, 0),
         ]),
     }
 }
@@ -169,6 +169,124 @@ pub fn parse_scan(sql: &str) -> Option<(String, Vec<String>)> {
     Some((tbl.to_string(), cols))
 }
 
+/// run-60: the WHERE shape this slice owns:
+///   SELECT <col>(, <col>)* FROM <table> WHERE <col|rowid> <op> (<int-lit> | ?)
+/// ops: = <> != > < >= <=. Returns (table, select cols, where target, op, rhs).
+#[derive(Clone, Debug, PartialEq)]
+pub enum WhereRhs { Lit(i64), Var(u32) }
+#[derive(Clone, Debug, PartialEq)]
+pub enum WhereCol { Named(String), Rowid }
+pub fn parse_where_scan(sql: &str) -> Option<(String, Vec<String>, WhereCol, &'static str, WhereRhs)> {
+    let s = sql.trim().trim_end_matches(';').trim();
+    let up = s.to_ascii_uppercase();
+    let wp = up.find(" WHERE ")?;
+    let (head, tail) = (&s[..wp], s[wp + 7..].trim());
+    let (tbl, cols) = parse_scan(head)?;
+    // split the predicate: <ident> <op> <rhs> — longest ops first
+    let mut found: Option<(usize, &'static str)> = None;
+    for op in ["<>", "!=", ">=", "<=", "=", ">", "<"] {
+        if let Some(p) = tail.find(op) { found = Some((p, op)); break; }
+    }
+    let (p, op) = found?;
+    let lhs = tail[..p].trim();
+    let rhs_txt = tail[p + op.len()..].trim();
+    let is_ident = |t: &str| -> bool {
+        !t.is_empty()
+            && t.chars().next().map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    if !is_ident(lhs) { return None; }
+    let target = if lhs.eq_ignore_ascii_case("rowid") { WhereCol::Rowid } else { WhereCol::Named(lhs.to_string()) };
+    let rhs = if rhs_txt == "?" {
+        WhereRhs::Var(1)
+    } else if !rhs_txt.is_empty() && rhs_txt.chars().all(|c| c.is_ascii_digit()) {
+        WhereRhs::Lit(rhs_txt.parse().ok()?)
+    } else {
+        return None;
+    };
+    // rowid predicates: only the probed equality seek shape
+    if target == WhereCol::Rowid && op != "=" { return None; }
+    Some((tbl, cols, target, op, rhs))
+}
+
+/// C INVERTS the WHERE test into a jump-to-Next compare (probed on the pin):
+///   =  -> Ne,  <>/!= -> Eq,  >  -> Le,  <  -> Ge,  >= -> Lt,  <= -> Gt
+fn inverted_cmp(op: &str) -> &'static str {
+    match op {
+        "=" => "Ne", "<>" | "!=" => "Eq", ">" => "Le", "<" => "Ge", ">=" => "Lt", "<=" => "Gt",
+        _ => unreachable!("unprobed op {op}"),
+    }
+}
+
+/// C's WHERE-compare scan for k result columns (probed):
+///   Init 0 8+k | OpenRead 0 root 0 p4=hint | Rewind 0 7+k | Column 0 wcol 1 |
+///   <InvCmp> 2 6+k 1 p4=BINARY-8 p5=84 | Column x k (-> r3..) | ResultRow 3 k |
+///   Next 0 3 p5=1 | Halt | Transaction 0 0 cookie p4=0 p5=1 |
+///   Integer lit 2 (or Variable n 2) | Goto 0 1
+pub fn compile_where_scan(root: u32, cookie: u32, sel_idx: &[usize], wcol: usize,
+                          op: &str, rhs: &WhereRhs) -> Vec<Op> {
+    let k = sel_idx.len() as i64;
+    let hint = sel_idx.iter().copied().chain(std::iter::once(wcol)).max().unwrap_or(0) as i64 + 1;
+    let mut prog = Vec::with_capacity(12 + sel_idx.len());
+    prog.push(op_("Init", 0, 8 + k, 0));
+    let mut openread = op_("OpenRead", 0, root as i64, 0);
+    openread.p4 = Some(hint.to_string());
+    prog.push(openread);
+    prog.push(op_("Rewind", 0, 7 + k, 0));
+    prog.push(op_("Column", 0, wcol as i64, 1));
+    let mut cmp = op_(inverted_cmp(op), 2, 6 + k, 1);
+    cmp.p4 = Some("BINARY-8".to_string());
+    cmp.p5 = 84;
+    prog.push(cmp);
+    for (i, c) in sel_idx.iter().enumerate() {
+        prog.push(op_("Column", 0, *c as i64, i as i64 + 3));
+    }
+    prog.push(op_("ResultRow", 3, k, 0));
+    let mut next = op_("Next", 0, 3, 0);
+    next.p5 = 1;
+    prog.push(next);
+    prog.push(op_("Halt", 0, 0, 0));
+    let mut txn = op_("Transaction", 0, 0, cookie as i64);
+    txn.p4 = Some("0".to_string());
+    txn.p5 = 1;
+    prog.push(txn);
+    prog.push(match rhs {
+        WhereRhs::Lit(n) => op_("Integer", *n, 2, 0),
+        WhereRhs::Var(n) => op_("Variable", *n as i64, 2, 0),
+    });
+    prog.push(op_("Goto", 0, 1, 0));
+    prog
+}
+
+/// C's rowid-equality seek for k result columns (probed — no Rewind/Next loop):
+///   Init 0 6+k | OpenRead 0 root 0 p4=hint | Integer lit 1 | SeekRowid 0 5+k 1 |
+///   Column x k (-> r2..) | ResultRow 2 k | Halt | Transaction | Goto 0 1
+pub fn compile_seek_rowid(root: u32, cookie: u32, sel_idx: &[usize], rhs: &WhereRhs) -> Vec<Op> {
+    let k = sel_idx.len() as i64;
+    let hint = sel_idx.iter().copied().max().unwrap_or(0) as i64 + 1;
+    let mut prog = Vec::with_capacity(10 + sel_idx.len());
+    prog.push(op_("Init", 0, 6 + k, 0));
+    let mut openread = op_("OpenRead", 0, root as i64, 0);
+    openread.p4 = Some(hint.to_string());
+    prog.push(openread);
+    prog.push(match rhs {
+        WhereRhs::Lit(n) => op_("Integer", *n, 1, 0),
+        WhereRhs::Var(n) => op_("Variable", *n as i64, 1, 0),
+    });
+    prog.push(op_("SeekRowid", 0, 5 + k, 1));
+    for (i, c) in sel_idx.iter().enumerate() {
+        prog.push(op_("Column", 0, *c as i64, i as i64 + 2));
+    }
+    prog.push(op_("ResultRow", 2, k, 0));
+    prog.push(op_("Halt", 0, 0, 0));
+    let mut txn = op_("Transaction", 0, 0, cookie as i64);
+    txn.p4 = Some("0".to_string());
+    txn.p5 = 1;
+    prog.push(txn);
+    prog.push(op_("Goto", 0, 1, 0));
+    prog
+}
+
 /// C's table-scan program for SELECT of k columns from a rowid table:
 ///   Init 0 6+k | OpenRead 0 root 0 p4=hint | Rewind 0 5+k | Column x k |
 ///   ResultRow 1 k | Next 0 3 p5=1 | Halt | Transaction 0 0 cookie p4=0 p5=1 |
@@ -179,24 +297,24 @@ pub fn compile_scan(root: u32, cookie: u32, colidx: &[usize]) -> Vec<Op> {
     let k = colidx.len() as i64;
     let hint = colidx.iter().copied().max().unwrap_or(0) as i64 + 1;
     let mut prog = Vec::with_capacity(8 + colidx.len());
-    prog.push(op("Init", 0, 6 + k, 0));
-    let mut openread = op("OpenRead", 0, root as i64, 0);
+    prog.push(op_("Init", 0, 6 + k, 0));
+    let mut openread = op_("OpenRead", 0, root as i64, 0);
     openread.p4 = Some(hint.to_string());
     prog.push(openread);
-    prog.push(op("Rewind", 0, 5 + k, 0));
+    prog.push(op_("Rewind", 0, 5 + k, 0));
     for (i, c) in colidx.iter().enumerate() {
-        prog.push(op("Column", 0, *c as i64, i as i64 + 1));
+        prog.push(op_("Column", 0, *c as i64, i as i64 + 1));
     }
-    prog.push(op("ResultRow", 1, k, 0));
-    let mut next = op("Next", 0, 3, 0);
+    prog.push(op_("ResultRow", 1, k, 0));
+    let mut next = op_("Next", 0, 3, 0);
     next.p5 = 1;
     prog.push(next);
-    prog.push(op("Halt", 0, 0, 0));
-    let mut txn = op("Transaction", 0, 0, cookie as i64);
+    prog.push(op_("Halt", 0, 0, 0));
+    let mut txn = op_("Transaction", 0, 0, cookie as i64);
     txn.p4 = Some("0".to_string());
     txn.p5 = 1;
     prog.push(txn);
-    prog.push(op("Goto", 0, 1, 0));
+    prog.push(op_("Goto", 0, 1, 0));
     prog
 }
 
@@ -237,6 +355,31 @@ fn val_to_v(v: &Val) -> V {
 /// PAYLOAD into a register (never the kitchen store), Next advances and loops to
 /// p2 while rows remain. Transaction is the read-txn no-op of this slice.
 pub fn execute_with(prog: &[Op], cells: Option<&[(i64, Vec<u8>)]>) -> Vec<Vec<V>> {
+    execute_bound(prog, cells, &[])
+}
+
+/// SQLite's cross-type value order for the BINARY-8 compares of this slice:
+/// NULL < numbers < text < blob. Some(ordering) — None only when either side is
+/// NULL (the p5 & 0x10 JUMPIFNULL bit decides the jump then).
+fn cmp_v(a: &V, b: &V) -> Option<std::cmp::Ordering> {
+    use std::cmp::Ordering::*;
+    let rank = |v: &V| match v { V::Null => 0, V::Int(_) | V::Real(_) => 1, V::Text(_) => 2, V::Blob(_) => 3 };
+    match (a, b) {
+        (V::Null, _) | (_, V::Null) => None,
+        (V::Int(x), V::Int(y)) => Some(x.cmp(y)),
+        (V::Real(x), V::Real(y)) => x.partial_cmp(y).or(Some(Equal)),
+        (V::Int(x), V::Real(y)) => (*x as f64).partial_cmp(y).or(Some(Equal)),
+        (V::Real(x), V::Int(y)) => x.partial_cmp(&(*y as f64)).or(Some(Equal)),
+        (V::Text(x), V::Text(y)) => Some(x.cmp(y)),
+        (V::Blob(x), V::Blob(y)) => Some(x.cmp(y)),
+        _ => Some(rank(a).cmp(&rank(b))),
+    }
+}
+
+/// run-60: the loop with 1-based statement parameters (OP_Variable) and the
+/// compare opcodes C emits for WHERE (jump-to-p2 when the relation holds, or
+/// when a side is NULL and p5 carries the jump-if-null bit 0x10).
+pub fn execute_bound(prog: &[Op], cells: Option<&[(i64, Vec<u8>)]>, params: &[V]) -> Vec<Vec<V>> {
     let mut regs: Vec<V> = vec![V::Null; 32];
     let mut out: Vec<Vec<V>> = Vec::new();
     let mut pc: usize = 0;
@@ -257,6 +400,40 @@ pub fn execute_with(prog: &[Op], cells: Option<&[(i64, Vec<u8>)]>) -> Vec<Vec<V>
                 regs[o.p3 as usize] = V::Int(a + b);
             }
             "Transaction" => {} // read transaction on the main db of this slice
+            "Variable" => {
+                regs[o.p2 as usize] = params.get(o.p1 as usize - 1).cloned().unwrap_or(V::Null);
+            }
+            "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge" => {
+                // compare r[p3] (left) with r[p1] (right); jump to p2 when the
+                // relation holds — C's inverted WHERE test lands on Next/Halt.
+                use std::cmp::Ordering::*;
+                let jump = match cmp_v(&regs[o.p3 as usize], &regs[o.p1 as usize]) {
+                    None => o.p5 & 0x10 != 0, // NULL side: jump-if-null bit
+                    Some(ord) => match o.opcode {
+                        "Eq" => ord == Equal,
+                        "Ne" => ord != Equal,
+                        "Lt" => ord == Less,
+                        "Le" => ord != Greater,
+                        "Gt" => ord == Greater,
+                        "Ge" => ord != Less,
+                        _ => unreachable!(),
+                    },
+                };
+                if jump { pc = o.p2 as usize; continue; }
+            }
+            "SeekRowid" => {
+                // position the cursor on the cell whose rowid equals r[p3];
+                // jump p2 when there is no such row. A single-cell touch.
+                let c = cur.expect("SeekRowid before OpenRead");
+                let want = match &regs[o.p3 as usize] { V::Int(i) => Some(*i), _ => None };
+                match want.and_then(|w| c.iter().position(|(rid, _)| *rid == w)) {
+                    Some(p) => {
+                        pos = p;
+                        CURSOR_READS.fetch_add(1, Ordering::SeqCst); // positioned on the sought cell
+                    }
+                    None => { pc = o.p2 as usize; continue; }
+                }
+            }
             "OpenRead" => {
                 cur = Some(cells.expect("OpenRead without a cursor source (must never compile)"));
                 pos = 0;
