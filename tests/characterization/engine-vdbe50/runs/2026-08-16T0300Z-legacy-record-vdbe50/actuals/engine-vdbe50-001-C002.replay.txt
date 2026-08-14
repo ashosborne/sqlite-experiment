@@ -1,0 +1,1 @@
+OBS engine-vdbe50-001-C002 x_ins_plain 0|Init|0|8|0|~|0|~/1|OpenWrite|0|2|0|2|0|~/2|Integer|2|2|0|~|0|~/3|String8|0|3|0|two|0|~/4|NewRowid|0|1|0|~|0|~/5|MakeRecord|2|2|4|DB|0|~/6|Insert|0|4|1|t|57|~/7|Halt|0|0|0|~|0|~/8|Transaction|0|1|1|0|1|~/9|Goto|0|1|0|~|0|~

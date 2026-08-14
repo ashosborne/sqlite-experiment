@@ -1,0 +1,3 @@
+OBS engine-vdbe50-002-C005 scan 1|one/2|two
+OBS engine-vdbe50-002-C005 where_eq two
+OBS engine-vdbe50-002-C005 seek one

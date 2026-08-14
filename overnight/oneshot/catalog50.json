@@ -1,0 +1,58 @@
+[
+ {
+  "id": "engine-vdbe50-001-C001",
+  "feature": "engine-vdbe50-001",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "C EXPLAIN of INSERT INTO t(a,b) VALUES(1,one): Init(0,8), OpenWrite(0,root,0,p4=2), Integer->r2, String8->r3, NewRowid->r1, MakeRecord(2,2,4,p4=DB affinity string), Insert(0,4,1,p4=t,p5=57), Halt, Transaction(0,1,cookie,p4=0,p5=1 - WRITE txn p2=1), Goto(0,1)"
+ },
+ {
+  "id": "engine-vdbe50-001-C002",
+  "feature": "engine-vdbe50-001",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "omitting the column list emits the identical program (only the literal differs)"
+ },
+ {
+  "id": "engine-vdbe50-001-C003",
+  "feature": "engine-vdbe50-001",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "bound VALUES(?,?) swaps the value loads for Variable(1,2)/Variable(2,3); the rest is unchanged"
+ },
+ {
+  "id": "engine-vdbe50-002-C001",
+  "feature": "engine-vdbe50-002",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "stepping the INSERT returns DONE, last_insert_rowid=1, and the row is visible to the cell scan"
+ },
+ {
+  "id": "engine-vdbe50-002-C002",
+  "feature": "engine-vdbe50-002",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "second insert: rowids 1,2 in order; changes 1, total_changes 2"
+ },
+ {
+  "id": "engine-vdbe50-002-C003",
+  "feature": "engine-vdbe50-002",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "reset+step on the same INSERT statement inserts again with C next rowids (3 then 4)"
+ },
+ {
+  "id": "engine-vdbe50-002-C004",
+  "feature": "engine-vdbe50-002",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "bound insert: DONE, last rowid 1, bound values land in the row"
+ },
+ {
+  "id": "engine-vdbe50-002-C005",
+  "feature": "engine-vdbe50-002",
+  "slice": "engine-vdbe50",
+  "kind": "bespoke",
+  "note": "VDBE-inserted rows are read back by the v48 scan, the v49 WHERE compare and the rowid seek"
+ }
+]

@@ -1,0 +1,12 @@
+# engine-vdbe50-001-C003 — run-11 oneshot characterization
+
+Feature: `engine-vdbe50-001` · Kind: characterization · Assert mode: RECORDED (was TO_BE_RECORDED)
+Matrix gate: run-11 full-autonomy charter. Determinism gate: two independent RECORD runs byte-matched.
+
+## Boundary invoke
+
+Bespoke C API sequence: bound VALUES(?,?) swaps the value loads for Variable(1,2)/Variable(2,3); the rest is unchanged (see harness).
+
+## Observables
+
+- `x_ins_bind` = `0|Init|0|8|0|~|0|~/1|OpenWrite|0|2|0|2|0|~/2|Variable|1|2|0|~|0|~/3|Variable|2|3|0|~|0|~/4|NewRowid|0|1|0|~|0|~/5|MakeRecord|2|2|4|DB|0|~/6|Insert|0|4|1|t|57|~/7|Halt|0|0|0|~|0|~/8|Transaction|0|1|1|0|1|~/9|Goto|0|1|0|~|0|~`

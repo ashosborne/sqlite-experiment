@@ -1,0 +1,61 @@
+slice_id: engine-vdbe50
+mode: RECORD
+target: legacy
+cases:
+- case_id: engine-vdbe50-001-C001
+  feature_id: engine-vdbe50-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-001/C001.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-001-C002
+  feature_id: engine-vdbe50-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-001/C002.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-001-C003
+  feature_id: engine-vdbe50-001
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-001/C003.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-002-C001
+  feature_id: engine-vdbe50-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-002/C001.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-002-C002
+  feature_id: engine-vdbe50-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-002/C002.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-002-C003
+  feature_id: engine-vdbe50-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-002/C003.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-002-C004
+  feature_id: engine-vdbe50-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-002/C004.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+- case_id: engine-vdbe50-002-C005
+  feature_id: engine-vdbe50-002
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe50-002/C005.approved.txt
+  run_id: 2026-08-16T0300Z-legacy-record-vdbe50
+golden_approval:
+  status: HUMAN_ACCEPTED
+  operator: Ash Osborne
+  date: '2026-08-11'
+  tz: Europe/London
+  note: run-61 delegated stamp (full-autonomy charter)
+  stamped_case_ids:
+  - engine-vdbe50-001-C001
+  - engine-vdbe50-001-C002
+  - engine-vdbe50-001-C003
+  - engine-vdbe50-002-C001
+  - engine-vdbe50-002-C002
+  - engine-vdbe50-002-C003
+  - engine-vdbe50-002-C004
+  - engine-vdbe50-002-C005
+updated_at: '2026-08-14T12:31:03Z'
+run_id: 2026-08-16T0300Z-legacy-record-vdbe50
