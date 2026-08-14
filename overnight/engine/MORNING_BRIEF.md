@@ -1,65 +1,67 @@
-# MORNING BRIEF — engine v48: the first table-scan bytecode (run 59, overnight)
+# MORNING BRIEF — engine v49: WHERE compares on the cell cursor (run 60, overnight)
 
-APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–58 stamped alongside
-(run-58 brief archived at MORNING_BRIEF-2026-08-15-run58.md).
-Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v48-openread, IMPLEMENT_VDBE_OPENREAD,
-REQUIRE_EXPLAIN_MATCHES_C, REQUIRE_COLUMN_FROM_BTREE_CELL, FORBID_STORE_ROWS_AS_COLUMN,
-FORBID_INDEX_OPENREAD, FORBID_OPENWRITE. MAX_NEW_CASES 40 (used 10).
+APP_ID: sqlite-experiment · Branch: cursor/sqlite-estate-discovery-d22c · Runs 1–59 stamped alongside
+(run-59 brief archived at MORNING_BRIEF-2026-08-15-run59.md).
+Charter: FULL_AUTONOMY, COMMIT_AS sqlite-engine-v49-where, IMPLEMENT_VDBE_WHERE_EQ,
+REQUIRE_COMPARE_IN_DISPATCH, FORBID_KITCHEN_FILTER_AS_WHERE, FORBID_INDEX_SEEK,
+FORBID_OPENWRITE. MAX_NEW_CASES 40 (used 9).
 
-## 1. Pack @48 BOUND — OPENREAD/CURSOR law
+## 1. Pack @49 BOUND — WHERE/CURSOR law
 
-`architecture/sqlite-experiment-rust/PACK.yaml` superseded v47 → **v48**
-(versions/1–48 retained; ADR `0046-engine-v48-openread.md`; schema VALID; 54 laws).
-The law: the FROM residual shrinks only if EXPLAIN matches probed C (incl. OpenRead's real
-root page), step runs that program in the dispatch loop, AND OP_Column copies from the current
-btree cell — never the kitchen store. Counters prove both sides.
+`architecture/sqlite-experiment-rust/PACK.yaml` superseded v48 → **v49**
+(versions/1–49 retained; ADR `0047-engine-v49-where.md`; schema VALID; 55 laws).
+The law: the WHERE residual shrinks only if EXPLAIN matches probed C, step runs the program,
+the compare is AN OPCODE (never a Rust filter), and Column still decodes cells. The cursor
+must position on rejected rows too.
 
 ## 2. C's program (probed, frozen)
 
-`EXPLAIN SELECT a FROM t`: Init 0 7 · OpenRead 0 **2** 0 p4=1 · Rewind 0 6 · Column 0 0 1 ·
-ResultRow 1 1 · Next 0 3 p5=1 · Halt · Transaction 0 0 **1** p4=0 p5=1 · Goto 0 1 — OpenRead p2
-is the real root page, p4 the column-count hint (SELECT b keeps p4=2), Transaction p3 the schema
-cookie. Same listing empty and after reopen; execution returns rowid-order rows, empty scan's
-first step is DONE, reset replays, a later INSERT is visible. Stretch: after a 12-row overflow
-split (page_count 4, interior root) the listing is unchanged and the scan still yields all rows;
-`SELECT length(b)` is pinned as the kitchen boundary. 10 goldens under
-`tests/characterization/engine-vdbe48/`, two-run deterministic, delegated HUMAN_ACCEPTED.
+C **inverts** the WHERE test into a jump-to-Next compare: `=`→**Ne**, `<>`→Eq, `>`→Le,
+`<`→Ge, `>=`→Lt, `<=`→Gt — all `p4=BINARY-8 p5=84`, the literal loaded into r2 by an
+init-section `Integer` (or `Variable 1 2` for `?`). Column a→r1, compare `Ne 2 7 1`, result
+Column b→r3, `ResultRow 3 1`. `WHERE rowid=2` is a different shape: `Integer`+`SeekRowid`
+touching a single cell, no Rewind/Next loop. Execution: matching rows in rowid order, no-match
+first step DONE, the whole family runs, bound `?` returns the bound match, a later INSERT
+becomes visible. Nine goldens under `tests/characterization/engine-vdbe49/`, two-run
+deterministic, delegated HUMAN_ACCEPTED.
 
-## 3. Modern: Column reads cells
+## 3. Modern: the compare is an opcode
 
-`vdbe::parse_scan`/`compile_scan` emit C's program (root page + cookie read from the file);
-`execute_with` drives the cursor: OpenRead opens on `pager::read_table_cells` output (0x0d leaf
-or the v46 one-level 0x05 interior), Rewind/Next position (cursor-read counter), **Column
-decodes the current cell's payload** via `dbfile::decode_record` into a register. The kitchen
-store is never consulted: the cursor-read counter moves on the scan (incl. a runtime pid-derived
-payload) and does not move on SELECT 1 (v47 path) or on a join (kitchen). Gate =
-`store::vm_scan_ctx`: file-backed, autocommit, non-WAL, one plain rowid table, no IPK (C emits
-Rowid there — unimplemented, named). `sqlite_master.rootpage` now answers from the file image.
+`vdbe::parse_where_scan` + `compile_where_scan`/`compile_seek_rowid` emit C's layout;
+`execute_bound` dispatches **Eq/Ne/Lt/Le/Gt/Ge** (compare r[p3] with r[p1], jump on hold or
+on NULL via the 0x10 bit, SQLite's NULL < numbers < text < blob order), **Variable** (1-based
+params) and **SeekRowid** (cursor positions on the sought cell). No `cells.iter().filter`
+anywhere — the cursor-read counter proves the scan positions on rejected rows (≥ cell count),
+and a runtime payload behind a decoy row round-trips through Column + Ne. The prepare dry-run
+falls back to the VM compiler for the rowid-seek shape only (the kitchen has no rowid binding
+and never runs it). Kitchen boundaries hold: joins and `length(b)` move neither counter; the
+v48 unfiltered scan still rides the VM.
 
 ## 4. Inventory
 
-- **vdbe-engine-001 stays partial** — FROM residual rewritten: scan opcodes landed; WHERE
-  compares, joins, select-list expressions, aggregates, index OpenRead/SeekGE, OpenWrite/DML
-  codegen, IPK Rowid, ~185 opcodes, OP_Program/interrupt/progress remain kitchen.
-- **btree-002 stays partial** — live-read residual rewritten: the v48 scan slice reads cells
-  via the cursor; joins/WHERE/expressions/IPK/multi-table/WAL/in-txn reads still store.
-- **vdbe-engine-002 stays none** — registers are a plain value Vec, not Mem cells.
-- **prepare-statement-api-006 stays partial** — bytecode rows real for FROM programs too;
-  nested-loop EQP still not bytecode (v37).
-- Composed `engine-vdbe48-001/002/003` full. pager/wal/btree-001/select/expr untouched.
+- **vdbe-engine-001 stays partial** — WHERE residual rewritten: compare family + Variable +
+  SeekRowid landed; AND/OR, LIKE/IS NULL/BETWEEN, text compares, joins, expressions,
+  aggregates, index seeks, OpenWrite/DML codegen, IPK Rowid, ~180 opcodes remain kitchen.
+- **btree-002 stays partial** — the v49 WHERE/seek shapes read cells through the cursor;
+  everything else still store.
+- **vdbe-engine-002 stays none** — compares run on plain values; BINARY-8's affinity byte is
+  replicated in the listing, not implemented as a Mem lattice.
+- **prepare-statement-api-006 stays partial** — bytecode rows real for WHERE programs too.
+- Composed `engine-vdbe49-001/002` full. pager/wal/btree-001/select/expr untouched.
 
 ## 5. Scoreboard
 
-**236 full / 45 partial / 74 none of 355.** All 61 test binaries green (vdbe47, btree46,
-pager44, sqlite_sql_suite first slice included). SCRIPT_TABLE.len()==0.
+**238 full / 45 partial / 74 none of 357.** All 62 test binaries green (vdbe48, vdbe47,
+btree46, pager44, sqlite_sql_suite first slice included). SCRIPT_TABLE.len()==0.
 
 ## 6. Not migrated
 
-SQLite is **not** migrated. One read shape rides the VM; everything else is kitchen. No WHERE,
-no joins, no indexes, no DML bytecode, no Mem cells, no interrupt, ~185 opcodes absent.
+SQLite is **not** migrated. One WHERE family rides the VM on one narrow scan scope. No AND/OR,
+no indexes, no DML bytecode, no Mem cells, ~180 opcodes absent; SeekRowid is a cell-list
+position, not a page descent.
 
 ## 7. Next call
 
-**WHERE compares on that cursor** (Ne/Eq/Gt family + SeekRowid — would let `SELECT b FROM t
-WHERE a=?` ride the VM), or **OpenWrite / Insert via VDBE** (DML bytecode on the v45 cursor),
-or **leaf merge on DELETE** (shrink below the split; needs a freelist).
+**OpenWrite / Insert via VDBE** (DML bytecode on the v45 cursor — the write mirror of v48/49),
+or **AND/OR on the same cursor** (two compares chained as C emits), or **leaf merge on DELETE**
+(shrink below the split; needs a freelist).

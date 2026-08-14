@@ -1097,3 +1097,17 @@ sqlite_master.rootpage answered from the file image. vdbe-engine-001 and btree-0
 with residuals rewritten; vdbe-engine-002 stays none; prepare-006 residual shrunk. Composed
 engine-vdbe48-001/002/003 full. 236 full / 45 partial / 74 none of 355; 61 binaries green.
 SQLite not migrated.
+
+## run 60 — engine v49: WHERE compares on the cell cursor (Ne/Eq/Le family, SeekRowid, Variable)
+Pack v48→v49 BOUND (WHERE/CURSOR law; ADR 0047). Probed C and froze 9 goldens (engine-vdbe49):
+C inverts the WHERE test into a jump-to-Next compare (= Ne, <> Eq, > Le, < Ge, >= Lt, <= Gt;
+BINARY-8/84; init-section Integer literal; Variable for ?; Integer+SeekRowid for rowid=N) plus
+execution: rowid-order matches, no-match DONE, family runs, rowid seek, bound eq, WHERE sees a
+later INSERT. modern: parse_where_scan/compile_where_scan/compile_seek_rowid + execute_bound
+dispatch the compare AS AN OPCODE over cell-decoded registers (NULL<numbers<text<blob, 0x10
+jump-if-null), Variable reads 1-based params, SeekRowid positions the cursor; the cursor-read
+counter proves rejected rows are positioned on; prepare dry-run falls back to the VM compiler
+for the rowid-seek shape (kitchen has no rowid binding). vdbe-engine-001 + btree-002 stay
+partial with residuals rewritten; vdbe-engine-002 stays none; prepare-006 shrunk. Composed
+engine-vdbe49-001/002 full. 238 full / 45 partial / 74 none of 357; 62 binaries green.
+SQLite not migrated.
