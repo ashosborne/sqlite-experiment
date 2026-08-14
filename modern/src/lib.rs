@@ -844,7 +844,14 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
         StmtMode::Explain => {
             // run-58: constant SELECTs have a REAL program — the listing matches
             // probed C. Everything the kitchen still owns stays honestly absent.
-            let rows: Vec<Vec<eval::V>> = match vdbe::compile(&s.sql) {
+            let compiled = vdbe::compile(&s.sql).or_else(|| {
+                // run-59: the table-scan program (OpenRead p2 = the real root page,
+                // Transaction p3 = the schema cookie read from the file header)
+                let (tbl, cols) = vdbe::parse_scan(&s.sql)?;
+                let (_img, root, colidx, cookie) = store::vm_scan_ctx(s.db, &tbl, &cols)?;
+                Some(vdbe::compile_scan(root, cookie, &colidx))
+            });
+            let rows: Vec<Vec<eval::V>> = match compiled {
                 Some(prog) => vdbe::explain_rows(&prog).into_iter()
                     .map(|r| r.into_iter().map(|c| match c {
                         Some(t) => eval::V::Text(t), None => eval::V::Null,
@@ -868,6 +875,21 @@ unsafe fn stmt_execute(s: &mut Sqlite3Stmt) -> c_int {
         s.rows = Some(rows);
         s.cur = 0;
         return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+    }
+    // run-59: SELECT col(s) FROM one file-backed rowid table walks btree cells
+    // through OpenRead/Rewind/Column/Next — Column decodes cell payloads parsed
+    // from the file image, never the kitchen store rows.
+    if let Some((tbl, cols)) = vdbe::parse_scan(&bound) {
+        if let Some((image, root, colidx, cookie)) = store::vm_scan_ctx(s.db, &tbl, &cols) {
+            if let Some(cells) = pager::read_table_cells(&image, root) {
+                let prog = vdbe::compile_scan(root, cookie, &colidx);
+                let rows = vdbe::execute_with(&prog, Some(&cells));
+                let has = !rows.is_empty();
+                s.rows = Some(rows);
+                s.cur = 0;
+                return if has { s.state = State::Row; SQLITE_ROW } else { s.state = State::Done; SQLITE_DONE };
+            }
+        }
     }
     if s.readonly {
         let wal_m0 = store::wal_marker(s.db); // v22: pragmas may switch journal modes

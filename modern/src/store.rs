@@ -1329,6 +1329,43 @@ pub fn cursor_rows(db: usize) -> Option<(String, Vec<(i64, Vec<Val>)>)> {
     })
 }
 
+/// run-59: context for the VDBE table-scan path (OpenRead/Rewind/Column/Next).
+/// Same narrow scope as the v45/v46 cursor: file-backed, autocommit, non-WAL,
+/// exactly ONE plain rowid user table (no indexes/views/vtabs/attached/triggers,
+/// no WITHOUT ROWID, no INTEGER PRIMARY KEY — C emits Rowid for IPK, out of
+/// scope). Returns (file image, table root page, column indices, schema cookie).
+/// The IMAGE is the data source — OP_Column decodes btree cell payloads, never
+/// this store's rows. None => the kitchen keeps the statement.
+pub fn vm_scan_ctx(db: usize, table: &str, cols: &[String]) -> Option<(Vec<u8>, u32, Vec<usize>, u32)> {
+    let colidx = with_store(db, |st| {
+        if !st.conn.is_file || st.txn.is_some() { return None; }
+        if st.conn.journal == "wal" { return None; }
+        if !st.indexes.is_empty() || !st.views.is_empty() || !st.conn.attached.is_empty()
+            || !st.conn.vtabs.is_empty() || !st.conn.vtab_schema.is_empty() || !st.triggers.is_empty() {
+            return None;
+        }
+        let user: Vec<&(String, Table)> = st.tables.iter()
+            .filter(|(n, _)| !n.contains('.') && !n.starts_with("sqlite_")).collect();
+        if user.len() != 1 { return None; }
+        let (name, t) = user[0];
+        if !name.eq_ignore_ascii_case(table) { return None; }
+        if t.create_sql.to_ascii_uppercase().contains("WITHOUT ROWID") { return None; }
+        if dbfile::ipk_index(&t.create_sql).is_some() { return None; }
+        let mut idx = Vec::with_capacity(cols.len());
+        for c in cols {
+            idx.push(t.cols.iter().position(|tc| tc.name.eq_ignore_ascii_case(c))?);
+        }
+        Some(idx)
+    })?;
+    let path = PATHS.with(|m| m.borrow().get(&db).cloned())?;
+    let image = std::fs::read(&path).ok()?;
+    if image.len() < 100 { return None; }
+    let root = crate::pager::schema_rootpage(&image, table)?;
+    crate::pager::read_table_cells(&image, root)?; // scope check: leaf or 1-level tree
+    let cookie = u32::from_be_bytes(image[40..44].try_into().ok()?);
+    Some((image, root, colidx, cookie))
+}
+
 /// run-56: sqlite3_txn_state level for the connection (0 none / 1 read / 2 write).
 /// No open txn => 0. Otherwise the tracked level (a deferred BEGIN untouched = 0).
 pub fn txn_state(db: usize) -> i32 {
@@ -4678,6 +4715,17 @@ pub fn execute_script(db: usize, script: &str) -> Outcome {
                                     // reopened-but-not-yet-connected vtabs report too)
                                     "rootpage" if st.conn.vtab_schema.iter().any(|(vn, _, _, _)| vn == n)
                                         || crate::vtab_is_instance(db, n) => row.push(Some("0".into())),
+                                    // run-59: a real table's root page, read from the FILE image
+                                    // (the same number OpenRead p2 carries) — file-backed only
+                                    "rootpage" if st.conn.is_file && st.tables.iter().any(|(tn, _)| tn == n) => {
+                                        let rp = PATHS.with(|m| m.borrow().get(&db).cloned())
+                                            .and_then(|p| std::fs::read(&p).ok())
+                                            .and_then(|img| crate::pager::schema_rootpage(&img, n));
+                                        match rp {
+                                            Some(r) => row.push(Some(r.to_string())),
+                                            None => return Err("no such column: rootpage".into()),
+                                        }
+                                    }
                                     "sql" if st.conn.vtab_schema.iter().any(|(vn, _, _, _)| vn == n) =>
                                         row.push(st.conn.vtab_schema.iter().find(|(vn, _, _, _)| vn == n)
                                             .map(|(_, _, _, s)| s.clone())),

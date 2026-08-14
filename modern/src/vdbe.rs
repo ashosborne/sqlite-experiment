@@ -8,11 +8,18 @@
 //! table-scan opcodes, no OP_Program/interrupt — those stay in the residual.
 
 use crate::eval::V;
+use crate::store::Val;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static DISPATCH: AtomicU64 = AtomicU64::new(0);
 /// executed-opcode counter — the anti-cheat proof that step really dispatches.
 pub fn dispatch_count() -> u64 { DISPATCH.load(Ordering::SeqCst) }
+
+static CURSOR_READS: AtomicU64 = AtomicU64::new(0);
+/// run-59: cells the scan cursor positioned on (Rewind/Next landing on a row).
+/// Moves on SELECT col FROM t; does NOT move on constant SELECT 1 (no cursor)
+/// or on kitchen-fallback SQL (joins etc. never enter the loop).
+pub fn cursor_read_count() -> u64 { CURSOR_READS.load(Ordering::SeqCst) }
 
 #[derive(Clone, Debug)]
 pub struct Op {
@@ -133,6 +140,66 @@ pub fn compile(sql: &str) -> Option<Vec<Op>> {
     }
 }
 
+/// run-59: parse the ONE table-scan shape this slice owns:
+///   SELECT <col>(, <col>)* FROM <table>
+/// plain identifiers only — no WHERE / join / alias / expression / qualifier.
+/// Returns (table, columns). None => not ours (kitchen or v47 constant path).
+pub fn parse_scan(sql: &str) -> Option<(String, Vec<String>)> {
+    let s = sql.trim().trim_end_matches(';').trim();
+    let up = s.to_ascii_uppercase();
+    if !up.starts_with("SELECT ") { return None; }
+    let fp = up.find(" FROM ")?;
+    let cols_txt = &s[7..fp];
+    let tbl = s[fp + 6..].trim();
+    let is_ident = |t: &str| -> bool {
+        !t.is_empty()
+            && t.chars().next().map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    if !is_ident(tbl) { return None; }
+    let mut cols = Vec::new();
+    for c in cols_txt.split(',') {
+        let c = c.trim();
+        if !is_ident(c) { return None; }
+        // bare keywords that would change meaning are not column names here
+        if ["DISTINCT", "ALL"].contains(&c.to_ascii_uppercase().as_str()) { return None; }
+        cols.push(c.to_string());
+    }
+    if cols.is_empty() { return None; }
+    Some((tbl.to_string(), cols))
+}
+
+/// C's table-scan program for SELECT of k columns from a rowid table:
+///   Init 0 6+k | OpenRead 0 root 0 p4=hint | Rewind 0 5+k | Column x k |
+///   ResultRow 1 k | Next 0 3 p5=1 | Halt | Transaction 0 0 cookie p4=0 p5=1 |
+///   Goto 0 1
+/// (probed on the pin: OpenRead p4 = max used column + 1; Transaction p3 = the
+/// schema cookie from the file header; Rewind jumps to Halt when empty).
+pub fn compile_scan(root: u32, cookie: u32, colidx: &[usize]) -> Vec<Op> {
+    let k = colidx.len() as i64;
+    let hint = colidx.iter().copied().max().unwrap_or(0) as i64 + 1;
+    let mut prog = Vec::with_capacity(8 + colidx.len());
+    prog.push(op("Init", 0, 6 + k, 0));
+    let mut openread = op("OpenRead", 0, root as i64, 0);
+    openread.p4 = Some(hint.to_string());
+    prog.push(openread);
+    prog.push(op("Rewind", 0, 5 + k, 0));
+    for (i, c) in colidx.iter().enumerate() {
+        prog.push(op("Column", 0, *c as i64, i as i64 + 1));
+    }
+    prog.push(op("ResultRow", 1, k, 0));
+    let mut next = op("Next", 0, 3, 0);
+    next.p5 = 1;
+    prog.push(next);
+    prog.push(op("Halt", 0, 0, 0));
+    let mut txn = op("Transaction", 0, 0, cookie as i64);
+    txn.p4 = Some("0".to_string());
+    txn.p5 = 1;
+    prog.push(txn);
+    prog.push(op("Goto", 0, 1, 0));
+    prog
+}
+
 /// the EXPLAIN listing rows for a program: addr, opcode, p1, p2, p3, p4, p5,
 /// comment — p4 NULL unless set, p5 printed as an integer, comment NULL.
 pub fn explain_rows(prog: &[Op]) -> Vec<Vec<Option<String>>> {
@@ -151,12 +218,32 @@ pub fn explain_rows(prog: &[Op]) -> Vec<Vec<Option<String>>> {
 /// the dispatch loop: run the program, returning result rows. Init/Goto move the
 /// pc; Integer/String8 load registers; Add computes r[p3]=r[p1]+r[p2]; ResultRow
 /// emits r[p1..p1+p2-1]; Halt stops. Every executed opcode bumps the counter.
-pub fn execute(prog: &[Op]) -> Vec<Vec<V>> {
+pub fn execute(prog: &[Op]) -> Vec<Vec<V>> { execute_with(prog, None) }
+
+fn val_to_v(v: &Val) -> V {
+    match v {
+        Val::Null => V::Null,
+        Val::Int(i) => V::Int(*i),
+        Val::Real(r) => V::Real(*r),
+        Val::Text(t) => V::Text(t.clone()),
+        Val::Blob(b) => V::Blob(b.clone()),
+    }
+}
+
+/// run-59: the loop with an optional read cursor. `cells` are the table's btree
+/// cells (rowid, record payload) parsed from the FILE IMAGE by
+/// pager::read_table_cells — OpenRead opens the cursor on them, Rewind moves to
+/// the first cell (or jumps p2 when empty), Column DECODES THE CURRENT CELL'S
+/// PAYLOAD into a register (never the kitchen store), Next advances and loops to
+/// p2 while rows remain. Transaction is the read-txn no-op of this slice.
+pub fn execute_with(prog: &[Op], cells: Option<&[(i64, Vec<u8>)]>) -> Vec<Vec<V>> {
     let mut regs: Vec<V> = vec![V::Null; 32];
     let mut out: Vec<Vec<V>> = Vec::new();
     let mut pc: usize = 0;
     let mut steps = 0u32;
-    while pc < prog.len() && steps < 10_000 {
+    let mut cur: Option<&[(i64, Vec<u8>)]> = None; // opened by OpenRead
+    let mut pos: usize = 0;
+    while pc < prog.len() && steps < 1_000_000 {
         steps += 1;
         DISPATCH.fetch_add(1, Ordering::SeqCst);
         let o = &prog[pc];
@@ -168,6 +255,32 @@ pub fn execute(prog: &[Op]) -> Vec<Vec<V>> {
                 let a = match &regs[o.p1 as usize] { V::Int(i) => *i, _ => 0 };
                 let b = match &regs[o.p2 as usize] { V::Int(i) => *i, _ => 0 };
                 regs[o.p3 as usize] = V::Int(a + b);
+            }
+            "Transaction" => {} // read transaction on the main db of this slice
+            "OpenRead" => {
+                cur = Some(cells.expect("OpenRead without a cursor source (must never compile)"));
+                pos = 0;
+            }
+            "Rewind" => {
+                let c = cur.expect("Rewind before OpenRead");
+                pos = 0;
+                if c.is_empty() { pc = o.p2 as usize; continue; }
+                CURSOR_READS.fetch_add(1, Ordering::SeqCst); // positioned on the first cell
+            }
+            "Column" => {
+                let c = cur.expect("Column before OpenRead");
+                let payload = &c[pos].1;
+                let vals = crate::dbfile::decode_record(payload);
+                regs[o.p3 as usize] = vals.get(o.p2 as usize).map(val_to_v).unwrap_or(V::Null);
+            }
+            "Next" => {
+                let c = cur.expect("Next before OpenRead");
+                pos += 1;
+                if pos < c.len() {
+                    CURSOR_READS.fetch_add(1, Ordering::SeqCst); // positioned on the next cell
+                    pc = o.p2 as usize;
+                    continue;
+                }
             }
             "ResultRow" => {
                 let row: Vec<V> = (o.p1..o.p1 + o.p2).map(|r| regs[r as usize].clone()).collect();

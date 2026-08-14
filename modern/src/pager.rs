@@ -328,7 +328,7 @@ pub fn split_count() -> u64 { SPLITS.load(Ordering::SeqCst) }
 
 /// read all table cells rooted at `pageno`, walking an interior root's children
 /// (one level — the pinned scope; deeper trees return None → caller falls back).
-fn read_table_cells(image: &[u8], pageno: u32) -> Option<Vec<(i64, Vec<u8>)>> {
+pub(crate) fn read_table_cells(image: &[u8], pageno: u32) -> Option<Vec<(i64, Vec<u8>)>> {
     let base = (pageno as usize - 1) * PAGE;
     if base + 12 > image.len() { return None; }
     match image[base] {
