@@ -2837,7 +2837,10 @@ behaviours:
     ok - engine-btree46). RESIDUAL (full forbidden): no sibling-balance matrix (the split redistributes cells across leaves
     rather than balancing siblings in place), no merge on DELETE (shrink-below-split falls back to the whole-image writer),
     no 3-level trees, no index b-trees, no WITHOUT ROWID, no overflow-page chains on the cursor path, no saved-position restore
-    matrix; live query reads still evaluate over the in-memory store.'
+    matrix. run-59: LIVE READS of the v48 scan slice (plain SELECT col(s) FROM the single rowid table, non-IPK, autocommit,
+    non-WAL) now walk btree cells via read_table_cells / cell payload decode on the VDBE cursor - not the in-memory store;
+    a cursor-read counter proves the leaf (and split interior root) walk. Kitchen still owns every other read shape: joins,
+    WHERE, expressions, aggregates, IPK tables, multi-table schemas, WAL mode, and all reads inside an open transaction.'
   impl_in_modern: partial
 - behaviour_id: builtin-scalar-agg-funcs-001
   surface_id: sur-sqlite3registerbuiltinfunctions
@@ -4475,8 +4478,10 @@ behaviours:
     shape real; EXPLAIN bytecode listing absent (no VDBE) run-47: introspection APIs completed - sqlite3_stmt_isexplain (0/1/2)
     and sqlite3_stmt_explain mode switching (rc 0, EQP column shape follows, bad mode errors, prepared-EQP reports 2) pinned
     real. run-58: EXPLAIN bytecode row contents now REAL for the landed constant-SELECT programs (rows match frozen C incl.
-    addr/opcode/p1-p5). STAYS PARTIAL: EXPLAIN of kitchen-owned SQL (anything with a FROM, DML, CTEs) still returns no rows
-    - those programs do not exist yet - and nested-loop EQP is still not bytecode (v37 law).'
+    addr/opcode/p1-p5). run-59: also real for the landed table-scan programs (SELECT col(s) FROM one file-backed rowid table
+    - OpenRead root page and schema-cookie Transaction included). STAYS PARTIAL: EXPLAIN of kitchen-owned SQL (joins, WHERE,
+    expressions, DML, CTEs) still returns no rows - those programs do not exist yet - and nested-loop EQP is still not
+    bytecode (v37 law).'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-001
@@ -4908,10 +4913,17 @@ behaviours:
     to C''s exact program (Init/Integer/String8/Add/ResultRow/Halt/Goto with C''s p1-p5 and layout: WHERE-0 jumps Goto->Halt,
     1+2 stays UNFOLDED with init-section loads after Halt), EXPLAIN returns that listing row-for-row against frozen C, and
     sqlite3_step of the same SQL executes the program through a real dispatch loop (register file, pc jumps, dispatch counter
-    moves; kitchen-fallback SQL does not move it). RESIDUAL: everything with a FROM (OpenRead/Rewind/Column on the v45 cursor),
-    the other ~192 opcodes, comparisons/jumps beyond Goto, OP_Program triggers, interrupt, progress handler, explain comment
-    column (NULL here as in C''s default build), and DML/CTE/aggregate codegen - all still the kitchen evaluator, honestly
-    named (engine-vdbe47 goldens).'
+    moves; kitchen-fallback SQL does not move it). run-59: FIRST TABLE-SCAN OPCODES landed - SELECT col(s) FROM one file-backed
+    plain rowid table compiles to C''s program (Init/OpenRead/Rewind/Column/ResultRow/Next/Halt/Transaction/Goto with C''s
+    p1-p5: OpenRead p2 = the REAL root page, p4 = column-count hint, Transaction p3 = the schema cookie read from the file
+    header, Next p5=1), EXPLAIN matches frozen C row-for-row, and sqlite3_step walks btree cells through the dispatch loop -
+    OP_Column decodes the CURRENT CELL''S payload parsed from the file image (read_table_cells), never the kitchen store; a
+    cursor-read counter moves on the scan (incl. over a split interior root) and not on SELECT 1 or a kitchen join; runtime
+    payloads round-trip through Column (engine-vdbe48 goldens). RESIDUAL: WHERE compares and jumps beyond Rewind/Next, joins,
+    expressions in the select list (length(b) pinned as kitchen boundary), aggregates/ORDER BY, index OpenRead / SeekGE,
+    OpenWrite / DML codegen, IPK tables (C emits Rowid - unimplemented), multi-table/attached/WAL scopes, 3-level trees,
+    the other ~185 opcodes, OP_Program triggers, interrupt, progress handler, Transaction cookie tracking beyond the
+    single-DDL frozen scope - all still the kitchen evaluator, honestly named.'
   impl_in_modern: partial
 - behaviour_id: vdbe-engine-002
   surface_id: sur-src-vdbemem-c
@@ -7587,6 +7599,48 @@ behaviours:
   pack_version: 47
   traceability: tests/characterization/engine-vdbe47/TRACEABILITY.yaml
   notes: run-58 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-58 delegated stamp)
+- behaviour_id: engine-vdbe48-001
+  surface_id: sur-engine-vdbe48
+  name: EXPLAIN of a table scan is C's program (real root page)
+  status: converted
+  slice_id: engine-vdbe48
+  discovery_card: discovery/engine-vdbe48/features/engine-vdbe48-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 48
+  traceability: tests/characterization/engine-vdbe48/TRACEABILITY.yaml
+  notes: run-59 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-59 delegated stamp)
+- behaviour_id: engine-vdbe48-002
+  surface_id: sur-engine-vdbe48
+  name: stepping the scan walks btree cells through the dispatch loop
+  status: converted
+  slice_id: engine-vdbe48
+  discovery_card: discovery/engine-vdbe48/features/engine-vdbe48-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 48
+  traceability: tests/characterization/engine-vdbe48/TRACEABILITY.yaml
+  notes: run-59 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-59 delegated stamp)
+- behaviour_id: engine-vdbe48-003
+  surface_id: sur-engine-vdbe48
+  name: scan over a split interior root; expression boundary stays kitchen
+  status: converted
+  slice_id: engine-vdbe48
+  discovery_card: discovery/engine-vdbe48/features/engine-vdbe48-003.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 48
+  traceability: tests/characterization/engine-vdbe48/TRACEABILITY.yaml
+  notes: run-59 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-15 (run-59 delegated stamp)
 - behaviour_id: engine-harvest39-002
   surface_id: sur-engine-harvest39
   name: pragma_module_list lazy population
@@ -7629,8 +7683,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-14T10:23:50Z'
-updated_by: sqlite-engine-v1-kitchen
+last_updated: '2026-08-14T10:26:13Z'
+updated_by: sqlite-engine-v48-openread
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

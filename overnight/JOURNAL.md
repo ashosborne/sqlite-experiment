@@ -1083,3 +1083,17 @@ modern/src/vdbe.rs compiles those shapes to C's exact programs; sqlite3_step dis
 returns the real listing for compiled programs. vdbe-engine-001 none→partial; vdbe-engine-002
 stays none (no Mem cells); prepare-006 residual rewritten. Composed engine-vdbe47-001/002 full.
 233 full / 45 partial / 74 none of 352; 60 binaries green. SQLite not migrated.
+
+## run 59 — engine v48: the first table-scan bytecode (OpenRead/Rewind/Column/Next)
+Pack v47→v48 BOUND (OPENREAD/CURSOR law; ADR 0046). Probed C's scan program and froze 10 goldens
+(engine-vdbe48): full listings with the real root page, column-count hint and schema-cookie
+Transaction; empty-table and reopen listings; rowid-order execution, empty-scan DONE, step/reset
+cycle, scan-sees-INSERT; stretch = scan over a split interior root (page_count 4) + the
+length(b) kitchen boundary. modern: vdbe::parse_scan/compile_scan + execute_with drive a read
+cursor over pager::read_table_cells output; OP_Column decodes cell payloads (never the store);
+cursor-read counter proves the walk (moves on scans incl. runtime payloads; still on SELECT 1
+and joins). store::vm_scan_ctx gates to the v45 scope (no IPK/WAL/txn/multi-table).
+sqlite_master.rootpage answered from the file image. vdbe-engine-001 and btree-002 stay partial
+with residuals rewritten; vdbe-engine-002 stays none; prepare-006 residual shrunk. Composed
+engine-vdbe48-001/002/003 full. 236 full / 45 partial / 74 none of 355; 61 binaries green.
+SQLite not migrated.
