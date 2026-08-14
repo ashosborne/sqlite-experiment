@@ -2842,7 +2842,10 @@ behaviours:
     a cursor-read counter proves the leaf (and split interior root) walk. run-60: the v49 WHERE-compare and rowid-seek shapes
     read cells through the same cursor (the compare is a VM opcode over cell-decoded registers; rejected rows are still positioned
     on). Kitchen still owns every other read shape: joins, AND/OR and non-equality-family predicates, expressions, aggregates,
-    IPK tables, multi-table schemas, WAL mode, and all reads inside an open transaction.'
+    IPK tables, multi-table schemas, WAL mode, and all reads inside an open transaction. run-61: the VDBE Insert path now
+    DRIVES the cursor write - OP_Insert''s cell payload is put verbatim through insert_cell (the same leaf packing / split
+    machinery, cursor-op counter ticks), not dbfile::write_db_bytes; kitchen DML still flushes through cursor_or_whole_image
+    as before.'
   impl_in_modern: partial
 - behaviour_id: builtin-scalar-agg-funcs-001
   surface_id: sur-sqlite3registerbuiltinfunctions
@@ -4482,8 +4485,10 @@ behaviours:
     real. run-58: EXPLAIN bytecode row contents now REAL for the landed constant-SELECT programs (rows match frozen C incl.
     addr/opcode/p1-p5). run-59: also real for the landed table-scan programs (SELECT col(s) FROM one file-backed rowid table
     - OpenRead root page and schema-cookie Transaction included). run-60: also real for the landed WHERE programs (inverted
-    compares with BINARY-8/84, Variable, SeekRowid). STAYS PARTIAL: EXPLAIN of kitchen-owned SQL (joins, AND/OR, expressions,
-    DML, CTEs) still returns no rows - those programs do not exist yet - and nested-loop EQP is still not bytecode (v37 law).'
+    compares with BINARY-8/84, Variable, SeekRowid). run-61: also real for the landed single-row INSERT programs (OpenWrite/
+    NewRowid/MakeRecord/Insert with the real root and affinity string). STAYS PARTIAL: EXPLAIN of kitchen-owned SQL (joins,
+    AND/OR, expressions, UPDATE/DELETE, INSERT SELECT, CTEs) still returns no rows - those programs do not exist yet - and
+    nested-loop EQP is still not bytecode (v37 law).'
   traceability: tests/characterization/prepare-statement-api/TRACEABILITY.yaml
   impl_in_modern: partial
 - behaviour_id: printf-format-001
@@ -4931,7 +4936,17 @@ behaviours:
     BY, index OpenRead / SeekGE / IdxGE, OpenWrite / DML codegen, IPK tables (C emits Rowid - unimplemented), multi-table/attached/WAL
     scopes, 3-level trees, the other ~180 opcodes, OP_Program triggers, interrupt, progress handler, Transaction cookie tracking
     beyond the single-DDL frozen scope, SeekRowid as a page DESCENT (the seek positions over the parsed cell list, not a b-tree
-    binary search) - all still the kitchen evaluator, honestly named.'
+    binary search) - all still the kitchen evaluator, honestly named. run-61: FIRST DML BYTECODE - single-row INSERT INTO
+    t[(cols)] VALUES(lit|?, ...) on the v48 scope compiles to C''s program (OpenWrite real root p4=k, value loads, NewRowid,
+    MakeRecord p4=affinity string, Insert p4=table p5=57, WRITE Transaction p2=1) and sqlite3_step dispatches it: OP_Insert''s
+    cell (the MakeRecord-built payload, verbatim) goes through the pager cursor packing (insert_cell, split-capable) and is
+    committed via the journal mini-txn; the store only mirrors the row afterwards; last_insert_rowid/changes/total_changes
+    match C; VDBE-inserted rows read back through the v48/v49 cell scans incl. a reopened-file runtime payload
+    (engine-vdbe50 goldens). DML RESIDUAL: UPDATE/DELETE bytecode, INSERT SELECT / multi-row VALUES / DEFAULT VALUES /
+    upsert, constraint enforcement (NOT NULL/UNIQUE/CHECK/DEFAULT/FK tables stay kitchen), hooked/authorized connections
+    (update/commit hooks, authorizer - gated to kitchen), the sqlite3_exec path (kitchen; only prepared statements ride the
+    VM), MakeRecord affinity APPLICATION (the p4 string is replicated, not applied - vdbe-engine-002 stays none), IPK
+    NewRowid.'
   impl_in_modern: partial
 - behaviour_id: vdbe-engine-002
   surface_id: sur-src-vdbemem-c
@@ -7677,6 +7692,34 @@ behaviours:
   pack_version: 49
   traceability: tests/characterization/engine-vdbe49/TRACEABILITY.yaml
   notes: run-60 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-16 (run-60 delegated stamp)
+- behaviour_id: engine-vdbe50-001
+  surface_id: sur-engine-vdbe50
+  name: EXPLAIN of single-row INSERT is C's OpenWrite program
+  status: converted
+  slice_id: engine-vdbe50
+  discovery_card: discovery/engine-vdbe50/features/engine-vdbe50-001.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 50
+  traceability: tests/characterization/engine-vdbe50/TRACEABILITY.yaml
+  notes: run-61 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-16 (run-61 delegated stamp)
+- behaviour_id: engine-vdbe50-002
+  surface_id: sur-engine-vdbe50
+  name: OP_Insert puts the MakeRecord cell through the pager cursor
+  status: converted
+  slice_id: engine-vdbe50
+  discovery_card: discovery/engine-vdbe50/features/engine-vdbe50-002.md
+  legacy_green: true
+  parity_green: false
+  parity: UNVERIFIED
+  impl_in_modern: full
+  pack_id: sqlite-experiment-c-to-rust
+  pack_version: 50
+  traceability: tests/characterization/engine-vdbe50/TRACEABILITY.yaml
+  notes: run-61 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-16 (run-61 delegated stamp)
 - behaviour_id: engine-harvest39-002
   surface_id: sur-engine-harvest39
   name: pragma_module_list lazy population
@@ -7719,8 +7762,8 @@ behaviours:
   pack_version: 39
   traceability: tests/characterization/engine-harvest39/TRACEABILITY.yaml
   notes: run-49 pinned batch; legacy RECORD REPLAY_GREEN + HUMAN_ACCEPTED 2026-08-14 (run-49 delegated stamp)
-last_updated: '2026-08-14T12:31:03Z'
-updated_by: sqlite-engine-v1-kitchen
+last_updated: '2026-08-14T12:45:19Z'
+updated_by: sqlite-engine-v50-openwrite
 notes: 'Phase B cards: all 185 behaviours documented (10 needs-SME at slice level, 12 confidence=inferred); surfaces still
   candidate (behaviours-only bind, see overnight/phase-b/BIND_ALL.md); completeness incomplete. estate_scan=partial until
   METHOD_COVERAGE checklist addressed. src/test*.c harness adapters skipped-with-reason (see overnight/STRUCTURAL_INDEX.md).'

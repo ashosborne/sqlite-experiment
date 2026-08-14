@@ -1111,3 +1111,19 @@ for the rowid-seek shape (kitchen has no rowid binding). vdbe-engine-001 + btree
 partial with residuals rewritten; vdbe-engine-002 stays none; prepare-006 shrunk. Composed
 engine-vdbe49-001/002 full. 238 full / 45 partial / 74 none of 357; 62 binaries green.
 SQLite not migrated.
+
+## run 61 — engine v50: INSERT bytecode (OpenWrite/NewRowid/MakeRecord/Insert)
+Pack v49→v50 BOUND (OPENWRITE/CURSOR law; ADR 0048). Probed C and froze 8 goldens
+(engine-vdbe50): the INSERT program (OpenWrite real root p4=k, value loads, NewRowid->r1,
+MakeRecord p4=affinity string, Insert p4=t p5=57, WRITE Transaction p2=1; identical without a
+column list; Variable loads for ?,?) and execution (DONE + last_insert_rowid, rowid order +
+changes/total, reset+step next rowids, bound insert, VDBE rows read back by v48/v49 scans).
+modern: parse_insert/compile_insert + execute_dml dispatch the write; pager::insert_cell puts
+the MakeRecord payload VERBATIM through the v46 leaf packing (split-capable, cursor-op tick);
+vm_persist_insert commits via the journal mini-txn then mirrors the row into the store
+(bookkeeping; next_rowid = last-assigned, matching the kitchen pre-increment).
+sqlite3_total_changes/64 added (golden pins it). Gates: v48 scope + no constraints + no
+hooks/authorizer; exec-path INSERT stays kitchen. vdbe-engine-001 + btree-002 stay partial with
+residuals rewritten; vdbe-engine-002 stays none; prepare-006 shrunk. Composed
+engine-vdbe50-001/002 full. 240 full / 45 partial / 74 none of 359; 63 binaries green.
+SQLite not migrated.
