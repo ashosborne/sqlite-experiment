@@ -1,0 +1,5 @@
+OBS engine-vdbe49-002-C003 run_ne two/three
+OBS engine-vdbe49-002-C003 run_gt two/three
+OBS engine-vdbe49-002-C003 run_lt one/uno
+OBS engine-vdbe49-002-C003 run_ge two/three
+OBS engine-vdbe49-002-C003 run_le one/uno

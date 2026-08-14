@@ -1,0 +1,2 @@
+OBS engine-vdbe49-002-C004 run_rowid two
+OBS engine-vdbe49-002-C004 bound_eq_3 three

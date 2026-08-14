@@ -1,0 +1,65 @@
+[
+ {
+  "id": "engine-vdbe49-001-C001",
+  "feature": "engine-vdbe49-001",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "C EXPLAIN of SELECT b FROM t WHERE a=1: the compare is INVERTED into a jump-to-Next Ne(2,7,1,BINARY-8,84) with the literal loaded to r2 by an init-section Integer; Column a->r1, Column b->r3, ResultRow(3,1)"
+ },
+ {
+  "id": "engine-vdbe49-001-C002",
+  "feature": "engine-vdbe49-001",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "two result columns shift ResultRow(3,2) with Columns to r3/r4; the no-match literal only changes the init-section Integer (program otherwise identical)"
+ },
+ {
+  "id": "engine-vdbe49-001-C003",
+  "feature": "engine-vdbe49-001",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "the whole inverted family: <> emits Eq, > emits Le, < emits Ge, >= emits Lt, <= emits Gt - all with p4=BINARY-8 p5=84 jumping to Next"
+ },
+ {
+  "id": "engine-vdbe49-001-C004",
+  "feature": "engine-vdbe49-001",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "stretch shapes: WHERE a=? emits Variable(1,2) in the init section; WHERE rowid=2 emits Integer(2,1)+SeekRowid(0,6,1) touching a single cell (no Rewind/Next loop)"
+ },
+ {
+  "id": "engine-vdbe49-002-C001",
+  "feature": "engine-vdbe49-002",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "executing the WHERE scan returns C rows in rowid order (both matching rows, one and uno)"
+ },
+ {
+  "id": "engine-vdbe49-002-C002",
+  "feature": "engine-vdbe49-002",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "no-match WHERE: zero rows, first step is SQLITE_DONE (101)"
+ },
+ {
+  "id": "engine-vdbe49-002-C003",
+  "feature": "engine-vdbe49-002",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "the family executes: <>, >, <, >=, <= each return C rows in rowid order"
+ },
+ {
+  "id": "engine-vdbe49-002-C004",
+  "feature": "engine-vdbe49-002",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "stretch execution: rowid seek returns the single row; bound a=? with 3 returns three"
+ },
+ {
+  "id": "engine-vdbe49-002-C005",
+  "feature": "engine-vdbe49-002",
+  "slice": "engine-vdbe49",
+  "kind": "bespoke",
+  "note": "the WHERE scan sees a later INSERT (a new matching row appears on the next execution)"
+ }
+]
