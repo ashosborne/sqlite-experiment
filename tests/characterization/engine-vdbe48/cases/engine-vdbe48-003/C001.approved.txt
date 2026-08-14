@@ -1,0 +1,4 @@
+OBS engine-vdbe48-003-C001 page_count 4
+OBS engine-vdbe48-003-C001 root_and_type 2
+OBS engine-vdbe48-003-C001 x_split 0|Init|0|7|0|~|0|~/1|OpenRead|0|2|0|1|0|~/2|Rewind|0|6|0|~|0|~/3|Column|0|0|1|~|0|~/4|ResultRow|1|1|0|~|0|~/5|Next|0|3|0|~|1|~/6|Halt|0|0|0|~|0|~/7|Transaction|0|0|1|0|1|~/8|Goto|0|1|0|~|0|~
+OBS engine-vdbe48-003-C001 run_a 10/20/30/40/50/60/70/80/90/100/110/120

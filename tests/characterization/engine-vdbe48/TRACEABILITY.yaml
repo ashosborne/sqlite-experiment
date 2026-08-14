@@ -42,6 +42,16 @@ cases:
   status: REPLAY_GREEN
   golden_path: cases/engine-vdbe48-002/C004.approved.txt
   run_id: 2026-08-15T2300Z-legacy-record-vdbe48
+- case_id: engine-vdbe48-003-C001
+  feature_id: engine-vdbe48-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe48-003/C001.approved.txt
+  run_id: 2026-08-15T2330Z-legacy-record-vdbe48b
+- case_id: engine-vdbe48-003-C002
+  feature_id: engine-vdbe48-003
+  status: REPLAY_GREEN
+  golden_path: cases/engine-vdbe48-003/C002.approved.txt
+  run_id: 2026-08-15T2330Z-legacy-record-vdbe48b
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne
@@ -57,5 +67,7 @@ golden_approval:
   - engine-vdbe48-002-C002
   - engine-vdbe48-002-C003
   - engine-vdbe48-002-C004
-updated_at: '2026-08-14T10:17:23Z'
-run_id: 2026-08-15T2300Z-legacy-record-vdbe48
+  - engine-vdbe48-003-C001
+  - engine-vdbe48-003-C002
+updated_at: '2026-08-14T10:23:50Z'
+run_id: 2026-08-15T2330Z-legacy-record-vdbe48b

@@ -4,6 +4,7 @@ phase: B
 batch_card_ids:
 - engine-vdbe48-001
 - engine-vdbe48-002
+- engine-vdbe48-003
 cases:
 - id: engine-vdbe48-001-C001
   feature_id: engine-vdbe48-001
@@ -85,6 +86,26 @@ cases:
   golden: tests/characterization/engine-vdbe48/cases/engine-vdbe48-002/C004.approved.txt
   discovery_evidence:
   - discovery/engine-vdbe48/features/engine-vdbe48-002.md
+- id: engine-vdbe48-003-C001
+  feature_id: engine-vdbe48-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vdbe48-003/CASE-001.md
+  golden: tests/characterization/engine-vdbe48/cases/engine-vdbe48-003/C001.approved.txt
+  discovery_evidence:
+  - discovery/engine-vdbe48/features/engine-vdbe48-003.md
+- id: engine-vdbe48-003-C002
+  feature_id: engine-vdbe48-003
+  status: REPLAY_GREEN
+  kind: characterization
+  evidence_gate: observed-in-code
+  assert_mode: RECORDED
+  spec_path: scenarios/engine-vdbe48-003/CASE-002.md
+  golden: tests/characterization/engine-vdbe48/cases/engine-vdbe48-003/C002.approved.txt
+  discovery_evidence:
+  - discovery/engine-vdbe48/features/engine-vdbe48-003.md
 golden_approval:
   status: HUMAN_ACCEPTED
   operator: Ash Osborne
@@ -100,4 +121,6 @@ golden_approval:
   - engine-vdbe48-002-C002
   - engine-vdbe48-002-C003
   - engine-vdbe48-002-C004
-updated_at: '2026-08-14T10:17:23Z'
+  - engine-vdbe48-003-C001
+  - engine-vdbe48-003-C002
+updated_at: '2026-08-14T10:23:50Z'

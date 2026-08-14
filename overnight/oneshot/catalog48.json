@@ -54,5 +54,19 @@
   "slice": "engine-vdbe48",
   "kind": "bespoke",
   "note": "the scan sees a later INSERT (fresh cells on the next step), no stale program state"
+ },
+ {
+  "id": "engine-vdbe48-003-C001",
+  "feature": "engine-vdbe48-003",
+  "slice": "engine-vdbe48",
+  "kind": "bespoke",
+  "note": "stretch: after the 12-row overflow split (page_count 4, root 2 now interior) the scan listing is unchanged and OpenRead on the interior root still yields all rows in rowid order"
+ },
+ {
+  "id": "engine-vdbe48-003-C002",
+  "feature": "engine-vdbe48-003",
+  "slice": "engine-vdbe48",
+  "kind": "bespoke",
+  "note": "boundary pin: SELECT length(b) FROM t is an EXPRESSION, not this pack scan shape - the kitchen evaluator still owns it (rows pinned on C to freeze the boundary, not claimed as bytecode)"
  }
 ]

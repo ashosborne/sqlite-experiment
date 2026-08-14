@@ -139,6 +139,31 @@ impl H {
     drop(h);
 }
 
+// ---- stretch: the scan over a SPLIT table (interior root), plus the boundary ----
+
+#[test] fn vdbe48_split_scan() { let _g = lockg();
+    let mut h = H::fresh("engine-vdbe48-003-C001", "/tmp/v48s.db", "CREATE TABLE t(a INTEGER, b TEXT);");
+    for i in 1..=12 {
+        let big: String = std::iter::repeat((b'a' + (i % 26) as u8) as char).take(500).collect();
+        h.ex(&format!("INSERT INTO t VALUES({},'{}');", i * 10, big));
+    }
+    let c0 = vdbe::cursor_read_count();
+    h.rows("page_count", "PRAGMA page_count");
+    h.rows("root_and_type", "SELECT rootpage FROM sqlite_master WHERE name='t'");
+    h.rows("x_split", "EXPLAIN SELECT a FROM t");
+    h.rows("run_a", "SELECT a FROM t");
+    h.check_keep();
+    assert!(vdbe::cursor_read_count() >= c0 + 12, "the interior-root scan must position on all 12 cells");
+
+    h.cid = "engine-vdbe48-003-C002";
+    // boundary: an expression is NOT this pack's scan shape — the kitchen owns it
+    let (d0, c1) = (vdbe::dispatch_count(), vdbe::cursor_read_count());
+    h.rows("first_b_len", "SELECT length(b) FROM t");
+    assert_eq!(vdbe::dispatch_count(), d0, "an expression select must stay kitchen (no dispatch)");
+    assert_eq!(vdbe::cursor_read_count(), c1, "an expression select must not touch the cursor");
+    h.check();
+}
+
 // ---- anti-cheat: counters, kitchen fallback, runtime payload through Column ----
 
 #[test] fn anti_cheat_vdbe48_counters() { let _g = lockg(); unsafe {
